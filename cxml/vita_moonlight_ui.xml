@@ -81,8 +81,8 @@
           <layout_hint adjust="2, 2, 0" pos="300, -150" />
           <box id="settings_balloon_box">
             <layout_box layout_type="1" bottom_margin="7" top_margin="7" right_margin="7" left_margin="7" />
-            <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_settings" id="btn_settings_balloon">
-              <layout_hint size="240, 54" />
+            <button sound="_common_sound_button_enter" style="_style_option_menu_button_middle" label="msg_settings" id="btn_settings_balloon">
+              <layout_hint adjust="2, 0, 0" size="0, 46, 0" />
             </button>
           </box>
         </speech_balloon>
@@ -143,6 +143,24 @@
       <planeobj texture0="_common_texture_list_70px" id="obj1" />
       <planeobj texture0="_common_texture_list_glow_70px" id="obj2" />
       <textobj font_size="24" bold="1" color="1, 1, 1, 1" word_wrap="1" align_x="1" align_y="1" ellipsis="0" emboss="0" id="txtobj" />
+    </style_button>
+
+    <style_button bottom_margin="12" glow_obj="glow_obj" right_margin="20" top_margin="12" left_margin="20" label_obj="label_obj" bg_obj="bg_obj" adjust_min_size="146, 54" id="_style_option_menu_button_top">
+      <planeobj texture0="_common_texture_option_menu_button_top" id="bg_obj" />
+      <textobj font_size="28" bold="1" align_y="1" align_x="1" adjust_x="1" adjust_y="1" id="label_obj" />
+      <planeobj texture0="_common_texture_option_menu_button_top_glow" blend="2" id="glow_obj" />
+    </style_button>
+
+    <style_button bottom_margin="12" glow_obj="glow_obj" right_margin="20" top_margin="12" left_margin="20" label_obj="label_obj" bg_obj="bg_obj" adjust_min_size="146, 54" id="_style_option_menu_button_middle">
+      <planeobj texture0="_common_texture_option_menu_button_middle" id="bg_obj" />
+      <textobj font_size="28" bold="1" align_y="1" align_x="1" adjust_x="1" adjust_y="1" id="label_obj" />
+      <planeobj texture0="_common_texture_option_menu_button_middle_glow" blend="2" id="glow_obj" />
+    </style_button>
+
+    <style_button bottom_margin="12" glow_obj="glow_obj" right_margin="20" top_margin="12" left_margin="20" label_obj="label_obj" bg_obj="bg_obj" adjust_min_size="146, 54" id="_style_option_menu_button_bottom">
+      <planeobj texture0="_common_texture_option_menu_button_bottom" id="bg_obj" />
+      <textobj font_size="28" bold="1" align_y="1" align_x="1" adjust_x="1" adjust_y="1" id="label_obj" />
+      <planeobj texture0="_common_texture_option_menu_button_bottom_glow" blend="2" id="glow_obj" />
     </style_button>
 
     <style_list_view color="0, 0, 0, 0" id="_common_style_list_view_transparent" sbar_v_margin="6, 6, 9" />
