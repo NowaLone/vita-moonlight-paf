@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resource version="0.1" type="normal" id="vita_moonlight_ui">
+
+  <pagetable>
+    <page id="page_main">
+      <plane texture="_bg_texture" id="plane_main_bg">
+        <layout_hint size="960, 544" />
+        <text style="_common_default_style_text" label="msg_moonlight_title" id="text_title">
+          <layout_hint pos="40, 110" size="880, 60" />
+        </text>
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_search_pcs" id="btn_search_pcs">
+          <layout_hint pos="320, 220" size="320, 80" />
+        </button>
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_add_manually" id="btn_add_manually">
+          <layout_hint pos="320, 320" size="320, 80" />
+        </button>
+      </plane>
+      <template_ref id="template_ref_top_title_bar_page_first" template="template_top_title_bar" />
+      <corner_button style="_common_style_corner_bottom_right" id="settings_button" />
+    </page>
+
+    <page id="page_search_pcs">
+      <plane style="_common_style_plane_transparent" id="plane_search_root">
+        <layout_hint size="960, 544" />
+
+        <text style="_common_default_style_text" label="msg_search_pcs" id="text_search_title">
+          <layout_hint pos="40, 110" size="880, 60" />
+        </text>
+
+        <text style="_common_default_style_text" label="msg_search_pcs_description" id="text_search_description">
+          <layout_hint pos="40, 190" size="880, 40" />
+        </text>
+
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_back" id="btn_close_search">
+          <layout_hint pos="360, 420" size="240, 60" />
+        </button>
+      </plane>
+    </page>
+
+    <page id="page_add_manually">
+      <plane style="_common_style_plane_transparent" id="plane_add_manual_root">
+        <layout_hint size="960, 544" />
+
+        <text style="_common_default_style_text" label="msg_add_manually" id="text_add_manual_title">
+          <layout_hint pos="40, 110" size="880, 60" />
+        </text>
+
+        <text style="_common_default_style_text" label="msg_add_manually_description" id="text_add_manual_description">
+          <layout_hint pos="40, 190" size="880, 40" />
+        </text>
+
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_back" id="btn_close_add_manual">
+          <layout_hint pos="360, 420" size="240, 60" />
+        </button>
+      </plane>
+    </page>
+
+    <page id="page_settings_bubble">
+      <plane style="_common_style_plane_transparent" id="plane_settings_bubble_root">
+        <layout_hint size="960, 544" />
+
+        <speech_balloon id="settings_speech_balloon" texture="_common_texture_option_menu_base_side">
+          <layout_hint adjust="2, 2, 0" pos="960, 544" anchor="1, 1" size="260, 70" />
+          <box id="settings_balloon_box">
+            <layout_box layout_type="1" bottom_margin="7" top_margin="7" right_margin="7" left_margin="7" />
+            <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_settings" id="btn_settings_balloon">
+              <layout_hint size="240, 54" />
+            </button>
+          </box>
+        </speech_balloon>
+      </plane>
+    </page>
+
+    <page id="page_settings">
+      <plane style="_common_style_plane_transparent" id="plane_settings_root">
+        <layout_hint size="960, 544" />
+
+        <plane style="style_plane_status_bar" id="plane_status_bar_settings">
+          <layout_hint pos="0, 0" size="960, 54" />
+          <text style="_common_default_style_text" label="msg_status_time" id="text_status_time_settings">
+            <layout_hint pos="20, 12" size="220, 30" />
+          </text>
+          <text style="_common_default_style_text" label="msg_status_indicators" id="text_status_indicators_settings">
+            <layout_hint pos="300, 12" size="360, 30" />
+          </text>
+          <text style="_common_default_style_text" label="msg_status_battery" id="text_status_battery_settings">
+            <layout_hint pos="740, 12" size="200, 30" />
+          </text>
+        </plane>
+
+        <text style="_common_default_style_text" label="msg_settings" id="text_settings_title">
+          <layout_hint pos="40, 80" size="880, 50" />
+        </text>
+
+        <list_view style="_common_style_list_view_transparent" id="settings_list_view">
+          <layout_hint pos="40, 150" size="880, 340" />
+        </list_view>
+
+        <corner_button style="_common_style_corner_bottom_left" id="btn_back_settings" />
+      </plane>
+    </page>
+  </pagetable>
+
+  <templatetable>
+    <!-- top title bar template -->
+    <template fast_open="1" id="template_top_title_bar">
+      <plane style="_common_style_plane_transparent" id="plane_top">
+        <layout_hint align="0, 2" size="960, 64" pos="0, 240" />
+        <box style="_common_default_style_box" id="box_top">
+          <layout_box space="0" align="0, 0" pos="0, 0" adjust="2, 2" layout_type="2" size="0, 0" />
+          <text style="style_text_top_title_bar" auto_scroll="1" id="text_top">
+            <layout_hint size="760, 0" align="0, 4" adjust="0, 2" pos="0, 0" />
+          </text>
+        </box>
+        <plane texture="_common_texture_ruled_line" id="plane_top_separator">
+          <layout_hint size="960, 2" pos="0, 0" anchor="0, 1" />
+        </plane>
+      </plane>
+    </template>
+
+    <!-- settings list item template -->
+    <template fast_open="1" id="template_settings_list_item">
+      <list_item style="_common_style_list_item_transparent" id="list_item">
+        <layout_hint adjust="0, 2" size="880, 70" />
+        <button sound="_common_sound_button_enter" style="_style_settings_list_button" id="button">
+          <layout_hint size="880, 70" />
+          <focus_hint focus_shape="3" />
+        </button>
+      </list_item>
+    </template>
+  </templatetable>
+
+  <styletable>
+    <style_plane color="0, 0, 0, 0.75" planeobj="plane_obj_status_bar" id="style_plane_status_bar">
+      <planeobj id="plane_obj_status_bar" />
+    </style_plane>
+
+    <style_plane color="0.05, 0.05, 0.08, 0.95" planeobj="plane_obj_popup" id="style_plane_popup">
+      <planeobj id="plane_obj_popup" />
+    </style_plane>
+
+    <style_button bg_obj="obj1" glow_obj="obj2" label_obj="txtobj" id="_style_settings_list_button">
+      <planeobj texture0="_common_texture_list_70px" id="obj1" />
+      <planeobj texture0="_common_texture_list_glow_70px" id="obj2" />
+      <textobj font_size="24" bold="1" color="1, 1, 1, 1" word_wrap="1" align_x="1" align_y="1" ellipsis="0" emboss="0" id="txtobj" />
+    </style_button>
+
+    <style_list_view color="0, 0, 0, 0" id="_common_style_list_view_transparent" sbar_v_margin="6, 6, 9" />
+  </styletable>
+
+  <texturetable>
+    <texture src="texture/bg.png" id="_bg_texture" type="texture/png" />
+  </texturetable>
+
+  <stringtable>
+    <locale src="locale/en.xml" compress="on" id="en" />
+  </stringtable>
+
+  <filetable>
+    <file src="moonlight_settings.xml" id="moonlight_settings" compress="on" />
+  </filetable>
+</resource>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<application_settings version="1.0" bg_color="0, 0, 0, 0">
+  <setting_list id="moonlight_settings" title="msg_settings">
+    <setting_list id="video_settings" title="msg_video_settings" style="edit" icon="tex_spanner" />
+    <setting_list id="audio_settings" title="msg_audio_settings" icon="tex_spanner" />
+    <setting_list id="network_settings" title="msg_network_settings" icon="tex_spanner" />
+    <setting_list id="input_settings" title="msg_input_settings" icon="tex_spanner" />
+    <setting_list id="about_settings" title="msg_about" icon="tex_spanner" />
+  </setting_list>
+</application_settings>
