@@ -1,38 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <stringset>
-  <string src="Button" id="msg_test_button" />
   <string src="Moonlight" id="msg_moonlight_title" />
-  <string src="Games" id="msg_games" />
+  <string src="No PCs yet" id="msg_no_pcs" />
+  <string src="Search PCs" id="msg_search_pcs" />
+  <string src="Add Manually" id="msg_add_manually" />
   <string src="Settings" id="msg_settings" />
-  <string src="Device Info" id="msg_device_info" />
-  <string src="Available Games" id="msg_available_games" />
-  <string src="Select to Stream" id="msg_select_to_stream" />
-  <string src="Resolution" id="msg_resolution" />
-  <string src="Audio" id="msg_audio" />
-  <string src="VSync" id="msg_vsync" />
-  <string src="Bitrate" id="msg_bitrate" />
-  <string src="Enabled" id="msg_enabled" />
-  <string src="Disabled" id="msg_disabled" />
-  <string src="1080p" id="msg_resolution_default" />
-  <string src="50 Mbps" id="msg_bitrate_value" />
   <string src="Search for available PCs on your network." id="msg_search_pcs_description" />
   <string src="Enter a PC address manually." id="msg_add_manually_description" />
   <string src="Back" id="msg_back" />
-  <string src="Circle: Back" id="msg_circle_back" />
-  <string src="Vita Ready" id="msg_vita_ready" />
-  <string src="Settings" id="msg_settings_footnote" />
-  <string src="Game Name" id="msg_game_item_placeholder" />
-  <string src="Device Name" id="msg_device_name" />
-  <string src="PS Vita" id="msg_device_name_value" />
-  <string src="Search PCs" id="msg_search_pcs" />
-  <string src="Add Manually" id="msg_add_manually" />
-  <string src="Close" id="msg_close" />
-  <string src="Configure Moonlight settings" id="msg_settings_description" />
   <string src="Video" id="msg_video_settings" />
   <string src="Audio" id="msg_audio_settings" />
   <string src="Network" id="msg_network_settings" />
   <string src="Input" id="msg_input_settings" />
-  <string src="12:00" id="msg_status_time" />
-  <string src="Wi-Fi" id="msg_status_indicators" />
-  <string src="100%" id="msg_status_battery" />
 </stringset>

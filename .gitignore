@@ -1,0 +1,9 @@
+/build/
+*.vpk
+*.self
+*.velf
+*.rco
+*.obj
+*.o
+*.a
+.DS_Store

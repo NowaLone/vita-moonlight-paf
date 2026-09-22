@@ -45,6 +45,7 @@ typedef struct {
 	int heap_opt_param1;
 	int heap_opt_param2;
 } ScePafInit;
+
 int module_start(SceSize args, void *argp){
 
 	int load_res;
@@ -65,11 +66,10 @@ int module_start(SceSize args, void *argp){
 	int res = sceSysmoduleLoadModuleInternalWithArg(SCE_SYSMODULE_INTERNAL_PAF, sizeof(init_param), &init_param, &sysmodule_opt);
 	if((res | load_res) != 0){
 		sceClibPrintf("[PAF Moonlight] Failed to load the PAF prx. (return value 0x%x, result code 0x%x )\n", res, load_res);
+		return SCE_KERNEL_START_FAILED;
 	}
 
 	paf_sample_main();
-
-	// sceKernelExitProcess(0);
 
 	return SCE_KERNEL_START_SUCCESS;
 }

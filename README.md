@@ -1,305 +1,60 @@
-# Vita Moonlight PAF - Native PS Vita UI
+# Vita Moonlight PAF
 
-A native PS Vita application with a PAF (PlayStation Application Framework) UI, modeled after the Moonlight streaming app layout. This project provides a fully-featured native UI with multiple screens and callbacks, ready for integration with streaming logic.
+Empty native PS Vita shell for a future [vita-moonlight](https://github.com/xyzz/vita-moonlight) UI.
 
-## Features
+It uses PAF so the app looks like a system Vita program. There is no streaming, pairing, or host discovery yet — only navigation and layout.
 
-- **Native PAF Framework Integration** — Uses the official PAF library for authentic PS Vita UI
-- **Multiple Screens**:
-  - Main Menu/Dashboard
-  - Games/Apps List (with mock game entries)
-  - Settings Screen (audio, video bitrate, resolution, vsync)
-  - Device Info Screen (device name, IP, firmware, memory)
-- **Navigation System** — Page stack-based back button navigation
-- **Modular Architecture** — Designed to integrate with streaming logic
-- **Mock Data** — Pre-populated with sample games and configurable settings
+## Screens
 
-## Project Structure
+- **Main** — title, empty-host state, Search PCs, Add Manually, settings corner button
+- **Search PCs / Add Manually** — placeholder pages with a dim overlay and back
+- **Settings** — overflow balloon from the `...` button, then a category list
 
-```
-vita-moonlight-paf/
-├── CMakeLists.txt              # Build configuration
-├── exports.yml                 # PAF module exports
-├── src/
-│   ├── main.cpp               # PAF Framework initialization (module_start entry point)
-│   └── paf_sample.cpp         # UI logic, page callbacks, event handlers
-├── cxml/
-│   └── vita_moonlight_ui.xml  # UI definition (all pages, buttons, styles)
-├── locale/
-│   └── en.xml                 # English localization strings
-├── include/
-│   └── ui_state.h             # Header: state structs, callback declarations
-└── build/                      # CMake build directory (created during build)
-```
+PAF layout is **center-origin** on 960×544: `(0, 0)` is the middle of the screen, `+Y` is up. CSS-style top-left coordinates will pile widgets on top of each other.
 
-## Build Requirements
+## Build
 
-- **VITASDK** — PS Vita SDK (with PAF component): https://github.com/vitasdk/vitasdk
-- **CMake** — 3.0 or higher
-- **GNU Make** or compatible build tool
-- **vitasdk-paf-component** — Located at `../vitasdk-paf-component` (sibling folder or `$VITASDK`)
-
-## Build Instructions
-
-### Quick Start (Automated)
-
-The easiest way to build is using the provided build script:
+Requires [VITASDK](https://github.com/vitasdk/vitasdk) with [vitasdk-paf-component](https://github.com/Princess-of-Sleeping/vitasdk-paf-component) and [psp2cxml-tool](https://github.com/GrapheneCt/psp2cxml-tool).
 
 ```bash
-cd /home/nowaru/Desktop/vita-moonlight-paf
+export VITASDK=/path/to/vitasdk
 bash build.sh
 ```
 
-This script will:
-1. Verify VITASDK is set up
-2. Attempt to compile CXML to RCO (if emd2yml is available)
-3. Run CMake configuration
-4. Build the project
+VPK: `build/vita_moonlight_paf.vpk`
 
-Output VPK will be at: `build/vita_moonlight_paf.vpk`
+`build.sh` compiles CXML → RCO when `psp2cxml-tool` is available. Without it the binary still links, but the UI will not match this layout.
 
-### Manual Build
-
-If you prefer manual control or the script fails:
-
-#### 1. Set Up Environment
+Rebuild CXML after XML edits:
 
 ```bash
-export VITASDK=/path/to/vitasdk
+bash build_cxml.sh
+cd build && cmake .. && make
 ```
 
-If you don't know where VITASDK is:
-```bash
-which arm-vita-eabi-gcc  # Should return $VITASDK/bin/arm-vita-eabi-gcc
-```
+Install the VPK with VitaShell.
 
-#### 2. Create Build Directory
+## Layout notes
 
-```bash
-cd /home/nowaru/Desktop/vita-moonlight-paf
-rm -rf build
-mkdir build
-cd build
-```
+Widget `pos` is relative to the **parent center**, not the top-left corner:
 
-#### 3. Configure with CMake
+| Position | Approximate `pos` |
+|---|---|
+| Screen center | `0, 0` |
+| Upper center | `0, 170` |
+| Lower center | `0, -80` |
+| Lower right balloon | `300, -150` |
 
-```bash
-cmake -DCMAKE_BUILD_TYPE=Release ..
-```
+`list_view` height must be a multiple of 32.
 
-#### 4. Build
+## Navigation
 
-```bash
-make
-```
+Pages are stacked. `page_main` stays at the bottom. Back / the bottom-left corner button closes the top overlay. Tapping outside the settings balloon dismisses it.
 
-Expected output:
-```
-[100%] Built target vita_moonlight_paf.vpk
-```
+## Future moonlight hook
 
-#### 5. Verify Build
-
-```bash
-ls -lh vita_moonlight_paf.vpk
-# Shows VPK size: 6.1 KB (including fallback RCO)
-```
-
-### CXML to RCO Compilation
-
-**Current Status**: The `build.sh` script now handles CXML compilation automatically with intelligent fallback:
-
-1. **Attempts** to compile CXML to RCO using `psp2cxml-tool`
-2. **Falls back** to pre-compiled sample RCO if compilation fails (or tool not found)
-3. **Always succeeds** — VPK is guaranteed to include a working RCO resource
-
-#### How It Works
-
-The `build_cxml.sh` script is called automatically during `build.sh`:
-```bash
-# build.sh calls:
-bash build_cxml.sh  # Attempts CXML → RCO compilation with fallback
-```
-
-**Fallback Behavior**:
-- If `psp2cxml-tool` is not found or fails, the script uses a pre-compiled RCO from vitasdk samples
-- This ensures the VPK always packages a valid RCO resource
-- The fallback RCO allows the framework to initialize and render basic UI
-
-#### For Full Custom UI
-
-To compile our custom CXML with all our UI resources (not the fallback):
-
-1. **Build psp2cxml-tool** (if not already done):
-   ```bash
-   cd /home/nowaru/Desktop/psp2cxml-tool
-   bash build_linux_macos.sh
-   ```
-
-2. **Compile manually** (when psp2cxml-tool works):
-   ```bash
-   cd /home/nowaru/Desktop/vita-moonlight-paf/cxml
-   /home/nowaru/Desktop/psp2cxml-tool/build/psp2cxml-tool vita_moonlight_ui.xml
-   ```
-
-3. **Move result**:
-   ```bash
-   mv vita_moonlight_ui.rco ../build/
-   ```
-
-4. **Rebuild VPK**:
-   ```bash
-   cd /home/nowaru/Desktop/vita-moonlight-paf/build
-   cmake .. && make
-   ```
-
-**Note**: Currently `psp2cxml-tool` returns error `0xFFFFFFFF` on this system (likely platform/environment issue). The fallback ensures the project always builds successfully.
-
-## Deployment to PS Vita
-
-### Option A: Via VitaShell (FTP)
-
-```bash
-# Copy VPK to USB/memory card using FTP
-ftp -u ftp_vita_ip << EOF
-put build/vita_moonlight_paf.vpk ux0:/ABM/
-EOF
-```
-
-Then install via VitaShell:
-1. Browse to `ux0:/ABM/vita_moonlight_paf.vpk`
-2. Press X to install
-3. Press Circle to return to LiveArea
-4. Launch app from app menu
-
-### Option B: Direct Deployment (if available)
-
-```bash
-# Use vita-deploy scripts or manual transfer
-```
-
-## Architecture
-
-### Page Navigation Flow
-
-```
-Main Menu (page_main)
-├── Games button → App List (page_app_list)
-│   └── Circle → back to Main Menu
-├── Settings button → Settings (page_settings)
-│   └── Circle → back to Main Menu
-└── Device Info button → Device Info (page_device_info)
-    └── Circle → back to Main Menu
-```
-
-### State Management
-
-- **AppSettings** — User configurable settings (resolution, audio, vsync, bitrate)
-- **DeviceInfo** — Device information (read-only, from system APIs)
-- **Page Stack** — Tracks open pages for proper back navigation
-
-### Integration Points (Future Streaming)
-
-The codebase is architected for future integration with Moonlight's streaming logic:
-
-1. **Button Callbacks** — App selection callback (`button_on_app_selected`) can trigger streaming
-2. **State Flow** — Settings automatically update `g_app_settings` for use by streaming code
-3. **Plugin Architecture** — PAF plugin can be extended to communicate with streaming backend
-
-See `include/ui_bridge.h` (placeholder) for future integration patterns.
-
-## Customization
-
-### Adding More Games to Mock List
-
-Edit `src/paf_sample.cpp`, `mock_games` array:
-
-```cpp
-static AppEntry mock_games[] = {
-    {"Game Name", "game_id", "app0:/icon.png", 3600},
-    // Add more entries
-};
-```
-
-### Changing Strings & Localization
-
-Edit `locale/en.xml` to change messages, or add new locale files (e.g., `locale/ja.xml`).
-
-### Modifying UI Layout
-
-Edit `cxml/vita_moonlight_ui.xml` to adjust button positions, sizes, colors, fonts, etc.
-
-## Troubleshooting
-
-### Build Fails: "Could not find paf.h"
-
-- Ensure `$VITASDK` is properly set
-- Verify PAF component is installed in VITASDK
-- Try: `find $VITASDK -name "paf.h"`
-
-### Build Fails: "Please define VITASDK"
-
-```bash
-export VITASDK=/path/to/vitasdk
-```
-
-### VPK Installation Fails
-
-- Check file permissions on memory card
-- Ensure VPK is in correct format (try building again)
-- Try manual install via VitaShell's app installer
-
-### UI Elements Not Appearing
-
-- Verify `vita_moonlight_ui.rco` exists in build directory
-- Check CXML syntax in `cxml/vita_moonlight_ui.xml`
-- Rebuild: `cd build && make clean && make`
-
-## Development Notes
-
-### Adding New Screens
-
-1. Add new `<page>` element in `cxml/vita_moonlight_ui.xml`
-2. Create corresponding `on_xxx_page_open()` function in `src/paf_sample.cpp`
-3. Add button handler to navigate to new page
-4. Update page stack logic as needed
-
-### Button Events
-
-Supported button callbacks (from PAF):
-- `CB_BTN_DECIDE` — X button press
-- `CB_BTN_CANCEL` — Circle button press
-- `CB_BTN_UP`, `CB_BTN_DOWN`, `CB_BTN_LEFT`, `CB_BTN_RIGHT` — D-pad
-- `CB_BTN_LT`, `CB_BTN_RT` — L/R trigger buttons
-
-### Text Updates at Runtime
-
-```cpp
-paf::ui::Widget *pWidget = pScene->FindChild("widget_id");
-if (pWidget != NULL) {
-    pWidget->SetLabel(paf::ui::Element::LID_TEXT, "New text", -1);
-}
-```
-
-## References
-
-- **PAF Samples**: `/home/nowaru/Desktop/vitasdk-paf-component/paf_samples/vitasdk/`
-- **Moonlight UI**: `/home/nowaru/Desktop/vita-moonlight/src/gui/`
-- **PAF Documentation**: Included in VITASDK or vitasdk-paf-component
+Keep UI-only code in `src/paf_sample.cpp`. Streaming should come in later through a small C API (search, add host, start stream) called from the existing button callbacks — do not fold `libgamestream` into the PAF plugin directly.
 
 ## License
 
-This project is part of the Vita Moonlight ecosystem. See LICENSE file for details.
-
-## Future Integration Notes
-
-To integrate with Moonlight streaming:
-
-1. Create `libmoonlight_streaming.a` as separate library
-2. Link in CMakeLists.txt per PAF sample pattern
-3. Call streaming functions from button callbacks (e.g., when app selected)
-4. Update settings callbacks to pass config to streaming engine
-5. Handle streaming state (connecting, buffering, streaming, error) in pages
-
-For streaming integration guidance, refer to `vita-moonlight` project structure and `libgamestream/` library.
+Part of the Vita Moonlight ecosystem. Add a LICENSE before shipping a release.

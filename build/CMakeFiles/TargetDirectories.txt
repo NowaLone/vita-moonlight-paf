@@ -1,9 +1,0 @@
-/home/nowaru/Desktop/vita-moonlight-paf/build/CMakeFiles/vita_moonlight_paf.dir
-/home/nowaru/Desktop/vita-moonlight-paf/build/CMakeFiles/vita_moonlight_paf-velf.dir
-/home/nowaru/Desktop/vita-moonlight-paf/build/CMakeFiles/vita_moonlight_paf.self-self.dir
-/home/nowaru/Desktop/vita-moonlight-paf/build/CMakeFiles/vita_moonlight_paf.vpk-vpk.dir
-/home/nowaru/Desktop/vita-moonlight-paf/build/CMakeFiles/stubs_vita_moonlight_paf.dir
-/home/nowaru/Desktop/vita-moonlight-paf/build/CMakeFiles/libvita_moonlight_paf_stub.a.dir
-/home/nowaru/Desktop/vita-moonlight-paf/build/CMakeFiles/libvita_moonlight_paf_stub_weak.a.dir
-/home/nowaru/Desktop/vita-moonlight-paf/build/CMakeFiles/edit_cache.dir
-/home/nowaru/Desktop/vita-moonlight-paf/build/CMakeFiles/rebuild_cache.dir

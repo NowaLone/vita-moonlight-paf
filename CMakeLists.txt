@@ -71,16 +71,10 @@ set_target_properties(${PROJECT_NAME}
   COMPILE_FLAGS "'-D__declspec(__v__)=/**/'"
 )
 
-# For now, handle RCO compilation manually or use pre-compiled RCO
-# Create RCO placeholder for VPK inclusion
 set(RCO_FILE "${CMAKE_CURRENT_BINARY_DIR}/vita_moonlight_ui.rco")
-
-# Create dummy RCO file if it doesn't exist (will be replaced with proper compilation)
-if(NOT EXISTS "${RCO_FILE}")
-  message(STATUS "Note: vita_moonlight_ui.rco not found. Build will proceed but RCO compilation")
-  message(STATUS "      (CXML -> RCO) is deferred. See README.md for manual compilation steps.")
-  # Touch an empty file as placeholder
-  file(WRITE "${RCO_FILE}" "")
+set(RCO_SIZE 0)
+if(EXISTS "${RCO_FILE}")
+  file(SIZE "${RCO_FILE}" RCO_SIZE)
 endif()
 
 vita_create_self(${PROJECT_NAME}.self ${PROJECT_NAME}
@@ -90,15 +84,14 @@ vita_create_self(${PROJECT_NAME}.self ${PROJECT_NAME}
   REL_OPTIMIZE
 )
 
-# Create VPK - include RCO if it exists and is not empty
-if(EXISTS "${RCO_FILE}" AND NOT (EXISTS "${RCO_FILE}" AND FILE_SIZE_IS_ZERO))
+if(RCO_SIZE GREATER 0)
   vita_create_vpk(vita_moonlight_paf.vpk "VLMP00001" ${PROJECT_NAME}.self
     VERSION "01.00"
     NAME "Vita Moonlight PAF UI"
     FILE ${RCO_FILE} vita_moonlight_ui.rco
   )
 else()
-  message(WARNING "Building VPK without RCO (UI will not display). See README.md for compilation instructions.")
+  message(WARNING "Building VPK without RCO (UI will not display). Run build_cxml.sh first.")
   vita_create_vpk(vita_moonlight_paf.vpk "VLMP00001" ${PROJECT_NAME}.self
     VERSION "01.00"
     NAME "Vita Moonlight PAF UI"
