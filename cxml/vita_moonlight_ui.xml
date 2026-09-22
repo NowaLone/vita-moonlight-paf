@@ -32,10 +32,7 @@
     </page>
 
     <page id="page_search_pcs">
-      <plane style="style_plane_dim" id="plane_search_dim">
-        <layout_hint size="960, 544" />
-      </plane>
-      <plane style="_common_style_plane_transparent" id="plane_search_root">
+      <plane texture="_bg_texture" id="plane_search_bg">
         <layout_hint size="960, 544" />
 
         <text style="style_text_title" label="msg_search_pcs" id="text_search_title">
@@ -51,10 +48,7 @@
     </page>
 
     <page id="page_add_manually">
-      <plane style="style_plane_dim" id="plane_add_manual_dim">
-        <layout_hint size="960, 544" />
-      </plane>
-      <plane style="_common_style_plane_transparent" id="plane_add_manual_root">
+      <plane texture="_bg_texture" id="plane_add_manual_bg">
         <layout_hint size="960, 544" />
 
         <text style="style_text_title" label="msg_add_manually" id="text_add_manual_title">
@@ -90,10 +84,7 @@
     </page>
 
     <page id="page_settings">
-      <plane style="style_plane_dim" id="plane_settings_dim">
-        <layout_hint size="960, 544" />
-      </plane>
-      <plane style="_common_style_plane_transparent" id="plane_settings_root">
+      <plane texture="_bg_texture" id="plane_settings_bg">
         <layout_hint size="960, 544" />
 
         <text style="style_text_title" label="msg_settings" id="text_settings_title">
@@ -123,10 +114,6 @@
   </templatetable>
 
   <styletable>
-    <style_plane color="0, 0, 0, 0.72" planeobj="plane_obj_dim" id="style_plane_dim">
-      <planeobj id="plane_obj_dim" />
-    </style_plane>
-
     <style_button bg_obj="dim_hit_bg" id="style_button_dim_hit">
       <planeobj color="0, 0, 0, 0.35" id="dim_hit_bg" />
     </style_button>
