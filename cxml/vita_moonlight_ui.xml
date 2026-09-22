@@ -26,8 +26,9 @@
         <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_add_manually" id="btn_add_manually">
           <layout_hint pos="0, -80" size="320, 72" />
         </button>
+
+        <corner_button style="_common_style_corner_bottom_right" id="settings_button" />
       </plane>
-      <corner_button style="_common_style_corner_bottom_right" id="settings_button" />
     </page>
 
     <page id="page_search_pcs">
@@ -69,18 +70,23 @@
     </page>
 
     <page id="page_settings_bubble">
-      <button style="style_button_dim_hit" id="btn_dismiss_balloon">
+      <plane style="_common_style_plane_transparent" id="plane_settings_bubble_root">
         <layout_hint size="960, 544" />
-      </button>
-      <speech_balloon id="settings_speech_balloon" texture="_common_texture_option_menu_base_side">
-        <layout_hint adjust="2, 2, 0" pos="300, -150" />
-        <box id="settings_balloon_box">
-          <layout_box layout_type="1" bottom_margin="7" top_margin="7" right_margin="7" left_margin="7" />
-          <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_settings" id="btn_settings_balloon">
-            <layout_hint size="240, 54" />
-          </button>
-        </box>
-      </speech_balloon>
+
+        <button style="style_button_dim_hit" id="btn_dismiss_balloon">
+          <layout_hint size="960, 544" />
+        </button>
+
+        <speech_balloon id="settings_speech_balloon" texture="_common_texture_option_menu_base_side">
+          <layout_hint adjust="2, 2, 0" pos="300, -150" />
+          <box id="settings_balloon_box">
+            <layout_box layout_type="1" bottom_margin="7" top_margin="7" right_margin="7" left_margin="7" />
+            <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_settings" id="btn_settings_balloon">
+              <layout_hint size="240, 54" />
+            </button>
+          </box>
+        </speech_balloon>
+      </plane>
     </page>
 
     <page id="page_settings">
