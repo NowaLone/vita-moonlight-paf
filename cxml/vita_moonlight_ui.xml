@@ -84,17 +84,21 @@
     </page>
 
     <page id="page_settings">
-      <plane style="style_plane_fill" id="plane_settings_fill">
+      <plane style="style_plane_black" id="plane_settings_bg">
         <layout_hint size="960, 544" />
 
-        <text style="style_text_title" label="msg_settings" id="text_settings_title">
-          <layout_hint adjust="2, 2" pos="0, 200" />
-        </text>
+        <plane style="style_plane_menu_border" id="plane_settings_border">
+          <layout_hint pos="0, 12" size="576, 424" />
+        </plane>
 
-        <!-- list_view height must be a multiple of 32 -->
-        <list_view style="_common_style_list_view_transparent" id="settings_list_view">
-          <layout_hint pos="0, -16" size="880, 384" />
-        </list_view>
+        <plane style="style_plane_black" id="plane_settings_panel">
+          <layout_hint pos="0, 12" size="572, 420" />
+
+          <!-- list_view height must be a multiple of 32 -->
+          <list_view style="_common_style_list_view_transparent" id="settings_list_view">
+            <layout_hint pos="0, 0" size="552, 384" />
+          </list_view>
+        </plane>
 
         <corner_button style="_common_style_corner_bottom_left" id="btn_back_settings" />
       </plane>
@@ -102,11 +106,38 @@
   </pagetable>
 
   <templatetable>
-    <template fast_open="1" id="template_settings_list_item">
+    <template fast_open="1" id="template_settings_category">
       <list_item style="_common_style_list_item_transparent" id="list_item">
-        <layout_hint adjust="0, 2" size="880, 70" />
-        <button sound="_common_sound_button_enter" style="_style_settings_list_button" id="button">
-          <layout_hint size="880, 70" />
+        <layout_hint size="552, 32" />
+        <text style="style_setting_category" id="label">
+          <layout_hint adjust="2, 2" pos="0, 4" size="520, 22" />
+        </text>
+        <plane style="style_plane_rule" id="rule">
+          <layout_hint pos="0, -10" size="520, 2" />
+        </plane>
+      </list_item>
+    </template>
+
+    <template fast_open="1" id="template_settings_note">
+      <list_item style="_common_style_list_item_transparent" id="list_item">
+        <layout_hint size="552, 32" />
+        <text style="style_setting_note" id="label">
+          <layout_hint adjust="2, 2" pos="0, 0" size="520, 24" />
+        </text>
+      </list_item>
+    </template>
+
+    <template fast_open="1" id="template_settings_row">
+      <list_item style="_common_style_list_item_transparent" id="list_item">
+        <layout_hint size="552, 32" />
+        <text style="style_setting_label" id="label">
+          <layout_hint adjust="2, 2" pos="-40, 0" size="420, 28" />
+        </text>
+        <text style="style_setting_value" id="value">
+          <layout_hint adjust="2, 2" pos="200, 0" size="130, 28" />
+        </text>
+        <button sound="_common_sound_button_enter" style="style_setting_hit" id="button">
+          <layout_hint size="552, 32" />
           <focus_hint focus_shape="3" />
         </button>
       </list_item>
@@ -131,10 +162,38 @@
       <textobj font_size="22" bold="0" color="1, 1, 1, 0.85" align_x="1" align_y="1" word_wrap="1" ellipsis="0" emboss="0" id="body_obj" />
     </style_text>
 
-    <style_button bg_obj="obj1" glow_obj="obj2" label_obj="txtobj" id="_style_settings_list_button">
-      <planeobj texture0="_common_texture_list_70px" id="obj1" />
-      <planeobj texture0="_common_texture_list_glow_70px" id="obj2" />
-      <textobj font_size="24" bold="1" color="1, 1, 1, 1" word_wrap="1" align_x="1" align_y="1" ellipsis="0" emboss="0" id="txtobj" />
+    <style_plane color="0, 0, 0, 1" planeobj="plane_obj_black" id="style_plane_black">
+      <planeobj color="0, 0, 0, 1" id="plane_obj_black" />
+    </style_plane>
+
+    <style_plane color="0.05, 0.72, 0.12, 1" planeobj="plane_obj_menu_border" id="style_plane_menu_border">
+      <planeobj color="0.05, 0.72, 0.12, 1" id="plane_obj_menu_border" />
+    </style_plane>
+
+    <style_plane color="0.05, 0.72, 0.12, 1" planeobj="plane_obj_rule" id="style_plane_rule">
+      <planeobj color="0.05, 0.72, 0.12, 1" id="plane_obj_rule" />
+    </style_plane>
+
+    <style_text id="style_setting_category">
+      <textobj font_size="20" bold="0" color="1, 1, 1, 1" align_x="0" align_y="1" ellipsis="0" emboss="0" id="category_obj" />
+    </style_text>
+
+    <style_text id="style_setting_label">
+      <textobj font_size="18" bold="0" color="1, 1, 1, 1" align_x="0" align_y="1" ellipsis="1" emboss="0" id="label_obj" />
+    </style_text>
+
+    <style_text id="style_setting_value">
+      <textobj font_size="18" bold="0" color="1, 1, 1, 1" align_x="2" align_y="1" ellipsis="1" emboss="0" id="value_obj" />
+    </style_text>
+
+    <style_text id="style_setting_note">
+      <textobj font_size="16" bold="0" color="0.75, 0.75, 0.75, 1" align_x="0" align_y="1" ellipsis="1" emboss="0" id="note_obj" />
+    </style_text>
+
+    <style_button bg_obj="hit_bg" glow_obj="hit_glow" label_obj="hit_label" id="style_setting_hit">
+      <planeobj color="0, 0, 0, 0" id="hit_bg" />
+      <planeobj color="0.05, 0.72, 0.12, 0.22" id="hit_glow" />
+      <textobj font_size="2" color="0, 0, 0, 0" id="hit_label" />
     </style_button>
 
     <style_button bottom_margin="12" glow_obj="glow_obj" right_margin="20" top_margin="12" left_margin="20" label_obj="label_obj" bg_obj="bg_obj" adjust_min_size="146, 54" id="_style_option_menu_button_top">
