@@ -32,7 +32,7 @@
     </page>
 
     <page id="page_search_pcs">
-      <plane texture="_bg_texture" id="plane_search_bg">
+      <plane style="style_plane_fill" id="plane_search_fill">
         <layout_hint size="960, 544" />
 
         <text style="style_text_title" label="msg_search_pcs" id="text_search_title">
@@ -48,7 +48,7 @@
     </page>
 
     <page id="page_add_manually">
-      <plane texture="_bg_texture" id="plane_add_manual_bg">
+      <plane style="style_plane_fill" id="plane_add_manual_fill">
         <layout_hint size="960, 544" />
 
         <text style="style_text_title" label="msg_add_manually" id="text_add_manual_title">
@@ -84,7 +84,7 @@
     </page>
 
     <page id="page_settings">
-      <plane texture="_bg_texture" id="plane_settings_bg">
+      <plane style="style_plane_fill" id="plane_settings_fill">
         <layout_hint size="960, 544" />
 
         <text style="style_text_title" label="msg_settings" id="text_settings_title">
@@ -114,6 +114,11 @@
   </templatetable>
 
   <styletable>
+    <!-- Opaque cover so a stacked page hides the main-screen buttons. -->
+    <style_plane color="0.063, 0.294, 0.655, 1" planeobj="plane_obj_fill" id="style_plane_fill">
+      <planeobj color="0.063, 0.294, 0.655, 1" id="plane_obj_fill" />
+    </style_plane>
+
     <style_button bg_obj="dim_hit_bg" id="style_button_dim_hit">
       <planeobj color="0, 0, 0, 0.35" id="dim_hit_bg" />
     </style_button>
