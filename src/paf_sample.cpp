@@ -156,6 +156,26 @@ public:
     void Stop(StopParam& param);
 };
 
+class SectionMenuFactory : public paf::ui::listview::ItemFactory {
+public:
+    SectionMenuFactory() {}
+    ~SectionMenuFactory() {}
+
+    paf::ui::ListItem *Create(CreateParam& param);
+
+    void Start(StartParam& param) {
+        param.list_item->Show(paf::common::transition::Type_FadeinSlow);
+    }
+
+    void Stop(StopParam& param);
+};
+
+static void clear_setting_widgets();
+static void set_settings_menu_focusable(bool on);
+static void close_settings_section();
+static void close_settings_root();
+static void onCloseSectionButtonClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata);
+
 enum SettingKind {
     KIND_CATEGORY = 0,
     KIND_NOTE,
@@ -191,12 +211,24 @@ static const wchar_t *k_touch[] = { L"Off", L"DS4 Touchpad", L"Mouse Absolute", 
 static const wchar_t *k_keyboard[] = { L"US", L"DE", L"ES", L"FR", L"RU" };
 
 static const int kSettingRowCount = 32;
+static const int kMaxSections = 8;
 static SettingRow g_rows[32];
 static int g_rows_ready = 0;
 static paf::ui::Widget *g_row_widgets[32];
-static paf::ui::ListView *g_settings_list = NULL;
 static int g_focused_row = -1;
 static uint32_t g_prev_pad = 0;
+
+struct SettingSection {
+    const wchar_t *title;
+    int first;
+    int count;
+};
+
+static SettingSection g_sections[kMaxSections];
+static int g_section_count = 0;
+static int g_open_section = -1;
+static paf::ui::Scene *g_settings_scene = NULL;
+static paf::ui::Widget *g_section_menu_items[kMaxSections];
 
 static SettingRow make_category(const wchar_t *label) {
     SettingRow row = {};
@@ -293,6 +325,21 @@ static void init_setting_rows() {
 
     g_rows[i++] = make_category(L"Keyboard");
     g_rows[i++] = make_choice(L"Keyboard layout", k_keyboard, 5, 0, 0);
+
+    g_section_count = 0;
+    for (int row = 0; row < i; row++) {
+        if (g_rows[row].kind != KIND_CATEGORY || g_section_count >= kMaxSections) {
+            continue;
+        }
+        if (g_section_count > 0) {
+            SettingSection& prev = g_sections[g_section_count - 1];
+            prev.count = row - prev.first;
+        }
+        g_sections[g_section_count].title = g_rows[row].label;
+        g_sections[g_section_count].first = row + 1;
+        g_sections[g_section_count].count = i - (row + 1);
+        g_section_count++;
+    }
 }
 
 static void ascii_to_wide(wchar_t *dst, int cap, const char *src) {
@@ -446,7 +493,17 @@ public:
             return;
         }
 
-        if (!page_is_open("page_settings")) {
+        if (page_is_open("page_settings_section")) {
+            if (pressed & paf::inputdevice::pad::Data::PAD_ESCAPE) {
+                close_settings_section();
+                return;
+            }
+        } else if (page_is_open("page_settings")) {
+            if (pressed & paf::inputdevice::pad::Data::PAD_ESCAPE) {
+                close_settings_root();
+            }
+            return;
+        } else {
             return;
         }
 
@@ -483,15 +540,18 @@ void SettingsItemFactory::Stop(StopParam& param) {
 
 paf::ui::ListItem *SettingsItemFactory::Create(CreateParam& param) {
     init_setting_rows();
-    if (param.cell_index < 0 || param.cell_index >= kSettingRowCount) {
+    if (g_open_section < 0 || g_open_section >= g_section_count) {
         return NULL;
     }
+    const SettingSection& section = g_sections[g_open_section];
+    if (param.cell_index < 0 || param.cell_index >= section.count) {
+        return NULL;
+    }
+    int row_index = section.first + param.cell_index;
 
-    const SettingRow& row = g_rows[param.cell_index];
+    const SettingRow& row = g_rows[row_index];
     const char *template_id = "template_settings_row";
-    if (row.kind == KIND_CATEGORY) {
-        template_id = "template_settings_category";
-    } else if (row.kind == KIND_NOTE) {
+    if (row.kind == KIND_NOTE) {
         template_id = "template_settings_note";
     }
 
@@ -506,7 +566,7 @@ paf::ui::ListItem *SettingsItemFactory::Create(CreateParam& param) {
         return NULL;
     }
 
-    g_row_widgets[param.cell_index] = list_item;
+    g_row_widgets[row_index] = list_item;
 
     paf::ui::Widget *label = list_item->FindChild("label");
     if (label != NULL && row.label != NULL) {
@@ -522,7 +582,7 @@ paf::ui::ListItem *SettingsItemFactory::Create(CreateParam& param) {
 
     paf::ui::Widget *button = list_item->FindChild("button");
     if (button != NULL) {
-        button->SetEventCallback(paf::ui::ButtonBase::CB_BTN_DECIDE, onSettingsListItemClick, (void *)(uintptr_t)param.cell_index);
+        button->SetEventCallback(paf::ui::ButtonBase::CB_BTN_DECIDE, onSettingsListItemClick, (void *)(uintptr_t)row_index);
     }
 
     return list_item;
@@ -532,9 +592,139 @@ static void clear_setting_widgets() {
     for (int i = 0; i < kSettingRowCount; i++) {
         g_row_widgets[i] = NULL;
     }
-    g_settings_list = NULL;
     g_focused_row = -1;
     g_prev_pad = 0;
+}
+
+static void set_settings_menu_focusable(bool on) {
+    if (g_settings_scene != NULL) {
+        set_widget_focusable(g_settings_scene->FindChild("btn_back_settings"), on);
+        set_widget_focusable(g_settings_scene->FindChild("settings_list_view"), on);
+    }
+    for (int i = 0; i < g_section_count; i++) {
+        paf::ui::Widget *item = g_section_menu_items[i];
+        set_widget_focusable(item, on);
+        if (item != NULL) {
+            set_widget_focusable(item->FindChild("button"), on);
+        }
+    }
+}
+
+static void close_settings_section() {
+    if (!page_is_open("page_settings_section")) {
+        return;
+    }
+    clear_setting_widgets();
+    g_open_section = -1;
+    close_page("page_settings_section", paf::Plugin::TransitionType_SlideFromBottom);
+    set_settings_menu_focusable(true);
+}
+
+static void close_settings_root() {
+    if (page_is_open("page_settings_section")) {
+        close_settings_section();
+    }
+    clear_setting_widgets();
+    g_open_section = -1;
+    close_page("page_settings", paf::Plugin::TransitionType_SlideFromBottom);
+    g_settings_scene = NULL;
+    set_main_buttons_focusable(true);
+}
+
+static void onSectionMenuClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata) {
+    (void)type;
+    (void)self;
+    (void)e;
+    int section_index = (int)(uintptr_t)userdata;
+    if (section_index < 0 || section_index >= g_section_count) {
+        return;
+    }
+
+    g_open_section = section_index;
+    clear_setting_widgets();
+
+    paf::ui::Scene *scene = open_page("page_settings_section", paf::Plugin::TransitionType_SlideFromBottom);
+    if (scene == NULL) {
+        g_open_section = -1;
+        return;
+    }
+
+    paf::ui::Widget *title = scene->FindChild("text_section_title");
+    if (title != NULL && g_sections[section_index].title != NULL) {
+        title->SetString(g_sections[section_index].title);
+    }
+
+    paf::ui::ListView *section_list = (paf::ui::ListView *)scene->FindChild("section_list_view");
+    int focus_local = 0;
+    if (section_list != NULL) {
+        const SettingSection& section = g_sections[section_index];
+        for (int i = 0; i < section.count; i++) {
+            SettingKind kind = g_rows[section.first + i].kind;
+            if (kind != KIND_NOTE && kind != KIND_FIXED) {
+                focus_local = i;
+                break;
+            }
+        }
+        section_list->SetItemFactory(new SettingsItemFactory());
+        section_list->InsertSegment(0, 1);
+        section_list->SetCellSizeDefault(0, { 880.0f, 70.0f, 0.0f, 0.0f });
+        section_list->SetSegmentLayoutType(0, paf::ui::ListView::LAYOUT_TYPE_LIST);
+        section_list->InsertCell(0, 0, section.count);
+        g_focused_row = section.first + focus_local;
+        section_list->SetFocus(0, focus_local, paf::ui::ListView::FOCUS_ALIGN_TYPE_HEAD, NULL);
+    }
+
+    bind_decide(scene, "btn_back_section", onCloseSectionButtonClick);
+    set_settings_menu_focusable(false);
+}
+
+void SectionMenuFactory::Stop(StopParam& param) {
+    for (int i = 0; i < g_section_count; i++) {
+        if (g_section_menu_items[i] == param.list_item) {
+            g_section_menu_items[i] = NULL;
+        }
+    }
+    param.list_item->Hide(paf::common::transition::Type_FadeinSlow);
+}
+
+paf::ui::ListItem *SectionMenuFactory::Create(CreateParam& param) {
+    init_setting_rows();
+    if (param.cell_index < 0 || param.cell_index >= g_section_count) {
+        return NULL;
+    }
+
+    paf::Plugin::TemplateOpenParam openParam;
+    int res = g_plugin->TemplateOpen(param.parent, "template_settings_section", openParam);
+    if (res != 0) {
+        return NULL;
+    }
+
+    paf::ui::ListItem *list_item = (paf::ui::ListItem *)param.parent->GetChild(param.parent->GetChildrenNum() - 1);
+    if (list_item == NULL) {
+        return NULL;
+    }
+
+    g_section_menu_items[param.cell_index] = list_item;
+
+    paf::ui::Widget *label = list_item->FindChild("label");
+    if (label != NULL && g_sections[param.cell_index].title != NULL) {
+        label->SetString(g_sections[param.cell_index].title);
+    }
+
+    paf::ui::Widget *button = list_item->FindChild("button");
+    if (button != NULL) {
+        button->SetEventCallback(paf::ui::ButtonBase::CB_BTN_DECIDE, onSectionMenuClick, (void *)(uintptr_t)param.cell_index);
+    }
+
+    return list_item;
+}
+
+static void onCloseSectionButtonClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata) {
+    (void)type;
+    (void)self;
+    (void)e;
+    (void)userdata;
+    close_settings_section();
 }
 
 static void setup_settings_page(paf::ui::Scene *scene) {
@@ -544,17 +734,20 @@ static void setup_settings_page(paf::ui::Scene *scene) {
 
     init_setting_rows();
     clear_setting_widgets();
+    g_settings_scene = scene;
+    g_open_section = -1;
+    for (int i = 0; i < kMaxSections; i++) {
+        g_section_menu_items[i] = NULL;
+    }
 
     paf::ui::ListView *settings_list_view = (paf::ui::ListView *)scene->FindChild("settings_list_view");
     if (settings_list_view) {
-        g_settings_list = settings_list_view;
-        settings_list_view->SetItemFactory(new SettingsItemFactory());
+        settings_list_view->SetItemFactory(new SectionMenuFactory());
         settings_list_view->InsertSegment(0, 1);
         settings_list_view->SetCellSizeDefault(0, { 880.0f, 70.0f, 0.0f, 0.0f });
         settings_list_view->SetSegmentLayoutType(0, paf::ui::ListView::LAYOUT_TYPE_LIST);
-        settings_list_view->InsertCell(0, 0, kSettingRowCount);
-        g_focused_row = 1;
-        settings_list_view->SetFocus(0, 1, paf::ui::ListView::FOCUS_ALIGN_TYPE_HEAD, NULL);
+        settings_list_view->InsertCell(0, 0, g_section_count);
+        settings_list_view->SetFocus(0, 0, paf::ui::ListView::FOCUS_ALIGN_TYPE_HEAD, NULL);
     }
 
     bind_decide(scene, "btn_back_settings", onCloseSettingsButtonClick);
@@ -612,9 +805,7 @@ static void onCloseSettingsButtonClick(int32_t type, paf::ui::Handler *self, paf
     (void)self;
     (void)e;
     (void)userdata;
-    clear_setting_widgets();
-    close_page("page_settings", paf::Plugin::TransitionType_SlideFromBottom);
-    set_main_buttons_focusable(true);
+    close_settings_root();
 }
 
 static void onCloseSearchButtonClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata) {

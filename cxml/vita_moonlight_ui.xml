@@ -99,14 +99,34 @@
         <corner_button style="_common_style_corner_bottom_left" id="btn_back_settings" />
       </plane>
     </page>
+
+    <page id="page_settings_section">
+      <plane style="style_plane_fill" id="plane_section_fill">
+        <layout_hint size="960, 544" />
+
+        <text style="style_text_title" id="text_section_title">
+          <layout_hint adjust="2, 2" pos="0, 200" />
+        </text>
+
+        <list_view style="_common_style_list_view_transparent" id="section_list_view">
+          <layout_hint pos="0, -16" size="880, 384" />
+        </list_view>
+
+        <corner_button style="_common_style_corner_bottom_left" id="btn_back_section" />
+      </plane>
+    </page>
   </pagetable>
 
   <templatetable>
-    <template fast_open="1" id="template_settings_category">
+    <template fast_open="1" id="template_settings_section">
       <list_item style="_common_style_list_item_transparent" id="list_item">
         <layout_hint size="880, 70" />
-        <text style="style_setting_category" id="label">
-          <layout_hint adjust="2, 2" pos="0, 0" size="840, 40" />
+        <button sound="_common_sound_button_enter" style="_style_settings_list_button" id="button">
+          <layout_hint size="880, 70" />
+          <focus_hint focus_shape="3" />
+        </button>
+        <text style="style_setting_label" id="label">
+          <layout_hint adjust="2, 2" pos="0, 0" size="800, 40" />
         </text>
       </list_item>
     </template>
