@@ -430,7 +430,7 @@ public:
     }
 };
 
-static paf::common::SharedPtr<paf::inputdevice::InputListener> g_settings_pad_listener;
+static SettingsPadListener *g_settings_pad_listener = NULL;
 
 void SettingsItemFactory::Stop(StopParam& param) {
     for (int i = 0; i < kSettingRowCount; i++) {
@@ -583,9 +583,10 @@ int paf_sample_main(void) {
 
     paf_fw->LoadCommonResourceSync();
 
-    if (g_settings_pad_listener.get() == NULL) {
-        g_settings_pad_listener = paf::common::SharedPtr<paf::inputdevice::InputListener>(new SettingsPadListener());
-        paf::inputdevice::AddInputListener(g_settings_pad_listener);
+    if (g_settings_pad_listener == NULL) {
+        g_settings_pad_listener = new SettingsPadListener();
+        paf::inputdevice::AddInputListener(
+            paf::common::SharedPtr<paf::inputdevice::InputListener>(g_settings_pad_listener));
     }
 
     paf::Plugin::InitParam pluginParam;
