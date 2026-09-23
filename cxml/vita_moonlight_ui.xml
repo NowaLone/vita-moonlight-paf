@@ -84,33 +84,40 @@
     </page>
 
     <page id="page_settings">
-      <plane style="style_plane_fill" id="plane_settings_fill">
+      <plane style="_common_style_plane_transparent" id="plane_settings_root">
         <layout_hint size="960, 544" />
 
-        <button style="_style_screen_title" label="msg_settings" id="text_settings_title">
-          <layout_hint adjust="2, 2" pos="0, 200" size="760, 48" />
-        </button>
+        <plane style="style_plane_fill" id="plane_settings_panel">
+          <layout_hint adjust="2, 2, 0" pos="80, 0" size="800, 544" />
 
-        <!-- list_view height must be a multiple of 32 -->
-        <list_view style="_common_style_list_view_transparent" id="settings_list_view">
-          <layout_hint pos="0, -16" size="880, 384" />
-        </list_view>
+          <button style="_style_screen_title" label="msg_settings" id="text_settings_title">
+            <layout_hint adjust="2, 2" pos="0, 200" size="680, 48" />
+          </button>
+
+          <list_view style="_common_style_list_view_transparent" id="settings_list_view">
+            <layout_hint pos="0, -16" size="740, 384" />
+          </list_view>
+        </plane>
 
         <corner_button style="_common_style_corner_bottom_left" id="btn_back_settings" />
       </plane>
     </page>
 
     <page id="page_settings_section">
-      <plane style="style_plane_fill" id="plane_section_fill">
+      <plane style="_common_style_plane_transparent" id="plane_section_root">
         <layout_hint size="960, 544" />
 
-        <button style="_style_screen_title" id="text_section_title">
-          <layout_hint adjust="2, 2" pos="0, 200" size="760, 48" />
-        </button>
+        <plane style="style_plane_fill" id="plane_section_panel">
+          <layout_hint adjust="2, 2, 0" pos="80, 0" size="800, 544" />
 
-        <list_view style="_common_style_list_view_transparent" id="section_list_view">
-          <layout_hint pos="0, -16" size="880, 384" />
-        </list_view>
+          <button style="_style_screen_title" id="text_section_title">
+            <layout_hint adjust="2, 2" pos="0, 200" size="680, 48" />
+          </button>
+
+          <list_view style="_common_style_list_view_transparent" id="section_list_view">
+            <layout_hint pos="0, -16" size="740, 384" />
+          </list_view>
+        </plane>
 
         <corner_button style="_common_style_corner_bottom_left" id="btn_back_section" />
       </plane>
@@ -120,9 +127,9 @@
   <templatetable>
     <template fast_open="1" id="template_settings_section">
       <list_item style="_common_style_list_item_transparent" id="list_item">
-        <layout_hint size="880, 70" />
+        <layout_hint size="740, 70" />
         <button sound="_common_sound_button_enter" style="_style_settings_section_button" id="button">
-          <layout_hint size="880, 70" />
+          <layout_hint size="740, 70" />
           <focus_hint focus_shape="3" />
         </button>
       </list_item>
@@ -130,18 +137,18 @@
 
     <template fast_open="1" id="template_settings_note">
       <list_item style="_common_style_list_item_transparent" id="list_item">
-        <layout_hint size="880, 70" />
+        <layout_hint size="740, 70" />
         <button style="_style_settings_note_button" id="button">
-          <layout_hint size="880, 70" />
+          <layout_hint size="740, 70" />
         </button>
       </list_item>
     </template>
 
     <template fast_open="1" id="template_settings_row">
       <list_item style="_common_style_list_item_transparent" id="list_item">
-        <layout_hint size="880, 70" />
+        <layout_hint size="740, 70" />
         <button sound="_common_sound_button_enter" style="_style_settings_row_button" id="button">
-          <layout_hint size="880, 70" />
+          <layout_hint size="740, 70" />
           <focus_hint focus_shape="3" />
         </button>
       </list_item>

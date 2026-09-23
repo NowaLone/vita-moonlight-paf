@@ -172,6 +172,8 @@ public:
 
 static void clear_setting_widgets();
 static void set_settings_menu_focusable(bool on);
+static void close_settings_section_now();
+static void close_settings_root_now();
 static void close_settings_section();
 static void close_settings_root();
 static void onCloseSectionButtonClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata);
@@ -217,6 +219,8 @@ static int g_rows_ready = 0;
 static paf::ui::Widget *g_row_widgets[32];
 static int g_focused_row = -1;
 static uint32_t g_prev_pad = 0;
+static int g_close_wait = 0;
+static int g_close_kind = 0;
 
 struct SettingSection {
     const wchar_t *title;
@@ -228,6 +232,7 @@ static SettingSection g_sections[kMaxSections];
 static int g_section_count = 0;
 static int g_open_section = -1;
 static paf::ui::Scene *g_settings_scene = NULL;
+static paf::ui::Scene *g_section_scene = NULL;
 static paf::ui::Widget *g_section_menu_items[kMaxSections];
 
 static SettingRow make_category(const wchar_t *label) {
@@ -512,6 +517,19 @@ public:
     SettingsPadListener() : paf::inputdevice::InputListener(paf::inputdevice::DEVICE_TYPE_PAD) {}
 
     void OnUpdate(paf::inputdevice::Data *data) {
+        if (g_close_wait > 0) {
+            g_close_wait--;
+            if (g_close_wait == 0) {
+                if (g_close_kind == 1) {
+                    close_settings_section_now();
+                } else if (g_close_kind == 2) {
+                    close_settings_root_now();
+                }
+                g_close_kind = 0;
+            }
+            return;
+        }
+
         if (data == NULL || data->m_pad_data == NULL) {
             g_prev_pad = 0;
             return;
@@ -642,25 +660,72 @@ static void set_settings_menu_focusable(bool on) {
     }
 }
 
-static void close_settings_section() {
+static void slide_panel(paf::ui::Widget *panel, bool reverse) {
+    if (panel == NULL) {
+        return;
+    }
+    if (reverse) {
+        paf::common::transition::DoReverse(0.0f, panel, paf::common::transition::Type_SlideFromRight2, false, true);
+    } else {
+        paf::common::transition::Do(0.0f, panel, paf::common::transition::Type_SlideFromRight2, false, true);
+    }
+}
+
+static void nudge_page(paf::ui::Widget *widget, float x, float alpha) {
+    if (widget == NULL) {
+        return;
+    }
+    paf::Timer *move = new paf::Timer(0.28f, paf::Timer::FUNC_CUBIC_OUT);
+    paf::Timer *fade = new paf::Timer(0.28f, paf::Timer::FUNC_CUBIC_OUT);
+    widget->SetPos(x, 0.0f, 0.0f, move);
+    widget->SetMetaAlpha(alpha, fade);
+}
+
+static void close_settings_section_now() {
     if (!page_is_open("page_settings_section")) {
         return;
     }
     clear_setting_widgets();
     g_open_section = -1;
-    close_page("page_settings_section", paf::Plugin::TransitionType_SlideFromRight);
+    close_page("page_settings_section", paf::Plugin::TransitionType_None);
+    g_section_scene = NULL;
     set_settings_menu_focusable(true);
 }
 
-static void close_settings_root() {
-    if (page_is_open("page_settings_section")) {
-        close_settings_section();
-    }
+static void close_settings_root_now() {
     clear_setting_widgets();
     g_open_section = -1;
-    close_page("page_settings", paf::Plugin::TransitionType_SlideFromRight);
+    close_page("page_settings", paf::Plugin::TransitionType_None);
     g_settings_scene = NULL;
     set_main_buttons_focusable(true);
+}
+
+static void close_settings_section() {
+    if (g_close_wait > 0 || !page_is_open("page_settings_section")) {
+        return;
+    }
+    if (g_section_scene != NULL) {
+        slide_panel(g_section_scene->FindChild("plane_section_panel"), true);
+    }
+    nudge_page(g_settings_scene, 0.0f, 1.0f);
+    g_close_kind = 1;
+    g_close_wait = 20;
+}
+
+static void close_settings_root() {
+    if (g_close_wait > 0) {
+        return;
+    }
+    if (page_is_open("page_settings_section")) {
+        close_settings_section_now();
+        nudge_page(g_settings_scene, 0.0f, 1.0f);
+    }
+    if (g_settings_scene != NULL) {
+        slide_panel(g_settings_scene->FindChild("plane_settings_panel"), true);
+    }
+    nudge_page(g_main_scene, 0.0f, 1.0f);
+    g_close_kind = 2;
+    g_close_wait = 20;
 }
 
 static void onSectionMenuClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata) {
@@ -675,11 +740,12 @@ static void onSectionMenuClick(int32_t type, paf::ui::Handler *self, paf::ui::Ev
     g_open_section = section_index;
     clear_setting_widgets();
 
-    paf::ui::Scene *scene = open_page("page_settings_section", paf::Plugin::TransitionType_SlideFromRight);
+    paf::ui::Scene *scene = open_page("page_settings_section", paf::Plugin::TransitionType_None);
     if (scene == NULL) {
         g_open_section = -1;
         return;
     }
+    g_section_scene = scene;
 
     paf::ui::Widget *title = scene->FindChild("text_section_title");
     if (title != NULL && g_sections[section_index].title != NULL) {
@@ -699,7 +765,7 @@ static void onSectionMenuClick(int32_t type, paf::ui::Handler *self, paf::ui::Ev
         }
         section_list->SetItemFactory(new SettingsItemFactory());
         section_list->InsertSegment(0, 1);
-        section_list->SetCellSizeDefault(0, { 880.0f, 70.0f, 0.0f, 0.0f });
+        section_list->SetCellSizeDefault(0, { 740.0f, 70.0f, 0.0f, 0.0f });
         section_list->SetSegmentLayoutType(0, paf::ui::ListView::LAYOUT_TYPE_LIST);
         section_list->InsertCell(0, 0, section.count);
         g_focused_row = section.first + focus_local;
@@ -709,6 +775,8 @@ static void onSectionMenuClick(int32_t type, paf::ui::Handler *self, paf::ui::Ev
     bind_decide(scene, "btn_back_section", onCloseSectionButtonClick);
     set_widget_focusable(scene->FindChild("text_section_title"), false);
     set_settings_menu_focusable(false);
+    nudge_page(g_settings_scene, -200.0f, 0.72f);
+    slide_panel(scene->FindChild("plane_section_panel"), false);
 }
 
 void SectionMenuFactory::Stop(StopParam& param) {
@@ -775,7 +843,7 @@ static void setup_settings_page(paf::ui::Scene *scene) {
     if (settings_list_view) {
         settings_list_view->SetItemFactory(new SectionMenuFactory());
         settings_list_view->InsertSegment(0, 1);
-        settings_list_view->SetCellSizeDefault(0, { 880.0f, 70.0f, 0.0f, 0.0f });
+        settings_list_view->SetCellSizeDefault(0, { 740.0f, 70.0f, 0.0f, 0.0f });
         settings_list_view->SetSegmentLayoutType(0, paf::ui::ListView::LAYOUT_TYPE_LIST);
         settings_list_view->InsertCell(0, 0, g_section_count);
         settings_list_view->SetFocus(0, 0, paf::ui::ListView::FOCUS_ALIGN_TYPE_HEAD, NULL);
@@ -828,8 +896,12 @@ static void onDismissBalloonClick(int32_t type, paf::ui::Handler *self, paf::ui:
 
 static void onSpeechBalloonClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata) {
     close_page("page_settings_bubble", paf::Plugin::TransitionType_None);
-    paf::ui::Scene *scene = open_page("page_settings", paf::Plugin::TransitionType_SlideFromRight);
+    paf::ui::Scene *scene = open_page("page_settings", paf::Plugin::TransitionType_None);
     setup_settings_page(scene);
+    if (scene != NULL) {
+        nudge_page(g_main_scene, -60.0f, 0.72f);
+        slide_panel(scene->FindChild("plane_settings_panel"), false);
+    }
 }
 
 static void onCloseSettingsButtonClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata) {
