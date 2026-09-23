@@ -233,6 +233,7 @@ static int g_rows_ready = 0;
 static paf::ui::Widget *g_row_widgets[32];
 static int g_focused_row = -1;
 static uint32_t g_prev_pad = 0;
+static int g_back_consumed = 0;
 
 struct SettingSection {
     const wchar_t *title;
@@ -546,6 +547,7 @@ public:
     SettingsPadListener() : paf::inputdevice::InputListener(paf::inputdevice::DEVICE_TYPE_PAD) {}
 
     void OnUpdate(paf::inputdevice::Data *data) {
+        g_back_consumed = 0;
         if (data == NULL || data->m_pad_data == NULL) {
             g_prev_pad = 0;
             return;
@@ -564,6 +566,7 @@ public:
 
         if (page_is_open("page_choice_picker")) {
             if (pressed & paf::inputdevice::pad::Data::PAD_ESCAPE) {
+                g_back_consumed = 1;
                 close_choice_picker();
             }
             return;
@@ -816,6 +819,12 @@ static void close_choice_picker() {
     }
     g_picker_row = -1;
     close_page("page_choice_picker", paf::Plugin::TransitionType_None);
+    if (g_section_scene != NULL) {
+        paf::ui::Widget *back = g_section_scene->FindChild("btn_back_section");
+        if (back != NULL) {
+            back->Show(paf::common::transition::Type_Reset);
+        }
+    }
     set_section_rows_focusable(true);
 }
 
@@ -852,6 +861,12 @@ static void open_choice_picker(int row_index) {
     bind_decide(scene, "btn_picker_dismiss", onPickerDismiss);
     set_widget_focusable(scene->FindChild("btn_picker_dismiss"), false);
     set_section_rows_focusable(false);
+    if (g_section_scene != NULL) {
+        paf::ui::Widget *back = g_section_scene->FindChild("btn_back_section");
+        if (back != NULL) {
+            back->Hide(paf::common::transition::Type_Reset);
+        }
+    }
 }
 
 static void close_settings_section() {
@@ -972,6 +987,11 @@ static void onCloseSectionButtonClick(int32_t type, paf::ui::Handler *self, paf:
     (void)self;
     (void)e;
     (void)userdata;
+    if (g_back_consumed || page_is_open("page_choice_picker")) {
+        g_back_consumed = 1;
+        close_choice_picker();
+        return;
+    }
     close_settings_section();
 }
 
@@ -1054,6 +1074,11 @@ static void onCloseSettingsButtonClick(int32_t type, paf::ui::Handler *self, paf
     (void)self;
     (void)e;
     (void)userdata;
+    if (g_back_consumed || page_is_open("page_choice_picker")) {
+        g_back_consumed = 1;
+        close_choice_picker();
+        return;
+    }
     close_settings_root();
 }
 
