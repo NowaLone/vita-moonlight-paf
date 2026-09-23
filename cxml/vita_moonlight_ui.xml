@@ -114,6 +114,24 @@
         <corner_button style="_common_style_corner_bottom_left" id="btn_back_section" />
       </plane>
     </page>
+
+    <page id="page_choice_picker">
+      <plane style="_common_style_plane_transparent" id="plane_picker_root">
+        <layout_hint size="960, 544" />
+
+        <button style="style_button_clear_hit" id="btn_picker_dismiss">
+          <layout_hint pos="-210, 0" size="540, 544" />
+        </button>
+
+        <plane style="style_plane_picker" id="plane_picker">
+          <layout_hint pos="270, 0" size="420, 544" />
+
+          <list_view style="_common_style_list_view_transparent" id="picker_list">
+            <layout_hint pos="0, 0" size="400, 448" />
+          </list_view>
+        </plane>
+      </plane>
+    </page>
   </pagetable>
 
   <templatetable>
@@ -158,6 +176,19 @@
         </check_box>
       </list_item>
     </template>
+
+    <template fast_open="1" id="template_picker_option">
+      <list_item style="_common_style_list_item_transparent" id="list_item">
+        <layout_hint size="400, 64" />
+        <button sound="_common_sound_button_enter" style="_style_picker_option" id="button">
+          <layout_hint size="400, 64" />
+          <focus_hint focus_shape="3" />
+        </button>
+        <check_box style="_common_default_style_check_box" id="mark">
+          <layout_hint pos="-164, 0" size="40, 40" />
+        </check_box>
+      </list_item>
+    </template>
   </templatetable>
 
   <styletable>
@@ -169,6 +200,14 @@
     <style_button bg_obj="dim_hit_bg" id="style_button_dim_hit">
       <planeobj color="0, 0, 0, 0.35" id="dim_hit_bg" />
     </style_button>
+
+    <style_button bg_obj="clear_hit_bg" id="style_button_clear_hit">
+      <planeobj color="0, 0, 0, 0" id="clear_hit_bg" />
+    </style_button>
+
+    <style_plane color="0.11, 0.12, 0.14, 1" planeobj="picker_bg" id="style_plane_picker">
+      <planeobj color="0.11, 0.12, 0.14, 1" id="picker_bg" />
+    </style_plane>
 
     <style_text id="style_text_title">
       <textobj font_size="32" bold="1" color="1, 1, 1, 1" align_x="1" align_y="1" ellipsis="0" emboss="0" id="title_obj" />
@@ -215,6 +254,12 @@
       <planeobj texture0="_common_texture_list_70px" id="obj1" />
       <planeobj texture0="_common_texture_list_glow_70px" id="obj2" />
       <textobj font_size="22" bold="1" color="1, 1, 1, 1" align_x="0" align_y="1" ellipsis="1" id="row_label" />
+    </style_button>
+
+    <style_button bg_obj="picker_row_bg" glow_obj="picker_row_glow" left_margin="64" right_margin="16" label_obj="opt_label" id="_style_picker_option">
+      <planeobj color="0, 0, 0, 0" id="picker_row_bg" />
+      <planeobj texture0="_common_texture_list_glow_70px" id="picker_row_glow" />
+      <textobj font_size="22" bold="1" color="1, 1, 1, 1" align_x="0" align_y="1" ellipsis="1" id="opt_label" />
     </style_button>
 
     <style_button bg_obj="obj1" left_margin="36" right_margin="36" label_obj="note_label" id="_style_settings_note_button">

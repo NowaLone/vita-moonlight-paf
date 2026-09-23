@@ -170,10 +170,26 @@ public:
     void Stop(StopParam& param);
 };
 
+class PickerItemFactory : public paf::ui::listview::ItemFactory {
+public:
+    PickerItemFactory() {}
+    ~PickerItemFactory() {}
+
+    paf::ui::ListItem *Create(CreateParam& param);
+
+    void Start(StartParam& param) {
+        param.list_item->Show(paf::common::transition::Type_Reset);
+    }
+
+    void Stop(StopParam& param);
+};
+
 static void clear_setting_widgets();
 static void set_settings_menu_focusable(bool on);
 static void close_settings_section();
 static void close_settings_root();
+static void close_choice_picker();
+static void open_choice_picker(int row_index);
 static void onCloseSectionButtonClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata);
 
 enum SettingKind {
@@ -228,7 +244,17 @@ static SettingSection g_sections[kMaxSections];
 static int g_section_count = 0;
 static int g_open_section = -1;
 static paf::ui::Scene *g_settings_scene = NULL;
+static paf::ui::Scene *g_section_scene = NULL;
 static paf::ui::Widget *g_section_menu_items[kMaxSections];
+
+static const int kMaxPickerOptions = 40;
+static int g_picker_row = -1;
+static int g_picker_count = 0;
+static int g_picker_current = 0;
+static int g_picker_values[kMaxPickerOptions];
+static wchar_t g_picker_text[kMaxPickerOptions][16];
+static const wchar_t *g_picker_labels[kMaxPickerOptions];
+static paf::ui::Widget *g_picker_items[kMaxPickerOptions];
 
 static SettingRow make_category(const wchar_t *label) {
     SettingRow row = {};
@@ -367,20 +393,6 @@ static void format_setting_value(const SettingRow& row, wchar_t *dst, int cap) {
         if (index >= row.choice_count) {
             index = row.choice_count - 1;
         }
-        if (row.arrows) {
-            char narrow[48];
-            int n = 0;
-            const wchar_t *src = row.choices[index];
-            for (; src[n] != 0 && n < (int)sizeof(narrow) - 5; n++) {
-                narrow[n] = (char)src[n];
-            }
-            narrow[n++] = ' ';
-            narrow[n++] = '<';
-            narrow[n++] = '>';
-            narrow[n] = '\0';
-            ascii_to_wide(dst, cap, narrow);
-            return;
-        }
         int n = 0;
         const wchar_t *src = row.choices[index];
         for (; src[n] != 0 && n < cap - 1; n++) {
@@ -390,7 +402,7 @@ static void format_setting_value(const SettingRow& row, wchar_t *dst, int cap) {
         return;
     }
     if (row.kind == KIND_INT) {
-        snprintf(buf, sizeof(buf), row.arrows ? "%d <>" : "%d", row.value);
+        snprintf(buf, sizeof(buf), "%d", row.value);
         ascii_to_wide(dst, cap, buf);
         return;
     }
@@ -506,7 +518,16 @@ static void onSettingsListItemClick(int32_t type, paf::ui::Handler *self, paf::u
     (void)type;
     (void)self;
     (void)e;
-    change_setting((int)(uintptr_t)userdata, 0);
+    int index = (int)(uintptr_t)userdata;
+    if (index < 0 || index >= kSettingRowCount) {
+        return;
+    }
+    SettingKind kind = g_rows[index].kind;
+    if (kind == KIND_CHOICE || kind == KIND_INT) {
+        open_choice_picker(index);
+        return;
+    }
+    change_setting(index, 0);
 }
 
 static int setting_row_focused(paf::ui::Widget *item) {
@@ -541,6 +562,13 @@ public:
             return;
         }
 
+        if (page_is_open("page_choice_picker")) {
+            if (pressed & paf::inputdevice::pad::Data::PAD_ESCAPE) {
+                close_choice_picker();
+            }
+            return;
+        }
+
         if (page_is_open("page_settings_section")) {
             if (pressed & paf::inputdevice::pad::Data::PAD_ESCAPE) {
                 close_settings_section();
@@ -564,15 +592,6 @@ public:
         }
         if (focused != g_focused_row) {
             g_focused_row = focused;
-        }
-
-        if (focused < 0) {
-            return;
-        }
-        if (pressed & paf::inputdevice::pad::Data::PAD_LEFT) {
-            change_setting(focused, -1);
-        } else if (pressed & paf::inputdevice::pad::Data::PAD_RIGHT) {
-            change_setting(focused, 1);
         }
     }
 };
@@ -662,12 +681,189 @@ static void set_settings_menu_focusable(bool on) {
     }
 }
 
+static void set_section_rows_focusable(bool on) {
+    if (g_section_scene != NULL) {
+        set_widget_focusable(g_section_scene->FindChild("btn_back_section"), on);
+        set_widget_focusable(g_section_scene->FindChild("section_list_view"), on);
+    }
+    for (int i = 0; i < kSettingRowCount; i++) {
+        paf::ui::Widget *item = g_row_widgets[i];
+        if (item == NULL) {
+            continue;
+        }
+        set_widget_focusable(item, on);
+        set_widget_focusable(item->FindChild("button"), on);
+        set_widget_focusable(item->FindChild("check"), false);
+    }
+}
+
+static int fill_picker_options(int row_index) {
+    const SettingRow& row = g_rows[row_index];
+    g_picker_count = 0;
+    g_picker_current = 0;
+    if (row.kind == KIND_CHOICE && row.choices != NULL) {
+        int count = row.choice_count;
+        if (count > kMaxPickerOptions) {
+            count = kMaxPickerOptions;
+        }
+        for (int i = 0; i < count; i++) {
+            g_picker_labels[i] = row.choices[i] != NULL ? row.choices[i] : L"";
+            g_picker_values[i] = i;
+        }
+        g_picker_count = count;
+        if (row.value >= 0 && row.value < count) {
+            g_picker_current = row.value;
+        }
+        return g_picker_count > 0;
+    }
+    if (row.kind != KIND_INT) {
+        return 0;
+    }
+    int step = row.step > 0 ? row.step : 1;
+    for (int value = row.min_v; value <= row.max_v && g_picker_count < kMaxPickerOptions; value += step) {
+        int n = g_picker_count;
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%d", value);
+        ascii_to_wide(g_picker_text[n], 16, buf);
+        g_picker_labels[n] = g_picker_text[n];
+        g_picker_values[n] = value;
+        if (value == row.value) {
+            g_picker_current = n;
+        }
+        g_picker_count++;
+        if (step > 0 && value > row.max_v - step) {
+            break;
+        }
+    }
+    return g_picker_count > 0;
+}
+
+static void onPickerDismiss(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata) {
+    (void)type;
+    (void)self;
+    (void)e;
+    (void)userdata;
+    close_choice_picker();
+}
+
+static void onPickerItemClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata) {
+    (void)type;
+    (void)self;
+    (void)e;
+    int option = (int)(uintptr_t)userdata;
+    if (g_picker_row < 0 || option < 0 || option >= g_picker_count) {
+        close_choice_picker();
+        return;
+    }
+    g_rows[g_picker_row].value = g_picker_values[option];
+    refresh_setting_value(g_picker_row);
+    close_choice_picker();
+}
+
+void PickerItemFactory::Stop(StopParam& param) {
+    for (int i = 0; i < kMaxPickerOptions; i++) {
+        if (g_picker_items[i] == param.list_item) {
+            g_picker_items[i] = NULL;
+        }
+    }
+    param.list_item->Hide(paf::common::transition::Type_Reset);
+}
+
+paf::ui::ListItem *PickerItemFactory::Create(CreateParam& param) {
+    if (param.cell_index < 0 || param.cell_index >= g_picker_count) {
+        return NULL;
+    }
+
+    paf::Plugin::TemplateOpenParam openParam;
+    int res = g_plugin->TemplateOpen(param.parent, "template_picker_option", openParam);
+    if (res != 0) {
+        return NULL;
+    }
+
+    paf::ui::ListItem *list_item = (paf::ui::ListItem *)param.parent->GetChild(param.parent->GetChildrenNum() - 1);
+    if (list_item == NULL) {
+        return NULL;
+    }
+
+    g_picker_items[param.cell_index] = list_item;
+
+    paf::ui::Widget *button = list_item->FindChild("button");
+    if (button != NULL && g_picker_labels[param.cell_index] != NULL) {
+        button->SetString(g_picker_labels[param.cell_index]);
+        button->SetEventCallback(paf::ui::ButtonBase::CB_BTN_DECIDE, onPickerItemClick, (void *)(uintptr_t)param.cell_index);
+    }
+
+    paf::ui::CheckBox *mark = (paf::ui::CheckBox *)list_item->FindChild("mark");
+    if (mark != NULL) {
+        set_widget_focusable(mark, false);
+        if (param.cell_index == g_picker_current) {
+            mark->SetCheck(true, false);
+        } else {
+            mark->Hide(paf::common::transition::Type_Reset);
+        }
+    }
+
+    return list_item;
+}
+
+static void close_choice_picker() {
+    if (!page_is_open("page_choice_picker")) {
+        g_picker_row = -1;
+        return;
+    }
+    for (int i = 0; i < kMaxPickerOptions; i++) {
+        g_picker_items[i] = NULL;
+    }
+    g_picker_row = -1;
+    close_page("page_choice_picker", paf::Plugin::TransitionType_None);
+    set_section_rows_focusable(true);
+}
+
+static void open_choice_picker(int row_index) {
+    if (row_index < 0 || row_index >= kSettingRowCount || page_is_open("page_choice_picker")) {
+        return;
+    }
+    if (!fill_picker_options(row_index)) {
+        return;
+    }
+
+    paf::ui::Scene *scene = open_page("page_choice_picker", paf::Plugin::TransitionType_None);
+    if (scene == NULL) {
+        return;
+    }
+    g_picker_row = row_index;
+
+    paf::ui::ListView *list = (paf::ui::ListView *)scene->FindChild("picker_list");
+    if (list != NULL) {
+        list->SetItemFactory(new PickerItemFactory());
+        list->InsertSegment(0, 1);
+        list->SetCellSizeDefault(0, { 400.0f, 64.0f, 0.0f, 0.0f });
+        list->SetSegmentLayoutType(0, paf::ui::ListView::LAYOUT_TYPE_LIST);
+        list->InsertCell(0, 0, g_picker_count);
+        float list_h = 448.0f;
+        float content_h = (float)g_picker_count * 64.0f;
+        if (content_h > list_h) {
+            content_h = list_h;
+        }
+        list->SetPos(0.0f, -((list_h - content_h) * 0.5f), 0.0f, NULL);
+        list->SetFocus(0, g_picker_current, paf::ui::ListView::FOCUS_ALIGN_TYPE_HEAD, NULL);
+    }
+
+    bind_decide(scene, "btn_picker_dismiss", onPickerDismiss);
+    set_widget_focusable(scene->FindChild("btn_picker_dismiss"), false);
+    set_section_rows_focusable(false);
+}
+
 static void close_settings_section() {
+    if (page_is_open("page_choice_picker")) {
+        close_choice_picker();
+    }
     if (!page_is_open("page_settings_section")) {
         return;
     }
     clear_setting_widgets();
     g_open_section = -1;
+    g_section_scene = NULL;
     close_page("page_settings_section", paf::Plugin::TransitionType_None);
     set_settings_menu_focusable(true);
 }
@@ -700,6 +896,7 @@ static void onSectionMenuClick(int32_t type, paf::ui::Handler *self, paf::ui::Ev
         g_open_section = -1;
         return;
     }
+    g_section_scene = scene;
 
     paf::ui::Widget *title = scene->FindChild("text_section_title");
     if (title != NULL && g_sections[section_index].title != NULL) {
