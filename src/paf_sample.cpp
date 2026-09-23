@@ -430,8 +430,6 @@ public:
     }
 };
 
-static SettingsPadListener *g_settings_pad_listener = NULL;
-
 void SettingsItemFactory::Stop(StopParam& param) {
     for (int i = 0; i < kSettingRowCount; i++) {
         if (g_row_widgets[i] == param.list_item) {
@@ -583,11 +581,8 @@ int paf_sample_main(void) {
 
     paf_fw->LoadCommonResourceSync();
 
-    if (g_settings_pad_listener == NULL) {
-        g_settings_pad_listener = new SettingsPadListener();
-        paf::inputdevice::AddInputListener(
-            paf::common::SharedPtr<paf::inputdevice::InputListener>(g_settings_pad_listener));
-    }
+    paf::common::SharedPtr<paf::inputdevice::InputListener> settings_pad_listener(new SettingsPadListener());
+    paf::inputdevice::AddInputListener(settings_pad_listener);
 
     paf::Plugin::InitParam pluginParam;
     pluginParam.name          = "vita_moonlight_ui";
