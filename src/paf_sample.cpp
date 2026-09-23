@@ -330,28 +330,6 @@ static void format_setting_value(const SettingRow& row, wchar_t *dst, int cap) {
     }
 }
 
-static void paint_setting_row(int index, int focused) {
-    if (index < 0 || index >= kSettingRowCount || g_row_widgets[index] == NULL) {
-        return;
-    }
-    paf::ui::Widget *label = g_row_widgets[index]->FindChild("label");
-    paf::ui::Widget *value = g_row_widgets[index]->FindChild("value");
-    float g = focused ? 1.0f : 1.0f;
-    float r = focused ? 0.15f : 1.0f;
-    float b = focused ? 0.25f : 1.0f;
-    if (g_rows[index].kind == KIND_NOTE) {
-        r = 0.75f;
-        g = 0.75f;
-        b = 0.75f;
-    }
-    if (label != NULL) {
-        label->SetColor(r, g, b, 1.0f);
-    }
-    if (value != NULL) {
-        value->SetColor(r, g, b, 1.0f);
-    }
-}
-
 static void refresh_setting_value(int index) {
     if (index < 0 || index >= kSettingRowCount || g_row_widgets[index] == NULL) {
         return;
@@ -435,10 +413,7 @@ public:
             }
         }
         if (focused != g_focused_row) {
-            int previous = g_focused_row;
             g_focused_row = focused;
-            paint_setting_row(previous, 0);
-            paint_setting_row(focused, 1);
         }
 
         uint32_t pad = data->m_pad_data->paddata;
@@ -510,8 +485,6 @@ paf::ui::ListItem *SettingsItemFactory::Create(CreateParam& param) {
         button->SetEventCallback(paf::ui::ButtonBase::CB_BTN_DECIDE, onSettingsListItemClick, (void *)(uintptr_t)param.cell_index);
     }
 
-    paint_setting_row(param.cell_index, param.cell_index == g_focused_row);
-
     return list_item;
 }
 
@@ -537,7 +510,7 @@ static void setup_settings_page(paf::ui::Scene *scene) {
         g_settings_list = settings_list_view;
         settings_list_view->SetItemFactory(new SettingsItemFactory());
         settings_list_view->InsertSegment(0, 1);
-        settings_list_view->SetCellSizeDefault(0, { 552.0f, 32.0f, 0.0f, 0.0f });
+        settings_list_view->SetCellSizeDefault(0, { 880.0f, 70.0f, 0.0f, 0.0f });
         settings_list_view->SetSegmentLayoutType(0, paf::ui::ListView::LAYOUT_TYPE_LIST);
         settings_list_view->InsertCell(0, 0, kSettingRowCount);
         g_focused_row = 1;
