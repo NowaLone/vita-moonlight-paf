@@ -145,6 +145,19 @@
         </button>
       </list_item>
     </template>
+
+    <template fast_open="1" id="template_settings_toggle">
+      <list_item style="_common_style_list_item_transparent" id="list_item">
+        <layout_hint size="880, 70" />
+        <button sound="_common_sound_button_enter" style="_style_settings_toggle_button" id="button">
+          <layout_hint size="880, 70" />
+          <focus_hint focus_shape="3" />
+        </button>
+        <check_box style="_common_default_style_check_box" id="check">
+          <layout_hint pos="390, 0" size="58, 58" />
+        </check_box>
+      </list_item>
+    </template>
   </templatetable>
 
   <styletable>
@@ -193,6 +206,12 @@
     </style_button>
 
     <style_button bg_obj="obj1" glow_obj="obj2" left_margin="36" right_margin="36" label_obj="row_label" id="_style_settings_row_button">
+      <planeobj texture0="_common_texture_list_70px" id="obj1" />
+      <planeobj texture0="_common_texture_list_glow_70px" id="obj2" />
+      <textobj font_size="22" bold="1" color="1, 1, 1, 1" align_x="0" align_y="1" ellipsis="1" id="row_label" />
+    </style_button>
+
+    <style_button bg_obj="obj1" glow_obj="obj2" left_margin="36" right_margin="120" label_obj="row_label" id="_style_settings_toggle_button">
       <planeobj texture0="_common_texture_list_70px" id="obj1" />
       <planeobj texture0="_common_texture_list_glow_70px" id="obj2" />
       <textobj font_size="22" bold="1" color="1, 1, 1, 1" align_x="0" align_y="1" ellipsis="1" id="row_label" />

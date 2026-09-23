@@ -150,7 +150,7 @@ public:
     paf::ui::ListItem *Create(CreateParam& param);
 
     void Start(StartParam& param) {
-        param.list_item->Show(paf::common::transition::Type_FadeinSlow);
+        param.list_item->Show(paf::common::transition::Type_Reset);
     }
 
     void Stop(StopParam& param);
@@ -164,7 +164,7 @@ public:
     paf::ui::ListItem *Create(CreateParam& param);
 
     void Start(StartParam& param) {
-        param.list_item->Show(paf::common::transition::Type_FadeinSlow);
+        param.list_item->Show(paf::common::transition::Type_Reset);
     }
 
     void Stop(StopParam& param);
@@ -436,6 +436,16 @@ static void format_setting_line(const SettingRow& row, wchar_t *dst, int cap) {
     dst[n] = 0;
 }
 
+static void sync_toggle_box(paf::ui::Widget *item, int on) {
+    if (item == NULL) {
+        return;
+    }
+    paf::ui::CheckBox *box = (paf::ui::CheckBox *)item->FindChild("check");
+    if (box != NULL) {
+        box->SetCheck(on != 0, false);
+    }
+}
+
 static void refresh_setting_value(int index) {
     if (index < 0 || index >= kSettingRowCount || g_row_widgets[index] == NULL) {
         return;
@@ -444,9 +454,12 @@ static void refresh_setting_value(int index) {
     if (button == NULL) {
         return;
     }
-    if (g_rows[index].kind == KIND_NOTE) {
+    if (g_rows[index].kind == KIND_NOTE || g_rows[index].kind == KIND_TOGGLE) {
         if (g_rows[index].label != NULL) {
             button->SetString(g_rows[index].label);
+        }
+        if (g_rows[index].kind == KIND_TOGGLE) {
+            sync_toggle_box(g_row_widgets[index], g_rows[index].value);
         }
         return;
     }
@@ -570,7 +583,7 @@ void SettingsItemFactory::Stop(StopParam& param) {
             g_row_widgets[i] = NULL;
         }
     }
-    param.list_item->Hide(paf::common::transition::Type_FadeinSlow);
+    param.list_item->Hide(paf::common::transition::Type_Reset);
 }
 
 paf::ui::ListItem *SettingsItemFactory::Create(CreateParam& param) {
@@ -588,6 +601,8 @@ paf::ui::ListItem *SettingsItemFactory::Create(CreateParam& param) {
     const char *template_id = "template_settings_row";
     if (row.kind == KIND_NOTE) {
         template_id = "template_settings_note";
+    } else if (row.kind == KIND_TOGGLE) {
+        template_id = "template_settings_toggle";
     }
 
     paf::Plugin::TemplateOpenParam openParam;
@@ -605,7 +620,7 @@ paf::ui::ListItem *SettingsItemFactory::Create(CreateParam& param) {
 
     paf::ui::Widget *button = list_item->FindChild("button");
     if (button != NULL) {
-        if (row.kind == KIND_NOTE) {
+        if (row.kind == KIND_NOTE || row.kind == KIND_TOGGLE) {
             if (row.label != NULL) {
                 button->SetString(row.label);
             }
@@ -615,6 +630,11 @@ paf::ui::ListItem *SettingsItemFactory::Create(CreateParam& param) {
             button->SetString(line);
         }
         button->SetEventCallback(paf::ui::ButtonBase::CB_BTN_DECIDE, onSettingsListItemClick, (void *)(uintptr_t)row_index);
+    }
+
+    if (row.kind == KIND_TOGGLE) {
+        sync_toggle_box(list_item, row.value);
+        set_widget_focusable(list_item->FindChild("check"), false);
     }
 
     return list_item;
@@ -717,7 +737,7 @@ void SectionMenuFactory::Stop(StopParam& param) {
             g_section_menu_items[i] = NULL;
         }
     }
-    param.list_item->Hide(paf::common::transition::Type_FadeinSlow);
+    param.list_item->Hide(paf::common::transition::Type_Reset);
 }
 
 paf::ui::ListItem *SectionMenuFactory::Create(CreateParam& param) {
