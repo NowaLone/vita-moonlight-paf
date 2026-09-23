@@ -5,7 +5,6 @@
 #endif
 
 #include <paf.h>
-#include <psp2/ctrl.h>
 #include <psp2/kernel/threadmgr.h>
 #include <stdio.h>
 
@@ -441,7 +440,7 @@ public:
         g_prev_pad = pad;
 
         if (page_is_open("page_settings_bubble")) {
-            if (pressed & SCE_CTRL_CIRCLE) {
+            if (pressed & paf::inputdevice::pad::Data::PAD_ESCAPE) {
                 close_settings_balloon();
             }
             return;
@@ -465,9 +464,9 @@ public:
         if (focused < 0) {
             return;
         }
-        if (pressed & SCE_CTRL_LEFT) {
+        if (pressed & paf::inputdevice::pad::Data::PAD_LEFT) {
             change_setting(focused, -1);
-        } else if (pressed & SCE_CTRL_RIGHT) {
+        } else if (pressed & paf::inputdevice::pad::Data::PAD_RIGHT) {
             change_setting(focused, 1);
         }
     }
