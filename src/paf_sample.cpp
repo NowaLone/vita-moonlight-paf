@@ -234,6 +234,8 @@ static paf::ui::Widget *g_row_widgets[32];
 static int g_focused_row = -1;
 static uint32_t g_prev_pad = 0;
 static int g_back_consumed = 0;
+static int g_back_delay = 0;
+static int g_back_target = 0;
 
 struct SettingSection {
     const wchar_t *title;
@@ -531,23 +533,25 @@ static void onSettingsListItemClick(int32_t type, paf::ui::Handler *self, paf::u
     change_setting(index, 0);
 }
 
-static int setting_row_focused(paf::ui::Widget *item) {
-    if (item == NULL) {
-        return 0;
-    }
-    if (item->IsFocused()) {
-        return 1;
-    }
-    paf::ui::Widget *button = item->FindChild("button");
-    return button != NULL && button->IsFocused();
-}
-
 class SettingsPadListener : public paf::inputdevice::InputListener {
 public:
     SettingsPadListener() : paf::inputdevice::InputListener(paf::inputdevice::DEVICE_TYPE_PAD) {}
 
     void OnUpdate(paf::inputdevice::Data *data) {
         g_back_consumed = 0;
+        if (g_back_delay > 0) {
+            g_back_delay--;
+            if (g_back_delay == 0) {
+                int target = g_back_target;
+                g_back_target = 0;
+                if (target == 1) {
+                    close_settings_section();
+                } else if (target == 2) {
+                    close_settings_root();
+                }
+            }
+            return;
+        }
         if (data == NULL || data->m_pad_data == NULL) {
             g_prev_pad = 0;
             return;
@@ -574,27 +578,24 @@ public:
 
         if (page_is_open("page_settings_section")) {
             if (pressed & paf::inputdevice::pad::Data::PAD_ESCAPE) {
-                close_settings_section();
-                return;
+                paf::ui::Widget *back = g_section_scene != NULL ? g_section_scene->FindChild("btn_back_section") : NULL;
+                if (back != NULL) {
+                    ((paf::ui::ButtonBase *)back)->ChangeButtonState(paf::ui::ButtonBase::ST_BTN_PRESS);
+                }
+                g_back_target = 1;
+                g_back_delay = 10;
             }
-        } else if (page_is_open("page_settings")) {
+            return;
+        }
+        if (page_is_open("page_settings")) {
             if (pressed & paf::inputdevice::pad::Data::PAD_ESCAPE) {
-                close_settings_root();
+                paf::ui::Widget *back = g_settings_scene != NULL ? g_settings_scene->FindChild("btn_back_settings") : NULL;
+                if (back != NULL) {
+                    ((paf::ui::ButtonBase *)back)->ChangeButtonState(paf::ui::ButtonBase::ST_BTN_PRESS);
+                }
+                g_back_target = 2;
+                g_back_delay = 10;
             }
-            return;
-        } else {
-            return;
-        }
-
-        int focused = -1;
-        for (int i = 0; i < kSettingRowCount; i++) {
-            if (setting_row_focused(g_row_widgets[i])) {
-                focused = i;
-                break;
-            }
-        }
-        if (focused != g_focused_row) {
-            g_focused_row = focused;
         }
     }
 };
