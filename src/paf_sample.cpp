@@ -648,7 +648,7 @@ static void close_settings_section() {
     }
     clear_setting_widgets();
     g_open_section = -1;
-    close_page("page_settings_section", paf::Plugin::TransitionType_SlideFromBottom);
+    close_page("page_settings_section", paf::Plugin::TransitionType_SlideFromRight);
     set_settings_menu_focusable(true);
 }
 
@@ -658,7 +658,7 @@ static void close_settings_root() {
     }
     clear_setting_widgets();
     g_open_section = -1;
-    close_page("page_settings", paf::Plugin::TransitionType_SlideFromBottom);
+    close_page("page_settings", paf::Plugin::TransitionType_SlideFromRight);
     g_settings_scene = NULL;
     set_main_buttons_focusable(true);
 }
@@ -675,7 +675,7 @@ static void onSectionMenuClick(int32_t type, paf::ui::Handler *self, paf::ui::Ev
     g_open_section = section_index;
     clear_setting_widgets();
 
-    paf::ui::Scene *scene = open_page("page_settings_section", paf::Plugin::TransitionType_SlideFromBottom);
+    paf::ui::Scene *scene = open_page("page_settings_section", paf::Plugin::TransitionType_SlideFromRight);
     if (scene == NULL) {
         g_open_section = -1;
         return;
@@ -828,7 +828,7 @@ static void onDismissBalloonClick(int32_t type, paf::ui::Handler *self, paf::ui:
 
 static void onSpeechBalloonClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata) {
     close_page("page_settings_bubble", paf::Plugin::TransitionType_None);
-    paf::ui::Scene *scene = open_page("page_settings", paf::Plugin::TransitionType_SlideFromBottom);
+    paf::ui::Scene *scene = open_page("page_settings", paf::Plugin::TransitionType_SlideFromRight);
     setup_settings_page(scene);
 }
 
