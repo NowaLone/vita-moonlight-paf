@@ -407,17 +407,52 @@ static void format_setting_value(const SettingRow& row, wchar_t *dst, int cap) {
     }
 }
 
+static void format_setting_line(const SettingRow& row, wchar_t *dst, int cap) {
+    wchar_t value[64];
+    format_setting_value(row, value, 64);
+    const wchar_t *label = row.label != NULL ? row.label : L"";
+    int label_len = 0;
+    int value_len = 0;
+    while (label[label_len] != 0) {
+        label_len++;
+    }
+    while (value[value_len] != 0) {
+        value_len++;
+    }
+    int pad = 46 - label_len - value_len;
+    if (pad < 2) {
+        pad = 2;
+    }
+    int n = 0;
+    for (int i = 0; i < label_len && n < cap - 1; i++) {
+        dst[n++] = label[i];
+    }
+    for (int i = 0; i < pad && n < cap - 1; i++) {
+        dst[n++] = L' ';
+    }
+    for (int i = 0; i < value_len && n < cap - 1; i++) {
+        dst[n++] = value[i];
+    }
+    dst[n] = 0;
+}
+
 static void refresh_setting_value(int index) {
     if (index < 0 || index >= kSettingRowCount || g_row_widgets[index] == NULL) {
         return;
     }
-    paf::ui::Widget *value = g_row_widgets[index]->FindChild("value");
-    if (value == NULL) {
+    paf::ui::Widget *button = g_row_widgets[index]->FindChild("button");
+    if (button == NULL) {
         return;
     }
-    wchar_t text[64];
-    format_setting_value(g_rows[index], text, 64);
-    value->SetString(text);
+    if (g_rows[index].kind == KIND_NOTE) {
+        if (g_rows[index].label != NULL) {
+            button->SetString(g_rows[index].label);
+        }
+        return;
+    }
+    wchar_t line[160];
+    format_setting_line(g_rows[index], line, 160);
+    button->SetString(line);
 }
 
 static void change_setting(int index, int dir) {
@@ -568,20 +603,17 @@ paf::ui::ListItem *SettingsItemFactory::Create(CreateParam& param) {
 
     g_row_widgets[row_index] = list_item;
 
-    paf::ui::Widget *label = list_item->FindChild("label");
-    if (label != NULL && row.label != NULL) {
-        label->SetString(row.label);
-    }
-
-    paf::ui::Widget *value = list_item->FindChild("value");
-    if (value != NULL) {
-        wchar_t text[64];
-        format_setting_value(row, text, 64);
-        value->SetString(text);
-    }
-
     paf::ui::Widget *button = list_item->FindChild("button");
     if (button != NULL) {
+        if (row.kind == KIND_NOTE) {
+            if (row.label != NULL) {
+                button->SetString(row.label);
+            }
+        } else {
+            wchar_t line[160];
+            format_setting_line(row, line, 160);
+            button->SetString(line);
+        }
         button->SetEventCallback(paf::ui::ButtonBase::CB_BTN_DECIDE, onSettingsListItemClick, (void *)(uintptr_t)row_index);
     }
 
@@ -675,6 +707,7 @@ static void onSectionMenuClick(int32_t type, paf::ui::Handler *self, paf::ui::Ev
     }
 
     bind_decide(scene, "btn_back_section", onCloseSectionButtonClick);
+    set_widget_focusable(scene->FindChild("text_section_title"), false);
     set_settings_menu_focusable(false);
 }
 
@@ -706,13 +739,11 @@ paf::ui::ListItem *SectionMenuFactory::Create(CreateParam& param) {
 
     g_section_menu_items[param.cell_index] = list_item;
 
-    paf::ui::Widget *label = list_item->FindChild("label");
-    if (label != NULL && g_sections[param.cell_index].title != NULL) {
-        label->SetString(g_sections[param.cell_index].title);
-    }
-
     paf::ui::Widget *button = list_item->FindChild("button");
     if (button != NULL) {
+        if (g_sections[param.cell_index].title != NULL) {
+            button->SetString(g_sections[param.cell_index].title);
+        }
         button->SetEventCallback(paf::ui::ButtonBase::CB_BTN_DECIDE, onSectionMenuClick, (void *)(uintptr_t)param.cell_index);
     }
 
@@ -751,6 +782,7 @@ static void setup_settings_page(paf::ui::Scene *scene) {
     }
 
     bind_decide(scene, "btn_back_settings", onCloseSettingsButtonClick);
+    set_widget_focusable(scene->FindChild("text_settings_title"), false);
 }
 
 static void onSearchPCsButtonClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata) {
