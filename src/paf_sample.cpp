@@ -11,6 +11,7 @@
 
 paf::Plugin *g_plugin = NULL;
 paf::ui::Scene *g_current_scene = NULL;
+static paf::ui::Scene *g_main_scene = NULL;
 
 static const int kMaxPageDepth = 8;
 static const char *g_page_stack[kMaxPageDepth];
@@ -110,6 +111,36 @@ static void close_page(const char *id, paf::Plugin::TransitionType transition) {
     }
     g_page_depth = write;
     g_current_scene = NULL;
+}
+
+static void set_widget_focusable(paf::ui::Widget *widget, bool on) {
+    if (widget == NULL) {
+        return;
+    }
+    if (on) {
+        widget->EnableEvent(paf::ui::EV_FOCUS);
+    } else {
+        widget->EnableFocusEvent(false);
+        widget->DisableEvent(paf::ui::EV_FOCUS);
+        widget->ReleaseFocus();
+    }
+}
+
+static void set_main_buttons_focusable(bool on) {
+    if (g_main_scene == NULL) {
+        return;
+    }
+    const char *ids[] = { "btn_search_pcs", "btn_add_manually", "settings_button" };
+    for (int i = 0; i < 3; i++) {
+        set_widget_focusable(g_main_scene->FindChild(ids[i]), on);
+    }
+}
+
+static void close_settings_balloon() {
+    close_page("page_settings_bubble", paf::Plugin::TransitionType_None);
+    if (!page_is_open("page_settings")) {
+        set_main_buttons_focusable(true);
+    }
 }
 
 class SettingsItemFactory : public paf::ui::listview::ItemFactory {
@@ -400,8 +431,23 @@ public:
     SettingsPadListener() : paf::inputdevice::InputListener(paf::inputdevice::DEVICE_TYPE_PAD) {}
 
     void OnUpdate(paf::inputdevice::Data *data) {
-        if (!page_is_open("page_settings") || data == NULL || data->m_pad_data == NULL) {
+        if (data == NULL || data->m_pad_data == NULL) {
             g_prev_pad = 0;
+            return;
+        }
+
+        uint32_t pad = data->m_pad_data->paddata;
+        uint32_t pressed = pad & ~g_prev_pad;
+        g_prev_pad = pad;
+
+        if (page_is_open("page_settings_bubble")) {
+            if (pressed & SCE_CTRL_CIRCLE) {
+                close_settings_balloon();
+            }
+            return;
+        }
+
+        if (!page_is_open("page_settings")) {
             return;
         }
 
@@ -416,9 +462,6 @@ public:
             g_focused_row = focused;
         }
 
-        uint32_t pad = data->m_pad_data->paddata;
-        uint32_t pressed = pad & ~g_prev_pad;
-        g_prev_pad = pad;
         if (focused < 0) {
             return;
         }
@@ -541,10 +584,22 @@ static void onSettingsButtonClick(int32_t type, paf::ui::Handler *self, paf::ui:
 
     bind_decide(scene, "btn_settings_balloon", onSpeechBalloonClick);
     bind_decide(scene, "btn_dismiss_balloon", onDismissBalloonClick);
+
+    set_main_buttons_focusable(false);
+    set_widget_focusable(scene->FindChild("btn_dismiss_balloon"), false);
+
+    paf::ui::Widget *settings_button = scene->FindChild("btn_settings_balloon");
+    if (settings_button != NULL) {
+        settings_button->SetFocusedState(true);
+    }
 }
 
 static void onDismissBalloonClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata) {
-    close_page("page_settings_bubble", paf::Plugin::TransitionType_None);
+    (void)type;
+    (void)self;
+    (void)e;
+    (void)userdata;
+    close_settings_balloon();
 }
 
 static void onSpeechBalloonClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata) {
@@ -554,8 +609,13 @@ static void onSpeechBalloonClick(int32_t type, paf::ui::Handler *self, paf::ui::
 }
 
 static void onCloseSettingsButtonClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata) {
+    (void)type;
+    (void)self;
+    (void)e;
+    (void)userdata;
     clear_setting_widgets();
     close_page("page_settings", paf::Plugin::TransitionType_SlideFromBottom);
+    set_main_buttons_focusable(true);
 }
 
 static void onCloseSearchButtonClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata) {
@@ -597,6 +657,7 @@ int paf_sample_main(void) {
 
     if (g_plugin != NULL) {
         paf::ui::Scene *scene = open_page("page_main", paf::Plugin::TransitionType_None);
+        g_main_scene = scene;
         if (scene != NULL) {
             bind_decide(scene, "btn_search_pcs", onSearchPCsButtonClick);
             bind_decide(scene, "btn_add_manually", onAddManuallyButtonClick);

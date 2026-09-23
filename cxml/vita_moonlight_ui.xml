@@ -72,7 +72,7 @@
         </button>
 
         <speech_balloon id="settings_speech_balloon" texture="_common_texture_option_menu_base_side">
-          <layout_hint adjust="2, 2, 0" pos="300, -150" />
+          <layout_hint adjust="2, 2, 0" pos="306, -233" />
           <box id="settings_balloon_box">
             <layout_box layout_type="1" bottom_margin="7" top_margin="7" right_margin="7" left_margin="7" />
             <button sound="_common_sound_button_enter" style="_style_option_menu_button_middle" label="msg_settings" id="btn_settings_balloon">
