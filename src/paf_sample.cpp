@@ -671,14 +671,21 @@ static void slide_panel(paf::ui::Widget *panel, bool reverse) {
     }
 }
 
+static paf::ui::Widget *page_plane(paf::ui::Scene *scene, const char *id) {
+    if (scene == NULL) {
+        return NULL;
+    }
+    paf::ui::Widget *plane = scene->FindChild(id);
+    return plane != NULL ? plane : scene;
+}
+
 static void nudge_page(paf::ui::Widget *widget, float x, float alpha) {
     if (widget == NULL) {
         return;
     }
-    paf::Timer *move = new paf::Timer(0.28f, paf::Timer::FUNC_CUBIC_OUT);
-    paf::Timer *fade = new paf::Timer(0.28f, paf::Timer::FUNC_CUBIC_OUT);
-    widget->SetPos(x, 0.0f, 0.0f, move);
-    widget->SetMetaAlpha(alpha, fade);
+    // Timer total is milliseconds. 0.28 was effectively instant.
+    widget->SetPos(x, 0.0f, 0.0f, new paf::Timer(300.0f, paf::Timer::FUNC_CUBIC_OUT));
+    widget->SetMetaAlpha(alpha, new paf::Timer(300.0f, paf::Timer::FUNC_CUBIC_OUT));
 }
 
 static void close_settings_section_now() {
@@ -707,9 +714,9 @@ static void close_settings_section() {
     if (g_section_scene != NULL) {
         slide_panel(g_section_scene->FindChild("plane_section_panel"), true);
     }
-    nudge_page(g_settings_scene, 0.0f, 1.0f);
+    nudge_page(page_plane(g_settings_scene, "plane_settings_root"), 0.0f, 1.0f);
     g_close_kind = 1;
-    g_close_wait = 20;
+    g_close_wait = 18;
 }
 
 static void close_settings_root() {
@@ -718,14 +725,14 @@ static void close_settings_root() {
     }
     if (page_is_open("page_settings_section")) {
         close_settings_section_now();
-        nudge_page(g_settings_scene, 0.0f, 1.0f);
+        nudge_page(page_plane(g_settings_scene, "plane_settings_root"), 0.0f, 1.0f);
     }
     if (g_settings_scene != NULL) {
         slide_panel(g_settings_scene->FindChild("plane_settings_panel"), true);
     }
-    nudge_page(g_main_scene, 0.0f, 1.0f);
+    nudge_page(page_plane(g_main_scene, "plane_main_bg"), 0.0f, 1.0f);
     g_close_kind = 2;
-    g_close_wait = 20;
+    g_close_wait = 18;
 }
 
 static void onSectionMenuClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata) {
@@ -775,7 +782,7 @@ static void onSectionMenuClick(int32_t type, paf::ui::Handler *self, paf::ui::Ev
     bind_decide(scene, "btn_back_section", onCloseSectionButtonClick);
     set_widget_focusable(scene->FindChild("text_section_title"), false);
     set_settings_menu_focusable(false);
-    nudge_page(g_settings_scene, -200.0f, 0.72f);
+    nudge_page(page_plane(g_settings_scene, "plane_settings_root"), -180.0f, 0.4f);
     slide_panel(scene->FindChild("plane_section_panel"), false);
 }
 
@@ -899,7 +906,7 @@ static void onSpeechBalloonClick(int32_t type, paf::ui::Handler *self, paf::ui::
     paf::ui::Scene *scene = open_page("page_settings", paf::Plugin::TransitionType_None);
     setup_settings_page(scene);
     if (scene != NULL) {
-        nudge_page(g_main_scene, -60.0f, 0.72f);
+        nudge_page(page_plane(g_main_scene, "plane_main_bg"), -110.0f, 0.4f);
         slide_panel(scene->FindChild("plane_settings_panel"), false);
     }
 }
