@@ -233,9 +233,9 @@ static int g_rows_ready = 0;
 static paf::ui::Widget *g_row_widgets[32];
 static int g_focused_row = -1;
 static uint32_t g_prev_pad = 0;
-static int g_back_consumed = 0;
 static int g_back_delay = 0;
 static int g_back_target = 0;
+static int g_picker_circle = 0;
 
 struct SettingSection {
     const wchar_t *title;
@@ -538,8 +538,12 @@ public:
     SettingsPadListener() : paf::inputdevice::InputListener(paf::inputdevice::DEVICE_TYPE_PAD) {}
 
     void OnUpdate(paf::inputdevice::Data *data) {
-        g_back_consumed = 0;
         if (g_back_delay > 0) {
+            if (g_picker_circle) {
+                g_back_delay = 0;
+                g_back_target = 0;
+                return;
+            }
             g_back_delay--;
             if (g_back_delay == 0) {
                 int target = g_back_target;
@@ -561,6 +565,10 @@ public:
         uint32_t pressed = pad & ~g_prev_pad;
         g_prev_pad = pad;
 
+        if (!(pad & paf::inputdevice::pad::Data::PAD_ESCAPE)) {
+            g_picker_circle = 0;
+        }
+
         if (page_is_open("page_settings_bubble")) {
             if (pressed & paf::inputdevice::pad::Data::PAD_ESCAPE) {
                 close_settings_balloon();
@@ -570,9 +578,13 @@ public:
 
         if (page_is_open("page_choice_picker")) {
             if (pressed & paf::inputdevice::pad::Data::PAD_ESCAPE) {
-                g_back_consumed = 1;
+                g_picker_circle = 1;
                 close_choice_picker();
             }
+            return;
+        }
+
+        if (g_picker_circle) {
             return;
         }
 
@@ -810,6 +822,24 @@ paf::ui::ListItem *PickerItemFactory::Create(CreateParam& param) {
     return list_item;
 }
 
+static void set_settings_back_active(bool on) {
+    paf::ui::Widget *backs[2];
+    backs[0] = g_section_scene != NULL ? g_section_scene->FindChild("btn_back_section") : NULL;
+    backs[1] = g_settings_scene != NULL ? g_settings_scene->FindChild("btn_back_settings") : NULL;
+    for (int i = 0; i < 2; i++) {
+        if (backs[i] == NULL) {
+            continue;
+        }
+        paf::ui::ButtonBase *button = (paf::ui::ButtonBase *)backs[i];
+        if (on) {
+            button->Enable(true);
+        } else {
+            button->SetDisableColor(1.0f, 1.0f, 1.0f, 0.35f);
+            button->Disable(true);
+        }
+    }
+}
+
 static void close_choice_picker() {
     if (!page_is_open("page_choice_picker")) {
         g_picker_row = -1;
@@ -820,12 +850,7 @@ static void close_choice_picker() {
     }
     g_picker_row = -1;
     close_page("page_choice_picker", paf::Plugin::TransitionType_None);
-    if (g_section_scene != NULL) {
-        paf::ui::Widget *back = g_section_scene->FindChild("btn_back_section");
-        if (back != NULL) {
-            back->Show(paf::common::transition::Type_Reset);
-        }
-    }
+    set_settings_back_active(true);
     set_section_rows_focusable(true);
 }
 
@@ -862,12 +887,7 @@ static void open_choice_picker(int row_index) {
     bind_decide(scene, "btn_picker_dismiss", onPickerDismiss);
     set_widget_focusable(scene->FindChild("btn_picker_dismiss"), false);
     set_section_rows_focusable(false);
-    if (g_section_scene != NULL) {
-        paf::ui::Widget *back = g_section_scene->FindChild("btn_back_section");
-        if (back != NULL) {
-            back->Hide(paf::common::transition::Type_Reset);
-        }
-    }
+    set_settings_back_active(false);
 }
 
 static void close_settings_section() {
@@ -988,8 +1008,8 @@ static void onCloseSectionButtonClick(int32_t type, paf::ui::Handler *self, paf:
     (void)self;
     (void)e;
     (void)userdata;
-    if (g_back_consumed || page_is_open("page_choice_picker")) {
-        g_back_consumed = 1;
+    if (g_picker_circle || page_is_open("page_choice_picker")) {
+        g_picker_circle = 1;
         close_choice_picker();
         return;
     }
@@ -1075,8 +1095,8 @@ static void onCloseSettingsButtonClick(int32_t type, paf::ui::Handler *self, paf
     (void)self;
     (void)e;
     (void)userdata;
-    if (g_back_consumed || page_is_open("page_choice_picker")) {
-        g_back_consumed = 1;
+    if (g_picker_circle || page_is_open("page_choice_picker")) {
+        g_picker_circle = 1;
         close_choice_picker();
         return;
     }
