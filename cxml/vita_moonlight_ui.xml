@@ -87,13 +87,13 @@
       <plane style="style_plane_fill" id="plane_settings_fill">
         <layout_hint size="960, 544" />
 
-        <text style="style_text_title" label="msg_settings" id="text_settings_title">
-          <layout_hint adjust="2, 2" pos="0, 222" size="820, 44" />
-        </text>
-
         <list_view style="_common_style_list_view_transparent" id="settings_list_view">
-          <layout_hint pos="0, -32" size="936, 392" />
+          <layout_hint pos="0, -36" size="900, 380" />
         </list_view>
+
+        <button style="_style_screen_title" label="msg_settings" id="text_settings_title">
+          <layout_hint pos="0, 214" size="880, 52" />
+        </button>
 
         <corner_button style="_common_style_corner_bottom_left" id="btn_back_settings" />
       </plane>
@@ -103,13 +103,13 @@
       <plane style="style_plane_fill" id="plane_section_fill">
         <layout_hint size="960, 544" />
 
-        <text style="style_text_title" id="text_section_title">
-          <layout_hint adjust="2, 2" pos="0, 222" size="820, 44" />
-        </text>
-
         <list_view style="_common_style_list_view_transparent" id="section_list_view">
-          <layout_hint pos="0, -32" size="936, 392" />
+          <layout_hint pos="0, -36" size="900, 380" />
         </list_view>
+
+        <button style="_style_screen_title" label="msg_settings" id="text_section_title">
+          <layout_hint pos="0, 214" size="880, 52" />
+        </button>
 
         <corner_button style="_common_style_corner_bottom_left" id="btn_back_section" />
       </plane>
@@ -137,9 +137,9 @@
   <templatetable>
     <template fast_open="1" id="template_settings_section">
       <list_item style="_common_style_list_item_transparent" id="list_item">
-        <layout_hint size="936, 70" />
+        <layout_hint size="900, 82" />
         <button sound="_common_sound_button_enter" style="_style_settings_section_button" id="button">
-          <layout_hint size="936, 70" />
+          <layout_hint size="900, 82" />
           <focus_hint focus_shape="3" />
         </button>
       </list_item>
@@ -147,31 +147,34 @@
 
     <template fast_open="1" id="template_settings_note">
       <list_item style="_common_style_list_item_transparent" id="list_item">
-        <layout_hint size="936, 70" />
+        <layout_hint size="900, 82" />
         <button style="_style_settings_note_button" id="button">
-          <layout_hint size="936, 70" />
+          <layout_hint size="900, 82" />
         </button>
       </list_item>
     </template>
 
     <template fast_open="1" id="template_settings_row">
       <list_item style="_common_style_list_item_transparent" id="list_item">
-        <layout_hint size="936, 70" />
+        <layout_hint size="900, 82" />
         <button sound="_common_sound_button_enter" style="_style_settings_row_button" id="button">
-          <layout_hint size="936, 70" />
+          <layout_hint size="900, 82" />
           <focus_hint focus_shape="3" />
+        </button>
+        <button style="_style_settings_value" id="value">
+          <layout_hint pos="250, 0" size="320, 82" />
         </button>
       </list_item>
     </template>
 
     <template fast_open="1" id="template_settings_toggle">
       <list_item style="_common_style_list_item_transparent" id="list_item">
-        <layout_hint size="936, 70" />
-        <button sound="_common_sound_button_enter" style="_style_settings_toggle_button" id="button">
-          <layout_hint size="936, 70" />
+        <layout_hint size="900, 82" />
+        <button style="_style_settings_toggle_button" id="button">
+          <layout_hint size="900, 82" />
         </button>
         <check_box style="_common_default_style_check_box" id="check">
-          <layout_hint pos="424, 0" size="58, 58" />
+          <layout_hint pos="390, 0" size="58, 58" />
           <focus_hint focus_shape="0" />
         </check_box>
       </list_item>
@@ -235,7 +238,7 @@
 
     <style_button bg_obj="title_bg" label_obj="title_label" id="_style_screen_title">
       <planeobj color="0, 0, 0, 0" id="title_bg" />
-      <textobj font_size="32" bold="1" color="1, 1, 1, 1" align_x="1" align_y="1" ellipsis="1" id="title_label" />
+      <textobj font_size="36" bold="1" color="1, 1, 1, 1" align_x="1" align_y="1" ellipsis="1" id="title_label" />
     </style_button>
 
     <style_button bg_obj="obj1" glow_obj="obj2" label_obj="section_label" id="_style_settings_section_button">
@@ -244,14 +247,19 @@
       <textobj font_size="30" bold="1" color="1, 1, 1, 1" align_x="1" align_y="1" ellipsis="1" id="section_label" />
     </style_button>
 
-    <style_button bg_obj="obj1" glow_obj="obj2" left_margin="20" right_margin="20" label_obj="row_label" id="_style_settings_row_button">
+    <style_button bg_obj="obj1" glow_obj="obj2" left_margin="72" right_margin="340" label_obj="row_label" id="_style_settings_row_button">
       <planeobj texture0="_common_texture_list_70px" id="obj1" />
       <planeobj texture0="_common_texture_list_glow_70px" id="obj2" />
       <textobj font_size="28" bold="1" color="1, 1, 1, 1" align_x="0" align_y="1" ellipsis="1" id="row_label" />
     </style_button>
 
-    <style_button bg_obj="obj1" left_margin="20" right_margin="88" label_obj="row_label" id="_style_settings_toggle_button">
-      <planeobj texture0="_common_texture_list_70px" id="obj1" />
+    <style_button bg_obj="value_bg" right_margin="36" label_obj="value_label" id="_style_settings_value">
+      <planeobj color="0, 0, 0, 0" id="value_bg" />
+      <textobj font_size="22" bold="0" color="1, 1, 1, 1" align_x="2" align_y="1" ellipsis="1" id="value_label" />
+    </style_button>
+
+    <style_button bg_obj="toggle_bg" left_margin="72" right_margin="120" label_obj="row_label" id="_style_settings_toggle_button">
+      <planeobj color="0, 0, 0, 0" id="toggle_bg" />
       <textobj font_size="28" bold="1" color="1, 1, 1, 1" align_x="0" align_y="1" ellipsis="1" id="row_label" />
     </style_button>
 
@@ -261,7 +269,7 @@
       <textobj font_size="26" bold="1" color="1, 1, 1, 1" align_x="0" align_y="1" ellipsis="1" id="opt_label" />
     </style_button>
 
-    <style_button bg_obj="obj1" left_margin="20" right_margin="20" label_obj="note_label" id="_style_settings_note_button">
+    <style_button bg_obj="obj1" left_margin="72" right_margin="36" label_obj="note_label" id="_style_settings_note_button">
       <planeobj texture0="_common_texture_list_70px" id="obj1" />
       <textobj font_size="24" bold="0" color="1, 1, 1, 0.8" align_x="0" align_y="1" ellipsis="1" id="note_label" />
     </style_button>

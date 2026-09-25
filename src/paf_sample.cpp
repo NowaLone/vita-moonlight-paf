@@ -424,33 +424,24 @@ static void format_setting_value(const SettingRow& row, wchar_t *dst, int cap) {
     }
 }
 
-static void format_setting_line(const SettingRow& row, wchar_t *dst, int cap) {
-    wchar_t value[64];
-    format_setting_value(row, value, 64);
-    const wchar_t *label = row.label != NULL ? row.label : L"";
-    int label_len = 0;
-    int value_len = 0;
-    while (label[label_len] != 0) {
-        label_len++;
+static void set_setting_texts(paf::ui::Widget *item, const SettingRow& row) {
+    if (item == NULL) {
+        return;
     }
-    while (value[value_len] != 0) {
-        value_len++;
+    paf::ui::Widget *button = item->FindChild("button");
+    if (button != NULL && row.label != NULL) {
+        button->SetString(row.label);
     }
-    int pad = 46 - label_len - value_len;
-    if (pad < 2) {
-        pad = 2;
+    paf::ui::Widget *value = item->FindChild("value");
+    if (value == NULL) {
+        return;
     }
-    int n = 0;
-    for (int i = 0; i < label_len && n < cap - 1; i++) {
-        dst[n++] = label[i];
+    set_widget_focusable(value, false);
+    if (row.kind == KIND_CHOICE || row.kind == KIND_INT || row.kind == KIND_FIXED) {
+        wchar_t text[64];
+        format_setting_value(row, text, 64);
+        value->SetString(text);
     }
-    for (int i = 0; i < pad && n < cap - 1; i++) {
-        dst[n++] = L' ';
-    }
-    for (int i = 0; i < value_len && n < cap - 1; i++) {
-        dst[n++] = value[i];
-    }
-    dst[n] = 0;
 }
 
 static void sync_toggle_box(paf::ui::Widget *item, int on) {
@@ -471,18 +462,10 @@ static void refresh_setting_value(int index) {
     if (button == NULL) {
         return;
     }
-    if (g_rows[index].kind == KIND_NOTE || g_rows[index].kind == KIND_TOGGLE) {
-        if (g_rows[index].label != NULL) {
-            button->SetString(g_rows[index].label);
-        }
-        if (g_rows[index].kind == KIND_TOGGLE) {
-            sync_toggle_box(g_row_widgets[index], g_rows[index].value);
-        }
-        return;
+    set_setting_texts(g_row_widgets[index], g_rows[index]);
+    if (g_rows[index].kind == KIND_TOGGLE) {
+        sync_toggle_box(g_row_widgets[index], g_rows[index].value);
     }
-    wchar_t line[160];
-    format_setting_line(g_rows[index], line, 160);
-    button->SetString(line);
 }
 
 static void change_setting(int index, int dir) {
@@ -669,18 +652,10 @@ paf::ui::ListItem *SettingsItemFactory::Create(CreateParam& param) {
     }
 
     g_row_widgets[row_index] = list_item;
+    set_setting_texts(list_item, row);
 
     paf::ui::Widget *button = list_item->FindChild("button");
     if (button != NULL) {
-        if (row.kind == KIND_NOTE || row.kind == KIND_TOGGLE) {
-            if (row.label != NULL) {
-                button->SetString(row.label);
-            }
-        } else {
-            wchar_t line[160];
-            format_setting_line(row, line, 160);
-            button->SetString(line);
-        }
         button->SetEventCallback(paf::ui::ButtonBase::CB_BTN_DECIDE, onSettingsListItemClick, (void *)(uintptr_t)row_index);
     }
 
@@ -980,7 +955,7 @@ static void onSectionMenuClick(int32_t type, paf::ui::Handler *self, paf::ui::Ev
         }
         section_list->SetItemFactory(new SettingsItemFactory());
         section_list->InsertSegment(0, 1);
-        section_list->SetCellSizeDefault(0, { 936.0f, 70.0f, 0.0f, 0.0f });
+        section_list->SetCellSizeDefault(0, { 900.0f, 82.0f, 0.0f, 0.0f });
         section_list->SetSegmentLayoutType(0, paf::ui::ListView::LAYOUT_TYPE_LIST);
         section_list->InsertCell(0, 0, section.count);
         g_focused_row = section.first + focus_local;
@@ -1061,7 +1036,7 @@ static void setup_settings_page(paf::ui::Scene *scene) {
     if (settings_list_view) {
         settings_list_view->SetItemFactory(new SectionMenuFactory());
         settings_list_view->InsertSegment(0, 1);
-        settings_list_view->SetCellSizeDefault(0, { 936.0f, 70.0f, 0.0f, 0.0f });
+        settings_list_view->SetCellSizeDefault(0, { 900.0f, 82.0f, 0.0f, 0.0f });
         settings_list_view->SetSegmentLayoutType(0, paf::ui::ListView::LAYOUT_TYPE_LIST);
         settings_list_view->InsertCell(0, 0, g_section_count);
         settings_list_view->SetFocus(0, 0, paf::ui::ListView::FOCUS_ALIGN_TYPE_HEAD, NULL);
