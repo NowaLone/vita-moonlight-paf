@@ -174,7 +174,7 @@
           <layout_hint size="900, 82" />
         </button>
         <check_box style="_common_default_style_check_box" id="check">
-          <layout_hint pos="390, 0" size="58, 58" />
+          <layout_hint pos="345, 0" size="58, 58" />
           <focus_hint focus_shape="0" />
         </check_box>
       </list_item>

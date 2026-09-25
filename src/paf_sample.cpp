@@ -830,11 +830,14 @@ static void set_settings_back_active(bool on) {
             continue;
         }
         paf::ui::ButtonBase *button = (paf::ui::ButtonBase *)backs[i];
+        paf::Timer *timer = new paf::Timer(200.0f, paf::Timer::Func::FUNC_LINEAR);
         if (on) {
             button->Enable(true);
+            button->SetMetaAlpha(1.0f, timer);
         } else {
-            button->SetDisableColor(1.0f, 1.0f, 1.0f, 0.35f);
+            button->SetDisableColor(1.0f, 1.0f, 1.0f, 1.0f);
             button->Disable(true);
+            button->SetMetaAlpha(0.35f, timer);
         }
     }
 }
