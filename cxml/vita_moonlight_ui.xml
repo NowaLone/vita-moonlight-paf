@@ -64,23 +64,19 @@
     </page>
 
     <page id="page_settings_bubble">
-      <plane style="_common_style_plane_transparent" id="plane_settings_bubble_root">
+      <button sound="_common_sound_button_back" style="_common_default_style_button_transparent" id="btn_dismiss_balloon">
         <layout_hint size="960, 544" />
-
-        <button style="style_button_dim_hit" id="btn_dismiss_balloon">
-          <layout_hint size="960, 544" />
-        </button>
-
-        <speech_balloon id="settings_speech_balloon" texture="_common_texture_option_menu_base_down">
-          <layout_hint adjust="2, 2, 0" pos="418, -214" />
+        <focus_hint enable="0" />
+        <plane style="_common_default_style_plane" texture="_common_texture_option_menu_base_down" id="settings_speech_balloon">
+          <layout_hint anchor="0, 1" align="0, 1" size="214, 72" pos="1920, 1080" />
           <box id="settings_balloon_box">
-            <layout_box layout_type="1" bottom_margin="18" top_margin="8" right_margin="8" left_margin="8" />
-            <button sound="_common_sound_button_enter" style="_style_option_menu_button_middle" label="msg_settings" id="btn_settings_balloon">
-              <layout_hint adjust="2, 0, 0" size="0, 46, 0" />
+            <layout_box anchor="1, 2" align="1, 2" layout_type="1" bottom_margin="6" top_margin="6" right_margin="6" left_margin="6" />
+            <button sound="_common_sound_button_enter" style="style_button_option_single" label="msg_settings" id="btn_settings_balloon">
+              <layout_hint size="202, 60" />
             </button>
           </box>
-        </speech_balloon>
-      </plane>
+        </plane>
+      </button>
     </page>
 
     <page id="page_settings">
@@ -289,10 +285,10 @@
       <textobj font_size="24" bold="0" color="1, 1, 1, 0.8" align_x="0" align_y="1" ellipsis="1" id="note_label" />
     </style_button>
 
-    <style_button bottom_margin="12" glow_obj="glow_obj" right_margin="20" top_margin="12" left_margin="20" label_obj="label_obj" bg_obj="bg_obj" adjust_min_size="146, 54" id="_style_option_menu_button_top">
-      <planeobj texture0="_common_texture_option_menu_button_top" id="bg_obj" />
-      <textobj font_size="28" bold="1" align_y="1" align_x="1" adjust_x="1" adjust_y="1" id="label_obj" />
-      <planeobj texture0="_common_texture_option_menu_button_top_glow" blend="2" id="glow_obj" />
+    <style_button sound="_common_sound_button_enter" bottom_margin="12" right_margin="20" top_margin="12" left_margin="20" label_obj="label_obj" bg_obj="bg_obj" glow_obj="glow_obj" id="style_button_option_single">
+      <planeobj texture0="_common_texture_option_menu_button_single" id="bg_obj" />
+      <textobj font_size="28" bold="1" align_y="1" align_x="3" id="label_obj" />
+      <planeobj texture0="_common_texture_option_menu_button_single_glow" blend="2" id="glow_obj" />
     </style_button>
 
     <style_button bottom_margin="12" glow_obj="glow_obj" right_margin="20" top_margin="12" left_margin="20" label_obj="label_obj" bg_obj="bg_obj" adjust_min_size="146, 54" id="_style_option_menu_button_middle">

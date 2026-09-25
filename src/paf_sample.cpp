@@ -1085,9 +1085,14 @@ static void onSettingsButtonClick(int32_t type, paf::ui::Handler *self, paf::ui:
         return;
     }
 
-    paf::ui::Plane *speech_balloon = (paf::ui::Plane *)scene->FindChild("settings_speech_balloon");
-    if (speech_balloon) {
-        paf::common::transition::Do(0.0f, speech_balloon, paf::common::transition::Type_Popup5, false, false);
+    paf::ui::Widget *balloon = scene->FindChild("settings_speech_balloon");
+    if (balloon != NULL) {
+        const float button_w = 202.0f;
+        const float plane_w = button_w + 12.0f;
+        const float plane_h = 12.0f + 60.0f;
+        balloon->SetSize({ plane_w, plane_h, 0.0f, 0.0f }, NULL);
+        balloon->SetPos(264.0f + ((button_w - plane_w) / 2.0f), 43.0f, 0.0f, NULL);
+        balloon->Show(paf::common::transition::Type_Popup4, 0.0f);
     }
 
     bind_decide(scene, "btn_settings_balloon", onSpeechBalloonClick);
