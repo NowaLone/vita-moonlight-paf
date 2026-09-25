@@ -88,7 +88,7 @@
         <layout_hint size="960, 544" />
 
         <list_view style="_common_style_list_view_transparent" id="settings_list_view">
-          <layout_hint pos="0, -6" size="900, 368" />
+          <layout_hint pos="0, -28" size="900, 324" />
         </list_view>
 
         <button style="_style_screen_title" label="msg_settings" id="text_settings_title">
@@ -96,7 +96,7 @@
         </button>
 
         <plane texture="_tex_title_rule" id="plane_settings_rule">
-          <layout_hint pos="0, 180" size="960, 4" />
+          <layout_hint pos="0, 180" size="760, 2" />
         </plane>
 
         <corner_button style="_common_style_corner_bottom_left" id="btn_back_settings" />
@@ -108,7 +108,7 @@
         <layout_hint size="960, 544" />
 
         <list_view style="_common_style_list_view_transparent" id="section_list_view">
-          <layout_hint pos="0, -6" size="900, 368" />
+          <layout_hint pos="0, -28" size="900, 324" />
         </list_view>
 
         <button style="_style_screen_title" label="msg_settings" id="text_section_title">
@@ -116,7 +116,7 @@
         </button>
 
         <plane texture="_tex_title_rule" id="plane_section_rule">
-          <layout_hint pos="0, 180" size="960, 4" />
+          <layout_hint pos="0, 180" size="760, 2" />
         </plane>
 
         <corner_button style="_common_style_corner_bottom_left" id="btn_back_section" />
