@@ -98,7 +98,7 @@
         </plane>
 
         <list_view style="_common_style_list_view_transparent" id="settings_list_view">
-          <layout_hint align="0, 2" anchor="0, 2" pos="0, -122" size="900, 340" />
+          <layout_hint align="0, 2" anchor="0, 2" pos="0, -78" size="900, 390" />
         </list_view>
 
         <corner_button style="_common_style_corner_bottom_left" id="btn_back_settings" />
@@ -120,7 +120,7 @@
         </plane>
 
         <list_view style="_common_style_list_view_transparent" id="section_list_view">
-          <layout_hint align="0, 2" anchor="0, 2" pos="0, -122" size="900, 340" />
+          <layout_hint align="0, 2" anchor="0, 2" pos="0, -78" size="900, 390" />
         </list_view>
 
         <corner_button style="_common_style_corner_bottom_left" id="btn_back_section" />

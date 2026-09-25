@@ -190,6 +190,7 @@ static void close_settings_section();
 static void close_settings_root();
 static void close_choice_picker(int from_circle = 0);
 static void set_settings_back_active(bool on);
+static void fit_list_under_header(paf::ui::ListView *list, int count);
 static void open_choice_picker(int row_index);
 static void onCloseSectionButtonClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata);
 
@@ -961,8 +962,9 @@ static void onSectionMenuClick(int32_t type, paf::ui::Handler *self, paf::ui::Ev
         section_list->SetCellSizeDefault(0, { 900.0f, 82.0f, 0.0f, 0.0f });
         section_list->SetSegmentLayoutType(0, paf::ui::ListView::LAYOUT_TYPE_LIST);
         section_list->InsertCell(0, 0, section.count);
+        fit_list_under_header(section_list, section.count);
         g_focused_row = section.first + focus_local;
-        section_list->SetFocus(0, focus_local, paf::ui::ListView::FOCUS_ALIGN_TYPE_HEAD, NULL);
+        section_list->SetFocus(0, 0, paf::ui::ListView::FOCUS_ALIGN_TYPE_HEAD, NULL);
     }
 
     bind_decide(scene, "btn_back_section", onCloseSectionButtonClick);
@@ -1023,6 +1025,22 @@ static void onCloseSectionButtonClick(int32_t type, paf::ui::Handler *self, paf:
     close_settings_section();
 }
 
+static void fit_list_under_header(paf::ui::ListView *list, int count) {
+    if (list == NULL) {
+        return;
+    }
+    const float cell_h = 82.0f;
+    const float max_h = 390.0f;
+    float height = (float)count * cell_h;
+    if (height < cell_h) {
+        height = cell_h;
+    }
+    if (height > max_h) {
+        height = max_h;
+    }
+    list->SetSize({ 900.0f, height, 0.0f, 0.0f }, NULL);
+}
+
 static void setup_settings_page(paf::ui::Scene *scene) {
     if (scene == NULL) {
         return;
@@ -1043,6 +1061,7 @@ static void setup_settings_page(paf::ui::Scene *scene) {
         settings_list_view->SetCellSizeDefault(0, { 900.0f, 82.0f, 0.0f, 0.0f });
         settings_list_view->SetSegmentLayoutType(0, paf::ui::ListView::LAYOUT_TYPE_LIST);
         settings_list_view->InsertCell(0, 0, g_section_count);
+        fit_list_under_header(settings_list_view, g_section_count);
         settings_list_view->SetFocus(0, 0, paf::ui::ListView::FOCUS_ALIGN_TYPE_HEAD, NULL);
     }
 
