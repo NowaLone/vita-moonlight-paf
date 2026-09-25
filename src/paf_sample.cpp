@@ -1144,7 +1144,8 @@ void loadPluginCB(paf::Plugin *plugin) {
 int paf_sample_main(void) {
     paf::Framework::InitParam fwParam;
     fwParam.mode = paf::Framework::Mode_Normal;
-
+    paf::Framework::SampleInit(&fwParam);
+    fwParam.graphics_option = 7;
     paf::Framework *paf_fw = new paf::Framework(fwParam);
     if (paf_fw == NULL) {
         return -1;
