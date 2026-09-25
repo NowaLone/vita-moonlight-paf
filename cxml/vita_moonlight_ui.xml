@@ -71,10 +71,10 @@
           <layout_hint size="960, 544" />
         </button>
 
-        <speech_balloon id="settings_speech_balloon" texture="_common_texture_option_menu_base_side">
-          <layout_hint adjust="2, 2, 0" pos="306, -233" />
+        <speech_balloon id="settings_speech_balloon" texture="_common_texture_option_menu_base_down">
+          <layout_hint adjust="2, 2, 0" pos="348, -128" />
           <box id="settings_balloon_box">
-            <layout_box layout_type="1" bottom_margin="7" top_margin="7" right_margin="7" left_margin="7" />
+            <layout_box layout_type="1" bottom_margin="18" top_margin="8" right_margin="8" left_margin="8" />
             <button sound="_common_sound_button_enter" style="_style_option_menu_button_middle" label="msg_settings" id="btn_settings_balloon">
               <layout_hint adjust="2, 0, 0" size="0, 46, 0" />
             </button>
