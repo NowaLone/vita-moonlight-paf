@@ -533,6 +533,17 @@ static void onSettingsListItemClick(int32_t type, paf::ui::Handler *self, paf::u
     change_setting(index, 0);
 }
 
+static void onToggleCheckClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata) {
+    (void)type;
+    (void)e;
+    int index = (int)(uintptr_t)userdata;
+    paf::ui::CheckBox *box = (paf::ui::CheckBox *)self;
+    if (index < 0 || index >= kSettingRowCount || box == NULL) {
+        return;
+    }
+    g_rows[index].value = box->IsChecked() ? 1 : 0;
+}
+
 class SettingsPadListener : public paf::inputdevice::InputListener {
 public:
     SettingsPadListener() : paf::inputdevice::InputListener(paf::inputdevice::DEVICE_TYPE_PAD) {}
@@ -668,8 +679,12 @@ paf::ui::ListItem *SettingsItemFactory::Create(CreateParam& param) {
     }
 
     if (row.kind == KIND_TOGGLE) {
+        paf::ui::CheckBox *box = (paf::ui::CheckBox *)list_item->FindChild("check");
         sync_toggle_box(list_item, row.value);
-        set_widget_focusable(list_item->FindChild("check"), false);
+        set_widget_focusable(button, false);
+        if (box != NULL) {
+            box->SetEventCallback(paf::ui::ButtonBase::CB_BTN_DECIDE, onToggleCheckClick, (void *)(uintptr_t)row_index);
+        }
     }
 
     return list_item;
@@ -708,8 +723,13 @@ static void set_section_rows_focusable(bool on) {
             continue;
         }
         set_widget_focusable(item, on);
-        set_widget_focusable(item->FindChild("button"), on);
-        set_widget_focusable(item->FindChild("check"), false);
+        paf::ui::Widget *check = item->FindChild("check");
+        if (check != NULL) {
+            set_widget_focusable(item->FindChild("button"), false);
+            set_widget_focusable(check, on);
+        } else {
+            set_widget_focusable(item->FindChild("button"), on);
+        }
     }
 }
 
@@ -809,11 +829,11 @@ paf::ui::ListItem *PickerItemFactory::Create(CreateParam& param) {
         button->SetEventCallback(paf::ui::ButtonBase::CB_BTN_DECIDE, onPickerItemClick, (void *)(uintptr_t)param.cell_index);
     }
 
-    paf::ui::CheckBox *mark = (paf::ui::CheckBox *)list_item->FindChild("mark");
+    paf::ui::Widget *mark = list_item->FindChild("mark");
     if (mark != NULL) {
         set_widget_focusable(mark, false);
         if (param.cell_index == g_picker_current) {
-            mark->SetCheck(true, false);
+            mark->SetString(L"\x2713");
         } else {
             mark->Hide(paf::common::transition::Type_Reset);
         }
@@ -952,7 +972,7 @@ static void onSectionMenuClick(int32_t type, paf::ui::Handler *self, paf::ui::Ev
         }
         section_list->SetItemFactory(new SettingsItemFactory());
         section_list->InsertSegment(0, 1);
-        section_list->SetCellSizeDefault(0, { 880.0f, 70.0f, 0.0f, 0.0f });
+        section_list->SetCellSizeDefault(0, { 936.0f, 70.0f, 0.0f, 0.0f });
         section_list->SetSegmentLayoutType(0, paf::ui::ListView::LAYOUT_TYPE_LIST);
         section_list->InsertCell(0, 0, section.count);
         g_focused_row = section.first + focus_local;
@@ -1033,7 +1053,7 @@ static void setup_settings_page(paf::ui::Scene *scene) {
     if (settings_list_view) {
         settings_list_view->SetItemFactory(new SectionMenuFactory());
         settings_list_view->InsertSegment(0, 1);
-        settings_list_view->SetCellSizeDefault(0, { 880.0f, 70.0f, 0.0f, 0.0f });
+        settings_list_view->SetCellSizeDefault(0, { 936.0f, 70.0f, 0.0f, 0.0f });
         settings_list_view->SetSegmentLayoutType(0, paf::ui::ListView::LAYOUT_TYPE_LIST);
         settings_list_view->InsertCell(0, 0, g_section_count);
         settings_list_view->SetFocus(0, 0, paf::ui::ListView::FOCUS_ALIGN_TYPE_HEAD, NULL);
