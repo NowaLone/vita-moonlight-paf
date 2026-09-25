@@ -22,7 +22,6 @@ set(VITA_MAKE_FSELF_FLAGS "${VITA_MAKE_FSELF_FLAGS} -a 0x2F00000000000101")
 
 enable_language(CXX ASM)
 
-# Verify PAF headers exist
 execute_process(
   COMMAND find "${VITASDK}" -name "paf.h" -type f
   OUTPUT_VARIABLE PAF_HEADER_FIND
@@ -34,7 +33,6 @@ if(NOT PAF_HEADER_FIND)
   message(FATAL_ERROR "Could not find paf.h. Make sure VITASDK is properly set up with PAF component.")
 endif()
 
-# Find vitasdk samples library directory
 set(VITASDK_SAMPLES_LIB "${VITASDK}/../vitasdk-paf-component/paf_samples/vitasdk")
 if(EXISTS "${VITASDK_SAMPLES_LIB}")
   link_directories(${VITASDK_SAMPLES_LIB})
@@ -50,6 +48,19 @@ endif()
 add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/paf_sample.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/common.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/option_menu.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/settings_model.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/api.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_main.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_search.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_add_host.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_settings.cpp
+)
+
+target_include_directories(${PROJECT_NAME} PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 target_link_libraries(${PROJECT_NAME}

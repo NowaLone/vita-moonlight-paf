@@ -1,10 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <application_settings version="1.0" bg_color="0, 0, 0, 0">
   <setting_list id="moonlight_settings" title="msg_settings">
-    <setting_list id="video_settings" title="msg_video_settings" style="edit" icon="tex_spanner" />
-    <setting_list id="audio_settings" title="msg_audio_settings" icon="tex_spanner" />
-    <setting_list id="network_settings" title="msg_network_settings" icon="tex_spanner" />
-    <setting_list id="input_settings" title="msg_input_settings" icon="tex_spanner" />
+    <setting_list id="stream_settings" title="msg_stream_settings" style="edit" icon="tex_spanner">
+      <setting id="resolution" title="msg_resolution" type="list" key="resolution">
+        <list_item id="res_960x540" title="960x540" />
+        <list_item id="res_960x544" title="960x544" />
+        <list_item id="res_1280x720" title="1280x720" />
+        <list_item id="res_1920x1080" title="1920x1080" />
+      </setting>
+      <setting id="fps" title="msg_fps" type="list" key="fps" />
+      <setting id="bitrate" title="msg_bitrate" type="list" key="bitrate" />
+      <setting id="optimize_graphics" title="msg_optimize_graphics" type="toggle" key="optimize_graphics" />
+      <setting id="ref_invalidation" title="msg_ref_invalidation" type="toggle" key="ref_invalidation" />
+      <setting id="stream_opt" title="msg_stream_opt" type="toggle" key="stream_opt" />
+      <setting id="vita_vblank" title="msg_vita_vblank" type="toggle" key="vita_vblank" />
+      <setting id="frame_pacer" title="msg_frame_pacer" type="toggle" key="frame_pacer" />
+      <setting id="local_audio" title="msg_local_audio" type="toggle" key="local_audio" />
+    </setting_list>
+    <setting_list id="system_settings" title="msg_system_settings" icon="tex_spanner">
+      <setting id="debug_log" title="msg_debug_log" type="toggle" key="debug_log" />
+      <setting id="disable_power_save" title="msg_disable_power_save" type="toggle" key="disable_power_save" />
+      <setting id="swap_xo" title="msg_swap_xo" type="toggle" key="swap_xo" />
+      <setting id="show_fps" title="msg_show_fps" type="toggle" key="show_fps" />
+    </setting_list>
+    <setting_list id="input_settings" title="msg_input_settings" icon="tex_spanner">
+      <setting id="gyro" title="msg_gyro" type="toggle" key="gyro" />
+      <setting id="controller_type" title="msg_controller_type" type="list" key="controller_type" />
+      <setting id="touch_mode" title="msg_touch_mode" type="list" key="touch_mode" />
+      <setting id="keyboard_layout" title="msg_keyboard_layout" type="list" key="keyboard_layout" />
+    </setting_list>
     <setting_list id="about_settings" title="msg_about" icon="tex_spanner" />
   </setting_list>
 </application_settings>

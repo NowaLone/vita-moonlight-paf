@@ -12,4 +12,7 @@
   <string src="Audio" id="msg_audio_settings" />
   <string src="Network" id="msg_network_settings" />
   <string src="Input" id="msg_input_settings" />
+  <string src="Stream" id="msg_stream_settings" />
+  <string src="System" id="msg_system_settings" />
+  <string src="About" id="msg_about" />
 </stringset>
