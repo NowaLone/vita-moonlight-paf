@@ -188,7 +188,8 @@ static void clear_setting_widgets();
 static void set_settings_menu_focusable(bool on);
 static void close_settings_section();
 static void close_settings_root();
-static void close_choice_picker();
+static void close_choice_picker(int from_circle = 0);
+static void set_settings_back_active(bool on);
 static void open_choice_picker(int row_index);
 static void onCloseSectionButtonClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata);
 
@@ -236,6 +237,7 @@ static uint32_t g_prev_pad = 0;
 static int g_back_delay = 0;
 static int g_back_target = 0;
 static int g_picker_circle = 0;
+static int g_back_wait_release = 0;
 
 struct SettingSection {
     const wchar_t *title;
@@ -578,6 +580,10 @@ public:
 
         if (!(pad & paf::inputdevice::pad::Data::PAD_ESCAPE)) {
             g_picker_circle = 0;
+            if (g_back_wait_release) {
+                g_back_wait_release = 0;
+                set_settings_back_active(true);
+            }
         }
 
         if (page_is_open("page_settings_bubble")) {
@@ -590,7 +596,7 @@ public:
         if (page_is_open("page_choice_picker")) {
             if (pressed & paf::inputdevice::pad::Data::PAD_ESCAPE) {
                 g_picker_circle = 1;
-                close_choice_picker();
+                close_choice_picker(1);
             }
             return;
         }
@@ -832,9 +838,7 @@ paf::ui::ListItem *PickerItemFactory::Create(CreateParam& param) {
     paf::ui::Widget *mark = list_item->FindChild("mark");
     if (mark != NULL) {
         set_widget_focusable(mark, false);
-        if (param.cell_index == g_picker_current) {
-            mark->SetString(L"\x2713");
-        } else {
+        if (param.cell_index != g_picker_current) {
             mark->Hide(paf::common::transition::Type_Reset);
         }
     }
@@ -860,7 +864,7 @@ static void set_settings_back_active(bool on) {
     }
 }
 
-static void close_choice_picker() {
+static void close_choice_picker(int from_circle) {
     if (!page_is_open("page_choice_picker")) {
         g_picker_row = -1;
         return;
@@ -870,7 +874,11 @@ static void close_choice_picker() {
     }
     g_picker_row = -1;
     close_page("page_choice_picker", paf::Plugin::TransitionType_None);
-    set_settings_back_active(true);
+    if (from_circle) {
+        g_back_wait_release = 1;
+    } else {
+        set_settings_back_active(true);
+    }
     set_section_rows_focusable(true);
 }
 
@@ -1030,7 +1038,7 @@ static void onCloseSectionButtonClick(int32_t type, paf::ui::Handler *self, paf:
     (void)userdata;
     if (g_picker_circle || page_is_open("page_choice_picker")) {
         g_picker_circle = 1;
-        close_choice_picker();
+        close_choice_picker(1);
         return;
     }
     close_settings_section();
@@ -1117,7 +1125,7 @@ static void onCloseSettingsButtonClick(int32_t type, paf::ui::Handler *self, paf
     (void)userdata;
     if (g_picker_circle || page_is_open("page_choice_picker")) {
         g_picker_circle = 1;
-        close_choice_picker();
+        close_choice_picker(1);
         return;
     }
     close_settings_root();

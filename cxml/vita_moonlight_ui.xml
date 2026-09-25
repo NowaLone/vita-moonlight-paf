@@ -88,11 +88,11 @@
         <layout_hint size="960, 544" />
 
         <text style="style_text_title" label="msg_settings" id="text_settings_title">
-          <layout_hint adjust="2, 2" pos="0, 214" />
+          <layout_hint adjust="2, 2" pos="0, 222" size="820, 44" />
         </text>
 
         <list_view style="_common_style_list_view_transparent" id="settings_list_view">
-          <layout_hint pos="0, -24" size="936, 400" />
+          <layout_hint pos="0, -32" size="936, 392" />
         </list_view>
 
         <corner_button style="_common_style_corner_bottom_left" id="btn_back_settings" />
@@ -104,11 +104,11 @@
         <layout_hint size="960, 544" />
 
         <text style="style_text_title" id="text_section_title">
-          <layout_hint adjust="2, 2" pos="0, 214" />
+          <layout_hint adjust="2, 2" pos="0, 222" size="820, 44" />
         </text>
 
         <list_view style="_common_style_list_view_transparent" id="section_list_view">
-          <layout_hint pos="0, -24" size="936, 400" />
+          <layout_hint pos="0, -32" size="936, 392" />
         </list_view>
 
         <corner_button style="_common_style_corner_bottom_left" id="btn_back_section" />
@@ -171,8 +171,8 @@
           <layout_hint size="936, 70" />
         </button>
         <check_box style="_common_default_style_check_box" id="check">
-          <layout_hint pos="430, 0" size="52, 52" />
-          <focus_hint focus_shape="3" />
+          <layout_hint pos="424, 0" size="58, 58" />
+          <focus_hint focus_shape="0" />
         </check_box>
       </list_item>
     </template>
@@ -184,9 +184,9 @@
           <layout_hint size="400, 64" />
           <focus_hint focus_shape="3" />
         </button>
-        <button style="_style_picker_mark" id="mark">
-          <layout_hint pos="-164, 0" size="36, 36" />
-        </button>
+        <plane texture="_tex_check" id="mark">
+          <layout_hint pos="-168, 0" size="28, 28" />
+        </plane>
       </list_item>
     </template>
   </templatetable>
@@ -255,15 +255,10 @@
       <textobj font_size="28" bold="1" color="1, 1, 1, 1" align_x="0" align_y="1" ellipsis="1" id="row_label" />
     </style_button>
 
-    <style_button bg_obj="picker_row_bg" glow_obj="picker_row_glow" left_margin="52" right_margin="16" label_obj="opt_label" id="_style_picker_option">
+    <style_button bg_obj="picker_row_bg" glow_obj="picker_row_glow" left_margin="72" right_margin="16" label_obj="opt_label" id="_style_picker_option">
       <planeobj color="0, 0, 0, 0" id="picker_row_bg" />
       <planeobj texture0="_common_texture_list_glow_70px" id="picker_row_glow" />
       <textobj font_size="26" bold="1" color="1, 1, 1, 1" align_x="0" align_y="1" ellipsis="1" id="opt_label" />
-    </style_button>
-
-    <style_button bg_obj="mark_bg" label_obj="mark_label" id="_style_picker_mark">
-      <planeobj color="0, 0, 0, 0" id="mark_bg" />
-      <textobj font_size="28" bold="1" color="1, 1, 1, 1" align_x="1" align_y="1" id="mark_label" />
     </style_button>
 
     <style_button bg_obj="obj1" left_margin="20" right_margin="20" label_obj="note_label" id="_style_settings_note_button">
@@ -294,6 +289,7 @@
 
   <texturetable>
     <texture src="texture/bg.png" id="_bg_texture" type="texture/png" />
+    <texture src="texture/check.png" id="_tex_check" type="texture/png" />
   </texturetable>
 
   <stringtable>
