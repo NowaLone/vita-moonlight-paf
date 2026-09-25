@@ -95,6 +95,10 @@
           <layout_hint pos="0, 214" size="880, 52" />
         </button>
 
+        <plane style="style_plane_title_rule" id="plane_settings_rule">
+          <layout_hint pos="0, 184" size="900, 2" />
+        </plane>
+
         <corner_button style="_common_style_corner_bottom_left" id="btn_back_settings" />
       </plane>
     </page>
@@ -110,6 +114,10 @@
         <button style="_style_screen_title" label="msg_settings" id="text_section_title">
           <layout_hint pos="0, 214" size="880, 52" />
         </button>
+
+        <plane style="style_plane_title_rule" id="plane_section_rule">
+          <layout_hint pos="0, 184" size="900, 2" />
+        </plane>
 
         <corner_button style="_common_style_corner_bottom_left" id="btn_back_section" />
       </plane>
@@ -207,6 +215,10 @@
     <style_button bg_obj="clear_hit_bg" id="style_button_clear_hit">
       <planeobj color="0, 0, 0, 0" id="clear_hit_bg" />
     </style_button>
+
+    <style_plane color="1, 1, 1, 0.4" planeobj="rule_obj" id="style_plane_title_rule">
+      <planeobj color="1, 1, 1, 0.4" id="rule_obj" />
+    </style_plane>
 
     <style_plane color="0.11, 0.12, 0.14, 1" planeobj="picker_bg" id="style_plane_picker">
       <planeobj color="0.11, 0.12, 0.14, 1" id="picker_bg" />
