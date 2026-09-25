@@ -1005,6 +1005,7 @@ paf::ui::ListItem *SectionMenuFactory::Create(CreateParam& param) {
         }
         button->SetEventCallback(paf::ui::ButtonBase::CB_BTN_DECIDE, onSectionMenuClick, (void *)(uintptr_t)param.cell_index);
     }
+    set_widget_focusable(list_item->FindChild("arrow"), false);
 
     return list_item;
 }

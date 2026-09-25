@@ -72,7 +72,7 @@
         </button>
 
         <speech_balloon id="settings_speech_balloon" texture="_common_texture_option_menu_base_down">
-          <layout_hint adjust="2, 2, 0" pos="348, -128" />
+          <layout_hint adjust="2, 2, 0" pos="392, -176" />
           <box id="settings_balloon_box">
             <layout_box layout_type="1" bottom_margin="18" top_margin="8" right_margin="8" left_margin="8" />
             <button sound="_common_sound_button_enter" style="_style_option_menu_button_middle" label="msg_settings" id="btn_settings_balloon">
@@ -88,15 +88,15 @@
         <layout_hint size="960, 544" />
 
         <list_view style="_common_style_list_view_transparent" id="settings_list_view">
-          <layout_hint pos="0, -36" size="900, 380" />
+          <layout_hint pos="0, -6" size="900, 368" />
         </list_view>
 
         <button style="_style_screen_title" label="msg_settings" id="text_settings_title">
           <layout_hint pos="0, 214" size="880, 52" />
         </button>
 
-        <plane style="style_plane_title_rule" id="plane_settings_rule">
-          <layout_hint pos="0, 184" size="900, 2" />
+        <plane texture="_tex_title_rule" id="plane_settings_rule">
+          <layout_hint pos="0, 180" size="960, 4" />
         </plane>
 
         <corner_button style="_common_style_corner_bottom_left" id="btn_back_settings" />
@@ -108,15 +108,15 @@
         <layout_hint size="960, 544" />
 
         <list_view style="_common_style_list_view_transparent" id="section_list_view">
-          <layout_hint pos="0, -36" size="900, 380" />
+          <layout_hint pos="0, -6" size="900, 368" />
         </list_view>
 
         <button style="_style_screen_title" label="msg_settings" id="text_section_title">
           <layout_hint pos="0, 214" size="880, 52" />
         </button>
 
-        <plane style="style_plane_title_rule" id="plane_section_rule">
-          <layout_hint pos="0, 184" size="900, 2" />
+        <plane texture="_tex_title_rule" id="plane_section_rule">
+          <layout_hint pos="0, 180" size="960, 4" />
         </plane>
 
         <corner_button style="_common_style_corner_bottom_left" id="btn_back_section" />
@@ -150,6 +150,9 @@
           <layout_hint size="900, 82" />
           <focus_hint focus_shape="3" />
         </button>
+        <plane texture="_tex_arrow" id="arrow">
+          <layout_hint pos="404, 0" size="16, 28" />
+        </plane>
       </list_item>
     </template>
 
@@ -216,10 +219,6 @@
       <planeobj color="0, 0, 0, 0" id="clear_hit_bg" />
     </style_button>
 
-    <style_plane color="1, 1, 1, 0.4" planeobj="rule_obj" id="style_plane_title_rule">
-      <planeobj color="1, 1, 1, 0.4" id="rule_obj" />
-    </style_plane>
-
     <style_plane color="0.11, 0.12, 0.14, 1" planeobj="picker_bg" id="style_plane_picker">
       <planeobj color="0.11, 0.12, 0.14, 1" id="picker_bg" />
     </style_plane>
@@ -253,10 +252,10 @@
       <textobj font_size="36" bold="1" color="1, 1, 1, 1" align_x="1" align_y="1" ellipsis="1" id="title_label" />
     </style_button>
 
-    <style_button bg_obj="obj1" glow_obj="obj2" label_obj="section_label" id="_style_settings_section_button">
+    <style_button bg_obj="obj1" glow_obj="obj2" left_margin="72" right_margin="80" label_obj="section_label" id="_style_settings_section_button">
       <planeobj texture0="_common_texture_list_70px" id="obj1" />
       <planeobj texture0="_common_texture_list_glow_70px" id="obj2" />
-      <textobj font_size="30" bold="1" color="1, 1, 1, 1" align_x="1" align_y="1" ellipsis="1" id="section_label" />
+      <textobj font_size="30" bold="1" color="1, 1, 1, 1" align_x="0" align_y="1" ellipsis="1" id="section_label" />
     </style_button>
 
     <style_button bg_obj="obj1" glow_obj="obj2" left_margin="72" right_margin="340" label_obj="row_label" id="_style_settings_row_button">
@@ -310,6 +309,8 @@
   <texturetable>
     <texture src="texture/bg.png" id="_bg_texture" type="texture/png" />
     <texture src="texture/check.png" id="_tex_check" type="texture/png" />
+    <texture src="texture/arrow.png" id="_tex_arrow" type="texture/png" />
+    <texture src="texture/title_rule.png" id="_tex_title_rule" type="texture/png" />
   </texturetable>
 
   <stringtable>
