@@ -84,17 +84,17 @@
         <layout_hint size="960, 544" />
 
         <plane style="_common_style_plane_transparent" id="plane_settings_header">
-          <layout_hint align="0, 2" anchor="0, 2" size="960, 78" pos="0, -32" />
+          <layout_hint align="0, 2" size="960, 64" pos="0, 240" />
           <button style="_style_screen_title" label="msg_settings" id="text_settings_title">
-            <layout_hint pos="0, 8" size="880, 52" />
+            <layout_hint pos="0, 0" size="880, 48" />
           </button>
           <plane style="_common_default_style_plane" texture="_common_texture_ruled_line" id="plane_settings_rule">
-            <layout_hint adjust="1, 0" anchor="0, 1" align="0, 1" size="0, 1" />
+            <layout_hint size="960, 2" pos="0, 0" anchor="0, 1" />
           </plane>
         </plane>
 
         <list_view style="_common_style_list_view_transparent" id="settings_list_view">
-          <layout_hint align="0, 2" anchor="0, 2" pos="0, -110" size="900, 358" />
+          <layout_hint anchor="0, 2" align="0, 2" pos="0, -96" size="900, 448" />
         </list_view>
 
         <corner_button style="_common_style_corner_bottom_left" id="btn_back_settings" />
@@ -106,17 +106,17 @@
         <layout_hint size="960, 544" />
 
         <plane style="_common_style_plane_transparent" id="plane_section_header">
-          <layout_hint align="0, 2" anchor="0, 2" size="960, 78" pos="0, -32" />
+          <layout_hint align="0, 2" size="960, 64" pos="0, 240" />
           <button style="_style_screen_title" label="msg_settings" id="text_section_title">
-            <layout_hint pos="0, 8" size="880, 52" />
+            <layout_hint pos="0, 0" size="880, 48" />
           </button>
           <plane style="_common_default_style_plane" texture="_common_texture_ruled_line" id="plane_section_rule">
-            <layout_hint adjust="1, 0" anchor="0, 1" align="0, 1" size="0, 1" />
+            <layout_hint size="960, 2" pos="0, 0" anchor="0, 1" />
           </plane>
         </plane>
 
         <list_view style="_common_style_list_view_transparent" id="section_list_view">
-          <layout_hint align="0, 2" anchor="0, 2" pos="0, -110" size="900, 358" />
+          <layout_hint anchor="0, 2" align="0, 2" pos="0, -96" size="900, 448" />
         </list_view>
 
         <corner_button style="_common_style_corner_bottom_left" id="btn_back_section" />

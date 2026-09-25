@@ -1030,7 +1030,7 @@ static void fit_list_under_header(paf::ui::ListView *list, int count) {
         return;
     }
     const float cell_h = 82.0f;
-    const float max_h = 358.0f;
+    const float max_h = 448.0f;
     float height = (float)count * cell_h;
     if (height < cell_h) {
         height = cell_h;
