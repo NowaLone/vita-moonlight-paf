@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include "moonlight/api.h"
 #include "moonlight/config.h"
 namespace {
