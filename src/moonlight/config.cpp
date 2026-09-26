@@ -3,6 +3,7 @@
 #include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
 #include <psp2/io/dirent.h>
+#include <psp2/kernel/clib.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -308,6 +309,7 @@ int moonlight_config_init(void) {
     defaults();
     g_dirty = 0;
     select_path();
+    sceClibPrintf("[PAF Moonlight] config path: %s\n", g_config_path);
     FILE *f = fopen(g_config_path, "r");
     if (f) { load_file(f); fclose(f); } else g_dirty = 1;
 
@@ -404,11 +406,22 @@ int moonlight_config_set_value(MoonlightSettingKey k, int v) {
     case MOONLIGHT_SETTING_CENTER_REGION_ONLY: g_settings.center_region_only=!!v; break;
     default:return -1;
     }
-    g_dirty=1; return 0;
+    g_dirty=1;
+    return moonlight_config_save();
 }
 
-int moonlight_config_set_motion_scalar_x(float v){if(!g_initialized)return -1;g_settings.motion_controls_scalar_x=v;g_dirty=1;return 0;}
-int moonlight_config_set_motion_scalar_y(float v){if(!g_initialized)return -1;g_settings.motion_controls_scalar_y=v;g_dirty=1;return 0;}
+int moonlight_config_set_motion_scalar_x(float v){
+    if(!g_initialized)return -1;
+    g_settings.motion_controls_scalar_x=v;
+    g_dirty=1;
+    return moonlight_config_save();
+}
+int moonlight_config_set_motion_scalar_y(float v){
+    if(!g_initialized)return -1;
+    g_settings.motion_controls_scalar_y=v;
+    g_dirty=1;
+    return moonlight_config_save();
+}
 
 int moonlight_config_save(void) {
     if (!g_initialized) return -1;
