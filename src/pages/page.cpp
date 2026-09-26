@@ -6,7 +6,11 @@
 #include "pages/page.h"
 #include "common.h"
 namespace page {
-static paf::vector<Base *> s_stack;
+static paf::vector<Base *> *s_stack = NULL;
+static paf::vector<Base *> &stack() {
+ if (s_stack == NULL) s_stack = new paf::vector<Base *>();
+ return *s_stack;
+}
 static int id_eq(const char*a,const char*b){if(a==b)return 1;if(!a||!b)return 0;return sce_paf_strcmp(a,b)==0;}
 Base::Base(const char*id,const char*back_id,paf::Plugin::TransitionType open_transition,paf::Plugin::TransitionType close_transition)
 :root(NULL),m_id(id),m_back(NULL),m_registered(false){
