@@ -375,7 +375,9 @@ int moonlight_config_get_value(MoonlightSettingKey k, int *out) {
 int moonlight_config_set_value(MoonlightSettingKey k, int v) {
     if (!g_initialized || !supported(k)) return -1;
     switch (k) {
-    case MOONLIGHT_SETTING_RESOLUTION: return resolution_set(v);
+    case MOONLIGHT_SETTING_RESOLUTION:
+        if (resolution_set(v) != 0) return -1;
+        return moonlight_config_save();
     case MOONLIGHT_SETTING_FPS: g_settings.fps=v; break;
     case MOONLIGHT_SETTING_BITRATE: g_settings.bitrate=v; break;
     case MOONLIGHT_SETTING_SOPS: g_settings.sops=!!v; break;
