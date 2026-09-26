@@ -625,10 +625,10 @@ public:
 SettingsRoot::SettingsRoot()
     : Base("page_settings", "btn_back_settings",
            paf::Plugin::TransitionType_None, paf::Plugin::TransitionType_None) {
-    s_settings_root = this;
     if (!IsValid()) {
         return;
     }
+    s_settings_root = this;
     settings_model_init();
     clear_setting_widgets();
     g_open_section = -1;
