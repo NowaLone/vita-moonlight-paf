@@ -434,9 +434,44 @@ int moonlight_config_save(void) {
     int r=in?preserve(in,out):write_new(out);
     if(in)fclose(in);
     if(fclose(out)!=0)r=-1;
-    if(r==0){sceIoRemove(g_config_path);r=sceIoRename(tmp,g_config_path);}
-    else sceIoRemove(tmp);
-    if(r==0)g_dirty=0;
+
+    /*
+     * Keep the original file-writing model used by vita-moonlight:
+     * write the final config with stdio.  Avoid sceIoRename() here because
+     * the PAF plugin may be running on filesystems where rename semantics
+     * are less predictable.
+     */
+    if(r==0){
+        FILE *src=fopen(tmp,"r");
+        FILE *dst=fopen(g_config_path,"w");
+        if(!src || !dst){
+            if(src)fclose(src);
+            if(dst)fclose(dst);
+            r=-1;
+        }else{
+            char buf[4096];
+            size_t n;
+            while((n=fread(buf,1,sizeof(buf),src))>0){
+                if(fwrite(buf,1,n,dst)!=n){
+                    r=-1;
+                    break;
+                }
+            }
+            if(ferror(src))r=-1;
+            if(fclose(src)!=0)r=-1;
+            if(fclose(dst)!=0)r=-1;
+        }
+        sceIoRemove(tmp);
+    }else{
+        sceIoRemove(tmp);
+    }
+
+    if(r==0){
+        g_dirty=0;
+        sceClibPrintf("[PAF Moonlight] config saved: %s\\n",g_config_path);
+    }else{
+        sceClibPrintf("[PAF Moonlight] config save FAILED: %s (error=%d)\\n",g_config_path,r);
+    }
     return r;
 }
 }
