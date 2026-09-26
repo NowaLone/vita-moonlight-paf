@@ -50,6 +50,19 @@ static void select_path() {
         "uma0:data/moonlight"
     };
 
+    /* Prefer an existing legacy config before creating a new location. */
+    for (unsigned int i = 0; i < sizeof(dirs) / sizeof(dirs[0]); ++i) {
+        char path[PATH_MAX_LEN];
+        snprintf(path, sizeof(path), "%s/moonlight.conf", dirs[i]);
+        FILE *f = fopen(path, "r");
+        if (f != NULL) {
+            fclose(f);
+            strncpy(g_config_path, path, sizeof(g_config_path) - 1);
+            g_config_path[sizeof(g_config_path) - 1] = '\0';
+            return;
+        }
+    }
+
     for (unsigned int i = 0; i < sizeof(dirs) / sizeof(dirs[0]); ++i) {
         if (ensure_dir(dirs[i]) == 0) {
             snprintf(g_config_path, sizeof(g_config_path), "%s/moonlight.conf", dirs[i]);
@@ -291,6 +304,7 @@ extern "C" {
 int moonlight_config_init(void) {
     if (g_initialized) return 0;
     defaults();
+    g_dirty = 0;
     select_path();
     FILE *f = fopen(g_config_path, "r");
     if (f) { load_file(f); fclose(f); } else g_dirty = 1;
