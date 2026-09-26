@@ -45,6 +45,7 @@ protected:
     paf::Plugin::PageCloseParam m_close_param;
 };
 
+Base *Find(const char *id);
 void SetMainButtonsFocusable(bool on);
 
 }
