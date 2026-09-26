@@ -140,8 +140,12 @@ void Base::CloseUntil(Type keep_type) {
     }
 }
 
+Base *Find(const char *id) {
+    return Base::Find(id);
+}
+
 void SetMainButtonsFocusable(bool on) {
-    Base *main = Base::Find("page_main");
+    Base *main = Find("page_main");
     if (main == NULL || main->root == NULL) {
         return;
     }
