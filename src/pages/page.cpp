@@ -24,11 +24,11 @@ Base::Base(const char*id,const char*back_id,paf::Plugin::TransitionType open_tra
 Base::~Base(){if(!m_registered)return;for(paf::vector<Base*>::iterator it=stack().begin();it!=stack().end();++it){if(*it==this){stack().erase(it);break;}}if(g_plugin&&m_id&&root)g_plugin->PageClose(m_id,m_close_param);Base*cur=GetCurrent();if(cur&&cur->root)cur->root->SetActivate(true);m_registered=false;}
 Base*Base::GetCurrent(){return stack().empty()?NULL:stack().back();}
 Base*Base::GetAt(int i){return i>=0&&i<(int)stack().size()?stack()[i]:NULL;}
-int Base::Count(){return (int)s_stack.size();}
+int Base::Count(){return (int)stack().size();}
 bool Base::IsOpen(const char*id){return Find(id)!=NULL;}
-Base*Base::Find(const char*id){for(paf::vector<Base*>::iterator it=s_stack.begin();it!=s_stack.end();++it){Base*p=*it;if(p&&id_eq(p->m_id,id))return p;}return NULL;}
+Base*Base::Find(const char*id){for(paf::vector<Base*>::iterator it=stack().begin();it!=stack().end();++it){Base*p=*it;if(p&&id_eq(p->m_id,id))return p;}return NULL;}
 void Base::DeleteCurrent(){Base*cur=GetCurrent();if(cur)delete cur;}
-void Base::CloseType(Type type){for(int i=(int)s_stack.size()-1;i>=0;--i){if(s_stack[i]&&s_stack[i]->GetType()==type){delete s_stack[i];return;}}}
+void Base::CloseType(Type type){for(int i=(int)stack().size()-1;i>=0;--i){if(stack()[i]&&stack()[i]->GetType()==type){delete stack()[i];return;}}}
 void Base::CloseUntil(Type keep_type){while(!stack().empty()){Base*top=GetCurrent();if(!top||top->GetType()==keep_type)break;delete top;}}
 Base*Find(const char*id){return Base::Find(id);}
 void SetMainButtonsFocusable(bool on){Base*main=Find("page_main");if(!main||!main->root)return;const char*ids[]={"btn_search_pcs","btn_add_manually","settings_button"};for(int i=0;i<3;++i)set_widget_focusable(main->root->FindChild(ids[i]),on);}
