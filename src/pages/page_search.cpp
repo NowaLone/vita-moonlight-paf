@@ -16,6 +16,9 @@ Search::Search()
     : Base("page_search_pcs", "btn_close_search",
            paf::Plugin::TransitionType_SlideFromBottom,
            paf::Plugin::TransitionType_SlideFromBottom) {
+    if (!IsValid()) {
+        return;
+    }
     bind_decide(root, "btn_close_search", onBack);
     moonlight_api_search_hosts();
 }

@@ -52,6 +52,7 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/option_menu.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/settings_model.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/api.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/config.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_main.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_search.cpp

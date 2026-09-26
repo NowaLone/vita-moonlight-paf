@@ -9,6 +9,7 @@
 #include "common.h"
 #include "pages/page_main.h"
 #include "pages/page_settings.h"
+#include "moonlight/api.h"
 
 static void loadPluginCB(paf::Plugin *plugin) {
     g_plugin = plugin;
@@ -18,12 +19,17 @@ static void loadPluginCB(paf::Plugin *plugin) {
 }
 
 int paf_sample_main(void) {
+    if (moonlight_api_init() != 0) {
+        return -1;
+    }
+
     paf::Framework::InitParam fwParam;
     fwParam.mode = paf::Framework::Mode_Normal;
     paf::Framework::SampleInit(&fwParam);
     fwParam.graphics_option = 7;
     paf::Framework *paf_fw = new paf::Framework(fwParam);
     if (paf_fw == NULL) {
+        moonlight_api_shutdown();
         return -1;
     }
 
@@ -41,5 +47,6 @@ int paf_sample_main(void) {
 
     paf::Plugin::LoadSync(pluginParam);
     paf_fw->Run();
+    moonlight_api_shutdown();
     return 0;
 }
