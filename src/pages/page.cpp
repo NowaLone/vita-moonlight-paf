@@ -33,7 +33,8 @@ Base::Base(const char *id,
         return;
     }
     if (IsOpen(id)) {
-        root = Find(id) != NULL ? Find(id)->root : NULL;
+        Base *existing = Find(id);
+        root = existing != NULL ? existing->root : NULL;
         return;
     }
 
@@ -140,7 +141,7 @@ void Base::CloseUntil(Type keep_type) {
 }
 
 void SetMainButtonsFocusable(bool on) {
-    Base *main = Find("page_main");
+    Base *main = Base::Find("page_main");
     if (main == NULL || main->root == NULL) {
         return;
     }
