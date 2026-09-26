@@ -742,13 +742,15 @@ ChoicePicker::~ChoicePicker() {}
 
 void SettingsPadInit() {
     static int ready = 0;
-    static paf::common::SharedPtr<paf::inputdevice::InputListener> listener;
+    static paf::common::SharedPtr<paf::inputdevice::InputListener> *listener = NULL;
     if (ready) {
         return;
     }
     ready = 1;
-    listener = paf::common::SharedPtr<paf::inputdevice::InputListener>(new SettingsPadListener());
-    paf::inputdevice::AddInputListener(listener);
+    if (listener == NULL) {
+        listener = new paf::common::SharedPtr<paf::inputdevice::InputListener>(new SettingsPadListener());
+        paf::inputdevice::AddInputListener(*listener);
+    }
 }
 
 }
