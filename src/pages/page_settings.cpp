@@ -106,8 +106,10 @@ static void refresh_setting_value(int index) {
         return;
     }
     set_setting_texts(g_row_widgets[index], *row);
-    if (row->kind == KIND_TOGGLE) {
-        sync_toggle_box(g_row_widgets[index], row->value);
+    int value = 0;
+    if (row->kind == KIND_TOGGLE &&
+        settings_model_get_value(*row, &value) == 0) {
+        sync_toggle_box(g_row_widgets[index], value);
     }
 }
 
@@ -208,8 +210,10 @@ static int fill_picker_options(int row_index) {
             g_picker_values[i] = i;
         }
         g_picker_count = count;
-        if (row->value >= 0 && row->value < count) {
-            g_picker_current = row->value;
+        int current = 0;
+        if (settings_model_get_value(*row, &current) == 0 &&
+            current >= 0 && current < count) {
+            g_picker_current = current;
         }
         return g_picker_count > 0;
     }
@@ -224,7 +228,8 @@ static int fill_picker_options(int row_index) {
         ascii_to_wide(g_picker_text[n], 16, buf);
         g_picker_labels[n] = g_picker_text[n];
         g_picker_values[n] = value;
-        if (value == row->value) {
+        int current = 0;
+        if (settings_model_get_value(*row, &current) == 0 && value == current) {
             g_picker_current = n;
         }
         g_picker_count++;
@@ -266,7 +271,7 @@ void CloseSettingsRoot() {
     g_open_section = -1;
     Base::CloseType(Type_SettingsRoot);
     SetMainButtonsFocusable(true);
-    moonlight_api_apply_settings();
+    moonlight_api_save_settings();
 }
 
 static void onSettingsListItemClick(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata) {
@@ -283,8 +288,11 @@ static void onSettingsListItemClick(int32_t type, paf::ui::Handler *self, paf::u
         return;
     }
     if (row->kind == KIND_TOGGLE) {
-        row->value = row->value ? 0 : 1;
-        refresh_setting_value(index);
+        int value = 0;
+        if (settings_model_get_value(*row, &value) == 0) {
+            settings_model_set_value(*row, value ? 0 : 1);
+            refresh_setting_value(index);
+        }
     }
 }
 
@@ -297,7 +305,7 @@ static void onToggleCheckClick(int32_t type, paf::ui::Handler *self, paf::ui::Ev
     if (row == NULL || box == NULL) {
         return;
     }
-    row->value = box->IsChecked() ? 1 : 0;
+    settings_model_set_value(*row, box->IsChecked() ? 1 : 0);
 }
 
 static void onPickerDismiss(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata) {
@@ -319,7 +327,7 @@ static void onPickerItemClick(int32_t type, paf::ui::Handler *self, paf::ui::Eve
     }
     SettingRow *row = settings_model_row(g_picker_row);
     if (row != NULL) {
-        row->value = g_picker_values[option];
+        settings_model_set_value(*row, g_picker_values[option]);
         refresh_setting_value(g_picker_row);
     }
     CloseChoicePicker();
@@ -618,6 +626,9 @@ SettingsRoot::SettingsRoot()
     : Base("page_settings", "btn_back_settings",
            paf::Plugin::TransitionType_None, paf::Plugin::TransitionType_None) {
     s_settings_root = this;
+    if (!IsValid()) {
+        return;
+    }
     settings_model_init();
     clear_setting_widgets();
     g_open_section = -1;
@@ -655,6 +666,9 @@ SettingsSection::SettingsSection(int section_index)
     : Base("page_settings_section", "btn_back_section",
            paf::Plugin::TransitionType_None, paf::Plugin::TransitionType_None),
       m_section_index(section_index) {
+    if (!IsValid()) {
+        return;
+    }
     g_open_section = section_index;
     clear_setting_widgets();
 
@@ -695,6 +709,9 @@ ChoicePicker::ChoicePicker(int row_index)
     : Base("page_choice_picker", NULL,
            paf::Plugin::TransitionType_None, paf::Plugin::TransitionType_None),
       m_row_index(row_index) {
+    if (!IsValid()) {
+        return;
+    }
     g_picker_row = row_index;
     paf::ui::ListView *list = (paf::ui::ListView *)root->FindChild("picker_list");
     if (list != NULL) {

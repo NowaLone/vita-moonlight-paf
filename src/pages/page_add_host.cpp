@@ -16,8 +16,11 @@ AddHost::AddHost()
     : Base("page_add_manually", "btn_close_add_manual",
            paf::Plugin::TransitionType_SlideFromBottom,
            paf::Plugin::TransitionType_SlideFromBottom) {
+    if (!IsValid()) {
+        return;
+    }
     bind_decide(root, "btn_close_add_manual", onBack);
-    moonlight_api_add_host(NULL);
+    moonlight_api_add_host(NULL, 47989, NULL);
 }
 
 AddHost::~AddHost() {}
