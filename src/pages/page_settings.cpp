@@ -407,7 +407,10 @@ paf::ui::ListItem *SettingsItemFactory::Create(CreateParam& param) {
 
     if (row->kind == KIND_TOGGLE) {
         paf::ui::CheckBox *box = (paf::ui::CheckBox *)list_item->FindChild("check");
-        sync_toggle_box(list_item, row->value);
+        int value = 0;
+        if (settings_model_get_value(*row, &value) == 0) {
+            sync_toggle_box(list_item, value);
+        }
         set_widget_focusable(button, false);
         if (box != NULL) {
             box->SetEventCallback(paf::ui::ButtonBase::CB_BTN_DECIDE, onToggleCheckClick, (void *)(uintptr_t)row_index);
