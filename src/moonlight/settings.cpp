@@ -123,7 +123,8 @@ static int load_plugin()
     param.exit_func = sce::AppSettings::PluginExitCB;
     param.draw_priority = 0x96;
 
-    return paf::Plugin::LoadSync(param);
+    paf::Plugin::LoadSync(param);
+    return paf::Plugin::Find("app_settings_plugin") != NULL ? 0 : -1;
 }
 
 }
@@ -148,7 +149,8 @@ int moonlight_settings_init(void)
     param.safemem_offset = 0;
     param.safemem_size = 0x400;
 
-    if (sce::AppSettings::GetInstance(param, &s_settings) < 0 || s_settings == NULL) {
+    sce::AppSettings::GetInstance(param, &s_settings);
+    if (s_settings == NULL) {
         return -1;
     }
 
