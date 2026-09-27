@@ -15,15 +15,16 @@ src/pages/page.cpp           page::Base stack (open/close, SetActivate, back fad
 src/pages/page_main.cpp      hosts empty state, Search / Add / ...
 src/pages/page_search.cpp
 src/pages/page_add_host.cpp
-src/pages/page_settings.cpp  categories, rows, checkbox, list picker
 src/option_menu.cpp          overflow balloon from ...
-src/settings_model.cpp       setting values (stand-in until sce::AppSettings)
-src/moonlight/api.cpp        thin C API for a future libgamestream hook
+src/moonlight/settings.cpp   Vita Sce::AppSettings integration
+src/moonlight/api.cpp        thin C API for the Moonlight core
 ```
 
 `page_main` stays at the bottom of the stack. Overlays disable the page underneath. Circle / the bottom-left corner button closes the top page.
 
-Settings still use the custom list_view templates in `cxml/vita_moonlight_ui.xml` because VitaSDK does not link `SceAppSettings`. `cxml/moonlight_settings.xml` is the target schema for that move.
+Settings use the Vita system `SceAppSettings` service, the same model used by NetStream and BetterHomebrewBrowser. The settings UI is declared in `cxml/moonlight_settings.xml`, while `moonlight/settings.cpp` is only a thin adapter between the system service and the Moonlight API.
+
+There is no `moonlight.conf` compatibility layer and no custom settings file parser. Application settings are stored by the system AppSettings service. The Moonlight core should read them through `moonlight_api_get_settings()` or the individual `moonlight_api_get_setting_value()` calls.
 
 Streaming must not be folded into the PAF plugin. Call `moonlight_api_*` from page callbacks.
 
