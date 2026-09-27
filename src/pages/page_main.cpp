@@ -1,9 +1,9 @@
 #include "pages/page_main.h"
 #include "pages/page_search.h"
 #include "pages/page_add_host.h"
-#include "pages/page_settings.h"
 #include "option_menu.h"
 #include "common.h"
+#include "moonlight/api.h"
 
 namespace page {
 
@@ -32,9 +32,11 @@ static void onAdd(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void 
 static void onOptionMenu(OptionMenu::EventType type, int button_index, void *userdata) {
     (void)userdata;
     if (type == OptionMenu::Event_Button && button_index == 0) {
-        if (!Base::IsOpen("page_settings")) {
-            new SettingsRoot();
+        Base *current = Base::GetCurrent();
+        if (current && current->root) {
+            current->root->SetActivate(false);
         }
+        moonlight_api_open_settings();
     }
 }
 
