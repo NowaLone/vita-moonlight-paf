@@ -93,6 +93,6 @@
   </stringtable>
 
   <filetable>
-    <file src="moonlight_settings.xml" id="moonlight_settings" compress="off" />
+    <file src="moonlight_settings.xml" type="application/xml" id="moonlight_settings" compress="off" />
   </filetable>
 </resource>
