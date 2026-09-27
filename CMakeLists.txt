@@ -79,7 +79,6 @@ target_link_libraries(${PROJECT_NAME}
   SceAppSettings_stub
   SceAppUtil_stub
   SceCommonGuiDialog_stub
-  SceIniFileProcessor_stub
   ScePafWebMapView_stub_weak
   SceWebUIPlugin_stub_weak
 )
