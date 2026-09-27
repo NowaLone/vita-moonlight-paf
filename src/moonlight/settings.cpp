@@ -1,4 +1,3 @@
-#include <kernel.h>
 #include <libsysmodule.h>
 #include <app_settings.h>
 #include <ini_file_processor.h>
