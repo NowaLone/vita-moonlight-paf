@@ -54,6 +54,7 @@ typedef struct MoonlightSettings {
     int show_fps;
     int save_debug_log;
     int enable_front_touchzones;
+    int mapping_enabled;
     int mouse_acceleration;
     int enable_ref_frame_invalidation;
     int enable_remote_stream_optimization;
