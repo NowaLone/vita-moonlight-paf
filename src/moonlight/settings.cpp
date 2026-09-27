@@ -5,6 +5,8 @@
 #include "common.h"
 #include "moonlight/settings.h"
 
+void moonlight_settings_emit_closed(const MoonlightEvent *event);
+void moonlight_settings_emit_changed(const MoonlightEvent *event);
 
 namespace {
 
