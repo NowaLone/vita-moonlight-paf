@@ -50,9 +50,8 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/paf_sample.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/common.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/option_menu.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/settings_model.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/api.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/config.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/settings.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_main.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_search.cpp
@@ -78,6 +77,10 @@ target_link_libraries(${PROJECT_NAME}
   SceSsl_stub
   SceHttp_stub
   ScePaf_stub_weak
+  SceAppSettings_stub
+  SceAppUtil_stub
+  SceCommonGuiDialog_stub
+  SceIniFileProcessor_stub
   ScePafWebMapView_stub_weak
   SceWebUIPlugin_stub_weak
 )
