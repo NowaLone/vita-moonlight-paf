@@ -255,6 +255,7 @@ int moonlight_settings_get_all(MoonlightSettings *out)
     moonlight_settings_get_value(MOONLIGHT_SETTING_SHOW_FPS, &out->show_fps);
     moonlight_settings_get_value(MOONLIGHT_SETTING_DEBUG_LOG, &out->save_debug_log);
     moonlight_settings_get_value(MOONLIGHT_SETTING_FRONT_TOUCHZONES, &out->enable_front_touchzones);
+    moonlight_settings_get_value(MOONLIGHT_SETTING_MAPPING_ENABLED, &out->mapping_enabled);
     moonlight_settings_get_value(MOONLIGHT_SETTING_MOUSE_ACCELERATION, &out->mouse_acceleration);
     moonlight_settings_get_value(MOONLIGHT_SETTING_REF_FRAME_INVALIDATION, &out->enable_ref_frame_invalidation);
     moonlight_settings_get_value(MOONLIGHT_SETTING_STREAM_OPTIMIZATION, &out->enable_remote_stream_optimization);
