@@ -36,7 +36,11 @@ static void onOptionMenu(OptionMenu::EventType type, int button_index, void *use
         if (current && current->root) {
             current->root->SetActivate(false);
         }
-        moonlight_api_open_settings();
+        if (moonlight_api_open_settings() != 0) {
+            if (current && current->root) {
+                current->root->SetActivate(true);
+            }
+        }
     }
 }
 
