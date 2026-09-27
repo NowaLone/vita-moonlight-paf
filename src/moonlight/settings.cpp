@@ -1,6 +1,5 @@
 #include <psp2/sysmodule.h>
 #include <app_settings.h>
-#include <ini_file_processor.h>
 #include <paf.h>
 
 #include "common.h"
