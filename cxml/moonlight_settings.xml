@@ -1,34 +1,168 @@
 <?xml version="1.0" encoding="utf-8"?>
 <application_settings version="1.0" bg_color="0, 0, 0, 0">
   <setting_list id="moonlight_settings" title="msg_settings">
-    <setting_list id="stream_settings" title="msg_stream_settings" style="edit" icon="tex_spanner">
-      <setting id="resolution" title="msg_resolution" type="list" key="resolution">
-        <list_item id="res_960x540" title="960x540" />
-        <list_item id="res_960x544" title="960x544" />
-        <list_item id="res_1280x720" title="1280x720" />
-        <list_item id="res_1920x1080" title="1920x1080" />
-      </setting>
-      <setting id="fps" title="msg_fps" type="list" key="fps" />
-      <setting id="bitrate" title="msg_bitrate" type="list" key="bitrate" />
-      <setting id="optimize_graphics" title="msg_optimize_graphics" type="toggle" key="optimize_graphics" />
-      <setting id="ref_invalidation" title="msg_ref_invalidation" type="toggle" key="ref_invalidation" />
-      <setting id="stream_opt" title="msg_stream_opt" type="toggle" key="stream_opt" />
-      <setting id="vita_vblank" title="msg_vita_vblank" type="toggle" key="vita_vblank" />
-      <setting id="frame_pacer" title="msg_frame_pacer" type="toggle" key="frame_pacer" />
-      <setting id="local_audio" title="msg_local_audio" type="toggle" key="local_audio" />
+
+    <setting_list id="stream_settings" title="msg_stream_settings" icon="tex_spanner">
+      <list id="resolution" title="Resolution" key="resolution" default_value="5">
+        <list_item id="res_0" title="960x540" value="0" />
+        <list_item id="res_1" title="960x544" value="1" />
+        <list_item id="res_2" title="1024x576" value="2" />
+        <list_item id="res_3" title="1152x648" value="3" />
+        <list_item id="res_4" title="1280x540" value="4" />
+        <list_item id="res_5" title="1280x720" value="5" />
+        <list_item id="res_6" title="1366x768" value="6" />
+        <list_item id="res_7" title="1600x900" value="7" />
+        <list_item id="res_8" title="1920x1080" value="8" />
+      </list>
+      <list id="fps" title="FPS" key="fps" default_value="60">
+        <list_item id="fps_24" title="24" value="24" />
+        <list_item id="fps_30" title="30" value="30" />
+        <list_item id="fps_40" title="40" value="40" />
+        <list_item id="fps_50" title="50" value="50" />
+        <list_item id="fps_60" title="60" value="60" />
+      </list>
+      <list id="bitrate" title="Bitrate" key="bitrate" default_value="5000">
+        <list_item id="bitrate_2000" title="2000" value="2000" />
+        <list_item id="bitrate_4000" title="4000" value="4000" />
+        <list_item id="bitrate_5000" title="5000" value="5000" />
+        <list_item id="bitrate_8000" title="8000" value="8000" />
+        <list_item id="bitrate_10000" title="10000" value="10000" />
+        <list_item id="bitrate_15000" title="15000" value="15000" />
+        <list_item id="bitrate_20000" title="20000" value="20000" />
+        <list_item id="bitrate_30000" title="30000" value="30000" />
+      </list>
+      <toggle_switch id="optimize_graphics" title="Change graphical game settings for performance" key="sops" default_value="1" />
+      <toggle_switch id="ref_invalidation" title="Enable reference frame invalidation" key="ref_frame_invalidation" default_value="0" />
+      <toggle_switch id="stream_opt" title="Enable stream optimization" key="stream_optimization" default_value="0" />
+      <toggle_switch id="vita_vblank" title="Enable VITA vblank" key="vita_vblank" default_value="0" />
+      <toggle_switch id="frame_pacer" title="Enable frame pacer" key="frame_pacer" default_value="1" />
+      <toggle_switch id="local_audio" title="Enable local audio" key="local_audio" default_value="0" />
     </setting_list>
+
     <setting_list id="system_settings" title="msg_system_settings" icon="tex_spanner">
-      <setting id="debug_log" title="msg_debug_log" type="toggle" key="debug_log" />
-      <setting id="disable_power_save" title="msg_disable_power_save" type="toggle" key="disable_power_save" />
-      <setting id="swap_xo" title="msg_swap_xo" type="toggle" key="swap_xo" />
-      <setting id="show_fps" title="msg_show_fps" type="toggle" key="show_fps" />
+      <toggle_switch id="debug_log" title="Enable debug log" key="debug_log" default_value="0" />
+      <toggle_switch id="disable_power_save" title="Disable power save" key="disable_power_save" default_value="1" />
+      <toggle_switch id="swap_xo" title="Swap X &amp; O for Moonlight" key="swap_xo" default_value="0" />
+      <toggle_switch id="show_fps" title="Display streaming FPS" key="show_fps" default_value="0" />
+      <toggle_switch id="center_region_only" title="Use center region only" key="center_region_only" default_value="0" />
     </setting_list>
+
     <setting_list id="input_settings" title="msg_input_settings" icon="tex_spanner">
-      <setting id="gyro" title="msg_gyro" type="toggle" key="gyro" />
-      <setting id="controller_type" title="msg_controller_type" type="list" key="controller_type" />
-      <setting id="touch_mode" title="msg_touch_mode" type="list" key="touch_mode" />
-      <setting id="keyboard_layout" title="msg_keyboard_layout" type="list" key="keyboard_layout" />
+      <toggle_switch id="gyro" title="Enable gyroscope reporting" key="gyro" default_value="0" />
+      <toggle_switch id="double_tap_sprint" title="Enable double tap to sprint" key="double_tap_sprint" default_value="0" />
+      <list id="sprint_double_tap_time" title="Sprint double tap time" key="sprint_double_tap_time" default_value="200">
+        <list_item id="sprint_50" title="50 ms" value="50" />
+        <list_item id="sprint_100" title="100 ms" value="100" />
+        <list_item id="sprint_150" title="150 ms" value="150" />
+        <list_item id="sprint_200" title="200 ms" value="200" />
+        <list_item id="sprint_250" title="250 ms" value="250" />
+        <list_item id="sprint_300" title="300 ms" value="300" />
+        <list_item id="sprint_350" title="350 ms" value="350" />
+        <list_item id="sprint_400" title="400 ms" value="400" />
+        <list_item id="sprint_450" title="450 ms" value="450" />
+        <list_item id="sprint_500" title="500 ms" value="500" />
+      </list>
+      <list id="controller_type" title="Controller type" key="controller_type" default_value="2">
+        <list_item id="controller_xbox" title="Xbox" value="1" />
+        <list_item id="controller_ps" title="PlayStation" value="2" />
+        <list_item id="controller_nintendo" title="Nintendo" value="3" />
+        <list_item id="controller_generic" title="Generic" value="4" />
+      </list>
+      <toggle_switch id="swap_shoulders" title="Swap R1/L1 &lt;-&gt; R2/L2" key="swap_shoulders" default_value="0" />
+      <list id="mouse_acceleration" title="Mouse acceleration" key="mouse_acceleration" default_value="150">
+        <list_item id="mouse_0" title="0" value="0" />
+        <list_item id="mouse_15" title="15" value="15" />
+        <list_item id="mouse_30" title="30" value="30" />
+        <list_item id="mouse_45" title="45" value="45" />
+        <list_item id="mouse_60" title="60" value="60" />
+        <list_item id="mouse_75" title="75" value="75" />
+        <list_item id="mouse_90" title="90" value="90" />
+        <list_item id="mouse_105" title="105" value="105" />
+        <list_item id="mouse_120" title="120" value="120" />
+        <list_item id="mouse_135" title="135" value="135" />
+        <list_item id="mouse_150" title="150" value="150" />
+        <list_item id="mouse_165" title="165" value="165" />
+        <list_item id="mouse_180" title="180" value="180" />
+        <list_item id="mouse_195" title="195" value="195" />
+        <list_item id="mouse_210" title="210" value="210" />
+        <list_item id="mouse_225" title="225" value="225" />
+        <list_item id="mouse_240" title="240" value="240" />
+        <list_item id="mouse_255" title="255" value="255" />
+        <list_item id="mouse_270" title="270" value="270" />
+        <list_item id="mouse_285" title="285" value="285" />
+        <list_item id="mouse_300" title="300" value="300" />
+      </list>
+      <toggle_switch id="ps_button_capture" title="Enable PS button capture" key="ps_button_capture" default_value="1" />
+      <toggle_switch id="front_touchzones" title="Enable touchscreen special keys" key="front_touchzones" default_value="0" />
+      <list id="touchscreen_mode" title="Touchscreen mode" key="touchscreen_mode" default_value="0">
+        <list_item id="touch_off" title="Off" value="0" />
+        <list_item id="touch_ds4" title="DS4 Touchpad" value="1" />
+        <list_item id="touch_mouse" title="Mouse Absolute" value="2" />
+        <list_item id="touch_tablet" title="Tablet (Sunshine)" value="3" />
+      </list>
     </setting_list>
-    <setting_list id="about_settings" title="msg_about" icon="tex_spanner" />
+
+    <setting_list id="keyboard_settings" title="Keyboard" icon="tex_spanner">
+      <list id="keyboard_layout" title="Keyboard layout" key="keyboard_layout" default_value="0">
+        <list_item id="keyboard_us" title="US" value="0" />
+        <list_item id="keyboard_de" title="DE" value="1" />
+        <list_item id="keyboard_es" title="ES" value="2" />
+        <list_item id="keyboard_fr" title="FR" value="3" />
+        <list_item id="keyboard_ru" title="RU" value="4" />
+      </list>
+    </setting_list>
+
+    <setting_list id="advanced_settings" title="Advanced" icon="tex_spanner">
+      <list id="back_deadzone_top" title="Back touchscreen deadzone top" key="back_deadzone_top" default_value="0">
+        <list_item id="bd_top_0" title="0" value="0" />
+        <list_item id="bd_top_5" title="5" value="5" />
+        <list_item id="bd_top_10" title="10" value="10" />
+        <list_item id="bd_top_15" title="15" value="15" />
+        <list_item id="bd_top_20" title="20" value="20" />
+        <list_item id="bd_top_25" title="25" value="25" />
+        <list_item id="bd_top_30" title="30" value="30" />
+        <list_item id="bd_top_35" title="35" value="35" />
+        <list_item id="bd_top_40" title="40" value="40" />
+      </list>
+      <list id="back_deadzone_right" title="Back touchscreen deadzone right" key="back_deadzone_right" default_value="0">
+        <list_item id="bd_right_0" title="0" value="0" />
+        <list_item id="bd_right_5" title="5" value="5" />
+        <list_item id="bd_right_10" title="10" value="10" />
+        <list_item id="bd_right_15" title="15" value="15" />
+        <list_item id="bd_right_20" title="20" value="20" />
+        <list_item id="bd_right_25" title="25" value="25" />
+        <list_item id="bd_right_30" title="30" value="30" />
+        <list_item id="bd_right_35" title="35" value="35" />
+        <list_item id="bd_right_40" title="40" value="40" />
+      </list>
+      <list id="back_deadzone_bottom" title="Back touchscreen deadzone bottom" key="back_deadzone_bottom" default_value="0">
+        <list_item id="bd_bottom_0" title="0" value="0" />
+        <list_item id="bd_bottom_5" title="5" value="5" />
+        <list_item id="bd_bottom_10" title="10" value="10" />
+        <list_item id="bd_bottom_15" title="15" value="15" />
+        <list_item id="bd_bottom_20" title="20" value="20" />
+        <list_item id="bd_bottom_25" title="25" value="25" />
+        <list_item id="bd_bottom_30" title="30" value="30" />
+        <list_item id="bd_bottom_35" title="35" value="35" />
+        <list_item id="bd_bottom_40" title="40" value="40" />
+      </list>
+      <list id="back_deadzone_left" title="Back touchscreen deadzone left" key="back_deadzone_left" default_value="0">
+        <list_item id="bd_left_0" title="0" value="0" />
+        <list_item id="bd_left_5" title="5" value="5" />
+        <list_item id="bd_left_10" title="10" value="10" />
+        <list_item id="bd_left_15" title="15" value="15" />
+        <list_item id="bd_left_20" title="20" value="20" />
+        <list_item id="bd_left_25" title="25" value="25" />
+        <list_item id="bd_left_30" title="30" value="30" />
+        <list_item id="bd_left_35" title="35" value="35" />
+        <list_item id="bd_left_40" title="40" value="40" />
+      </list>
+    </setting_list>
+
+    <setting_list id="about_settings" title="msg_about" icon="tex_spanner">
+      <label id="label_about" title="Vita Moonlight PAF" style="heading" />
+      <label id="label_about_description" title="Settings are stored by the Vita AppSettings service." />
+    </setting_list>
+
   </setting_list>
 </application_settings>
