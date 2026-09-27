@@ -71,6 +71,14 @@ static int32_t on_post_create(const char *, paf::ui::Widget *)
 
 static int32_t on_press(const char *, const char *)
 {
+    MoonlightEvent event;
+    event.type = MOONLIGHT_EVENT_SETTINGS_CHANGED;
+    event.result = 0;
+    event.host_id = -1;
+    event.address = NULL;
+
+    extern void moonlight_settings_emit_changed(const MoonlightEvent *);
+    moonlight_settings_emit_changed(&event);
     return SCE_OK;
 }
 
@@ -267,4 +275,5 @@ int moonlight_settings_get_all(MoonlightSettings *out)
 }
 
 void moonlight_settings_emit_closed(const MoonlightEvent *event);
+void moonlight_settings_emit_changed(const MoonlightEvent *event);
 
