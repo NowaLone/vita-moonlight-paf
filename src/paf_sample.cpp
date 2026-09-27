@@ -17,9 +17,10 @@ static void onMoonlightEvent(const MoonlightEvent *event, void *)
     if (!event) return;
 
     if (event->type == MOONLIGHT_EVENT_SETTINGS_CLOSED) {
-        page::Base *current = page::Base::GetCurrent();
-        if (current && current->root) {
-            current->root->SetActivate(true);
+        page::Base *main = page::Base::Find("page_main");
+        if (main && main->root) {
+            main->root->Show(paf::common::transition::Type_Reset);
+            main->root->SetActivate(true);
         }
     }
 }
