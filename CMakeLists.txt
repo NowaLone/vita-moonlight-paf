@@ -56,7 +56,6 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_main.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_search.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_add_host.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_settings.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
