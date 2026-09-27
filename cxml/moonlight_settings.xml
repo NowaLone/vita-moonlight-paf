@@ -113,6 +113,7 @@
     </setting_list>
 
     <setting_list id="advanced_settings" title="Advanced" icon="tex_spanner">
+      <toggle_switch id="mapping_enabled" title="Enable mapping file" key="mapping_enabled" default_value="0" />
       <list id="back_deadzone_top" title="Back touchscreen deadzone top" key="back_deadzone_top" default_value="0">
         <list_item id="bd_top_0" title="0" value="0" />
         <list_item id="bd_top_5" title="5" value="5" />
