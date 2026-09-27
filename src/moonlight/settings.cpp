@@ -5,6 +5,7 @@
 #include "common.h"
 #include "moonlight/settings.h"
 
+
 namespace {
 
 static sce::AppSettings *s_settings = NULL;
@@ -75,7 +76,6 @@ static int32_t on_press(const char *, const char *)
     event.host_id = -1;
     event.address = NULL;
 
-    extern void moonlight_settings_emit_changed(const MoonlightEvent *);
     moonlight_settings_emit_changed(&event);
     return SCE_OK;
 }
@@ -93,8 +93,6 @@ static void on_term(int32_t result)
     event.host_id = -1;
     event.address = NULL;
 
-    /* api.cpp owns the public callback; this local hook is filled there. */
-    extern void moonlight_settings_emit_closed(const MoonlightEvent *);
     moonlight_settings_emit_closed(&event);
 }
 
