@@ -32,13 +32,15 @@ static void onAdd(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void 
 static void onOptionMenu(OptionMenu::EventType type, int button_index, void *userdata) {
     (void)userdata;
     if (type == OptionMenu::Event_Button && button_index == 0) {
-        Base *current = Base::GetCurrent();
-        if (current && current->root) {
-            current->root->SetActivate(false);
+        Main *main = Main::Instance();
+        if (main && main->root) {
+            main->root->SetActivate(false);
+            main->root->Hide(paf::common::transition::Type_Reset);
         }
         if (moonlight_api_open_settings() != 0) {
-            if (current && current->root) {
-                current->root->SetActivate(true);
+            if (main && main->root) {
+                main->root->Show(paf::common::transition::Type_Reset);
+                main->root->SetActivate(true);
             }
         }
     }
