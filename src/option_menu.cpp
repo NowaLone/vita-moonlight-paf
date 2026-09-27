@@ -3,7 +3,7 @@
 static OptionMenu*s_instance=NULL;
 OptionMenu*OptionMenu::Instance(){return s_instance;}
 void OptionMenu::OnDismiss(int32_t t,paf::ui::Handler*s,paf::ui::Event*e,void*u){(void)t;(void)s;(void)e;OptionMenu*m=(OptionMenu*)u;if(!m)return;EventCb cb=m->m_cb;void*d=m->m_userdata;delete m;if(cb)cb(Event_Close,-1,d);}
-void OptionMenu::OnSettings(int32_t t,paf::ui::Handler*s,paf::ui::Event*e,void*u){(void)t;(void)s;(void)e;OptionMenu*m=(OptionMenu*)u;if(!m)return;EventCb cb=m->m_cb;void*d=m->m_userdata;delete m;if(cb)cb(Event_Button,0,d);}
+void OptionMenu::OnSettings(int32_t t,paf::ui::Handler*s,paf::ui::Event*e,void*u){(void)t;(void)s;(void)e;OptionMenu*m=(OptionMenu*)u;if(!m)return;if(m->root)m->root->Hide(paf::common::transition::Type_Reset);EventCb cb=m->m_cb;void*d=m->m_userdata;delete m;if(cb)cb(Event_Button,0,d);}
 OptionMenu::OptionMenu(paf::Plugin*plugin,paf::ui::Widget*parent,EventCb cb,void*userdata)
 :page::Base("page_settings_bubble",NULL,paf::Plugin::TransitionType_None,paf::Plugin::TransitionType_None),m_cb(cb),m_userdata(userdata){
  (void)plugin;(void)parent;if(!IsValid())return;s_instance=this;
