@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# CXML to RCO compiler with optional sample fallback.
+# CXML to RCO compiler.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${SCRIPT_DIR}/build"
@@ -43,12 +43,6 @@ if [ -n "$TOOL" ]; then
   echo "[!] Compilation failed, trying fallback..."
 fi
 
-SAMPLE_RCO="${VITASDK}/../vitasdk-paf-component/paf_samples/samples/paf_sample_cxml_button/cxml/sample_plugin.rco"
-if [ -f "$SAMPLE_RCO" ]; then
-  echo "[!] Using sample fallback RCO — custom layout will NOT appear"
-  cp "$SAMPLE_RCO" "$BUILD_DIR/vita_moonlight_ui.rco"
-  exit 0
-fi
-
-echo "[!] No RCO produced. Install psp2cxml-tool and retry."
+echo "[!] No usable psp2cxml-tool found."
+echo "    Set PSP2CXML_TOOL or build ../psp2cxml-tool first."
 exit 1
