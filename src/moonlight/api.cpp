@@ -107,8 +107,3 @@ int moonlight_api_stop_stream(void)
     return 0;
 }
 
-void moonlight_settings_emit_changed(const MoonlightEvent *event)
-{
-    if (!s_callback || !event) return;
-    s_callback(event, s_userdata);
-}
