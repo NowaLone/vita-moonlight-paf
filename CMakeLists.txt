@@ -89,30 +89,13 @@ set_target_properties(${PROJECT_NAME}
 )
 
 set(RCO_FILE "${CMAKE_CURRENT_BINARY_DIR}/vita_moonlight_ui.rco")
-set(RCO_SIZE 0)
-if(EXISTS "${RCO_FILE}")
-  file(SIZE "${RCO_FILE}" RCO_SIZE)
+if(NOT EXISTS "${RCO_FILE}")
+  message(FATAL_ERROR "Missing vita_moonlight_ui.rco. Run build_cxml.sh before configuring the project.")
 endif()
 
-vita_create_self(${PROJECT_NAME}.self ${PROJECT_NAME}
-  CONFIG exports.yml
-  UNSAFE
-  STRIPPED
-  REL_OPTIMIZE
+vita_create_vpk(vita_moonlight_paf.vpk "VLMP00001" ${PROJECT_NAME}.self
+  VERSION "01.00"
+  NAME "Vita Moonlight PAF UI"
+  FILE ${RCO_FILE} vita_moonlight_ui.rco
 )
-
-if(RCO_SIZE GREATER 0)
-  vita_create_vpk(vita_moonlight_paf.vpk "VLMP00001" ${PROJECT_NAME}.self
-    VERSION "01.00"
-    NAME "Vita Moonlight PAF UI"
-    FILE ${RCO_FILE} vita_moonlight_ui.rco
-  )
-else()
-  message(WARNING "Building VPK without RCO (UI will not display). Run build_cxml.sh first.")
-  vita_create_vpk(vita_moonlight_paf.vpk "VLMP00001" ${PROJECT_NAME}.self
-    VERSION "01.00"
-    NAME "Vita Moonlight PAF UI"
-  )
-endif()
-
 vita_create_stubs(stubs_${PROJECT_NAME} ${PROJECT_NAME} exports.yml)
