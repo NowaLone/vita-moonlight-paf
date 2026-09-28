@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<application_settings version="1.0" bg_color="0, 0, 0, 0">
+<application_settings version="1.0" bg_color="4.0, 21.0, 105.0, 255.0">
   <setting_list id="moonlight_settings" title="msg_settings">
 
     <setting_list id="stream_settings" title="msg_stream_settings" icon="tex_spanner">
