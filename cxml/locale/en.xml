@@ -7,12 +7,60 @@
   <string src="Settings" id="msg_settings" />
   <string src="Search for available PCs on your network." id="msg_search_pcs_description" />
   <string src="Enter a PC address manually." id="msg_add_manually_description" />
-  <string src="Back" id="msg_back" />
-  <string src="Video" id="msg_video_settings" />
-  <string src="Audio" id="msg_audio_settings" />
-  <string src="Network" id="msg_network_settings" />
-  <string src="Input" id="msg_input_settings" />
+
   <string src="Stream" id="msg_stream_settings" />
+  <string src="Resolution" id="msg_resolution" />
+  <string src="FPS" id="msg_fps" />
+  <string src="Bitrate" id="msg_bitrate" />
+  <string src="Change graphical game settings for performance" id="msg_optimize_graphics" />
+  <string src="Enable reference frame invalidation" id="msg_ref_frame_invalidation" />
+  <string src="Enable stream optimization" id="msg_stream_optimization" />
+  <string src="Enable VITA vblank" id="msg_vita_vblank" />
+  <string src="Enable frame pacer" id="msg_frame_pacer" />
+  <string src="Enable local audio" id="msg_local_audio" />
+
   <string src="System" id="msg_system_settings" />
+  <string src="Enable debug log" id="msg_debug_log" />
+  <string src="Disable power save" id="msg_disable_power_save" />
+  <string src="Swap X &amp; O for Moonlight" id="msg_swap_xo" />
+  <string src="Display streaming FPS" id="msg_show_fps" />
+  <string src="Use center region only" id="msg_center_region_only" />
+
+  <string src="Input" id="msg_input_settings" />
+  <string src="Enable gyroscope reporting" id="msg_gyro" />
+  <string src="Enable double tap to sprint" id="msg_double_tap_sprint" />
+  <string src="Sprint double tap time" id="msg_sprint_double_tap_time" />
+  <string src="Controller type" id="msg_controller_type" />
+  <string src="Xbox" id="msg_controller_xbox" />
+  <string src="PlayStation" id="msg_controller_playstation" />
+  <string src="Nintendo" id="msg_controller_nintendo" />
+  <string src="Generic" id="msg_controller_generic" />
+  <string src="Swap R1/L1 &lt;-&gt; R2/L2" id="msg_swap_shoulders" />
+  <string src="Mouse acceleration" id="msg_mouse_acceleration" />
+  <string src="Enable PS button capture" id="msg_ps_button_capture" />
+  <string src="Enable touchscreen special keys" id="msg_front_touchzones" />
+  <string src="Touchscreen mode" id="msg_touchscreen_mode" />
+  <string src="Off" id="msg_touch_off" />
+  <string src="DS4 Touchpad" id="msg_touch_ds4" />
+  <string src="Mouse Absolute" id="msg_touch_mouse" />
+  <string src="Tablet (Sunshine)" id="msg_touch_tablet" />
+
+  <string src="Keyboard" id="msg_keyboard_settings" />
+  <string src="Keyboard layout" id="msg_keyboard_layout" />
+  <string src="US" id="msg_keyboard_us" />
+  <string src="DE" id="msg_keyboard_de" />
+  <string src="ES" id="msg_keyboard_es" />
+  <string src="FR" id="msg_keyboard_fr" />
+  <string src="RU" id="msg_keyboard_ru" />
+
+  <string src="Advanced" id="msg_advanced_settings" />
+  <string src="Enable mapping file" id="msg_mapping_enabled" />
+  <string src="Back touchscreen deadzone top" id="msg_back_deadzone_top" />
+  <string src="Back touchscreen deadzone right" id="msg_back_deadzone_right" />
+  <string src="Back touchscreen deadzone bottom" id="msg_back_deadzone_bottom" />
+  <string src="Back touchscreen deadzone left" id="msg_back_deadzone_left" />
+
   <string src="About" id="msg_about" />
+  <string src="Vita Moonlight PAF" id="msg_about_title" />
+  <string src="Settings are stored by the Vita AppSettings service." id="msg_about_description" />
 </stringset>
