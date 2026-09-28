@@ -21,7 +21,13 @@ static void emit(MoonlightEventType type, int result, int host_id, const char *a
 
 int moonlight_api_init(void)
 {
-    return moonlight_settings_init();
+    return 0;
+}
+
+void moonlight_api_emit_event(const MoonlightEvent *event)
+{
+    if (!s_callback || !event) return;
+    s_callback(event, s_userdata);
 }
 
 void moonlight_api_shutdown(void)
@@ -33,21 +39,25 @@ void moonlight_api_shutdown(void)
 
 int moonlight_api_open_settings(void)
 {
+    if (moonlight_settings_init() != 0) return -1;
     return moonlight_settings_open();
 }
 
 int moonlight_api_get_settings(MoonlightSettings *out)
 {
+    if (moonlight_settings_init() != 0) return -1;
     return moonlight_settings_get_all(out);
 }
 
 int moonlight_api_get_setting_value(MoonlightSettingKey key, int *out_value)
 {
+    if (moonlight_settings_init() != 0) return -1;
     return moonlight_settings_get_value(key, out_value);
 }
 
 int moonlight_api_set_setting_value(MoonlightSettingKey key, int value)
 {
+    if (moonlight_settings_init() != 0) return -1;
     return moonlight_settings_set_value(key, value);
 }
 
@@ -56,12 +66,6 @@ int moonlight_api_set_event_callback(MoonlightEventCallback callback, void *user
     s_callback = callback;
     s_userdata = userdata;
     return 0;
-}
-
-void moonlight_settings_emit_closed(const MoonlightEvent *event)
-{
-    if (!s_callback || !event) return;
-    s_callback(event, s_userdata);
 }
 
 int moonlight_api_get_hosts(MoonlightHost *out, int capacity)
