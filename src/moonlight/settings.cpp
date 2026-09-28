@@ -4,9 +4,7 @@
 
 #include "common.h"
 #include "moonlight/settings.h"
-
-void moonlight_settings_emit_closed(const MoonlightEvent *event);
-void moonlight_settings_emit_changed(const MoonlightEvent *event);
+#include "moonlight/internal.h"
 
 namespace {
 
@@ -78,7 +76,7 @@ static int32_t on_press(const char *, const char *)
     event.host_id = -1;
     event.address = NULL;
 
-    moonlight_settings_emit_changed(&event);
+    moonlight_api_emit_event(&event);
     return SCE_OK;
 }
 
@@ -95,7 +93,7 @@ static void on_term(int32_t result)
     event.host_id = -1;
     event.address = NULL;
 
-    moonlight_settings_emit_closed(&event);
+    moonlight_api_emit_event(&event);
 }
 
 static wchar_t *on_get_string(const char *element_id)
@@ -149,6 +147,7 @@ int moonlight_settings_init(void)
 
     sce::AppSettings::InitParam param;
     param.xml_file = g_plugin->GetResource()->GetFile(id.GetIDHash(), &file_size, &mime);
+    if (param.xml_file == NULL) return -1;
     param.alloc_cb = sce_paf_malloc;
     param.free_cb = sce_paf_free;
     param.realloc_cb = sce_paf_realloc;
@@ -201,8 +200,7 @@ int moonlight_settings_open(void)
     callbacks.onGetStringCb = on_get_string;
     callbacks.onGetSurfaceCb = on_get_surface;
 
-    iface->Show(&callbacks);
-    return 0;
+    return iface->Show(&callbacks);
 }
 
 int moonlight_settings_get_value(MoonlightSettingKey key, int *out_value)
@@ -273,6 +271,4 @@ int moonlight_settings_get_all(MoonlightSettings *out)
     return 0;
 }
 
-void moonlight_settings_emit_closed(const MoonlightEvent *event);
-void moonlight_settings_emit_changed(const MoonlightEvent *event);
 
