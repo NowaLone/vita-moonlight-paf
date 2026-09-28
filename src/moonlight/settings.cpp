@@ -147,7 +147,7 @@ int moonlight_settings_init(void)
 
     sce::AppSettings::InitParam param;
     param.xml_file = g_plugin->GetResource()->GetFile(id.GetIDHash(), &file_size, &mime);
-    if (param.xml_file == NULL) return -1;
+    if (param.xml_file.get() == NULL) return -1;
     param.alloc_cb = sce_paf_malloc;
     param.free_cb = sce_paf_free;
     param.realloc_cb = sce_paf_realloc;
