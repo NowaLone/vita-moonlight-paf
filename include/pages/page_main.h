@@ -12,6 +12,8 @@ public:
     virtual Type GetType() { return Type_Main; }
 
     static Main *Instance();
+    void SuspendForSystemSettings();
+    void RestoreAfterSystemSettings();
 };
 
 }
