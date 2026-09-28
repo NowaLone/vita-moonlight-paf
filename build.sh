@@ -29,15 +29,9 @@ if [ ! -d "$BUILD_DIR" ]; then
     mkdir -p "$BUILD_DIR"
 fi
 
-# Try to compile CXML (optional for now, with graceful fallback)
-echo "[*] Attempting to compile CXML to RCO..."
-if bash "$PROJECT_DIR/build_cxml.sh" 2>/dev/null; then
-    echo "[+] CXML compiled successfully"
-else
-    echo "[!] CXML compilation skipped (psp2cxml-tool not available)"
-    echo "    UI will not display, but binary will build"
-    echo "    See build_cxml.sh for setup instructions"
-fi
+echo "[*] Compiling CXML to RCO..."
+bash "$PROJECT_DIR/build_cxml.sh"
+echo "[+] CXML compiled successfully"
 
 echo ""
 echo "[*] Configuring CMake..."
