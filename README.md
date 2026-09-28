@@ -24,7 +24,7 @@ src/moonlight/api.cpp        thin C API for the Moonlight core
 
 Settings use the Vita system `SceAppSettings` service, the same model used by NetStream and BetterHomebrewBrowser. The settings UI is declared in `cxml/moonlight_settings.xml`, while `moonlight/settings.cpp` is only a thin adapter between the system service and the Moonlight API.
 
-There is no `moonlight.conf` compatibility layer and no custom settings file parser. Application settings are stored by the system AppSettings service. The Moonlight core should read them through `moonlight_api_get_settings()` or the individual `moonlight_api_get_setting_value()` calls.
+There is no `moonlight.conf` compatibility layer and no custom settings file parser. Application settings are stored by the system AppSettings service. The settings subsystem is initialized lazily when settings are opened or the core first reads a setting. The Moonlight core should read them through `moonlight_api_get_settings()` or the individual `moonlight_api_get_setting_value()` calls.
 
 Streaming must not be folded into the PAF plugin. Call `moonlight_api_*` from page callbacks.
 
@@ -32,22 +32,22 @@ Streaming must not be folded into the PAF plugin. Call `moonlight_api_*` from pa
 
 - **Main** — title, empty-host state, Search PCs, Add Manually, settings corner button
 - **Search PCs / Add Manually** — placeholder pages with a dim overlay and back
-- **Settings** — overflow balloon from the `...` button, then a category list
+- **Settings** — system `SceAppSettings` UI opened from the `...` button
 
 PAF layout is **center-origin** on 960×544: `(0, 0)` is the middle of the screen, `+Y` is up. CSS-style top-left coordinates will pile widgets on top of each other.
 
 ## Build
 
-Requires [VITASDK](https://github.com/vitasdk/vitasdk) with [vitasdk-paf-component](https://github.com/Princess-of-Sleeping/vitasdk-paf-component) and [psp2cxml-tool](https://github.com/GrapheneCt/psp2cxml-tool).
+Requires [VITASDK](https://github.com/vitasdk/vitasdk), [vitasdk-paf-component](https://github.com/Princess-of-Sleeping/vitasdk-paf-component) and [psp2cxml-tool](https://github.com/Princess-of-Sleeping/psp2cxml-tool). The PAF component provides the `AppSettings` headers and stubs used by this project.
 
 ```bash
 export VITASDK=/path/to/vitasdk
 bash build.sh
 ```
 
-VPK: `build/vita_moonlight_paf.vpk`
+The build is fail-fast: a generated `vita_moonlight_ui.rco` is required and the bundled CXML compiler cannot fall back to an unrelated sample resource.
 
-`build.sh` compiles CXML → RCO when `psp2cxml-tool` is available. Without it the binary still links, but the UI will not match this layout.
+VPK: `build/vita_moonlight_paf.vpk`
 
 Rebuild CXML after XML edits:
 
