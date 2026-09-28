@@ -40,7 +40,8 @@ if [ -n "$TOOL" ]; then
       exit 0
     fi
   fi
-  echo "[!] Compilation failed, trying fallback..."
+  echo "[!] CXML compilation failed."
+  exit 1
 fi
 
 echo "[!] No usable psp2cxml-tool found."
