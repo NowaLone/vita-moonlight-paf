@@ -17,10 +17,9 @@ static void onMoonlightEvent(const MoonlightEvent *event, void *)
     if (!event) return;
 
     if (event->type == MOONLIGHT_EVENT_SETTINGS_CLOSED) {
-        page::Base *main = page::Base::Find("page_main");
-        if (main && main->root) {
-            main->root->Show(paf::common::transition::Type_Reset);
-            main->root->SetActivate(true);
+        page::Main *main = page::Main::Instance();
+        if (main) {
+            main->RestoreAfterSystemSettings();
         }
     }
 }
@@ -39,12 +38,13 @@ static void loadPluginCB(paf::Plugin *plugin)
     sce_paf_memset(&boot, 0, sizeof(boot));
     sceAppUtilInit(&init, &boot);
 
-    if (moonlight_api_init() != 0) {
-        return;
-    }
-
+    moonlight_api_init();
     moonlight_api_set_event_callback(onMoonlightEvent, NULL);
-    new page::Main();
+
+    page::Main *mainPage = new page::Main();
+    if (!mainPage->IsValid()) {
+        delete mainPage;
+    }
 }
 
 int paf_sample_main(void)
