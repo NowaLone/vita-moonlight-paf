@@ -31,18 +31,15 @@ static void onAdd(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void 
 
 static void onOptionMenu(OptionMenu::EventType type, int button_index, void *userdata) {
     (void)userdata;
-    if (type == OptionMenu::Event_Button && button_index == 0) {
-        Main *main = Main::Instance();
-        if (main && main->root) {
-            main->root->SetActivate(false);
-            main->root->Hide(paf::common::transition::Type_Reset);
-        }
-        if (moonlight_api_open_settings() != 0) {
-            if (main && main->root) {
-                main->root->Show(paf::common::transition::Type_Reset);
-                main->root->SetActivate(true);
-            }
-        }
+    if (type != OptionMenu::Event_Button || button_index != 0) return;
+
+    Main *main = Main::Instance();
+    if (main) {
+        main->SuspendForSystemSettings();
+    }
+
+    if (moonlight_api_open_settings() != 0 && main) {
+        main->RestoreAfterSystemSettings();
     }
 }
 
@@ -76,6 +73,18 @@ Main::~Main() {
 
 Main *Main::Instance() {
     return s_main;
+}
+
+void Main::SuspendForSystemSettings() {
+    if (!root) return;
+    root->SetActivate(false);
+    root->Hide(paf::common::transition::Type_Reset);
+}
+
+void Main::RestoreAfterSystemSettings() {
+    if (!root) return;
+    root->Show(paf::common::transition::Type_Reset);
+    root->SetActivate(true);
 }
 
 }
