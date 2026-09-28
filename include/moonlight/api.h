@@ -63,8 +63,6 @@ typedef struct MoonlightSettings {
     int enable_psbutton_capture;
     int enable_double_tap_sprint;
     int double_tap_sprint_step_time;
-    float motion_controls_scalar_x;
-    float motion_controls_scalar_y;
     int keyboard_layout;
     int touchscreen_mode;
     int controller_type;
