@@ -162,7 +162,7 @@ int moonlight_settings_init(void)
     int version = 0;
     s_settings->GetInt("settings_version", &version, 0);
     if (version != kSettingsVersion) {
-        s_settings->Initialize();
+        if (s_settings->Initialize() < 0) return -1;
         s_settings->SetInt("settings_version", kSettingsVersion);
     }
 
@@ -227,7 +227,7 @@ int moonlight_settings_set_value(MoonlightSettingKey key, int value)
 
 int moonlight_settings_get_all(MoonlightSettings *out)
 {
-    if (!out) return -1;
+    if (!s_initialized || !s_settings || !out) return -1;
 
     static const int width[] = {960, 960, 1024, 1152, 1280, 1280, 1366, 1600, 1920};
     static const int height[] = {540, 544, 576, 648, 540, 720, 768, 900, 1080};
