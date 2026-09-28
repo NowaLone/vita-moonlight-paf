@@ -15,7 +15,10 @@ static void onSearch(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, vo
     (void)e;
     (void)userdata;
     if (!Base::IsOpen("page_search_pcs")) {
-        new Search();
+        Search *search = new Search();
+        if (!search->IsValid()) {
+            delete search;
+        }
     }
 }
 
@@ -25,7 +28,10 @@ static void onAdd(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void 
     (void)e;
     (void)userdata;
     if (!Base::IsOpen("page_add_manually")) {
-        new AddHost();
+        AddHost *addHost = new AddHost();
+        if (!addHost->IsValid()) {
+            delete addHost;
+        }
     }
 }
 
