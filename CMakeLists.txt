@@ -50,7 +50,10 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/app/paf_runtime.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/common.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/app/moonlight_app.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/legacy_moonlight_adapter.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/services/host_service.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/services/pairing_service.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/services/connection_service.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/services/settings_service.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/option_menu.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/api.cpp
