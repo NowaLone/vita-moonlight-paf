@@ -2,6 +2,7 @@
 #define VITA_MOONLIGHT_APP_H
 
 #include "services/host_service.h"
+#include <paf.h>
 #include "services/settings_service.h"
 
 typedef void (*MoonlightAppEventCallback)(const MoonlightEvent *event, void *userdata);
