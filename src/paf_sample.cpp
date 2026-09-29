@@ -43,7 +43,7 @@ static void loadPluginCB(paf::Plugin *plugin)
     if (app->Initialize() != 0) {
         return;
     }
-    moonlight_api_set_event_callback(onMoonlightEvent, NULL);
+    MoonlightApp::Instance()->SetEventCallback(onMoonlightEvent, NULL);
 
     page::Main *mainPage = new page::Main();
     if (!mainPage->IsValid()) {
