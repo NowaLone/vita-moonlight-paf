@@ -1,7 +1,6 @@
 #include <paf.h>
 
 #include "app/moonlight_app.h"
-#include "moonlight/api.h"
 #include "common.h"
 #include "pages/page_main.h"
 #include <psp2/apputil.h>
@@ -12,6 +11,11 @@ MoonlightApp *s_app = NULL;
 
 MoonlightApp::MoonlightApp()
     : m_initialized(false),
+      m_backend(),
+      m_hosts(m_backend),
+      m_pairing(m_backend),
+      m_connection(m_backend),
+      m_settings(m_backend),
       m_event_callback(NULL),
       m_event_userdata(NULL),
       m_event_head(0),
@@ -73,13 +77,18 @@ int MoonlightApp::Initialize()
         return 0;
     }
 
-    int result = moonlight_api_init();
+    int result = m_backend.Initialize();
     if (result != 0) {
         return result;
     }
 
+    result = m_backend.SetEventCallback(OnMoonlightEvent, this);
+    if (result != 0) {
+        m_backend.Shutdown();
+        return result;
+    }
+
     m_initialized = true;
-    moonlight_api_set_event_callback(OnMoonlightEvent, this);
     return 0;
 }
 
@@ -89,7 +98,7 @@ void MoonlightApp::Shutdown()
         return;
     }
 
-    moonlight_api_set_event_callback(NULL, NULL);
+    m_backend.SetEventCallback(NULL, NULL);
 
     paf::thread::RMutex::main_thread_mutex.Lock();
     m_event_head = 0;
@@ -105,7 +114,7 @@ void MoonlightApp::Shutdown()
 
     paf::thread::RMutex::main_thread_mutex.Unlock();
 
-    moonlight_api_shutdown();
+    m_backend.Shutdown();
     m_initialized = false;
 }
 
