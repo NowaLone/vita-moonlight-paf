@@ -1,4 +1,31 @@
+#include <paf.h>
+
 #include "services/host_service.h"
+
+namespace {
+
+class SearchJob : public paf::job::JobItem {
+public:
+    SearchJob()
+        : paf::job::JobItem("HostService::SearchJob", NULL)
+    {
+    }
+
+    virtual ~SearchJob()
+    {
+    }
+
+    virtual void Run()
+    {
+        moonlight_api_search_hosts();
+    }
+
+    virtual void Finish()
+    {
+    }
+};
+
+}
 
 int HostService::GetHosts(MoonlightHost *out, int capacity)
 {
@@ -7,7 +34,15 @@ int HostService::GetHosts(MoonlightHost *out, int capacity)
 
 int HostService::Search()
 {
-    return moonlight_api_search_hosts();
+    if (paf::job::JobQueue::default_queue == NULL) {
+        return -1;
+    }
+
+    paf::common::SharedPtr<paf::job::JobItem> item(
+        new SearchJob()
+    );
+
+    return paf::job::JobQueue::default_queue->Enqueue(item);
 }
 
 int HostService::Add(const char *address, uint16_t port, const char *name)
