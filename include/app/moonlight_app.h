@@ -10,6 +10,7 @@ class MoonlightApp {
 public:
     static MoonlightApp *Instance();
 
+    int Start(paf::Plugin *plugin);
     int Initialize();
     void Shutdown();
 
