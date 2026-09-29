@@ -11,6 +11,7 @@
 #include "common.h"
 #include "pages/page_main.h"
 #include "moonlight/api.h"
+#include "app/moonlight_app.h"
 
 static void onMoonlightEvent(const MoonlightEvent *event, void *)
 {
@@ -38,7 +39,10 @@ static void loadPluginCB(paf::Plugin *plugin)
     sce_paf_memset(&boot, 0, sizeof(boot));
     sceAppUtilInit(&init, &boot);
 
-    moonlight_api_init();
+    MoonlightApp *app = MoonlightApp::Instance();
+    if (app->Initialize() != 0) {
+        return;
+    }
     moonlight_api_set_event_callback(onMoonlightEvent, NULL);
 
     page::Main *mainPage = new page::Main();
@@ -72,6 +76,6 @@ int paf_sample_main(void)
 
     paf::Plugin::LoadSync(pluginParam);
     paf_fw->Run();
-    moonlight_api_shutdown();
+    MoonlightApp::Instance()->Shutdown();
     return 0;
 }

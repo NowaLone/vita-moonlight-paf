@@ -3,7 +3,7 @@
 #include "pages/page_add_host.h"
 #include "option_menu.h"
 #include "common.h"
-#include "moonlight/api.h"
+#include "app/moonlight_app.h"
 
 namespace page {
 
@@ -44,7 +44,7 @@ static void onOptionMenu(OptionMenu::EventType type, int button_index, void *use
         main->SuspendForSystemSettings();
     }
 
-    if (moonlight_api_open_settings() != 0 && main) {
+    if (MoonlightApp::Instance()->Settings().Open() != 0 && main) {
         main->RestoreAfterSystemSettings();
     }
 }

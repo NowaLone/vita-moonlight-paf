@@ -1,6 +1,6 @@
 #include "pages/page_search.h"
 #include "common.h"
-#include "moonlight/api.h"
+#include "app/moonlight_app.h"
 
 namespace page {
 
@@ -20,7 +20,7 @@ Search::Search()
         return;
     }
     bind_decide(root, "btn_close_search", onBack);
-    moonlight_api_search_hosts();
+    MoonlightApp::Instance()->Hosts().Search();
 }
 
 Search::~Search() {}
