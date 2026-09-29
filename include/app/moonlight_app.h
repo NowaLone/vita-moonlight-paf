@@ -1,8 +1,12 @@
 #ifndef VITA_MOONLIGHT_APP_H
 #define VITA_MOONLIGHT_APP_H
 
-#include "services/host_service.h"
 #include <paf.h>
+
+#include "backend/legacy_moonlight_adapter.h"
+#include "services/host_service.h"
+#include "services/pairing_service.h"
+#include "services/connection_service.h"
 #include "services/settings_service.h"
 
 typedef void (*MoonlightAppEventCallback)(const MoonlightEvent *event, void *userdata);
@@ -16,6 +20,8 @@ public:
     void Shutdown();
 
     HostService &Hosts() { return m_hosts; }
+    PairingService &Pairing() { return m_pairing; }
+    ConnectionService &Connection() { return m_connection; }
     SettingsService &Settings() { return m_settings; }
 
     void SetEventCallback(MoonlightAppEventCallback callback, void *userdata);
@@ -42,7 +48,11 @@ private:
     static const int kEventQueueCapacity = 16;
 
     bool m_initialized;
+
+    LegacyMoonlightAdapter m_backend;
     HostService m_hosts;
+    PairingService m_pairing;
+    ConnectionService m_connection;
     SettingsService m_settings;
 
     MoonlightAppEventCallback m_event_callback;
