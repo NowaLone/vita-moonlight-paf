@@ -4,7 +4,7 @@
 #include "moonlight/api.h"
 
 namespace {
-MoonlightApp s_app;
+MoonlightApp *s_app = NULL;
 }
 
 MoonlightApp::MoonlightApp()
@@ -25,7 +25,10 @@ MoonlightApp::~MoonlightApp()
 
 MoonlightApp *MoonlightApp::Instance()
 {
-    return &s_app;
+    if (s_app == NULL) {
+        s_app = new MoonlightApp();
+    }
+    return s_app;
 }
 
 int MoonlightApp::Initialize()
@@ -40,7 +43,7 @@ int MoonlightApp::Initialize()
     }
 
     m_initialized = true;
-    moonlight_api_set_event_callback(OnMoonlightEvent, &s_app);
+    moonlight_api_set_event_callback(OnMoonlightEvent, this);
     return 0;
 }
 
@@ -121,7 +124,7 @@ void MoonlightApp::QueueEvent(const MoonlightEvent *event)
 
     if (!m_event_task_registered) {
         m_event_task_registered = true;
-        paf::common::MainThreadCallList::Register(ProcessEventTask, &s_app);
+        paf::common::MainThreadCallList::Register(ProcessEventTask, this);
     }
 
     paf::thread::RMutex::MainThreadMutex()->Unlock();
@@ -142,7 +145,7 @@ void MoonlightApp::ProcessEventTask(void *userdata)
 
         if (app->m_event_count == 0) {
             app->m_event_task_registered = false;
-            paf::common::MainThreadCallList::Unregister(ProcessEventTask, &s_app);
+            paf::common::MainThreadCallList::Unregister(ProcessEventTask, app);
             paf::thread::RMutex::MainThreadMutex()->Unlock();
             return;
         }
