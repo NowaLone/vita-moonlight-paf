@@ -6,8 +6,9 @@ namespace {
 
 class SearchJob : public paf::job::JobItem {
 public:
-    SearchJob()
-        : paf::job::JobItem("HostService::SearchJob", NULL)
+    explicit SearchJob(MoonlightBackend &backend)
+        : paf::job::JobItem("HostService::SearchJob", NULL),
+          m_backend(backend)
     {
     }
 
@@ -17,19 +18,27 @@ public:
 
     virtual void Run()
     {
-        moonlight_api_search_hosts();
+        m_backend.SearchHosts();
     }
 
     virtual void Finish()
     {
     }
+
+private:
+    MoonlightBackend &m_backend;
 };
 
 }
 
+HostService::HostService(MoonlightBackend &backend)
+    : m_backend(backend)
+{
+}
+
 int HostService::GetHosts(MoonlightHost *out, int capacity)
 {
-    return moonlight_api_get_hosts(out, capacity);
+    return m_backend.GetHosts(out, capacity);
 }
 
 int HostService::Search()
@@ -39,7 +48,7 @@ int HostService::Search()
     }
 
     paf::common::SharedPtr<paf::job::JobItem> item(
-        new SearchJob()
+        new SearchJob(m_backend)
     );
 
     return paf::job::JobQueue::default_queue->Enqueue(item);
@@ -47,20 +56,5 @@ int HostService::Search()
 
 int HostService::Add(const char *address, uint16_t port, const char *name)
 {
-    return moonlight_api_add_host(address, port, name);
-}
-
-int HostService::Pair(const char *address)
-{
-    return moonlight_api_pair_host(address);
-}
-
-int HostService::StartStream(const char *address)
-{
-    return moonlight_api_start_stream(address);
-}
-
-int HostService::StopStream()
-{
-    return moonlight_api_stop_stream();
+    return m_backend.AddHost(address, port, name);
 }
