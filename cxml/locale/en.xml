@@ -63,4 +63,24 @@
   <string src="About" id="msg_about" />
   <string src="Vita Moonlight PAF" id="msg_about_title" />
   <string src="Settings are stored by the Vita AppSettings service." id="msg_about_description" />
+
+  <string src="Tells the host to adjust game graphics settings for the selected stream resolution and FPS." id="msg_optimize_graphics_hint" />
+  <string src="Helps video recovery after lost or corrupted packets by invalidating unusable reference frames." id="msg_ref_frame_invalidation_hint" />
+  <string src="Treats the connection as a remote/WAN stream. Use this for Internet or routed connections; leave it off for a normal local LAN." id="msg_stream_optimization_hint" />
+  <string src="Waits for the Vita display VBlank when presenting video frames. This can reduce tearing, but may affect latency and frame pacing." id="msg_vita_vblank_hint" />
+  <string src="Limits presentation to the selected FPS by dropping excess decoded frames when they arrive too quickly." id="msg_frame_pacer_hint" />
+  <string src="Keeps game audio on the PC instead of streaming audio to the Vita." id="msg_local_audio_hint" />
+  <string src="Enables diagnostic logging for troubleshooting. Logging may add some storage and performance overhead." id="msg_debug_log_hint" />
+  <string src="Prevents Vita power-saving behavior while streaming." id="msg_disable_power_save_hint" />
+  <string src="When the video aspect ratio does not match the Vita screen, shows the center portion instead of fitting the entire image. Edges may be cropped." id="msg_center_region_only_hint" />
+  <string src="Sends the Vita gyroscope and accelerometer data to the PC as motion input." id="msg_gyro_hint" />
+  <string src="Enables sprinting by quickly double-tapping the forward movement control." id="msg_double_tap_sprint_hint" />
+  <string src="Maximum time between the two taps for double-tap sprint, in milliseconds." id="msg_sprint_double_tap_time_hint" />
+  <string src="Swaps the functions of R1/L1 with R2/L2." id="msg_swap_shoulders_hint" />
+  <string src="Controls how much touch or analog mouse movement is accelerated. Higher values make the cursor move farther." id="msg_mouse_acceleration_hint" />
+  <string src="Captures the Vita PS button during streaming. A double press opens the menu; a single press can be sent to the host as a PS/Xbox button." id="msg_ps_button_capture_hint" />
+  <string src="Enables predefined front-screen touch zones for special keys. Touches in active zones are used as those keys instead of normal touch input." id="msg_front_touchzones_hint" />
+  <string src="Selects how the Vita front touchscreen is presented to the host: off, DS4-style touchpad, absolute mouse, or Sunshine tablet mode." id="msg_touchscreen_mode_hint" />
+  <string src="Enables the custom controller mapping configuration used by Moonlight." id="msg_mapping_enabled_hint" />
+  <string src="Sets how much of this back-touchscreen edge is reserved as a deadzone. Higher values move the active area farther inward." id="msg_back_deadzone_hint" />
 </stringset>
