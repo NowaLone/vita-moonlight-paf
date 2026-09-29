@@ -62,7 +62,7 @@ void MoonlightApp::Shutdown()
 
     if (m_event_task_registered) {
         m_event_task_registered = false;
-        paf::common::MainThreadCallList::Unregister(ProcessEventTask, &s_app);
+        paf::common::MainThreadCallList::Unregister(ProcessEventTask, s_app);
     }
 
     paf::thread::RMutex::MainThreadMutex()->Unlock();
