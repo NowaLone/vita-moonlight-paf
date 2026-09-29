@@ -31,26 +31,26 @@
         <list_item id="bitrate_20000" title="20000" value="20000" />
         <list_item id="bitrate_30000" title="30000" value="30000" />
       </list>
-      <toggle_switch id="optimize_graphics" title="msg_optimize_graphics" key="sops" default_value="1" />
-      <toggle_switch id="ref_invalidation" title="msg_ref_frame_invalidation" key="ref_frame_invalidation" default_value="0" />
-      <toggle_switch id="stream_opt" title="msg_stream_optimization" key="stream_optimization" default_value="0" />
-      <toggle_switch id="vita_vblank" title="msg_vita_vblank" key="vita_vblank" default_value="0" />
-      <toggle_switch id="frame_pacer" title="msg_frame_pacer" key="frame_pacer" default_value="1" />
-      <toggle_switch id="local_audio" title="msg_local_audio" key="local_audio" default_value="0" />
+      <toggle_switch id="optimize_graphics" title="msg_optimize_graphics" hint="msg_optimize_graphics_hint" key="sops" default_value="1" />
+      <toggle_switch id="ref_invalidation" title="msg_ref_frame_invalidation" hint="msg_ref_frame_invalidation_hint" key="ref_frame_invalidation" default_value="0" />
+      <toggle_switch id="stream_opt" title="msg_stream_optimization" hint="msg_stream_optimization_hint" key="stream_optimization" default_value="0" />
+      <toggle_switch id="vita_vblank" title="msg_vita_vblank" hint="msg_vita_vblank_hint" key="vita_vblank" default_value="0" />
+      <toggle_switch id="frame_pacer" title="msg_frame_pacer" hint="msg_frame_pacer_hint" key="frame_pacer" default_value="1" />
+      <toggle_switch id="local_audio" title="msg_local_audio" hint="msg_local_audio_hint" key="local_audio" default_value="0" />
     </setting_list>
 
     <setting_list id="system_settings" title="msg_system_settings" icon="tex_spanner">
-      <toggle_switch id="debug_log" title="msg_debug_log" key="debug_log" default_value="0" />
-      <toggle_switch id="disable_power_save" title="msg_disable_power_save" key="disable_power_save" default_value="1" />
+      <toggle_switch id="debug_log" title="msg_debug_log" hint="msg_debug_log_hint" key="debug_log" default_value="0" />
+      <toggle_switch id="disable_power_save" title="msg_disable_power_save" hint="msg_disable_power_save_hint" key="disable_power_save" default_value="1" />
       <toggle_switch id="swap_xo" title="msg_swap_xo" key="swap_xo" default_value="0" />
       <toggle_switch id="show_fps" title="msg_show_fps" key="show_fps" default_value="0" />
-      <toggle_switch id="center_region_only" title="msg_center_region_only" key="center_region_only" default_value="0" />
+      <toggle_switch id="center_region_only" title="msg_center_region_only" hint="msg_center_region_only_hint" key="center_region_only" default_value="0" />
     </setting_list>
 
     <setting_list id="input_settings" title="msg_input_settings" icon="tex_spanner">
-      <toggle_switch id="gyro" title="msg_gyro" key="gyro" default_value="0" />
-      <toggle_switch id="double_tap_sprint" title="msg_double_tap_sprint" key="double_tap_sprint" default_value="0" />
-      <list id="sprint_double_tap_time" title="msg_sprint_double_tap_time" key="sprint_double_tap_time" default_value="200">
+      <toggle_switch id="gyro" title="msg_gyro" hint="msg_gyro_hint" key="gyro" default_value="0" />
+      <toggle_switch id="double_tap_sprint" title="msg_double_tap_sprint" hint="msg_double_tap_sprint_hint" key="double_tap_sprint" default_value="0" />
+      <list id="sprint_double_tap_time" title="msg_sprint_double_tap_time" hint="msg_sprint_double_tap_time_hint" key="sprint_double_tap_time" default_value="200">
         <list_item id="sprint_50" title="50 ms" value="50" />
         <list_item id="sprint_100" title="100 ms" value="100" />
         <list_item id="sprint_150" title="150 ms" value="150" />
@@ -68,8 +68,8 @@
         <list_item id="controller_nintendo" title="msg_controller_nintendo" value="3" />
         <list_item id="controller_generic" title="msg_controller_generic" value="4" />
       </list>
-      <toggle_switch id="swap_shoulders" title="msg_swap_shoulders" key="swap_shoulders" default_value="0" />
-      <list id="mouse_acceleration" title="msg_mouse_acceleration" key="mouse_acceleration" default_value="150">
+      <toggle_switch id="swap_shoulders" title="msg_swap_shoulders" hint="msg_swap_shoulders_hint" key="swap_shoulders" default_value="0" />
+      <list id="mouse_acceleration" title="msg_mouse_acceleration" hint="msg_mouse_acceleration_hint" key="mouse_acceleration" default_value="150">
         <list_item id="mouse_0" title="0" value="0" />
         <list_item id="mouse_15" title="15" value="15" />
         <list_item id="mouse_30" title="30" value="30" />
@@ -92,9 +92,9 @@
         <list_item id="mouse_285" title="285" value="285" />
         <list_item id="mouse_300" title="300" value="300" />
       </list>
-      <toggle_switch id="ps_button_capture" title="msg_ps_button_capture" key="ps_button_capture" default_value="1" />
-      <toggle_switch id="front_touchzones" title="msg_front_touchzones" key="front_touchzones" default_value="0" />
-      <list id="touchscreen_mode" title="msg_touchscreen_mode" key="touchscreen_mode" default_value="0">
+      <toggle_switch id="ps_button_capture" title="msg_ps_button_capture" hint="msg_ps_button_capture_hint" key="ps_button_capture" default_value="1" />
+      <toggle_switch id="front_touchzones" title="msg_front_touchzones" hint="msg_front_touchzones_hint" key="front_touchzones" default_value="0" />
+      <list id="touchscreen_mode" title="msg_touchscreen_mode" hint="msg_touchscreen_mode_hint" key="touchscreen_mode" default_value="0">
         <list_item id="touch_off" title="msg_touch_off" value="0" />
         <list_item id="touch_ds4" title="msg_touch_ds4" value="1" />
         <list_item id="touch_mouse" title="msg_touch_mouse" value="2" />
@@ -113,8 +113,8 @@
     </setting_list>
 
     <setting_list id="advanced_settings" title="msg_advanced_settings" icon="tex_spanner">
-      <toggle_switch id="mapping_enabled" title="msg_mapping_enabled" key="mapping_enabled" default_value="0" />
-      <list id="back_deadzone_top" title="msg_back_deadzone_top" key="back_deadzone_top" default_value="0">
+      <toggle_switch id="mapping_enabled" title="msg_mapping_enabled" hint="msg_mapping_enabled_hint" key="mapping_enabled" default_value="0" />
+      <list id="back_deadzone_top" title="msg_back_deadzone_top" hint="msg_back_deadzone_hint" key="back_deadzone_top" default_value="0">
         <list_item id="bd_top_0" title="0" value="0" />
         <list_item id="bd_top_5" title="5" value="5" />
         <list_item id="bd_top_10" title="10" value="10" />
@@ -125,7 +125,7 @@
         <list_item id="bd_top_35" title="35" value="35" />
         <list_item id="bd_top_40" title="40" value="40" />
       </list>
-      <list id="back_deadzone_right" title="msg_back_deadzone_right" key="back_deadzone_right" default_value="0">
+      <list id="back_deadzone_right" title="msg_back_deadzone_right" hint="msg_back_deadzone_hint" key="back_deadzone_right" default_value="0">
         <list_item id="bd_right_0" title="0" value="0" />
         <list_item id="bd_right_5" title="5" value="5" />
         <list_item id="bd_right_10" title="10" value="10" />
@@ -136,7 +136,7 @@
         <list_item id="bd_right_35" title="35" value="35" />
         <list_item id="bd_right_40" title="40" value="40" />
       </list>
-      <list id="back_deadzone_bottom" title="msg_back_deadzone_bottom" key="back_deadzone_bottom" default_value="0">
+      <list id="back_deadzone_bottom" title="msg_back_deadzone_bottom" hint="msg_back_deadzone_hint" key="back_deadzone_bottom" default_value="0">
         <list_item id="bd_bottom_0" title="0" value="0" />
         <list_item id="bd_bottom_5" title="5" value="5" />
         <list_item id="bd_bottom_10" title="10" value="10" />
@@ -147,7 +147,7 @@
         <list_item id="bd_bottom_35" title="35" value="35" />
         <list_item id="bd_bottom_40" title="40" value="40" />
       </list>
-      <list id="back_deadzone_left" title="msg_back_deadzone_left" key="back_deadzone_left" default_value="0">
+      <list id="back_deadzone_left" title="msg_back_deadzone_left" hint="msg_back_deadzone_hint" key="back_deadzone_left" default_value="0">
         <list_item id="bd_left_0" title="0" value="0" />
         <list_item id="bd_left_5" title="5" value="5" />
         <list_item id="bd_left_10" title="10" value="10" />
