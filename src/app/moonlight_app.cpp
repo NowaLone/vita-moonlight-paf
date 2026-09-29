@@ -59,6 +59,8 @@ void MoonlightApp::Shutdown()
     m_event_head = 0;
     m_event_tail = 0;
     m_event_count = 0;
+    m_event_callback = NULL;
+    m_event_userdata = NULL;
 
     if (m_event_task_registered) {
         m_event_task_registered = false;
