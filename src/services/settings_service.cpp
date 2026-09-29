@@ -1,21 +1,26 @@
 #include "services/settings_service.h"
 
+SettingsService::SettingsService(MoonlightBackend &backend)
+    : m_backend(backend)
+{
+}
+
 int SettingsService::Open()
 {
-    return moonlight_api_open_settings();
+    return m_backend.OpenSettings();
 }
 
 int SettingsService::GetAll(MoonlightSettings *out)
 {
-    return moonlight_api_get_settings(out);
+    return m_backend.GetSettings(out);
 }
 
 int SettingsService::GetValue(MoonlightSettingKey key, int *out_value)
 {
-    return moonlight_api_get_setting_value(key, out_value);
+    return m_backend.GetSettingValue(key, out_value);
 }
 
 int SettingsService::SetValue(MoonlightSettingKey key, int value)
 {
-    return moonlight_api_set_setting_value(key, value);
+    return m_backend.SetSettingValue(key, value);
 }
