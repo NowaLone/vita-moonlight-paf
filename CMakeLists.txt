@@ -47,7 +47,7 @@ endif()
 
 add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/paf_sample.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/app/paf_runtime.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/common.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/app/moonlight_app.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/services/host_service.cpp
