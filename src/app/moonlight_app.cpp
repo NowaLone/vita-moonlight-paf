@@ -2,6 +2,9 @@
 
 #include "app/moonlight_app.h"
 #include "moonlight/api.h"
+#include "common.h"
+#include "pages/page_main.h"
+#include <psp2/apputil.h>
 
 namespace {
 MoonlightApp *s_app = NULL;
@@ -29,6 +32,39 @@ MoonlightApp *MoonlightApp::Instance()
         s_app = new MoonlightApp();
     }
     return s_app;
+}
+
+int MoonlightApp::Start(paf::Plugin *plugin)
+{
+    if (!plugin) {
+        return -1;
+    }
+
+    g_plugin = plugin;
+
+    SceAppUtilInitParam init;
+    SceAppUtilBootParam boot;
+    sce_paf_memset(&init, 0, sizeof(init));
+    sce_paf_memset(&boot, 0, sizeof(boot));
+
+    int result = sceAppUtilInit(&init, &boot);
+    if (result < 0) {
+        return result;
+    }
+
+    result = Initialize();
+    if (result != 0) {
+        return result;
+    }
+
+    page::Main *mainPage = new page::Main();
+    if (!mainPage || !mainPage->IsValid()) {
+        delete mainPage;
+        Shutdown();
+        return -1;
+    }
+
+    return 0;
 }
 
 int MoonlightApp::Initialize()
