@@ -55,7 +55,7 @@ void MoonlightApp::Shutdown()
 
     moonlight_api_set_event_callback(NULL, NULL);
 
-    paf::thread::RMutex::main_thread_mutex->Lock();
+    paf::thread::RMutex::main_thread_mutex.Lock();
     m_event_head = 0;
     m_event_tail = 0;
     m_event_count = 0;
@@ -67,7 +67,7 @@ void MoonlightApp::Shutdown()
         paf::common::MainThreadCallList::Unregister(ProcessEventTask, s_app);
     }
 
-    paf::thread::RMutex::main_thread_mutex->Unlock();
+    paf::thread::RMutex::main_thread_mutex.Unlock();
 
     moonlight_api_shutdown();
     m_initialized = false;
@@ -75,10 +75,10 @@ void MoonlightApp::Shutdown()
 
 void MoonlightApp::SetEventCallback(MoonlightAppEventCallback callback, void *userdata)
 {
-    paf::thread::RMutex::main_thread_mutex->Lock();
+    paf::thread::RMutex::main_thread_mutex.Lock();
     m_event_callback = callback;
     m_event_userdata = userdata;
-    paf::thread::RMutex::main_thread_mutex->Unlock();
+    paf::thread::RMutex::main_thread_mutex.Unlock();
 }
 
 void MoonlightApp::OnMoonlightEvent(const MoonlightEvent *event, void *userdata)
@@ -93,15 +93,15 @@ void MoonlightApp::OnMoonlightEvent(const MoonlightEvent *event, void *userdata)
 
 void MoonlightApp::QueueEvent(const MoonlightEvent *event)
 {
-    paf::thread::RMutex::main_thread_mutex->Lock();
+    paf::thread::RMutex::main_thread_mutex.Lock();
 
     if (m_event_callback == NULL) {
-        paf::thread::RMutex::main_thread_mutex->Unlock();
+        paf::thread::RMutex::main_thread_mutex.Unlock();
         return;
     }
 
     if (m_event_count >= kEventQueueCapacity) {
-        paf::thread::RMutex::main_thread_mutex->Unlock();
+        paf::thread::RMutex::main_thread_mutex.Unlock();
         return;
     }
 
@@ -129,7 +129,7 @@ void MoonlightApp::QueueEvent(const MoonlightEvent *event)
         paf::common::MainThreadCallList::Register(ProcessEventTask, this);
     }
 
-    paf::thread::RMutex::main_thread_mutex->Unlock();
+    paf::thread::RMutex::main_thread_mutex.Unlock();
 }
 
 void MoonlightApp::ProcessEventTask(void *userdata)
@@ -143,12 +143,12 @@ void MoonlightApp::ProcessEventTask(void *userdata)
         MoonlightEvent event;
         char address[256];
 
-        paf::thread::RMutex::main_thread_mutex->Lock();
+        paf::thread::RMutex::main_thread_mutex.Lock();
 
         if (app->m_event_count == 0) {
             app->m_event_task_registered = false;
             paf::common::MainThreadCallList::Unregister(ProcessEventTask, app);
-            paf::thread::RMutex::main_thread_mutex->Unlock();
+            paf::thread::RMutex::main_thread_mutex.Unlock();
             return;
         }
 
@@ -174,7 +174,7 @@ void MoonlightApp::ProcessEventTask(void *userdata)
         MoonlightAppEventCallback callback = app->m_event_callback;
         void *callback_userdata = app->m_event_userdata;
 
-        paf::thread::RMutex::main_thread_mutex->Unlock();
+        paf::thread::RMutex::main_thread_mutex.Unlock();
 
         if (callback) {
             callback(&event, callback_userdata);
