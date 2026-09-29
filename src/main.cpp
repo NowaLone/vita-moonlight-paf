@@ -33,7 +33,7 @@ void operator delete[](void *ptr, unsigned int n) {
 	sce_paf_free(ptr);
 }
 
-int paf_sample_main(void);
+int paf_runtime_main(void);
 
 extern "C" {
 
@@ -69,7 +69,7 @@ int module_start(SceSize args, void *argp){
 		return SCE_KERNEL_START_FAILED;
 	}
 
-	paf_sample_main();
+	paf_runtime_main();
 
 	return SCE_KERNEL_START_SUCCESS;
 }
