@@ -14,6 +14,8 @@ public:
     static Base *GetCurrent();
     static bool IsOpen(const char *id);
     static Base *Find(const char *id);
+    static void CloseCurrent();
+    static void DefaultBackButtonCB(int32_t type, paf::ui::Handler *self, paf::ui::Event *event, void *userdata);
     static void CloseType(Type type);
     paf::ui::Scene *root;
 protected:
