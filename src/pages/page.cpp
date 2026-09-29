@@ -58,6 +58,12 @@ Base::Base(const char *id, const char *back_id,
             } else {
                 m_back->Hide(paf::common::transition::Type_Reset);
             }
+
+            m_back->SetEventCallback(
+                paf::ui::ButtonBase::CB_BTN_DECIDE,
+                DefaultBackButtonCB,
+                this
+            );
         }
     }
 
@@ -109,6 +115,26 @@ Base *Base::Find(const char *id)
         }
     }
     return NULL;
+}
+
+void Base::CloseCurrent()
+{
+    Base *current = GetCurrent();
+    if (current) {
+        delete current;
+    }
+}
+
+void Base::DefaultBackButtonCB(int32_t type,
+                               paf::ui::Handler *self,
+                               paf::ui::Event *event,
+                               void *userdata)
+{
+    (void)type;
+    (void)self;
+    (void)event;
+    (void)userdata;
+    CloseCurrent();
 }
 
 void Base::CloseType(Type type)
