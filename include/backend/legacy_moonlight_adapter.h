@@ -20,6 +20,7 @@ public:
 
     virtual int GetHosts(MoonlightHost *out, int capacity);
     virtual int SearchHosts();
+    virtual int StopHostSearch();
     virtual int AddHost(const char *address, uint16_t port, const char *name);
 
     virtual int ConnectHost(const MoonlightHost &host);
@@ -30,6 +31,16 @@ public:
     virtual int StopApplication();
     virtual int DisconnectHost();
     virtual MoonlightConnectionState GetConnectionState() const;
+
+private:
+    static void OnLegacyEvent(const MoonlightEvent *event, void *userdata);
+    void ForwardEvent(const MoonlightEvent *event);
+
+    MoonlightConnectionState m_connection_state;
+    MoonlightHost m_current_host;
+    bool m_has_current_host;
+    MoonlightEventCallback m_event_callback;
+    void *m_event_userdata;
 };
 
 #endif
