@@ -1,4 +1,4 @@
-#include <stddef.h>
+#include <stddef.h>\n#include <psp2/kernel/clib.h>
 
 #include "backend/legacy_moonlight_adapter.h"
 
@@ -22,7 +22,7 @@ int LegacyMoonlightAdapter::Initialize()
 {
     m_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
     m_has_current_host = false;
-    return moonlight_api_init();
+    int result = moonlight_api_init();\n    sceClibPrintf("[PSP2SHELL] moonlight_api_init -> 0x%x\\n", result);\n    return result;
 }
 
 void LegacyMoonlightAdapter::Shutdown()
