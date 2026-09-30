@@ -160,10 +160,10 @@
       </list>
     </setting_list>
 
-    <setting_list id="about_settings" title="msg_about" icon="tex_spanner">
+    <setting_list id="about_settings" title="msg_about" style="edit" icon="tex_spanner">
       <label id="label_about" title="msg_about_title" style="heading" />
       <label id="label_about_description" title="msg_about_description" />
-      <label id="label_about_build_info" title="msg_about_build_info" />
+      <label id="label_about_build_info" title="msg_about_build_info" style="heading" />
     </setting_list>
 
   </setting_list>
