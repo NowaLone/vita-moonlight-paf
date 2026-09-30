@@ -5,18 +5,25 @@
     <page id="page_main">
       <plane texture="_bg_texture" id="plane_main_bg">
         <layout_hint size="960, 544" />
+
         <text style="style_text_title" label="msg_moonlight_title" id="text_title">
-          <layout_hint adjust="2, 2" pos="0, 170" />
+          <layout_hint adjust="2, 2" pos="0, 185" />
         </text>
-        <text style="style_text_body" label="msg_no_pcs" id="text_no_pcs">
-          <layout_hint adjust="2, 2" pos="0, 90" />
-        </text>
+
         <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_search_pcs" id="btn_search_pcs">
-          <layout_hint pos="0, 10" size="320, 72" />
+          <layout_hint pos="0, 70" size="500, 68" />
         </button>
+        <text style="style_text_action_description" label="msg_search_pcs_description" id="text_search_description">
+          <layout_hint adjust="2, 2" pos="0, 18" size="500, 36" />
+        </text>
+
         <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_add_manually" id="btn_add_manually">
-          <layout_hint pos="0, -80" size="320, 72" />
+          <layout_hint pos="0, -55" size="500, 68" />
         </button>
+        <text style="style_text_action_description" label="msg_add_manually_description" id="text_add_description">
+          <layout_hint adjust="2, 2" pos="0, -107" size="500, 36" />
+        </text>
+
         <corner_button style="_common_style_corner_bottom_right" id="settings_button" />
       </plane>
     </page>
@@ -75,6 +82,10 @@
 
     <style_text id="style_text_body">
       <textobj font_size="22" bold="0" color="1, 1, 1, 0.85" align_x="1" align_y="1" word_wrap="1" ellipsis="0" emboss="0" id="body_obj" />
+    </style_text>
+
+    <style_text id="style_text_action_description">
+      <textobj font_size="18" bold="0" color="1, 1, 1, 0.82" align_x="1" align_y="1" word_wrap="1" ellipsis="0" emboss="0" id="action_description_obj" />
     </style_text>
 
     <style_button sound="_common_sound_button_enter" bottom_margin="12" right_margin="20" top_margin="12" left_margin="20" label_obj="label_obj" bg_obj="bg_obj" glow_obj="glow_obj" id="style_button_option_single">
