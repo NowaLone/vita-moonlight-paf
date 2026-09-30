@@ -7,7 +7,7 @@ class PairingService {
 public:
     explicit PairingService(MoonlightBackend &backend);
 
-    int Pair(const char *address);
+    int Pair();
 
 private:
     MoonlightBackend &m_backend;
