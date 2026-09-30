@@ -1,9 +1,8 @@
 #include "backend/legacy_moonlight_adapter.h"
 
 #include "moonlight/api.h"
+#include "moonlight/internal.h"
 #include "moonlight/settings.h"
-
-extern "C" int moonlight_api_stop_host_search(void);
 
 LegacyMoonlightAdapter::LegacyMoonlightAdapter()
 {
