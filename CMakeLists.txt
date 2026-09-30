@@ -11,6 +11,20 @@ endif()
 project(vita_moonlight_paf)
 include("${VITASDK}/share/vita.cmake" REQUIRED)
 
+# Embed the source revision into the About page at configure time.
+execute_process(
+  COMMAND git -C "${CMAKE_CURRENT_SOURCE_DIR}" rev-parse --short=12 HEAD
+  OUTPUT_VARIABLE VITA_MOONLIGHT_GIT_COMMIT
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  RESULT_VARIABLE VITA_MOONLIGHT_GIT_RESULT
+)
+
+if(NOT VITA_MOONLIGHT_GIT_RESULT EQUAL 0 OR NOT VITA_MOONLIGHT_GIT_COMMIT)
+  set(VITA_MOONLIGHT_GIT_COMMIT "unknown")
+endif()
+
+add_definitions(-DMOONLIGHT_GIT_COMMIT=\"\${VITA_MOONLIGHT_GIT_COMMIT}\")
+
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g3 -Wl,-q -Wall -O0 -fno-inline -fno-builtin -fshort-wchar")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -fno-rtti -fno-exceptions -Wl,-q -Wall -O0 -fno-builtin -fshort-wchar -Wno-unused-function -Wno-sign-compare")
 
