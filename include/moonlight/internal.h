@@ -3,7 +3,15 @@
 
 #include "moonlight/api.h"
 
-/* Internal bridge from subsystems to the public Moonlight event callback. */
-void moonlight_api_emit_event(const MoonlightEvent *event);
+/* Transitional implementation-only entry points used by LegacyMoonlightAdapter. */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int moonlight_api_stop_host_search(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* VITA_MOONLIGHT_INTERNAL_H */
