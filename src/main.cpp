@@ -37,6 +37,8 @@ int paf_runtime_main(void);
 
 extern "C" {
 
+void _start() __attribute__((weak, alias("module_start")));
+
 typedef struct {
 	SceSize global_heap_size;
 	int a2;
