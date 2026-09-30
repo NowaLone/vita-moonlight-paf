@@ -129,15 +129,15 @@ static void on_term(int32_t result)
 
 static wchar_t *on_get_string(const char *element_id)
 {
+    wchar_t *res = g_plugin ? g_plugin->GetString(element_id) : NULL;
+
     if (element_id &&
-        strcmp(element_id, "msg_about_build_info") == 0) {
+        strcmp(element_id, "msg_about_build_info") == 0 &&
+        (!res || res[0] == L'\\0')) {
         return s_about_description;
     }
 
-    if (g_plugin) {
-        return g_plugin->GetString(element_id);
-    }
-    return NULL;
+    return res;
 }
 
 static int32_t on_get_surface(paf::graph::Surface **, const char *)
