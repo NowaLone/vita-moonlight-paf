@@ -87,6 +87,11 @@ int moonlight_api_search_hosts(void)
     return 0;
 }
 
+int moonlight_api_stop_host_search(void)
+{
+    return 0;
+}
+
 int moonlight_api_add_host(const char *address, uint16_t port, const char *name)
 {
     (void)address;
