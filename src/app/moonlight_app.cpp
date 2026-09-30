@@ -1,4 +1,4 @@
-#include <paf.h>
+#include <paf.h>\n#include <psp2/kernel/clib.h>
 
 #include "app/moonlight_app.h"
 #include "common.h"
@@ -53,12 +53,12 @@ int MoonlightApp::Start(paf::Plugin *plugin)
     sce_paf_memset(&init, 0, sizeof(init));
     sce_paf_memset(&boot, 0, sizeof(boot));
 
-    int result = sceAppUtilInit(&init, &boot);
+    int result = sceAppUtilInit(&init, &boot);\n    sceClibPrintf("[PSP2SHELL] sceAppUtilInit -> 0x%x\\n", result);
     if (result < 0) {
         return result;
     }
 
-    result = Initialize();
+    result = Initialize();\n    sceClibPrintf("[PSP2SHELL] MoonlightApp::Initialize -> 0x%x\\n", result);
     if (result != 0) {
         return result;
     }
@@ -79,12 +79,12 @@ int MoonlightApp::Initialize()
         return 0;
     }
 
-    int result = m_backend.Initialize();
+    sceClibPrintf("[PSP2SHELL] Backend Initialize\\n");\n    int result = m_backend.Initialize();
     if (result != 0) {
         return result;
     }
 
-    result = m_backend.SetEventCallback(OnMoonlightEvent, this);
+    sceClibPrintf("[PSP2SHELL] Backend Initialize -> 0x%x\\n", result);\n\n    result = m_backend.SetEventCallback(OnMoonlightEvent, this);
     if (result != 0) {
         m_backend.Shutdown();
         return result;
