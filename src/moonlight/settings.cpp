@@ -4,13 +4,15 @@
 
 #include "common.h"
 #include "moonlight/settings.h"
-#include "moonlight/internal.h"
 
 namespace {
 
 static sce::AppSettings *s_settings = NULL;
 static int s_initialized = 0;
 static const int kSettingsVersion = 1;
+
+static MoonlightEventCallback s_event_callback = NULL;
+static void *s_event_userdata = NULL;
 
 static const char *key_name(MoonlightSettingKey key)
 {
@@ -48,6 +50,20 @@ static const char *key_name(MoonlightSettingKey key)
     }
 }
 
+static void emit(MoonlightEventType type, int result)
+{
+    if (!s_event_callback) {
+        return;
+    }
+
+    MoonlightEvent event;
+    event.type = type;
+    event.result = result;
+    event.host_id = -1;
+    event.address = NULL;
+    s_event_callback(&event, s_event_userdata);
+}
+
 static void on_start_transition(const char *, int32_t) {}
 static void on_page_activate(const char *, int32_t) {}
 static void on_page_deactivate(const char *, int32_t) {}
@@ -70,13 +86,7 @@ static int32_t on_post_create(const char *, paf::ui::Widget *)
 
 static int32_t on_press(const char *, const char *)
 {
-    MoonlightEvent event;
-    event.type = MOONLIGHT_EVENT_SETTINGS_CHANGED;
-    event.result = 0;
-    event.host_id = -1;
-    event.address = NULL;
-
-    moonlight_api_emit_event(&event);
+    emit(MOONLIGHT_EVENT_SETTINGS_CHANGED, 0);
     return SCE_OK;
 }
 
@@ -87,13 +97,7 @@ static int32_t on_press2(const char *, const char *)
 
 static void on_term(int32_t result)
 {
-    MoonlightEvent event;
-    event.type = MOONLIGHT_EVENT_SETTINGS_CLOSED;
-    event.result = result;
-    event.host_id = -1;
-    event.address = NULL;
-
-    moonlight_api_emit_event(&event);
+    emit(MOONLIGHT_EVENT_SETTINGS_CLOSED, result);
 }
 
 static wchar_t *on_get_string(const char *element_id)
@@ -172,8 +176,17 @@ int moonlight_settings_init(void)
 
 void moonlight_settings_shutdown(void)
 {
+    s_event_callback = NULL;
+    s_event_userdata = NULL;
     s_settings = NULL;
     s_initialized = 0;
+}
+
+int moonlight_settings_set_event_callback(MoonlightEventCallback callback, void *userdata)
+{
+    s_event_callback = callback;
+    s_event_userdata = userdata;
+    return 0;
 }
 
 int moonlight_settings_open(void)
@@ -270,5 +283,3 @@ int moonlight_settings_get_all(MoonlightSettings *out)
     moonlight_settings_get_value(MOONLIGHT_SETTING_BACK_DEADZONE_LEFT, &out->back_deadzone_left);
     return 0;
 }
-
-
