@@ -72,6 +72,31 @@ Widget `pos` is relative to the **parent center**, not the top-left corner:
 
 `list_view` height must be a multiple of 32. Status bar uses `Framework` `graphics_option = 7`.
 
+## PSP2Shell debug output
+
+This branch contains temporary debug logging through `sceClibPrintf()`. When the app is running under [psp2shell](https://github.com/Cpasjuste/psp2shell), these messages are printed to the psp2shell console.
+
+Log lines use the `[PSP2SHELL]` prefix so they are easy to filter. The current debug points cover:
+
+- module startup and PAF sysmodule loading
+- PAF framework/resource/plugin startup
+- `MoonlightApp` initialization and shutdown
+- legacy adapter calls and return codes
+- Moonlight backend events
+
+Typical output starts like:
+
+```text
+[PSP2SHELL] module_start(args=0x..., argp=...)
+[PSP2SHELL] PAF load: res=0x0 load_res=0x0
+[PSP2SHELL] Starting PAF runtime...
+[PSP2SHELL] paf_runtime_main: begin
+[PSP2SHELL] Framework::SampleInit
+...
+```
+
+These logs are intended for development/troubleshooting and can be removed or reduced before release.
+
 ## License
 
 Part of the Vita Moonlight ecosystem. Add a LICENSE before shipping a release.
