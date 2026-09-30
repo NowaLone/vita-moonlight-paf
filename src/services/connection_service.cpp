@@ -5,12 +5,27 @@ ConnectionService::ConnectionService(MoonlightBackend &backend)
 {
 }
 
-int ConnectionService::Start(const char *address)
+int ConnectionService::Connect(const MoonlightHost &host)
 {
-    return m_backend.StartStream(address);
+    return m_backend.ConnectHost(host);
+}
+
+int ConnectionService::Start(int application_id)
+{
+    return m_backend.StartApplication(application_id);
 }
 
 int ConnectionService::Stop()
 {
-    return m_backend.StopStream();
+    return m_backend.StopApplication();
+}
+
+int ConnectionService::Disconnect()
+{
+    return m_backend.DisconnectHost();
+}
+
+MoonlightConnectionState ConnectionService::State() const
+{
+    return m_backend.GetConnectionState();
 }
