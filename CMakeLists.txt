@@ -55,6 +55,7 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/services/host_discovery_service.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/services/pairing_service.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/services/connection_service.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/services/application_service.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/services/settings_service.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/option_menu.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/api.cpp
