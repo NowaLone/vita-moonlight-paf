@@ -1,7 +1,7 @@
 #ifndef VITA_MOONLIGHT_BACKEND_H
 #define VITA_MOONLIGHT_BACKEND_H
 
-#include "moonlight/api.h"
+#include "moonlight/types.h"
 
 class MoonlightBackend {
 public:
