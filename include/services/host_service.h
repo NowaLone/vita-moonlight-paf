@@ -9,7 +9,6 @@ public:
     explicit HostService(MoonlightBackend &backend);
 
     int GetHosts(MoonlightHost *out, int capacity);
-    int Search();
     int Add(const char *address, uint16_t port, const char *name);
 
 private:
