@@ -113,7 +113,7 @@ int LegacyMoonlightAdapter::AddHost(const char *address, uint16_t port, const ch
 
 int LegacyMoonlightAdapter::ConnectHost(const MoonlightHost &host)
 {
-    int result = moonlight_api_connect_host(&host);
+    int result = moonlight_api_connect_host(&host);\n    sceClibPrintf("[PSP2SHELL] moonlight_api_connect_host -> 0x%x\\n", result);
     if (result != 0) {
         return result;
     }
@@ -130,7 +130,7 @@ int LegacyMoonlightAdapter::PairCurrentHost()
         return -1;
     }
 
-    int result = moonlight_api_pair_current_host();
+    int result = moonlight_api_pair_current_host();\n    sceClibPrintf("[PSP2SHELL] moonlight_api_pair_current_host -> 0x%x\\n", result);
     if (result != 0) {
         return result;
     }
@@ -150,7 +150,7 @@ int LegacyMoonlightAdapter::StartApplication(int application_id)
         return -1;
     }
 
-    int result = moonlight_api_start_application(application_id);
+    int result = moonlight_api_start_application(application_id);\n    sceClibPrintf("[PSP2SHELL] moonlight_api_start_application -> 0x%x\\n", result);
     if (result != 0) {
         return result;
     }
@@ -165,7 +165,7 @@ int LegacyMoonlightAdapter::StopApplication()
         return -1;
     }
 
-    int result = moonlight_api_stop_application();
+    int result = moonlight_api_stop_application();\n    sceClibPrintf("[PSP2SHELL] moonlight_api_stop_application -> 0x%x\\n", result);
     if (result != 0) {
         return result;
     }
@@ -176,7 +176,7 @@ int LegacyMoonlightAdapter::StopApplication()
 
 int LegacyMoonlightAdapter::DisconnectHost()
 {
-    int result = moonlight_api_disconnect_host();
+    int result = moonlight_api_disconnect_host();\n    sceClibPrintf("[PSP2SHELL] moonlight_api_disconnect_host -> 0x%x\\n", result);
     if (result != 0) {
         return result;
     }
