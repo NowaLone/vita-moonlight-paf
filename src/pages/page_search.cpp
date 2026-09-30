@@ -10,9 +10,11 @@ Search::Search()
     if (!IsValid()) {
         return;
     }
-    MoonlightApp::Instance()->Hosts().Search();
+    MoonlightApp::Instance()->Discovery().Start();
 }
 
-Search::~Search() {}
+Search::~Search() {
+    MoonlightApp::Instance()->Discovery().Stop();
+}
 
 }
