@@ -1,5 +1,6 @@
 #include <psp2/sysmodule.h>
 #include <app_settings.h>
+#include <string.h>
 #include <paf.h>
 
 #include "common.h"
@@ -37,7 +38,7 @@ static void build_about_description()
         s_about_description[i++] = (wchar_t)(unsigned char)commit[j++];
     }
 
-    s_about_description[i] = L'\\0';
+    s_about_description[i] = L'\0';
 }
 
 static const char *key_name(MoonlightSettingKey key)
