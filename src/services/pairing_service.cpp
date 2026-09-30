@@ -5,7 +5,7 @@ PairingService::PairingService(MoonlightBackend &backend)
 {
 }
 
-int PairingService::Pair(const char *address)
+int PairingService::Pair()
 {
-    return m_backend.PairHost(address);
+    return m_backend.PairCurrentHost();
 }
