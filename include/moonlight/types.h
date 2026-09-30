@@ -81,6 +81,19 @@ typedef struct MoonlightHost {
     int prefer_external;
 } MoonlightHost;
 
+typedef struct MoonlightApplication {
+    int id;
+    char name[256];
+} MoonlightApplication;
+
+typedef enum MoonlightConnectionState {
+    MOONLIGHT_CONNECTION_DISCONNECTED = 0,
+    MOONLIGHT_CONNECTION_READY,
+    MOONLIGHT_CONNECTION_PAIRED,
+    MOONLIGHT_CONNECTION_STREAMING,
+    MOONLIGHT_CONNECTION_PAUSED
+} MoonlightConnectionState;
+
 typedef enum MoonlightEventType {
     MOONLIGHT_EVENT_NONE = 0,
     MOONLIGHT_EVENT_HOST_SCAN_STARTED,
@@ -105,6 +118,7 @@ typedef struct MoonlightEvent {
     MoonlightEventType type;
     int result;
     int host_id;
+    int application_id;
     const char *address;
 } MoonlightEvent;
 
