@@ -49,7 +49,7 @@ typedef struct {
 } ScePafInit;
 
 int module_start(SceSize args, void *argp){
-
+\tsceClibPrintf("[PSP2SHELL] module_start(args=0x%x, argp=%p)\\n", args, argp);\n
 	int load_res;
 	ScePafInit init_param;
 	SceSysmoduleOpt sysmodule_opt;
