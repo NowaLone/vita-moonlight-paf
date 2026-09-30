@@ -1,5 +1,8 @@
 #include "backend/legacy_moonlight_adapter.h"
 
+#include "moonlight/api.h"
+#include "moonlight/settings.h"
+
 LegacyMoonlightAdapter::LegacyMoonlightAdapter()
 {
 }
@@ -15,32 +18,50 @@ int LegacyMoonlightAdapter::Initialize()
 
 void LegacyMoonlightAdapter::Shutdown()
 {
+    moonlight_settings_shutdown();
     moonlight_api_shutdown();
 }
 
 int LegacyMoonlightAdapter::OpenSettings()
 {
-    return moonlight_api_open_settings();
+    if (moonlight_settings_init() != 0) {
+        return -1;
+    }
+    return moonlight_settings_open();
 }
 
 int LegacyMoonlightAdapter::GetSettings(MoonlightSettings *out)
 {
-    return moonlight_api_get_settings(out);
+    if (moonlight_settings_init() != 0) {
+        return -1;
+    }
+    return moonlight_settings_get_all(out);
 }
 
 int LegacyMoonlightAdapter::GetSettingValue(MoonlightSettingKey key, int *out_value)
 {
-    return moonlight_api_get_setting_value(key, out_value);
+    if (moonlight_settings_init() != 0) {
+        return -1;
+    }
+    return moonlight_settings_get_value(key, out_value);
 }
 
 int LegacyMoonlightAdapter::SetSettingValue(MoonlightSettingKey key, int value)
 {
-    return moonlight_api_set_setting_value(key, value);
+    if (moonlight_settings_init() != 0) {
+        return -1;
+    }
+    return moonlight_settings_set_value(key, value);
 }
 
 int LegacyMoonlightAdapter::SetEventCallback(MoonlightEventCallback callback, void *userdata)
 {
-    return moonlight_api_set_event_callback(callback, userdata);
+    int result = moonlight_api_set_event_callback(callback, userdata);
+    if (result != 0) {
+        return result;
+    }
+
+    return moonlight_settings_set_event_callback(callback, userdata);
 }
 
 int LegacyMoonlightAdapter::GetHosts(MoonlightHost *out, int capacity)
