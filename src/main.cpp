@@ -49,7 +49,9 @@ typedef struct {
 } ScePafInit;
 
 int module_start(SceSize args, void *argp){
-\tsceClibPrintf("[PSP2SHELL] module_start(args=0x%x, argp=%p)\\n", args, argp);\n
+
+	sceClibPrintf("[PSP2SHELL] module_start(args=0x%x, argp=%p)\n", args, argp);
+
 	int load_res;
 	ScePafInit init_param;
 	SceSysmoduleOpt sysmodule_opt;
@@ -66,12 +68,15 @@ int module_start(SceSize args, void *argp){
 	sysmodule_opt.result = &load_res;
 
 	int res = sceSysmoduleLoadModuleInternalWithArg(SCE_SYSMODULE_INTERNAL_PAF, sizeof(init_param), &init_param, &sysmodule_opt);
+	sceClibPrintf("[PSP2SHELL] PAF load: res=0x%x load_res=0x%x\n", res, load_res);
 	if((res | load_res) != 0){
 		sceClibPrintf("[PAF Moonlight] Failed to load the PAF prx. (return value 0x%x, result code 0x%x )\n", res, load_res);
 		return SCE_KERNEL_START_FAILED;
 	}
 
+	sceClibPrintf("[PSP2SHELL] Starting PAF runtime...\n");
 	paf_runtime_main();
+	sceClibPrintf("[PSP2SHELL] paf_runtime_main returned\n");
 
 	return SCE_KERNEL_START_SUCCESS;
 }
