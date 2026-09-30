@@ -133,7 +133,7 @@ static wchar_t *on_get_string(const char *element_id)
 
     if (element_id &&
         strcmp(element_id, "msg_about_build_info") == 0 &&
-        (!res || res[0] == L'\\0')) {
+        (!res || res[0] == L'\0')) {
         return s_about_description;
     }
 
