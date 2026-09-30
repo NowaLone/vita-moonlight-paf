@@ -60,11 +60,11 @@ int HostDiscoveryService::Start()
 
 int HostDiscoveryService::Stop()
 {
-    /*
-     * The backend currently owns the legacy discovery worker. Cancellation
-     * will be delegated there once the legacy discovery implementation is
-     * attached. Until then this only releases the service-side state.
-     */
+    if (!m_running) {
+        return 0;
+    }
+
+    int result = m_backend.StopHostSearch();
     m_running = false;
-    return 0;
+    return result;
 }
