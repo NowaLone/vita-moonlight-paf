@@ -7,8 +7,12 @@ class ConnectionService {
 public:
     explicit ConnectionService(MoonlightBackend &backend);
 
-    int Start(const char *address);
+    int Connect(const MoonlightHost &host);
+    int Start(int application_id);
     int Stop();
+    int Disconnect();
+
+    MoonlightConnectionState State() const;
 
 private:
     MoonlightBackend &m_backend;
