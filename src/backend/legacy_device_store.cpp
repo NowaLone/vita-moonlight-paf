@@ -141,14 +141,8 @@ int legacy_device_store_add_host(const char *address, uint16_t port, const char 
             return -1;
         }
 
-        if (!update_device(&info)) {
-            return -1;
-        }
-
-        stored = find_device(info.name);
-        if (!stored) {
-            return -1;
-        }
+        copy_string(stored->internal, sizeof(stored->internal), info.internal);
+        stored->port = info.port;
     }
 
     save_device_info(stored);
