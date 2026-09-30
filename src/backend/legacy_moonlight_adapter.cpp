@@ -1,7 +1,6 @@
 #include "backend/legacy_moonlight_adapter.h"
 
 #include "moonlight/api.h"
-#include "moonlight/internal.h"
 #include "moonlight/settings.h"
 
 LegacyMoonlightAdapter::LegacyMoonlightAdapter()
