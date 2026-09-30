@@ -5,6 +5,7 @@
 
 #include "backend/legacy_moonlight_adapter.h"
 #include "services/host_service.h"
+#include "services/host_discovery_service.h"
 #include "services/pairing_service.h"
 #include "services/connection_service.h"
 #include "services/settings_service.h"
@@ -20,6 +21,7 @@ public:
     void Shutdown();
 
     HostService &Hosts() { return m_hosts; }
+    HostDiscoveryService &Discovery() { return m_discovery; }
     PairingService &Pairing() { return m_pairing; }
     ConnectionService &Connection() { return m_connection; }
     SettingsService &Settings() { return m_settings; }
@@ -51,6 +53,7 @@ private:
 
     LegacyMoonlightAdapter m_backend;
     HostService m_hosts;
+    HostDiscoveryService m_discovery;
     PairingService m_pairing;
     ConnectionService m_connection;
     SettingsService m_settings;
