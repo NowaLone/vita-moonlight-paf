@@ -21,10 +21,14 @@ public:
     virtual int SearchHosts() = 0;
     virtual int AddHost(const char *address, uint16_t port, const char *name) = 0;
 
-    virtual int PairHost(const char *address) = 0;
+    virtual int ConnectHost(const MoonlightHost &host) = 0;
+    virtual int PairCurrentHost() = 0;
 
-    virtual int StartStream(const char *address) = 0;
-    virtual int StopStream() = 0;
+    virtual int GetApplications(MoonlightApplication *out, int capacity) = 0;
+    virtual int StartApplication(int application_id) = 0;
+    virtual int StopApplication() = 0;
+    virtual int DisconnectHost() = 0;
+    virtual MoonlightConnectionState GetConnectionState() const = 0;
 };
 
 #endif
