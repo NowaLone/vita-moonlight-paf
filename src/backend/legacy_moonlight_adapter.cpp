@@ -4,6 +4,7 @@
 
 #include "moonlight/api.h"
 #include "moonlight/settings.h"
+#include "backend/legacy_device_store.h"
 
 LegacyMoonlightAdapter::LegacyMoonlightAdapter()
     : m_connection_state(MOONLIGHT_CONNECTION_DISCONNECTED),
@@ -22,6 +23,12 @@ int LegacyMoonlightAdapter::Initialize()
 {
     m_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
     m_has_current_host = false;
+
+    int result = legacy_device_store_init();
+    if (result != 0) {
+        return result;
+    }
+
     return moonlight_api_init();
 }
 
@@ -93,7 +100,7 @@ int LegacyMoonlightAdapter::SetEventCallback(MoonlightEventCallback callback, vo
 
 int LegacyMoonlightAdapter::GetHosts(MoonlightHost *out, int capacity)
 {
-    return moonlight_api_get_hosts(out, capacity);
+    return legacy_device_store_get_hosts(out, capacity);
 }
 
 int LegacyMoonlightAdapter::SearchHosts()
@@ -108,7 +115,7 @@ int LegacyMoonlightAdapter::StopHostSearch()
 
 int LegacyMoonlightAdapter::AddHost(const char *address, uint16_t port, const char *name)
 {
-    return moonlight_api_add_host(address, port, name);
+    return legacy_device_store_add_host(address, port, name);
 }
 
 int LegacyMoonlightAdapter::ConnectHost(const MoonlightHost &host)
