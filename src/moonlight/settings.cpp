@@ -130,7 +130,7 @@ static void on_term(int32_t result)
 static wchar_t *on_get_string(const char *element_id)
 {
     if (element_id &&
-        strcmp(element_id, "msg_about_description") == 0) {
+        strcmp(element_id, "msg_about_build_info") == 0) {
         return s_about_description;
     }
 
