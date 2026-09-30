@@ -3,6 +3,8 @@
 #include "moonlight/api.h"
 #include "moonlight/settings.h"
 
+extern "C" int moonlight_api_stop_host_search(void);
+
 LegacyMoonlightAdapter::LegacyMoonlightAdapter()
 {
 }
@@ -72,6 +74,11 @@ int LegacyMoonlightAdapter::GetHosts(MoonlightHost *out, int capacity)
 int LegacyMoonlightAdapter::SearchHosts()
 {
     return moonlight_api_search_hosts();
+}
+
+int LegacyMoonlightAdapter::StopHostSearch()
+{
+    return moonlight_api_stop_host_search();
 }
 
 int LegacyMoonlightAdapter::AddHost(const char *address, uint16_t port, const char *name)
