@@ -8,6 +8,7 @@
 #include "services/host_discovery_service.h"
 #include "services/pairing_service.h"
 #include "services/connection_service.h"
+#include "services/application_service.h"
 #include "services/settings_service.h"
 
 typedef void (*MoonlightAppEventCallback)(const MoonlightEvent *event, void *userdata);
@@ -24,6 +25,7 @@ public:
     HostDiscoveryService &Discovery() { return m_discovery; }
     PairingService &Pairing() { return m_pairing; }
     ConnectionService &Connection() { return m_connection; }
+    ApplicationService &Applications() { return m_applications; }
     SettingsService &Settings() { return m_settings; }
 
     void SetEventCallback(MoonlightAppEventCallback callback, void *userdata);
@@ -56,6 +58,7 @@ private:
     HostDiscoveryService m_discovery;
     PairingService m_pairing;
     ConnectionService m_connection;
+    ApplicationService m_applications;
     SettingsService m_settings;
 
     MoonlightAppEventCallback m_event_callback;
