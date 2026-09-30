@@ -51,6 +51,10 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/common.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/app/moonlight_app.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/legacy_moonlight_adapter.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/legacy_device_store.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/legacy/device.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/legacy/config_compat.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/inih/ini.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/services/host_service.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/services/host_discovery_service.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/services/pairing_service.cpp
@@ -68,6 +72,8 @@ add_executable(${PROJECT_NAME}
 
 target_include_directories(${PROJECT_NAME} PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/legacy
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/inih
 )
 
 target_link_libraries(${PROJECT_NAME}
