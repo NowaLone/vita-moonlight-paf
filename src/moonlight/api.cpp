@@ -5,8 +5,15 @@
 namespace {
 static MoonlightEventCallback s_callback = NULL;
 static void *s_userdata = NULL;
+static MoonlightHost s_current_host = {0};
+static bool s_has_current_host = false;
+static MoonlightConnectionState s_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
 
-static void emit(MoonlightEventType type, int result, int host_id, const char *address)
+static void emit(MoonlightEventType type,
+                 int result,
+                 int host_id,
+                 int application_id,
+                 const char *address)
 {
     if (!s_callback) return;
 
@@ -14,6 +21,7 @@ static void emit(MoonlightEventType type, int result, int host_id, const char *a
     event.type = type;
     event.result = result;
     event.host_id = host_id;
+    event.application_id = application_id;
     event.address = address;
     s_callback(&event, s_userdata);
 }
@@ -21,18 +29,15 @@ static void emit(MoonlightEventType type, int result, int host_id, const char *a
 
 int moonlight_api_init(void)
 {
+    s_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
+    s_has_current_host = false;
     return 0;
-}
-
-void moonlight_api_emit_event(const MoonlightEvent *event)
-{
-    if (!s_callback || !event) return;
-    s_callback(event, s_userdata);
 }
 
 void moonlight_api_shutdown(void)
 {
-    moonlight_settings_shutdown();
+    s_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
+    s_has_current_host = false;
     s_callback = NULL;
     s_userdata = NULL;
 }
@@ -77,8 +82,8 @@ int moonlight_api_get_hosts(MoonlightHost *out, int capacity)
 
 int moonlight_api_search_hosts(void)
 {
-    emit(MOONLIGHT_EVENT_HOST_SCAN_STARTED, 0, -1, NULL);
-    emit(MOONLIGHT_EVENT_HOST_SCAN_FINISHED, 0, -1, NULL);
+    emit(MOONLIGHT_EVENT_HOST_SCAN_STARTED, 0, -1, -1, NULL);
+    emit(MOONLIGHT_EVENT_HOST_SCAN_FINISHED, 0, -1, -1, NULL);
     return 0;
 }
 
@@ -90,20 +95,90 @@ int moonlight_api_add_host(const char *address, uint16_t port, const char *name)
     return 0;
 }
 
-int moonlight_api_pair_host(const char *address)
+int moonlight_api_connect_host(const MoonlightHost *host)
 {
-    (void)address;
+    if (!host) {
+        return -1;
+    }
+
+    s_current_host = *host;
+    s_has_current_host = true;
+    s_connection_state = MOONLIGHT_CONNECTION_READY;
+
+    emit(MOONLIGHT_EVENT_CONNECTION_READY, 0, host->id, -1, host->internal);
     return 0;
 }
 
-int moonlight_api_start_stream(const char *address)
+int moonlight_api_pair_current_host(void)
 {
-    (void)address;
+    if (!s_has_current_host || s_connection_state != MOONLIGHT_CONNECTION_READY) {
+        return -1;
+    }
+
+    s_connection_state = MOONLIGHT_CONNECTION_PAIRED;
+    emit(MOONLIGHT_EVENT_PAIRING_FINISHED, 0, s_current_host.id, -1, s_current_host.internal);
     return 0;
 }
 
-int moonlight_api_stop_stream(void)
+int moonlight_api_get_applications(MoonlightApplication *out, int capacity)
 {
+    (void)out;
+    (void)capacity;
+
+    if (!s_has_current_host ||
+        (s_connection_state != MOONLIGHT_CONNECTION_PAIRED &&
+         s_connection_state != MOONLIGHT_CONNECTION_STREAMING &&
+         s_connection_state != MOONLIGHT_CONNECTION_PAUSED)) {
+        return -1;
+    }
+
     return 0;
 }
 
+int moonlight_api_start_application(int application_id)
+{
+    if (!s_has_current_host || s_connection_state != MOONLIGHT_CONNECTION_PAIRED) {
+        return -1;
+    }
+
+    s_connection_state = MOONLIGHT_CONNECTION_STREAMING;
+    emit(MOONLIGHT_EVENT_STREAM_STARTED,
+         0,
+         s_current_host.id,
+         application_id,
+         s_current_host.internal);
+    return 0;
+}
+
+int moonlight_api_stop_application(void)
+{
+    if (!s_has_current_host || s_connection_state != MOONLIGHT_CONNECTION_STREAMING) {
+        return -1;
+    }
+
+    s_connection_state = MOONLIGHT_CONNECTION_PAIRED;
+    emit(MOONLIGHT_EVENT_STREAM_STOPPED, 0, s_current_host.id, -1, s_current_host.internal);
+    return 0;
+}
+
+int moonlight_api_disconnect_host(void)
+{
+    if (!s_has_current_host) {
+        return 0;
+    }
+
+    s_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
+    emit(MOONLIGHT_EVENT_CONNECTION_CLOSED,
+         0,
+         s_current_host.id,
+         -1,
+         s_current_host.internal);
+
+    s_has_current_host = false;
+    return 0;
+}
+
+MoonlightConnectionState moonlight_api_get_connection_state(void)
+{
+    return s_connection_state;
+}
