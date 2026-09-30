@@ -79,17 +79,37 @@ int LegacyMoonlightAdapter::AddHost(const char *address, uint16_t port, const ch
     return moonlight_api_add_host(address, port, name);
 }
 
-int LegacyMoonlightAdapter::PairHost(const char *address)
+int LegacyMoonlightAdapter::ConnectHost(const MoonlightHost &host)
 {
-    return moonlight_api_pair_host(address);
+    return moonlight_api_connect_host(&host);
 }
 
-int LegacyMoonlightAdapter::StartStream(const char *address)
+int LegacyMoonlightAdapter::PairCurrentHost()
 {
-    return moonlight_api_start_stream(address);
+    return moonlight_api_pair_current_host();
 }
 
-int LegacyMoonlightAdapter::StopStream()
+int LegacyMoonlightAdapter::GetApplications(MoonlightApplication *out, int capacity)
 {
-    return moonlight_api_stop_stream();
+    return moonlight_api_get_applications(out, capacity);
+}
+
+int LegacyMoonlightAdapter::StartApplication(int application_id)
+{
+    return moonlight_api_start_application(application_id);
+}
+
+int LegacyMoonlightAdapter::StopApplication()
+{
+    return moonlight_api_stop_application();
+}
+
+int LegacyMoonlightAdapter::DisconnectHost()
+{
+    return moonlight_api_disconnect_host();
+}
+
+MoonlightConnectionState LegacyMoonlightAdapter::GetConnectionState() const
+{
+    return moonlight_api_get_connection_state();
 }
