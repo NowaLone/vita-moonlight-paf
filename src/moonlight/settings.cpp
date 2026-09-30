@@ -14,6 +14,32 @@ static const int kSettingsVersion = 1;
 static MoonlightEventCallback s_event_callback = NULL;
 static void *s_event_userdata = NULL;
 
+#ifndef MOONLIGHT_GIT_COMMIT
+#define MOONLIGHT_GIT_COMMIT "unknown"
+#endif
+
+static wchar_t s_about_description[256];
+
+static void build_about_description()
+{
+    const char *prefix = "Settings are stored by the Vita AppSettings service.\nBuild commit: ";
+    const char *commit = MOONLIGHT_GIT_COMMIT;
+    size_t i = 0;
+
+    while (prefix[i] && i + 1 < sizeof(s_about_description) / sizeof(s_about_description[0])) {
+        s_about_description[i] = (wchar_t)(unsigned char)prefix[i];
+        ++i;
+    }
+
+    size_t j = 0;
+    while (commit[j] &&
+           i + 1 < sizeof(s_about_description) / sizeof(s_about_description[0])) {
+        s_about_description[i++] = (wchar_t)(unsigned char)commit[j++];
+    }
+
+    s_about_description[i] = L'\\0';
+}
+
 static const char *key_name(MoonlightSettingKey key)
 {
     switch (key) {
@@ -102,6 +128,11 @@ static void on_term(int32_t result)
 
 static wchar_t *on_get_string(const char *element_id)
 {
+    if (element_id &&
+        strcmp(element_id, "msg_about_description") == 0) {
+        return s_about_description;
+    }
+
     if (g_plugin) {
         return g_plugin->GetString(element_id);
     }
@@ -141,6 +172,8 @@ int moonlight_settings_init(void)
 {
     if (s_initialized) return 0;
     if (!g_plugin) return -1;
+
+    build_about_description();
 
     if (load_plugin() < 0) return -1;
 
