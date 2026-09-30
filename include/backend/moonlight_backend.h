@@ -19,6 +19,7 @@ public:
 
     virtual int GetHosts(MoonlightHost *out, int capacity) = 0;
     virtual int SearchHosts() = 0;
+    virtual int StopHostSearch() = 0;
     virtual int AddHost(const char *address, uint16_t port, const char *name) = 0;
 
     virtual int ConnectHost(const MoonlightHost &host) = 0;
