@@ -1,4 +1,5 @@
-#include <stddef.h>\n#include <psp2/kernel/clib.h>
+#include <stddef.h>
+#include <psp2/kernel/clib.h>
 
 #include "backend/legacy_moonlight_adapter.h"
 
@@ -20,13 +21,17 @@ LegacyMoonlightAdapter::~LegacyMoonlightAdapter()
 
 int LegacyMoonlightAdapter::Initialize()
 {
+    sceClibPrintf("[PSP2SHELL] Adapter::Initialize\n");
     m_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
     m_has_current_host = false;
-    int result = moonlight_api_init();\n    sceClibPrintf("[PSP2SHELL] moonlight_api_init -> 0x%x\\n", result);\n    return result;
+    int result = moonlight_api_init();
+    sceClibPrintf("[PSP2SHELL] moonlight_api_init -> 0x%x\n", result);
+    return result;
 }
 
 void LegacyMoonlightAdapter::Shutdown()
 {
+    sceClibPrintf("[PSP2SHELL] Adapter::Shutdown\n");
     SetEventCallback(NULL, NULL);
     moonlight_settings_shutdown();
     moonlight_api_shutdown();
@@ -37,6 +42,7 @@ void LegacyMoonlightAdapter::Shutdown()
 
 int LegacyMoonlightAdapter::OpenSettings()
 {
+    sceClibPrintf("[PSP2SHELL] Adapter::OpenSettings\n");
     if (moonlight_settings_init() != 0) {
         return -1;
     }
@@ -98,12 +104,18 @@ int LegacyMoonlightAdapter::GetHosts(MoonlightHost *out, int capacity)
 
 int LegacyMoonlightAdapter::SearchHosts()
 {
-    return moonlight_api_search_hosts();
+    sceClibPrintf("[PSP2SHELL] Adapter::SearchHosts\n");
+    int result = moonlight_api_search_hosts();
+    sceClibPrintf("[PSP2SHELL] moonlight_api_search_hosts -> 0x%x\n", result);
+    return result;
 }
 
 int LegacyMoonlightAdapter::StopHostSearch()
 {
-    return moonlight_api_stop_host_search();
+    sceClibPrintf("[PSP2SHELL] Adapter::StopHostSearch\n");
+    int result = moonlight_api_stop_host_search();
+    sceClibPrintf("[PSP2SHELL] moonlight_api_stop_host_search -> 0x%x\n", result);
+    return result;
 }
 
 int LegacyMoonlightAdapter::AddHost(const char *address, uint16_t port, const char *name)
@@ -113,7 +125,7 @@ int LegacyMoonlightAdapter::AddHost(const char *address, uint16_t port, const ch
 
 int LegacyMoonlightAdapter::ConnectHost(const MoonlightHost &host)
 {
-    int result = moonlight_api_connect_host(&host);\n    sceClibPrintf("[PSP2SHELL] moonlight_api_connect_host -> 0x%x\\n", result);
+    int result = moonlight_api_connect_host(&host);
     if (result != 0) {
         return result;
     }
@@ -130,7 +142,7 @@ int LegacyMoonlightAdapter::PairCurrentHost()
         return -1;
     }
 
-    int result = moonlight_api_pair_current_host();\n    sceClibPrintf("[PSP2SHELL] moonlight_api_pair_current_host -> 0x%x\\n", result);
+    int result = moonlight_api_pair_current_host();
     if (result != 0) {
         return result;
     }
@@ -150,7 +162,7 @@ int LegacyMoonlightAdapter::StartApplication(int application_id)
         return -1;
     }
 
-    int result = moonlight_api_start_application(application_id);\n    sceClibPrintf("[PSP2SHELL] moonlight_api_start_application -> 0x%x\\n", result);
+    int result = moonlight_api_start_application(application_id);
     if (result != 0) {
         return result;
     }
@@ -165,7 +177,7 @@ int LegacyMoonlightAdapter::StopApplication()
         return -1;
     }
 
-    int result = moonlight_api_stop_application();\n    sceClibPrintf("[PSP2SHELL] moonlight_api_stop_application -> 0x%x\\n", result);
+    int result = moonlight_api_stop_application();
     if (result != 0) {
         return result;
     }
@@ -176,7 +188,7 @@ int LegacyMoonlightAdapter::StopApplication()
 
 int LegacyMoonlightAdapter::DisconnectHost()
 {
-    int result = moonlight_api_disconnect_host();\n    sceClibPrintf("[PSP2SHELL] moonlight_api_disconnect_host -> 0x%x\\n", result);
+    int result = moonlight_api_disconnect_host();
     if (result != 0) {
         return result;
     }
@@ -203,6 +215,7 @@ void LegacyMoonlightAdapter::OnLegacyEvent(const MoonlightEvent *event, void *us
 
 void LegacyMoonlightAdapter::ForwardEvent(const MoonlightEvent *event)
 {
+    sceClibPrintf("[PSP2SHELL] Adapter event type=%d\n", event ? (int)event->type : -1);
     switch (event->type) {
     case MOONLIGHT_EVENT_CONNECTION_READY:
         if (m_connection_state == MOONLIGHT_CONNECTION_DISCONNECTED) {
