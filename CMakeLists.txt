@@ -93,6 +93,7 @@ target_link_libraries(${PROJECT_NAME}
   SceAppSettings_stub
   SceAppUtil_stub
   SceCommonGuiDialog_stub
+  -lc
 )
 
 set_target_properties(${PROJECT_NAME}
