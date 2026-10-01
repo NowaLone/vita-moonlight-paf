@@ -99,7 +99,6 @@ static void update_sunshine_ip_by_target(const char* target, const char* ip) {
     }
 }
 
-typedef void (*moonlight_found_cb)(int idx, const char* host, const char* pcname, const char* ip, int port);
 static moonlight_found_cb g_found_cb = NULL;
 
 void udp_sniffer_vita_set_callback(moonlight_found_cb cb) {
