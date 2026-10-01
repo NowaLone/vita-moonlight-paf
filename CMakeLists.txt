@@ -89,6 +89,9 @@ set_target_properties(${PROJECT_NAME}
   COMPILE_FLAGS "'-D__declspec(__v__)=/**/'"
 )
 
+# Generate the Vita SELF from the linked ELF before packaging the VPK.
+vita_create_self(${PROJECT_NAME}.self ${PROJECT_NAME} UNSAFE)
+
 set(RCO_FILE "${CMAKE_CURRENT_BINARY_DIR}/vita_moonlight_ui.rco")
 if(NOT EXISTS "${RCO_FILE}")
   message(FATAL_ERROR "Missing vita_moonlight_ui.rco. Run build_cxml.sh before configuring the project.")
