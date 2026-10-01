@@ -68,3 +68,8 @@ int HostDiscoveryService::Stop()
     m_running = false;
     return result;
 }
+
+int HostDiscoveryService::GetHosts(MoonlightHost *out, int capacity)
+{
+    return m_backend.GetDiscoveredHosts(out, capacity);
+}
