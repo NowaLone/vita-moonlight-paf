@@ -1,4 +1,7 @@
 #include <stddef.h>
+#include <string.h>
+
+#include <paf.h>
 
 #include "backend/legacy_moonlight_adapter.h"
 
@@ -141,19 +144,54 @@ int LegacyMoonlightAdapter::ConnectHost(const MoonlightHost &host)
     return 0;
 }
 
-int LegacyMoonlightAdapter::PairCurrentHost()
+int LegacyMoonlightAdapter::PreparePairing(char out_pin[5])
 {
     if (!m_has_current_host) {
         return -1;
     }
 
-    int result = moonlight_api_pair_current_host();
-    if (result != 0) {
-        return result;
+    return moonlight_api_prepare_pairing(out_pin);
+}
+
+namespace {
+class PairingJob : public paf::job::JobItem {
+public:
+    PairingJob(MoonlightBackend &backend, const char pin[5])
+        : paf::job::JobItem("LegacyMoonlightAdapter::PairingJob", NULL),
+          m_backend(backend)
+    {
+        memcpy(m_pin, pin, sizeof(m_pin));
     }
 
-    m_connection_state = MOONLIGHT_CONNECTION_PAIRED;
-    return 0;
+    virtual ~PairingJob() {}
+
+    virtual void Run()
+    {
+        m_result = m_backend.PairCurrentHost(m_pin);
+    }
+
+    virtual void Finish() {}
+
+    int Result() const { return m_result; }
+
+private:
+    MoonlightBackend &m_backend;
+    char m_pin[5];
+    int m_result;
+};
+}
+
+int LegacyMoonlightAdapter::PairCurrentHost(const char pin[5])
+{
+    if (!m_has_current_host || !pin) {
+        return -1;
+    }
+
+    int result = moonlight_api_pair_current_host(pin);
+    if (result == 0) {
+        m_connection_state = MOONLIGHT_CONNECTION_PAIRED;
+    }
+    return result;
 }
 
 int LegacyMoonlightAdapter::GetApplications(MoonlightApplication *out, int capacity)
