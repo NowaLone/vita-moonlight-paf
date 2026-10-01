@@ -186,8 +186,9 @@ int MoonlightApp::Initialize()
     m_event_tail = 0;
     m_event_count = 0;
     m_event_task_registered = true;
-    paf::common::MainThreadCallList::Register(ProcessEventTask, this);
     paf::thread::RMutex::main_thread_mutex.Unlock();
+
+    paf::common::MainThreadCallList::Register(ProcessEventTask, this);
 
     m_initialized = true;
     return 0;
@@ -208,12 +209,17 @@ void MoonlightApp::Shutdown()
     m_event_callback = NULL;
     m_event_userdata = NULL;
 
+    bool unregister_event_task = false;
     if (m_event_task_registered) {
         m_event_task_registered = false;
-        paf::common::MainThreadCallList::Unregister(ProcessEventTask, s_app);
+        unregister_event_task = true;
     }
 
     paf::thread::RMutex::main_thread_mutex.Unlock();
+
+    if (unregister_event_task) {
+        paf::common::MainThreadCallList::Unregister(ProcessEventTask, this);
+    }
 
     m_backend.Shutdown();
     m_initialized = false;
