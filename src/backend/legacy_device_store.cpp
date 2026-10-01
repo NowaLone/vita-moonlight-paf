@@ -42,68 +42,17 @@ static void copy_string(char *destination, size_t size, const char *source)
 }
 
 
-static int write_device_info(const device_info_t *info)
+static bool verify_device_file(const device_info_t *info)
 {
     if (!info || !info->name[0]) {
-        return -1;
+        return false;
     }
 
     char path[512];
     snprintf(path, sizeof(path), "%s%s/device.ini", config.key_dir, info->name);
 
-    char data[2048];
-    int length = snprintf(
-        data, sizeof(data),
-        "paired = %s\n"
-        "internal = %s\n"
-        "external = %s\n"
-        "mac = %s\n"
-        "port = %u\n"
-        "prefer_external = %s\n",
-        info->paired ? "true" : "false",
-        info->internal,
-        info->external,
-        info->mac,
-        (unsigned)info->port,
-        info->prefer_external ? "true" : "false");
-    if (length < 0 || length >= (int)sizeof(data)) {
-        return -2;
-    }
-
-    SceUID fd = sceIoOpen(path, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
-    int last_error = (int)fd;
-
-    if (fd >= 0) {
-        int written = sceIoWrite(fd, data, length);
-        int close_result = sceIoClose(fd);
-
-        if (written == length && close_result >= 0) {
-            SceIoStat stat;
-            if (sceIoGetstat(path, &stat) >= 0) {
-                return 0;
-            }
-            last_error = -4;
-        } else {
-            last_error = written < 0 ? written : (close_result < 0 ? close_result : -3);
-        }
-
-        sceIoRemove(path);
-    }
-
-    // Keep compatibility with the original vita-moonlight implementation.
-    FILE *file = fopen(path, "w");
-    if (!file) {
-        return last_error;
-    }
-
-    size_t written = fwrite(data, 1, (size_t)length, file);
-    int close_result = fclose(file);
-    if (written != (size_t)length || close_result != 0) {
-        sceIoRemove(path);
-        return -3;
-    }
-
-    return 0;
+    SceIoStat stat;
+    return sceIoGetstat(path, &stat) >= 0;
 }
 
 static void fill_host(const device_info_t *device, int id, MoonlightHost *host)
@@ -200,18 +149,26 @@ int legacy_device_store_add_host(const char *address, uint16_t port, const char 
         return -1;
     }
 
-    device_info_t *stored = append_device(&info);
-    if (!stored) {
-        stored = find_device(info.name);
-        if (!stored) {
-            return -1;
-        }
+    // Persist first. The old implementation created the directory before
+    // append_device(), so an allocation failure could leave an empty folder
+    // with no device.ini at all.
+    save_device_info(&info);
+    if (!verify_device_file(&info)) {
+        return -1;
+    }
 
+    device_info_t *stored = find_device(info.name);
+    if (!stored) {
+        append_device(&info);
+        stored = find_device(info.name);
+    }
+
+    if (stored) {
         copy_string(stored->internal, sizeof(stored->internal), info.internal);
         stored->port = info.port;
     }
 
-    return write_device_info(stored);
+    return 0;
 }
 
 int legacy_device_store_mark_paired(const MoonlightHost *host)
@@ -220,40 +177,37 @@ int legacy_device_store_mark_paired(const MoonlightHost *host)
         return -1;
     }
 
-    device_info_t *stored = NULL;
-    bool created = false;
-    if (host->name[0]) {
-        stored = find_device(host->name);
-    }
-    if (!stored) {
-        stored = find_device_by_address(host->internal);
-    }
+    device_info_t info;
+    memset(&info, 0, sizeof(info));
+    copy_string(info.name, sizeof(info.name), host->name[0] ? host->name : host->internal);
+    copy_string(info.internal, sizeof(info.internal), host->internal);
+    copy_string(info.external, sizeof(info.external), host->external);
+    copy_string(info.mac, sizeof(info.mac), host->mac);
+    info.port = host->port != 0 ? host->port : 47989;
+    info.prefer_external = host->prefer_external != 0;
+    info.paired = true;
 
-    if (!stored) {
-        if (legacy_device_store_add_host(host->internal, host->port, host->name) != 0) {
-            return -1;
-        }
-        created = true;
-        if (host->name[0]) {
-            stored = find_device(host->name);
-        }
-        if (!stored) {
-            stored = find_device_by_address(host->internal);
-        }
-    }
-
-    if (!stored) {
+    if (!ensure_device_directory(info.name)) {
         return -1;
     }
 
-    if (created && host->name[0]) {
-        copy_string(stored->name, sizeof(stored->name), host->name);
+    save_device_info(&info);
+    if (!verify_device_file(&info)) {
+        return -1;
     }
-    copy_string(stored->internal, sizeof(stored->internal), host->internal);
-    copy_string(stored->external, sizeof(stored->external), host->external);
-    copy_string(stored->mac, sizeof(stored->mac), host->mac);
-    stored->port = host->port != 0 ? host->port : stored->port;
-    stored->prefer_external = host->prefer_external != 0;
-    stored->paired = true;
-    return write_device_info(stored);
+
+    device_info_t *stored = find_device(info.name);
+    if (!stored) {
+        stored = find_device_by_address(info.internal);
+    }
+    if (!stored) {
+        append_device(&info);
+        stored = find_device(info.name);
+    }
+
+    if (stored) {
+        *stored = info;
+    }
+
+    return 0;
 }
