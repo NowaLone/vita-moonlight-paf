@@ -924,7 +924,6 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
     char url[4096];
     char result[8192];
     char plaincert[8192];
-    char server_challenge_hex[256];
     unsigned char salt_pin[20];
     unsigned char aes_key[32];
     unsigned char challenge_data[16];
@@ -933,17 +932,16 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
     unsigned char challenge_response_enc[64];
     unsigned char challenge_response[64];
     unsigned char client_secret[16];
+    unsigned char challenge_response_input[16 + SIGNATURE_LEN + sizeof(client_secret)];
     unsigned char challenge_response_hash[32];
     unsigned char challenge_response_hash_enc[32];
     char challenge_response_hex[sizeof(challenge_response_hash_enc) * 2 + 1];
     unsigned char pairing_secret[16 + SIGNATURE_LEN];
-    unsigned char client_signature[SIGNATURE_LEN];
     char client_pairing_secret_hex[(sizeof(client_secret) + SIGNATURE_LEN) * 2 + 1];
     const ASN1_BIT_STRING *certificate_signature = NULL;
     unsigned char *signature = NULL;
     size_t signature_length = 0;
     size_t result_length;
-    size_t cipher_length;
     int hash_length;
     HttpBuffer response;
     int step_result;
@@ -1110,26 +1108,19 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
     }
 
     memset(challenge_response_hash, 0, sizeof(challenge_response_hash));
-    memcpy(challenge_response_hash, challenge_response + hash_length, 16);
-    memcpy(challenge_response_hash + 16, certificate_signature->data, certificate_signature->length);
+    memset(challenge_response_input, 0, sizeof(challenge_response_input));
+    memcpy(challenge_response_input, challenge_response + hash_length, 16);
+    memcpy(challenge_response_input + 16, certificate_signature->data, certificate_signature->length);
     memcpy(
-        challenge_response_hash + 16 + certificate_signature->length,
+        challenge_response_input + 16 + certificate_signature->length,
         client_secret,
         sizeof(client_secret));
 
-    {
-        unsigned char digest[32];
-        size_t signed_data_length = 16 + certificate_signature->length + sizeof(client_secret);
-
-        memset(digest, 0, sizeof(digest));
-
-        if (hash_length == 32) {
-            SHA256(challenge_response_hash, signed_data_length, digest);
-        } else {
-            SHA1(challenge_response_hash, signed_data_length, digest);
-        }
-
-        memcpy(challenge_response_hash, digest, sizeof(challenge_response_hash));
+    memset(challenge_response_hash, 0, sizeof(challenge_response_hash));
+    if (hash_length == 32) {
+        SHA256(challenge_response_input, sizeof(challenge_response_input), challenge_response_hash);
+    } else {
+        SHA1(challenge_response_input, sizeof(challenge_response_input), challenge_response_hash);
     }
 
     memset(challenge_response_hash_enc, 0, sizeof(challenge_response_hash_enc));
@@ -1318,16 +1309,16 @@ int legacy_gamestream_init(
 
     s_error[0] = '\0';
 
+    sceKernelGetRandomNumber(random_seed, sizeof(random_seed));
+    RAND_seed(random_seed, sizeof(random_seed));
+    OpenSSL_add_all_algorithms();
+    ERR_load_crypto_strings();
+
     if (make_directory_tree(key_directory) < 0 ||
         load_unique_id(key_directory) != LEGACY_GAMESTREAM_OK ||
         load_certificate(key_directory) != LEGACY_GAMESTREAM_OK) {
         return LEGACY_GAMESTREAM_FAILED;
     }
-
-    sceKernelGetRandomNumber(random_seed, sizeof(random_seed));
-    RAND_seed(random_seed, sizeof(random_seed));
-    OpenSSL_add_all_algorithms();
-    ERR_load_crypto_strings();
 
     if (!s_curl_initialized) {
         if (curl_global_init(CURL_GLOBAL_ALL) != CURLE_OK) {
