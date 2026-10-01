@@ -145,8 +145,7 @@ int legacy_device_store_add_host(const char *address, uint16_t port, const char 
         stored->port = info.port;
     }
 
-    save_device_info(stored);
-    return 0;
+    return save_device_info(stored) ? 0 : -1;
 }
 
 int legacy_device_store_mark_paired(const MoonlightHost *host)
@@ -190,6 +189,5 @@ int legacy_device_store_mark_paired(const MoonlightHost *host)
     stored->port = host->port != 0 ? host->port : stored->port;
     stored->prefer_external = host->prefer_external != 0;
     stored->paired = true;
-    save_device_info(stored);
-    return 0;
+    return save_device_info(stored) ? 0 : -1;
 }
