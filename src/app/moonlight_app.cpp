@@ -181,6 +181,14 @@ int MoonlightApp::Initialize()
         return result;
     }
 
+    paf::thread::RMutex::main_thread_mutex.Lock();
+    m_event_head = 0;
+    m_event_tail = 0;
+    m_event_count = 0;
+    m_event_task_registered = true;
+    paf::common::MainThreadCallList::Register(ProcessEventTask, this);
+    paf::thread::RMutex::main_thread_mutex.Unlock();
+
     m_initialized = true;
     return 0;
 }
@@ -264,11 +272,6 @@ void MoonlightApp::QueueEvent(const MoonlightEvent *event)
     m_event_tail = (m_event_tail + 1) % kEventQueueCapacity;
     m_event_count++;
 
-    if (!m_event_task_registered) {
-        m_event_task_registered = true;
-        paf::common::MainThreadCallList::Register(ProcessEventTask, this);
-    }
-
     paf::thread::RMutex::main_thread_mutex.Unlock();
 }
 
@@ -286,8 +289,6 @@ void MoonlightApp::ProcessEventTask(void *userdata)
         paf::thread::RMutex::main_thread_mutex.Lock();
 
         if (app->m_event_count == 0) {
-            app->m_event_task_registered = false;
-            paf::common::MainThreadCallList::Unregister(ProcessEventTask, app);
             paf::thread::RMutex::main_thread_mutex.Unlock();
             return;
         }
