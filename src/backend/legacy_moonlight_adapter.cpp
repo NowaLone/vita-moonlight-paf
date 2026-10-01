@@ -123,6 +123,11 @@ int LegacyMoonlightAdapter::AddHost(const char *address, uint16_t port, const ch
     return legacy_device_store_add_host(address, port, name);
 }
 
+int LegacyMoonlightAdapter::MarkHostPaired(const MoonlightHost &host)
+{
+    return legacy_device_store_mark_paired(&host);
+}
+
 int LegacyMoonlightAdapter::ConnectHost(const MoonlightHost &host)
 {
     int result = moonlight_api_connect_host(&host);
