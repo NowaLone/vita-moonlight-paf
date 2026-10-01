@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include <psp2/io/fcntl.h>
+#include <psp2/io/dirent.h>
 #include <psp2/kernel/rng.h>
 
 #include "moonlight/api.h"
@@ -11,6 +12,7 @@
 #include "backend/legacy_device_store.h"
 #include "legacy_gamestream.h"
 #include "config.h"
+#include "debug.h"
 
 namespace {
 
