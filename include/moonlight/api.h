@@ -31,7 +31,8 @@ int moonlight_api_stop_host_search(void);
 int moonlight_api_add_host(const char *address, uint16_t port, const char *name);
 
 int moonlight_api_connect_host(const MoonlightHost *host);
-int moonlight_api_pair_current_host(void);
+int moonlight_api_prepare_pairing(char out_pin[5]);
+int moonlight_api_pair_current_host(const char pin[5]);
 
 int moonlight_api_get_applications(MoonlightApplication *out, int capacity);
 int moonlight_api_start_application(int application_id);
