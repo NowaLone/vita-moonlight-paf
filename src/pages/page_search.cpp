@@ -95,10 +95,18 @@ void Search::SelectHost(int index) {
         host.internal,
         host.port,
         host.name[0] ? host.name : host.internal);
+
+    paf::ui::Widget *selected_button = root->FindChild(HostButtonId(index));
+    if (selected_button) {
+        paf::string result_label = paf::common::FormatString(
+            add_result == 0 ? "SAVED 0x00000000\n%s" : "SAVE ERROR 0x%08X\n%s",
+            (unsigned int)add_result,
+            host.internal);
+        selected_button->SetString(
+            paf::common::string_util::ToWString(result_label));
+    }
+
     if (add_result != 0) {
-        paf::string status = paf::common::FormatString(
-            "Save failed: 0x%08X", (unsigned int)add_result);
-        SetStatus(status.c_str());
         return;
     }
 
