@@ -71,6 +71,8 @@ static int write_device_info(const device_info_t *info)
     }
 
     SceUID fd = sceIoOpen(path, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
+    int last_error = (int)fd;
+
     if (fd >= 0) {
         int written = sceIoWrite(fd, data, length);
         int close_result = sceIoClose(fd);
@@ -80,6 +82,9 @@ static int write_device_info(const device_info_t *info)
             if (sceIoGetstat(path, &stat) >= 0) {
                 return 0;
             }
+            last_error = -4;
+        } else {
+            last_error = written < 0 ? written : (close_result < 0 ? close_result : -3);
         }
 
         sceIoRemove(path);
@@ -88,7 +93,7 @@ static int write_device_info(const device_info_t *info)
     // Keep compatibility with the original vita-moonlight implementation.
     FILE *file = fopen(path, "w");
     if (!file) {
-        return (int)fd;
+        return last_error;
     }
 
     size_t written = fwrite(data, 1, (size_t)length, file);
