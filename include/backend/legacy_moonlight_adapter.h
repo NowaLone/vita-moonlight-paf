@@ -19,6 +19,7 @@ public:
     virtual int SetEventCallback(MoonlightEventCallback callback, void *userdata);
 
     virtual int GetHosts(MoonlightHost *out, int capacity);
+    virtual int GetDiscoveredHosts(MoonlightHost *out, int capacity);
     virtual int SearchHosts();
     virtual int StopHostSearch();
     virtual int AddHost(const char *address, uint16_t port, const char *name);
