@@ -84,6 +84,15 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
     bind_decide(root, "btn_settings_balloon", OnSettings, this);
     bind_decide(root, "btn_dismiss_balloon", OnDismiss, this);
 
+    paf::ui::Widget *dismiss_button = root->FindChild("btn_dismiss_balloon");
+    if (dismiss_button) {
+        dismiss_button->SetEventCallback(
+            paf::ui::ButtonBase::CB_BTN_CANCEL,
+            OnDismiss,
+            this
+        );
+    }
+
     set_widget_focusable(
         root->FindChild("btn_dismiss_balloon"),
         false
