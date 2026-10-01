@@ -1,4 +1,5 @@
 #include <psp2/kernel/threadmgr.h>
+#include <stddef.h>
 #include <string.h>
 
 #include "legacy_host_discovery.h"
