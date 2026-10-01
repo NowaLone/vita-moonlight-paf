@@ -9,6 +9,7 @@ public:
 
     int Start();
     int Stop();
+    int GetHosts(MoonlightHost *out, int capacity);
 
 private:
     MoonlightBackend &m_backend;
