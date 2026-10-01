@@ -1,9 +1,4 @@
 #pragma once
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -14,7 +9,7 @@ struct device_info {
   bool paired;
   char internal[256];
   char external[256];
-  char mac[18];
+  char mac[18]; // XX:XX:XX:XX:XX:XX\0
   bool prefer_external;
 };
 
@@ -33,10 +28,6 @@ device_info_t* append_device(device_info_t *info);
 bool update_device(device_info_t *info);
 void load_all_known_devices();
 bool load_device_info(device_info_t *info);
-bool save_device_info(const device_info_t *info);
+void save_device_info(const device_info_t *info);
 bool remove_device(const char *name);
 void device_file_path(char *out, const char *dir);
-
-#ifdef __cplusplus
-}
-#endif
