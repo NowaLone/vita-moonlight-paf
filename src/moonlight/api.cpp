@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include "moonlight/api.h"
 #include "moonlight/settings.h"
+#include "backend/legacy/legacy_host_discovery.h"
 
 namespace {
 static MoonlightEventCallback s_callback = NULL;
@@ -25,17 +26,50 @@ static void emit(MoonlightEventType type,
     event.address = address;
     s_callback(&event, s_userdata);
 }
+
+static void on_discovery_event(
+    LegacyHostDiscoveryEventType type,
+    const MoonlightHost *host,
+    void *userdata)
+{
+    (void)userdata;
+
+    if (type == LEGACY_HOST_DISCOVERY_FOUND) {
+        if (!host) return;
+        emit(
+            MOONLIGHT_EVENT_HOSTS_CHANGED,
+            0,
+            host->id,
+            -1,
+            host->internal
+        );
+        return;
+    }
+
+    if (type == LEGACY_HOST_DISCOVERY_FINISHED) {
+        emit(
+            MOONLIGHT_EVENT_HOST_SCAN_FINISHED,
+            0,
+            -1,
+            -1,
+            NULL
+        );
+    }
+}
 }
 
 int moonlight_api_init(void)
 {
     s_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
     s_has_current_host = false;
-    return 0;
+
+    return legacy_host_discovery_init(on_discovery_event, NULL);
 }
 
 void moonlight_api_shutdown(void)
 {
+    legacy_host_discovery_shutdown();
+
     s_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
     s_has_current_host = false;
     s_callback = NULL;
@@ -80,16 +114,26 @@ int moonlight_api_get_hosts(MoonlightHost *out, int capacity)
     return 0;
 }
 
+int moonlight_api_get_discovered_hosts(MoonlightHost *out, int capacity)
+{
+    return legacy_host_discovery_get_hosts(out, capacity);
+}
+
 int moonlight_api_search_hosts(void)
 {
     emit(MOONLIGHT_EVENT_HOST_SCAN_STARTED, 0, -1, -1, NULL);
-    emit(MOONLIGHT_EVENT_HOST_SCAN_FINISHED, 0, -1, -1, NULL);
-    return 0;
+
+    int result = legacy_host_discovery_start();
+    if (result != 0) {
+        emit(MOONLIGHT_EVENT_HOST_SCAN_FAILED, result, -1, -1, NULL);
+    }
+
+    return result;
 }
 
 int moonlight_api_stop_host_search(void)
 {
-    return 0;
+    return legacy_host_discovery_stop();
 }
 
 int moonlight_api_add_host(const char *address, uint16_t port, const char *name)
