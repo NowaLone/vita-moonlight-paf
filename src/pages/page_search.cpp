@@ -118,14 +118,31 @@ void Search::SelectHost(int index) {
     }
 
     SetStatus("Connecting to PC...");
+    if (selected_button) {
+        selected_button->SetString(
+            paf::common::string_util::ToWString("CONNECTING..."));
+    }
+
+    /* GameStream init does RSA/curl and must not run on the PAF UI thread. */
     int connect_result = app->Connection().Connect(host);
     if (connect_result != 0) {
         paf::string status = paf::common::FormatString(
-            "Connection failed: 0x%08X", (unsigned int)connect_result);
+            "Connection start failed: 0x%08X", (unsigned int)connect_result);
         SetStatus(status.c_str());
         m_host_selected = false;
         return;
     }
+}
+
+void Search::OnConnectionReady() {
+    MoonlightApp *app = MoonlightApp::Instance();
+    if (!app || m_selected_index < 0) {
+        m_host_selected = false;
+        SetStatus("Connection failed");
+        return;
+    }
+
+    paf::ui::Widget *selected_button = root->FindChild(HostButtonId(m_selected_index));
 
     if (app->Connection().State() == MOONLIGHT_CONNECTION_PAIRED) {
         m_pairing_pending = false;
@@ -288,13 +305,22 @@ void Search::OnMoonlightEvent(const MoonlightEvent *event, void *userdata) {
         paf::string status = paf::common::FormatString(
             "Pairing failed: 0x%08X", (unsigned int)event->result);
         search->SetStatus(status.c_str());
+        /* Allow the same host button to retry after a failed pair. */
+        if (search->m_pairing_pin[0]) {
+            search->m_pairing_pending = true;
+        }
         break;
     }
+    case MOONLIGHT_EVENT_CONNECTION_READY:
+        search->OnConnectionReady();
+        break;
     case MOONLIGHT_EVENT_CONNECTION_FAILED: {
         if (search->m_host_selected) {
             paf::string status = paf::common::FormatString(
                 "Connection failed: 0x%08X", (unsigned int)event->result);
             search->SetStatus(status.c_str());
+            search->m_host_selected = false;
+            search->m_pairing_pending = false;
         }
         break;
     }
