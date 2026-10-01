@@ -6,6 +6,7 @@
   <string src="Add Manually" id="msg_add_manually" />
   <string src="Settings" id="msg_settings" />
   <string src="Search for available PCs on your network." id="msg_search_pcs_description" />
+  <string src="Searching for PCs..." id="msg_searching_pcs" />
   <string src="Enter a PC address manually." id="msg_add_manually_description" />
 
   <string src="Stream" id="msg_stream_settings" />
