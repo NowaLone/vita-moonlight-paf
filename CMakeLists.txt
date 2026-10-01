@@ -68,6 +68,8 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/legacy_device_store.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/legacy/device.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/legacy/config_compat.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/legacy/legacy_host_discovery.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/legacy/mdns/udp_sniffer_vita.c
   ${CMAKE_CURRENT_SOURCE_DIR}/third_party/inih/ini.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/services/host_service.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/services/host_discovery_service.cpp
