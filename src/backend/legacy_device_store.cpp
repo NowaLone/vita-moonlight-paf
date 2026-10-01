@@ -148,3 +148,44 @@ int legacy_device_store_add_host(const char *address, uint16_t port, const char 
     save_device_info(stored);
     return 0;
 }
+
+int legacy_device_store_mark_paired(const MoonlightHost *host)
+{
+    if (!s_initialized || !host || !host->internal[0]) {
+        return -1;
+    }
+
+    device_info_t *stored = NULL;
+    if (host->name[0]) {
+        stored = find_device(host->name);
+    }
+    if (!stored) {
+        stored = find_device_by_address(host->internal);
+    }
+
+    if (!stored) {
+        if (legacy_device_store_add_host(host->internal, host->port, host->name) != 0) {
+            return -1;
+        }
+        if (host->name[0]) {
+            stored = find_device(host->name);
+        }
+        if (!stored) {
+            stored = find_device_by_address(host->internal);
+        }
+    }
+
+    if (!stored) {
+        return -1;
+    }
+
+    copy_string(stored->name, sizeof(stored->name), host->name[0] ? host->name : stored->name);
+    copy_string(stored->internal, sizeof(stored->internal), host->internal);
+    copy_string(stored->external, sizeof(stored->external), host->external);
+    copy_string(stored->mac, sizeof(stored->mac), host->mac);
+    stored->port = host->port != 0 ? host->port : stored->port;
+    stored->prefer_external = host->prefer_external != 0;
+    stored->paired = true;
+    save_device_info(stored);
+    return 0;
+}
