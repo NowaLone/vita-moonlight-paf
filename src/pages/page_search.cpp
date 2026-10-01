@@ -150,10 +150,13 @@ void Search::OnMoonlightEvent(const MoonlightEvent *event, void *userdata) {
         if (search->m_host_count > 0 && event->host_id >= 0) {
             for (int i = 0; i < search->m_host_count; ++i) {
                 if (search->m_hosts[i].id == event->host_id) {
-                    if (MoonlightApp::Instance()->Hosts().MarkPaired(search->m_hosts[i]) == 0) {
+                    int save_result = MoonlightApp::Instance()->Hosts().MarkPaired(search->m_hosts[i]);
+                    if (save_result == 0) {
                         search->SetStatus("PC paired");
                     } else {
-                        search->SetStatus("Paired, but could not save PC");
+                        paf::string status = paf::common::FormatString(
+                            "PC paired, save failed: 0x%08X", (unsigned int)save_result);
+                        search->SetStatus(status.c_str());
                     }
                     return;
                 }
