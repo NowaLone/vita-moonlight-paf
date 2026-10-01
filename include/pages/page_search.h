@@ -27,6 +27,7 @@ private:
 
     MoonlightHost m_hosts[8];
     int m_host_count;
+    bool m_host_selected;
     HostButtonContext m_button_contexts[8];
 };
 
