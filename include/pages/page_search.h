@@ -24,10 +24,14 @@ private:
     void SetStatus(const char *text);
     void SetHostButton(int index, const MoonlightHost &host);
     void SelectHost(int index);
+    void ContinuePairing();
 
     MoonlightHost m_hosts[8];
     int m_host_count;
     bool m_host_selected;
+    bool m_pairing_pending;
+    int m_selected_index;
+    char m_pairing_pin[5];
     HostButtonContext m_button_contexts[8];
 };
 
