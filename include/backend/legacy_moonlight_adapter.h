@@ -26,7 +26,8 @@ public:
     virtual int MarkHostPaired(const MoonlightHost &host);
 
     virtual int ConnectHost(const MoonlightHost &host);
-    virtual int PairCurrentHost();
+    virtual int PreparePairing(char out_pin[5]);
+    virtual int PairCurrentHost(const char pin[5]);
 
     virtual int GetApplications(MoonlightApplication *out, int capacity);
     virtual int StartApplication(int application_id);
