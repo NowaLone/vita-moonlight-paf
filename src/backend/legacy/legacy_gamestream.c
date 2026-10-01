@@ -13,6 +13,7 @@
 #include "legacy_gamestream.h"
 
 #include <errno.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -59,6 +60,55 @@ static char s_cert_hex[8192];
 static char s_unique_id[UNIQUEID_CHARS + 1];
 
 static bool s_curl_initialized = false;
+
+#define GAMESTREAM_WORKER_STACK (256 * 1024)
+
+typedef struct WorkerCall {
+    int (*function)(void *);
+    void *argument;
+    int result;
+} WorkerCall;
+
+static void *worker_entry(void *argument)
+{
+    WorkerCall *call = (WorkerCall *)argument;
+
+    call->result = call->function(call->argument);
+    return NULL;
+}
+
+/* OpenSSL keygen and libcurl keep large frames. PAF UI/job stacks are too small. */
+static int run_on_worker(int (*function)(void *), void *argument)
+{
+    pthread_t thread;
+    pthread_attr_t attr;
+    WorkerCall call;
+    int create_result;
+
+    call.function = function;
+    call.argument = argument;
+    call.result = LEGACY_GAMESTREAM_FAILED;
+
+    if (pthread_attr_init(&attr) != 0) {
+        return function(argument);
+    }
+
+    if (pthread_attr_setstacksize(&attr, GAMESTREAM_WORKER_STACK) != 0) {
+        pthread_attr_destroy(&attr);
+        return function(argument);
+    }
+
+    create_result = pthread_create(&thread, &attr, worker_entry, &call);
+    pthread_attr_destroy(&attr);
+    if (create_result != 0) {
+        vita_debug_log("[GameStream] worker create failed: %d", create_result);
+        return function(argument);
+    }
+
+    pthread_join(thread, NULL);
+    return call.result;
+}
+
 
 typedef struct HttpBuffer {
     char *memory;
@@ -127,15 +177,20 @@ static int ensure_directory(const char *path)
 
 static int make_directory_tree(const char *directory)
 {
-    char buffer[PATH_MAX_LOCAL];
+    char *buffer;
     char *cursor;
 
     if (!directory || !directory[0]) {
         return -1;
     }
 
-    strncpy(buffer, directory, sizeof(buffer) - 1);
-    buffer[sizeof(buffer) - 1] = '\0';
+    buffer = (char *)malloc(PATH_MAX_LOCAL);
+    if (!buffer) {
+        return -1;
+    }
+
+    strncpy(buffer, directory, PATH_MAX_LOCAL - 1);
+    buffer[PATH_MAX_LOCAL - 1] = '\0';
 
     cursor = buffer;
 
@@ -150,6 +205,7 @@ static int make_directory_tree(const char *directory)
         *cursor = '\0';
 
         if (buffer[0] != '\0' && ensure_directory(buffer) < 0) {
+            free(buffer);
             return -1;
         }
 
@@ -160,6 +216,7 @@ static int make_directory_tree(const char *directory)
         }
     }
 
+    free(buffer);
     return 0;
 }
 
@@ -362,27 +419,45 @@ cleanup:
 
 static int load_certificate(const char *key_directory)
 {
-    char certificate_path[PATH_MAX_LOCAL];
-    char key_path[PATH_MAX_LOCAL];
-    char p12_path[PATH_MAX_LOCAL];
+    char *certificate_path;
+    char *key_path;
+    char *p12_path;
     FILE *file;
     size_t length;
     X509 *certificate;
     EVP_PKEY *private_key;
+    int result = LEGACY_GAMESTREAM_FAILED;
 
-    snprintf(certificate_path, sizeof(certificate_path), "%s/%s", key_directory, CERTIFICATE_FILE_NAME);
-    snprintf(key_path, sizeof(key_path), "%s/%s", key_directory, KEY_FILE_NAME);
-    snprintf(p12_path, sizeof(p12_path), "%s/%s", key_directory, P12_FILE_NAME);
+    certificate_path = (char *)malloc(PATH_MAX_LOCAL);
+    key_path = (char *)malloc(PATH_MAX_LOCAL);
+    p12_path = (char *)malloc(PATH_MAX_LOCAL);
+    if (!certificate_path || !key_path || !p12_path) {
+        free(certificate_path);
+        free(key_path);
+        free(p12_path);
+        set_error("Unable to allocate certificate paths");
+        return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
+    }
+
+    snprintf(certificate_path, PATH_MAX_LOCAL, "%s/%s", key_directory, CERTIFICATE_FILE_NAME);
+    snprintf(key_path, PATH_MAX_LOCAL, "%s/%s", key_directory, KEY_FILE_NAME);
+    snprintf(p12_path, PATH_MAX_LOCAL, "%s/%s", key_directory, P12_FILE_NAME);
 
     file = fopen(certificate_path, "rb");
     if (!file) {
         if (save_certificate_files(certificate_path, p12_path, key_path) != LEGACY_GAMESTREAM_OK) {
+            free(certificate_path);
+            free(key_path);
+            free(p12_path);
             return LEGACY_GAMESTREAM_FAILED;
         }
         file = fopen(certificate_path, "rb");
     }
 
     if (!file) {
+        free(certificate_path);
+        free(key_path);
+        free(p12_path);
         set_error("Unable to open client.pem");
         return LEGACY_GAMESTREAM_FAILED;
     }
@@ -395,36 +470,61 @@ static int load_certificate(const char *key_directory)
 
     if (!certificate || length == 0 || length * 2 >= sizeof(s_cert_hex)) {
         X509_free(certificate);
+        free(certificate_path);
+        free(key_path);
+        free(p12_path);
         set_error("Unable to load client certificate");
         return LEGACY_GAMESTREAM_FAILED;
     }
 
     {
-        unsigned char raw_certificate[4096];
-        FILE *raw_file = fopen(certificate_path, "rb");
+        unsigned char *raw_certificate = (unsigned char *)malloc(4096);
+        FILE *raw_file;
         size_t raw_size;
 
-        if (!raw_file) {
+        if (!raw_certificate) {
             X509_free(certificate);
+            free(certificate_path);
+            free(key_path);
+            free(p12_path);
+            set_error("Unable to allocate certificate buffer");
+            return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
+        }
+
+        raw_file = fopen(certificate_path, "rb");
+        if (!raw_file) {
+            free(raw_certificate);
+            X509_free(certificate);
+            free(certificate_path);
+            free(key_path);
+            free(p12_path);
             set_error("Unable to reopen client.pem");
             return LEGACY_GAMESTREAM_FAILED;
         }
 
-        raw_size = fread(raw_certificate, 1, sizeof(raw_certificate), raw_file);
+        raw_size = fread(raw_certificate, 1, 4096, raw_file);
         fclose(raw_file);
 
         if (raw_size == 0 || raw_size * 2 >= sizeof(s_cert_hex)) {
+            free(raw_certificate);
             X509_free(certificate);
+            free(certificate_path);
+            free(key_path);
+            free(p12_path);
             set_error("Client certificate is too large");
             return LEGACY_GAMESTREAM_FAILED;
         }
 
         bytes_to_hex(raw_certificate, s_cert_hex, raw_size);
+        free(raw_certificate);
     }
 
     file = fopen(key_path, "r");
     if (!file) {
         X509_free(certificate);
+        free(certificate_path);
+        free(key_path);
+        free(p12_path);
         set_error("Unable to open key.pem");
         return LEGACY_GAMESTREAM_FAILED;
     }
@@ -434,6 +534,9 @@ static int load_certificate(const char *key_directory)
 
     if (!private_key) {
         X509_free(certificate);
+        free(certificate_path);
+        free(key_path);
+        free(p12_path);
         set_error("Unable to load key.pem");
         return LEGACY_GAMESTREAM_FAILED;
     }
@@ -443,8 +546,12 @@ static int load_certificate(const char *key_directory)
 
     s_cert = certificate;
     s_private_key = private_key;
+    result = LEGACY_GAMESTREAM_OK;
 
-    return LEGACY_GAMESTREAM_OK;
+    free(certificate_path);
+    free(key_path);
+    free(p12_path);
+    return result;
 }
 
 static size_t http_write_callback(void *contents, size_t size, size_t count, void *userdata)
@@ -1370,6 +1477,17 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
     return LEGACY_GAMESTREAM_OK;
 }
 
+typedef struct InitArgs {
+    LegacyGameStreamServer *server;
+    const char *address;
+    unsigned short http_port;
+    const char *key_directory;
+    int log_level;
+    bool unsupported;
+} InitArgs;
+
+static int init_worker(void *argument);
+
 int legacy_gamestream_init(
     LegacyGameStreamServer *server,
     const char *address,
@@ -1378,10 +1496,31 @@ int legacy_gamestream_init(
     int log_level,
     bool unsupported)
 {
+    InitArgs args;
+
+    args.server = server;
+    args.address = address;
+    args.http_port = http_port;
+    args.key_directory = key_directory;
+    args.log_level = log_level;
+    args.unsupported = unsupported;
+    return run_on_worker(init_worker, &args);
+}
+
+static int init_worker(void *argument)
+{
+    InitArgs *args = (InitArgs *)argument;
+    LegacyGameStreamServer *server = args->server;
+    const char *address = args->address;
+    unsigned short http_port = args->http_port;
+    const char *key_directory = args->key_directory;
+    int log_level = args->log_level;
+    bool unsupported = args->unsupported;
     CURL *curl;
     unsigned char random_seed[0x40];
-    char certificate_path[PATH_MAX_LOCAL];
-    char key_path[PATH_MAX_LOCAL];
+    char *certificate_path;
+    char *key_path;
+    (void)log_level;
 
     if (!server || !address || !address[0] || !key_directory || !key_directory[0]) {
         set_error("Invalid GameStream initialization arguments");
@@ -1421,8 +1560,21 @@ int legacy_gamestream_init(
         return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
     }
 
-    snprintf(certificate_path, sizeof(certificate_path), "%s/%s", key_directory, CERTIFICATE_FILE_NAME);
-    snprintf(key_path, sizeof(key_path), "%s/%s", key_directory, KEY_FILE_NAME);
+    vita_debug_log("[GameStream] init %s:%u dir=%s", address, http_port, key_directory);
+
+    certificate_path = (char *)malloc(PATH_MAX_LOCAL);
+    key_path = (char *)malloc(PATH_MAX_LOCAL);
+    if (!certificate_path || !key_path) {
+        free(certificate_path);
+        free(key_path);
+        curl_easy_cleanup(curl);
+        server->curl = NULL;
+        set_error("Unable to allocate certificate paths");
+        return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
+    }
+
+    snprintf(certificate_path, PATH_MAX_LOCAL, "%s/%s", key_directory, CERTIFICATE_FILE_NAME);
+    snprintf(key_path, PATH_MAX_LOCAL, "%s/%s", key_directory, KEY_FILE_NAME);
 
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
@@ -1435,13 +1587,32 @@ int legacy_gamestream_init(
     curl_easy_setopt(curl, CURLOPT_SSL_SESSIONID_CACHE, 0L);
 
     server->curl = curl;
+    free(certificate_path);
+    free(key_path);
 
+    vita_debug_log("[GameStream] requesting server status");
     return load_server_status(server);
+}
+
+typedef struct PairArgs {
+    LegacyGameStreamServer *server;
+    const char *pin;
+} PairArgs;
+
+static int pair_worker(void *argument)
+{
+    PairArgs *args = (PairArgs *)argument;
+
+    return pair(args->server, args->pin);
 }
 
 int legacy_gamestream_pair(LegacyGameStreamServer *server, const char *pin)
 {
-    return pair(server, pin);
+    PairArgs args;
+
+    args.server = server;
+    args.pin = pin;
+    return run_on_worker(pair_worker, &args);
 }
 
 int legacy_gamestream_get_server_mac(
