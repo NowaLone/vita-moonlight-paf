@@ -28,8 +28,35 @@
           <layout_hint adjust="2, 2" pos="0, 80" />
         </text>
         <text style="style_text_body" label="msg_search_pcs_description" id="text_search_description">
+          <layout_hint adjust="2, 2" pos="0, 55" />
+        </text>
+        <text style="style_text_body" label="msg_searching_pcs" id="text_search_status">
           <layout_hint adjust="2, 2" pos="0, 10" />
         </text>
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_host_0">
+          <layout_hint pos="0, -105" size="560, 62" />
+        </button>
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_host_1">
+          <layout_hint pos="0, -30" size="560, 62" />
+        </button>
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_host_2">
+          <layout_hint pos="0, 45" size="560, 62" />
+        </button>
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_host_3">
+          <layout_hint pos="0, 120" size="560, 62" />
+        </button>
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_host_4">
+          <layout_hint pos="0, 195" size="560, 62" />
+        </button>
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_host_5">
+          <layout_hint pos="0, 270" size="560, 62" />
+        </button>
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_host_6">
+          <layout_hint pos="0, 345" size="560, 62" />
+        </button>
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_host_7">
+          <layout_hint pos="0, 420" size="560, 62" />
+        </button>
         <corner_button style="_common_style_corner_bottom_left" id="btn_close_search" />
       </plane>
     </page>
