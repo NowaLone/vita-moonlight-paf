@@ -72,14 +72,35 @@ void Search::SelectHost(int index) {
         return;
     }
 
+    // Discovery is no longer needed once a host has been selected.
+    // Stopping it prevents late HOSTS_CHANGED/HOST_SCAN_FINISHED events
+    // from overwriting the pairing result shown below.
+    app->Discovery().Stop();
+
     if (app->Connection().Connect(host) != 0) {
         SetStatus("Connection failed");
         return;
     }
 
     SetStatus("Pairing with PC...");
-    if (app->Pairing().Pair() != 0) {
-        SetStatus("Pairing failed");
+    int pair_result = app->Pairing().Pair();
+    if (pair_result != 0) {
+        paf::string status = paf::common::FormatString(
+            "Pairing failed: 0x%08X", (unsigned int)pair_result);
+        SetStatus(status.c_str());
+        return;
+    }
+
+    // The current backend pairing call is synchronous. Persist immediately
+    // so the UI reports the actual storage result instead of waiting for the
+    // queued pairing event.
+    int save_result = app->Hosts().MarkPaired(host);
+    if (save_result == 0) {
+        SetStatus("PC paired and saved");
+    } else {
+        paf::string status = paf::common::FormatString(
+            "Paired, save failed: 0x%08X", (unsigned int)save_result);
+        SetStatus(status.c_str());
     }
 }
 
@@ -147,22 +168,7 @@ void Search::OnMoonlightEvent(const MoonlightEvent *event, void *userdata) {
         search->SetStatus("PC search failed");
         break;
     case MOONLIGHT_EVENT_PAIRING_FINISHED:
-        if (search->m_host_count > 0 && event->host_id >= 0) {
-            for (int i = 0; i < search->m_host_count; ++i) {
-                if (search->m_hosts[i].id == event->host_id) {
-                    int save_result = MoonlightApp::Instance()->Hosts().MarkPaired(search->m_hosts[i]);
-                    if (save_result == 0) {
-                        search->SetStatus("PC paired");
-                    } else {
-                        paf::string status = paf::common::FormatString(
-                            "PC paired, save failed: 0x%08X", (unsigned int)save_result);
-                        search->SetStatus(status.c_str());
-                    }
-                    return;
-                }
-            }
-        }
-        search->SetStatus("PC paired");
+        // Persistence is handled synchronously by SelectHost().
         return;
     case MOONLIGHT_EVENT_PAIRING_FAILED:
         search->SetStatus("Pairing failed");
