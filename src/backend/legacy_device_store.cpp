@@ -42,17 +42,61 @@ static void copy_string(char *destination, size_t size, const char *source)
 }
 
 
-static bool verify_device_file(const device_info_t *info)
+static int write_device_info(const device_info_t *info)
 {
     if (!info || !info->name[0]) {
-        return false;
+        return -1;
     }
 
     char path[512];
     snprintf(path, sizeof(path), "%s%s/device.ini", config.key_dir, info->name);
 
+    char data[2048];
+    int length = snprintf(
+        data, sizeof(data),
+        "paired = %s\n"
+        "internal = %s\n"
+        "external = %s\n"
+        "mac = %s\n"
+        "port = %u\n"
+        "prefer_external = %s\n",
+        info->paired ? "true" : "false",
+        info->internal,
+        info->external,
+        info->mac,
+        (unsigned)info->port,
+        info->prefer_external ? "true" : "false");
+
+    if (length < 0 || length >= (int)sizeof(data)) {
+        return -2;
+    }
+
+    SceUID fd = sceIoOpen(
+        path,
+        SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC,
+        0666);
+
+    if (fd < 0) {
+        return (int)fd;
+    }
+
+    int written = sceIoWrite(fd, data, length);
+    int close_result = sceIoClose(fd);
+
+    if (written != length) {
+        return written < 0 ? written : -3;
+    }
+
+    if (close_result < 0) {
+        return close_result;
+    }
+
     SceIoStat stat;
-    return sceIoGetstat(path, &stat) >= 0;
+    if (sceIoGetstat(path, &stat) < 0) {
+        return -4;
+    }
+
+    return 0;
 }
 
 static void fill_host(const device_info_t *device, int id, MoonlightHost *host)
@@ -152,9 +196,9 @@ int legacy_device_store_add_host(const char *address, uint16_t port, const char 
     // Persist first. The old implementation created the directory before
     // append_device(), so an allocation failure could leave an empty folder
     // with no device.ini at all.
-    save_device_info(&info);
-    if (!verify_device_file(&info)) {
-        return -1;
+    int write_result = write_device_info(&info);
+    if (write_result != 0) {
+        return write_result;
     }
 
     device_info_t *stored = find_device(info.name);
@@ -191,9 +235,9 @@ int legacy_device_store_mark_paired(const MoonlightHost *host)
         return -1;
     }
 
-    save_device_info(&info);
-    if (!verify_device_file(&info)) {
-        return -1;
+    int write_result = write_device_info(&info);
+    if (write_result != 0) {
+        return write_result;
     }
 
     device_info_t *stored = find_device(info.name);
