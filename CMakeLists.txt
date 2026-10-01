@@ -94,8 +94,21 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 target_link_libraries(${PROJECT_NAME}
+  -Wl,--start-group
+  -lcurl
+  -lexpat
+  -lssl
+  -lcrypto
+  -lz
+  -lzstd
+  -lpthread
+  -lm
+  -lgcc
+  -lc
   SceAppMgr_stub
   SceKernelThreadMgr_stub
+  SceSysmem_stub
+  SceRtc_stub
   SceSysmodule_stub
   SceCtrl_stub
   SceLibKernel_stub
@@ -110,14 +123,7 @@ target_link_libraries(${PROJECT_NAME}
   SceAppSettings_stub
   SceAppUtil_stub
   SceCommonGuiDialog_stub
-  -lcurl
-  -lexpat
-  -lssl
-  -lcrypto
-  -lz
-  -lpthread
-  -lm
-  -lc
+  -Wl,--end-group
 )
 
 set_target_properties(${PROJECT_NAME}
