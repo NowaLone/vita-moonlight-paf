@@ -20,7 +20,8 @@ Search::Search()
     : Base("page_search_pcs", "btn_close_search",
            paf::Plugin::TransitionType_SlideFromBottom,
            paf::Plugin::TransitionType_SlideFromBottom),
-      m_host_count(0) {
+      m_host_count(0),
+      m_host_selected(false) {
     if (!IsValid()) return;
 
     for (int i = 0; i < kMaxHosts; ++i) {
@@ -61,10 +62,11 @@ void Search::OnHostButton(int32_t type,
 }
 
 void Search::SelectHost(int index) {
-    if (index < 0 || index >= m_host_count) return;
+    if (m_host_selected || index < 0 || index >= m_host_count) return;
 
+    m_host_selected = true;
     MoonlightHost host = m_hosts[index];
-    SetStatus("Connecting to PC...");
+    SetStatus("Saving PC...");
 
     MoonlightApp *app = MoonlightApp::Instance();
     if (!app) {
@@ -140,7 +142,7 @@ void Search::SetHostButton(int index, const MoonlightHost &host) {
 }
 
 void Search::RefreshHosts() {
-    if (!root) return;
+    if (!root || m_host_selected) return;
 
     m_host_count = MoonlightApp::Instance()->Discovery().GetHosts(
         m_hosts, kMaxHosts);
@@ -163,7 +165,7 @@ void Search::RefreshHosts() {
 
 void Search::OnMoonlightEvent(const MoonlightEvent *event, void *userdata) {
     Search *search = (Search *)userdata;
-    if (!search || !event) return;
+    if (!search || !event || search->m_host_selected) return;
 
     switch (event->type) {
     case MOONLIGHT_EVENT_HOST_SCAN_STARTED:
