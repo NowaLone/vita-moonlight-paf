@@ -189,30 +189,39 @@ int legacy_device_store_add_host(const char *address, uint16_t port, const char 
     copy_string(info.internal, sizeof(info.internal), address);
     info.port = port != 0 ? port : 47989;
 
-    if (!ensure_device_directory(info.name)) {
-        return -1;
-    }
-
-    // Persist first. The old implementation created the directory before
-    // append_device(), so an allocation failure could leave an empty folder
-    // with no device.ini at all.
-    int write_result = write_device_info(&info);
-    if (write_result != 0) {
-        return write_result;
-    }
-
-    device_info_t *stored = find_device(info.name);
+    // Re-discovery of an already known host must not erase its pairing state
+    // or its stored endpoint/credentials metadata.
+    device_info_t *stored = find_device_by_address(address);
     if (!stored) {
-        append_device(&info);
         stored = find_device(info.name);
     }
 
     if (stored) {
         copy_string(stored->internal, sizeof(stored->internal), info.internal);
         stored->port = info.port;
+
+        if (name && name[0] && strcmp(stored->name, name) == 0) {
+            copy_string(stored->name, sizeof(stored->name), name);
+        }
+
+        if (!ensure_device_directory(stored->name)) {
+            return -1;
+        }
+
+        return write_device_info(stored);
     }
 
-    return 0;
+    if (!ensure_device_directory(info.name)) {
+        return -1;
+    }
+
+    int write_result = write_device_info(&info);
+    if (write_result != 0) {
+        return write_result;
+    }
+
+    stored = append_device(&info);
+    return stored ? 0 : -1;
 }
 
 int legacy_device_store_mark_paired(const MoonlightHost *host)
