@@ -120,6 +120,7 @@ typedef struct MoonlightEvent {
     int host_id;
     int application_id;
     const char *address;
+    char pairing_pin[5];
 } MoonlightEvent;
 
 typedef void (*MoonlightEventCallback)(const MoonlightEvent *, void *);
