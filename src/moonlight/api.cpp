@@ -1,7 +1,7 @@
 #include <stddef.h>
 #include "moonlight/api.h"
 #include "moonlight/settings.h"
-#include "backend/legacy/legacy_host_discovery.h"
+#include "legacy_host_discovery.h"
 
 namespace {
 static MoonlightEventCallback s_callback = NULL;
