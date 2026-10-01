@@ -16,6 +16,7 @@ enum {
 };
 
 static volatile int s_status = DISCOVERY_IDLE;
+static volatile int s_suppress_events = 0;
 static SceUID s_thread = -1;
 static LegacyHostDiscoveryCallback s_callback = NULL;
 static void *s_userdata = NULL;
@@ -26,6 +27,10 @@ static int s_next_id = 0;
 
 static void emit_event(LegacyHostDiscoveryEventType type, const MoonlightHost *host)
 {
+    if (s_suppress_events) {
+        return;
+    }
+
     LegacyHostDiscoveryCallback callback = s_callback;
     if (callback != NULL) {
         callback(type, host, s_userdata);
@@ -61,6 +66,10 @@ static void on_mdns_host(
 {
     (void)idx;
     (void)host;
+
+    if (s_status != DISCOVERY_RUNNING || s_suppress_events) {
+        return;
+    }
 
     if (pcname == NULL || ip == NULL || pcname[0] == '\0' || ip[0] == '\0' || port <= 0) {
         return;
@@ -109,9 +118,11 @@ static int discovery_thread(SceSize args, void *argp)
     udp_sniffer_vita_set_callback(NULL);
     udp_sniffer_vita_deinit();
 
-    if (s_status != DISCOVERY_IDLE) {
+    if (s_status == DISCOVERY_RUNNING) {
         s_status = DISCOVERY_IDLE;
         emit_event(LEGACY_HOST_DISCOVERY_FINISHED, NULL);
+    } else {
+        s_status = DISCOVERY_IDLE;
     }
 
     return 0;
@@ -122,6 +133,7 @@ int legacy_host_discovery_init(LegacyHostDiscoveryCallback callback, void *userd
     s_callback = callback;
     s_userdata = userdata;
     s_status = DISCOVERY_IDLE;
+    s_suppress_events = 0;
     s_thread = -1;
     clear_hosts();
     return 0;
@@ -147,6 +159,7 @@ int legacy_host_discovery_start(void)
     }
 
     clear_hosts();
+    s_suppress_events = 0;
     s_status = DISCOVERY_RUNNING;
 
     s_thread = sceKernelCreateThread(
@@ -178,6 +191,8 @@ int legacy_host_discovery_start(void)
 
 int legacy_host_discovery_stop(void)
 {
+    s_suppress_events = 1;
+
     if (s_status == DISCOVERY_RUNNING) {
         s_status = DISCOVERY_STOP_REQUESTED;
     }
@@ -194,11 +209,8 @@ int legacy_host_discovery_stop(void)
         s_thread = -1;
     }
 
-    if (s_status != DISCOVERY_IDLE) {
-        s_status = DISCOVERY_IDLE;
-        emit_event(LEGACY_HOST_DISCOVERY_FINISHED, NULL);
-    }
-
+    s_status = DISCOVERY_IDLE;
+    s_suppress_events = 0;
     return 0;
 }
 
