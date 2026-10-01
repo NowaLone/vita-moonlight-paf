@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include <psp2/io/fcntl.h>
-#include <psp2/io/dirent.h>
+#include <psp2/io/stat.h>
 #include <psp2/kernel/rng.h>
 
 #include "moonlight/api.h"
