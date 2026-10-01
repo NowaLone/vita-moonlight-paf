@@ -7,8 +7,8 @@
 char    sceUserMainThreadName[]          = "vita_moonlight_paf";
 int     sceUserMainThreadPriority        = 0x10000100;
 int     sceUserMainThreadCpuAffinityMask = 0x70000;
-/* GameStream/OpenSSL setup can be stack-heavy; keep enough room on the PAF main thread. */
-SceSize sceUserMainThreadStackSize       = 0x8000;
+/* UI thread still builds pages and formats strings. GameStream itself runs on a worker. */
+SceSize sceUserMainThreadStackSize       = 0x20000;
 
 void *operator new(unsigned int n) {
 	return sce_paf_malloc(n);
