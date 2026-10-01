@@ -58,6 +58,18 @@ void Search::OnHostButton(int32_t type,
 
     HostButtonContext *context = (HostButtonContext *)userdata;
     if (!context || !context->page) return;
+
+    // Make the callback observable before touching networking/storage.
+    if (context->page->root) {
+        const char *button_id = HostButtonId(context->index);
+        paf::ui::Widget *button = context->page->root->FindChild(button_id);
+        if (button) {
+            button->SetString(
+                paf::common::string_util::ToWString("SELECTED"));
+        }
+    }
+
+    context->page->SetStatus("HOST SELECTED");
     context->page->SelectHost(context->index);
 }
 
