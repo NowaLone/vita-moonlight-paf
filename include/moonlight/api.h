@@ -25,6 +25,7 @@ int moonlight_api_set_setting_value(MoonlightSettingKey key, int value);
 int moonlight_api_set_event_callback(MoonlightEventCallback callback, void *userdata);
 
 int moonlight_api_get_hosts(MoonlightHost *out, int capacity);
+int moonlight_api_get_discovered_hosts(MoonlightHost *out, int capacity);
 int moonlight_api_search_hosts(void);
 int moonlight_api_stop_host_search(void);
 int moonlight_api_add_host(const char *address, uint16_t port, const char *name);
