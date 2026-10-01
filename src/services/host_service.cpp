@@ -14,3 +14,8 @@ int HostService::Add(const char *address, uint16_t port, const char *name)
 {
     return m_backend.AddHost(address, port, name);
 }
+
+int HostService::MarkPaired(const MoonlightHost &host)
+{
+    return m_backend.MarkHostPaired(host);
+}
