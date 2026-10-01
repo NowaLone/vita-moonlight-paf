@@ -188,7 +188,7 @@ void udp_sniffer_vita_poll(void) {
     if (sock < 0) return;
     char buffer[BUF_SIZE];
     SceNetSockaddrIn from;
-    int fromlen = sizeof(from);
+    unsigned int fromlen = sizeof(from);
     int n = sceNetRecvfrom(sock, buffer, sizeof(buffer), SCE_NET_MSG_DONTWAIT, (SceNetSockaddr*)&from, &fromlen);
     if (n <= 0) return; // No data
     const unsigned char* pkt = (const unsigned char*)buffer;
