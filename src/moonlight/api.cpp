@@ -1,14 +1,26 @@
 #include <stddef.h>
+#include <stdio.h>
+#include <string.h>
+
+#include <psp2/io/fcntl.h>
+#include <psp2/kernel/rng.h>
+
 #include "moonlight/api.h"
 #include "moonlight/settings.h"
 #include "legacy_host_discovery.h"
+#include "backend/legacy_device_store.h"
+#include "legacy_gamestream.h"
+#include "config.h"
 
 namespace {
+
 static MoonlightEventCallback s_callback = NULL;
 static void *s_userdata = NULL;
 static MoonlightHost s_current_host = {0};
 static bool s_has_current_host = false;
 static MoonlightConnectionState s_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
+static LegacyGameStreamServer s_server;
+static bool s_game_stream_initialized = false;
 
 static void emit(MoonlightEventType type,
                  int result,
@@ -19,11 +31,27 @@ static void emit(MoonlightEventType type,
     if (!s_callback) return;
 
     MoonlightEvent event;
+    memset(&event, 0, sizeof(event));
     event.type = type;
     event.result = result;
     event.host_id = host_id;
     event.application_id = application_id;
     event.address = address;
+    s_callback(&event, s_userdata);
+}
+
+static void emit_pairing_required(const char pin[5])
+{
+    if (!s_callback) return;
+
+    MoonlightEvent event;
+    memset(&event, 0, sizeof(event));
+    event.type = MOONLIGHT_EVENT_PAIRING_REQUIRED;
+    event.result = 0;
+    event.host_id = s_current_host.id;
+    event.application_id = -1;
+    event.address = s_current_host.internal;
+    memcpy(event.pairing_pin, pin, 5);
     s_callback(&event, s_userdata);
 }
 
@@ -36,6 +64,7 @@ static void on_discovery_event(
 
     if (type == LEGACY_HOST_DISCOVERY_FOUND) {
         if (!host) return;
+
         emit(
             MOONLIGHT_EVENT_HOSTS_CHANGED,
             0,
@@ -56,22 +85,63 @@ static void on_discovery_event(
         );
     }
 }
+
+static int make_key_directory(const MoonlightHost *host, char *out, size_t size)
+{
+    const char *name;
+
+    if (!host || !out || size == 0) {
+        return -1;
+    }
+
+    name = host->name[0] ? host->name : host->internal;
+
+    int length = snprintf(out, size, "%s%s", config.key_dir, name);
+    if (length < 0 || (size_t)length >= size) {
+        return -1;
+    }
+
+    int result = sceIoMkdir(out, 0777);
+    if (result < 0 && result != 0x80010011) {
+        return result;
+    }
+
+    return 0;
+}
+
+static void update_host_from_server()
+{
+    s_current_host.paired = s_server.paired ? 1 : 0;
+
+    if (s_server.mac[0]) {
+        strncpy(s_current_host.mac, s_server.mac, sizeof(s_current_host.mac) - 1);
+        s_current_host.mac[sizeof(s_current_host.mac) - 1] = '\0';
+    }
+}
+
 }
 
 int moonlight_api_init(void)
 {
     s_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
     s_has_current_host = false;
+    s_game_stream_initialized = false;
+    memset(&s_server, 0, sizeof(s_server));
 
     return legacy_host_discovery_init(on_discovery_event, NULL);
 }
 
 void moonlight_api_shutdown(void)
 {
+    legacy_gamestream_shutdown(&s_server);
+    s_game_stream_initialized = false;
+
     legacy_host_discovery_shutdown();
 
     s_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
     s_has_current_host = false;
+    memset(&s_server, 0, sizeof(s_server));
+    memset(&s_current_host, 0, sizeof(s_current_host));
     s_callback = NULL;
     s_userdata = NULL;
 }
@@ -109,9 +179,7 @@ int moonlight_api_set_event_callback(MoonlightEventCallback callback, void *user
 
 int moonlight_api_get_hosts(MoonlightHost *out, int capacity)
 {
-    (void)out;
-    (void)capacity;
-    return 0;
+    return legacy_device_store_get_hosts(out, capacity);
 }
 
 int moonlight_api_get_discovered_hosts(MoonlightHost *out, int capacity)
@@ -138,34 +206,147 @@ int moonlight_api_stop_host_search(void)
 
 int moonlight_api_add_host(const char *address, uint16_t port, const char *name)
 {
-    (void)address;
-    (void)port;
-    (void)name;
-    return 0;
+    return legacy_device_store_add_host(address, port, name);
 }
 
 int moonlight_api_connect_host(const MoonlightHost *host)
 {
-    if (!host) {
+    char key_directory[512];
+
+    if (!host || !host->internal[0]) {
         return -1;
     }
 
-    s_current_host = *host;
-    s_has_current_host = true;
-    s_connection_state = MOONLIGHT_CONNECTION_READY;
+    if (make_key_directory(host, key_directory, sizeof(key_directory)) != 0) {
+        emit(
+            MOONLIGHT_EVENT_CONNECTION_FAILED,
+            -1,
+            host->id,
+            -1,
+            host->internal);
+        return -1;
+    }
 
-    emit(MOONLIGHT_EVENT_CONNECTION_READY, 0, host->id, -1, host->internal);
+    if (s_game_stream_initialized) {
+        legacy_gamestream_shutdown(&s_server);
+        s_game_stream_initialized = false;
+    }
+
+    int result = legacy_gamestream_init(
+        &s_server,
+        host->internal,
+        host->port,
+        key_directory,
+        0,
+        true);
+
+    if (result != LEGACY_GAMESTREAM_OK) {
+        vita_debug_log(
+            "[GameStream] init failed for %s: %d (%s)",
+            host->internal,
+            result,
+            legacy_gamestream_error());
+
+        s_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
+        s_has_current_host = false;
+
+        emit(
+            MOONLIGHT_EVENT_CONNECTION_FAILED,
+            result,
+            host->id,
+            -1,
+            host->internal);
+        return result;
+    }
+
+    s_game_stream_initialized = true;
+    s_current_host = *host;
+    update_host_from_server();
+    s_has_current_host = true;
+
+    s_connection_state = s_server.paired
+        ? MOONLIGHT_CONNECTION_PAIRED
+        : MOONLIGHT_CONNECTION_READY;
+
+    emit(
+        MOONLIGHT_EVENT_CONNECTION_READY,
+        0,
+        s_current_host.id,
+        -1,
+        s_current_host.internal);
+
     return 0;
 }
 
-int moonlight_api_pair_current_host(void)
+int moonlight_api_prepare_pairing(char out_pin[5])
 {
-    if (!s_has_current_host || s_connection_state != MOONLIGHT_CONNECTION_READY) {
+    uint32_t random_value;
+
+    if (!out_pin || !s_has_current_host ||
+        s_connection_state != MOONLIGHT_CONNECTION_READY ||
+        !s_game_stream_initialized) {
         return -1;
     }
 
+    if (s_server.paired) {
+        s_connection_state = MOONLIGHT_CONNECTION_PAIRED;
+        return LEGACY_GAMESTREAM_WRONG_STATE;
+    }
+
+    if (sceKernelGetRandomNumber(&random_value, sizeof(random_value)) < 0) {
+        return -1;
+    }
+
+    snprintf(out_pin, 5, "%04u", (unsigned)(random_value % 10000));
+
+    emit_pairing_required(out_pin);
+    return 0;
+}
+
+int moonlight_api_pair_current_host(const char pin[5])
+{
+    int result;
+
+    if (!pin || !s_has_current_host ||
+        s_connection_state != MOONLIGHT_CONNECTION_READY ||
+        !s_game_stream_initialized) {
+        return -1;
+    }
+
+    result = legacy_gamestream_pair(&s_server, pin);
+    if (result != LEGACY_GAMESTREAM_OK) {
+        vita_debug_log(
+            "[GameStream] pairing failed for %s: %d (%s)",
+            s_current_host.internal,
+            result,
+            legacy_gamestream_error());
+
+        emit(
+            MOONLIGHT_EVENT_PAIRING_FAILED,
+            result,
+            s_current_host.id,
+            -1,
+            s_current_host.internal);
+        return result;
+    }
+
+    update_host_from_server();
     s_connection_state = MOONLIGHT_CONNECTION_PAIRED;
-    emit(MOONLIGHT_EVENT_PAIRING_FINISHED, 0, s_current_host.id, -1, s_current_host.internal);
+
+    int save_result = legacy_device_store_mark_paired(&s_current_host);
+    if (save_result != 0) {
+        vita_debug_log(
+            "[GameStream] pairing succeeded but device persistence failed: %d",
+            save_result);
+    }
+
+    emit(
+        MOONLIGHT_EVENT_PAIRING_FINISHED,
+        save_result,
+        s_current_host.id,
+        -1,
+        s_current_host.internal);
+
     return 0;
 }
 
@@ -214,6 +395,11 @@ int moonlight_api_disconnect_host(void)
 {
     if (!s_has_current_host) {
         return 0;
+    }
+
+    if (s_game_stream_initialized) {
+        legacy_gamestream_shutdown(&s_server);
+        s_game_stream_initialized = false;
     }
 
     s_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
