@@ -956,8 +956,9 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
         return LEGACY_GAMESTREAM_WRONG_STATE;
     }
 
-    if (server->server_major_version < MIN_SUPPORTED_GFE_VERSION ||
-        server->server_major_version > MAX_SUPPORTED_GFE_VERSION) {
+    if (!server->unsupported &&
+        (server->server_major_version < MIN_SUPPORTED_GFE_VERSION ||
+         server->server_major_version > MAX_SUPPORTED_GFE_VERSION)) {
         set_error("Unsupported GameStream server version");
         return LEGACY_GAMESTREAM_UNSUPPORTED_VERSION;
     }
