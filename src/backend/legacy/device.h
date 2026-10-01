@@ -1,4 +1,9 @@
 #pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -31,3 +36,7 @@ bool load_device_info(device_info_t *info);
 void save_device_info(const device_info_t *info);
 bool remove_device(const char *name);
 void device_file_path(char *out, const char *dir);
+
+#ifdef __cplusplus
+}
+#endif
