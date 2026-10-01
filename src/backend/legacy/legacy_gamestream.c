@@ -20,6 +20,7 @@
 #include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
 #include <psp2/kernel/rng.h>
+#include <psp2/kernel/threadmgr.h>
 
 #include <curl/curl.h>
 #include <expat.h>
@@ -85,15 +86,6 @@ static void set_error(const char *message)
 
     strncpy(s_error, message, sizeof(s_error) - 1);
     s_error[sizeof(s_error) - 1] = '\0';
-}
-
-static void set_errorf(const char *prefix, const char *detail)
-{
-    if (!detail) {
-        detail = "";
-    }
-
-    snprintf(s_error, sizeof(s_error), "%s%s", prefix, detail);
 }
 
 const char *legacy_gamestream_error(void)
@@ -938,7 +930,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
     char challenge_response_hex[sizeof(challenge_response_hash_enc) * 2 + 1];
     unsigned char pairing_secret[16 + SIGNATURE_LEN];
     char client_pairing_secret_hex[(sizeof(client_secret) + SIGNATURE_LEN) * 2 + 1];
-    const ASN1_BIT_STRING *certificate_signature = NULL;
+    ASN1_BIT_STRING *certificate_signature = NULL;
     unsigned char *signature = NULL;
     size_t signature_length = 0;
     size_t result_length;
