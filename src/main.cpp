@@ -48,6 +48,24 @@ typedef struct {
 	int heap_opt_param2;
 } ScePafInit;
 
+/* Custom module_start bypasses VitaSDK crt0, so provide its newlib lifecycle. */
+void _init_vita_heap(void);
+void _init_vita_reent(void);
+void _init_vita_malloc(void);
+void _init_vita_io(void);
+void _free_vita_io(void);
+void _free_vita_malloc(void);
+void _free_vita_reent(void);
+void _free_vita_heap(void);
+
+void _free_vita_newlib(void)
+{
+	_free_vita_io();
+	_free_vita_malloc();
+	_free_vita_reent();
+	_free_vita_heap();
+}
+
 int module_start(SceSize args, void *argp){
 
 	int load_res;
@@ -71,8 +89,15 @@ int module_start(SceSize args, void *argp){
 		return SCE_KERNEL_START_FAILED;
 	}
 
+	/* The custom PAF entry point bypasses VitaSDK crt0, so initialize newlib manually. */
+	_init_vita_heap();
+	_init_vita_reent();
+	_init_vita_malloc();
+	_init_vita_io();
+
 	paf_runtime_main();
 
+	_free_vita_newlib();
 	return SCE_KERNEL_START_SUCCESS;
 }
 
