@@ -802,6 +802,50 @@ static int rsa_sign(
     return LEGACY_GAMESTREAM_OK;
 }
 
+static bool get_certificate_signature(
+    const char *certificate_pem,
+    unsigned char *signature,
+    size_t signature_capacity,
+    size_t *signature_length)
+{
+    BIO *bio;
+    X509 *certificate;
+    const ASN1_BIT_STRING *certificate_signature;
+
+    if (!certificate_pem || !signature || !signature_length) {
+        return false;
+    }
+
+    *signature_length = 0;
+
+    bio = BIO_new(BIO_s_mem());
+    if (!bio) {
+        return false;
+    }
+
+    BIO_write(bio, certificate_pem, (int)strlen(certificate_pem));
+    certificate = PEM_read_bio_X509(bio, NULL, NULL, NULL);
+    BIO_free(bio);
+
+    if (!certificate) {
+        return false;
+    }
+
+    X509_get0_signature(&certificate_signature, NULL, certificate);
+    if (!certificate_signature ||
+        certificate_signature->length == 0 ||
+        (size_t)certificate_signature->length > signature_capacity) {
+        X509_free(certificate);
+        return false;
+    }
+
+    memcpy(signature, certificate_signature->data, certificate_signature->length);
+    *signature_length = (size_t)certificate_signature->length;
+
+    X509_free(certificate);
+    return true;
+}
+
 static bool verify_signature(
     const unsigned char *data,
     size_t data_length,
@@ -923,6 +967,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
     char challenge_hex[sizeof(challenge_enc) * 2 + 1];
     unsigned char challenge_response_enc[64];
     unsigned char challenge_response[64];
+    size_t challenge_response_length;
     unsigned char client_secret[16];
     unsigned char challenge_response_input[16 + SIGNATURE_LEN + sizeof(client_secret)];
     unsigned char challenge_response_hash[32];
@@ -1059,7 +1104,11 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
     }
 
     result_length = strlen(result);
-    if ((result_length & 1) != 0 || result_length / 2 != sizeof(challenge_response_enc)) {
+    challenge_response_length = result_length / 2;
+    if ((result_length & 1) != 0 ||
+        challenge_response_length < (size_t)(hash_length + 16) ||
+        challenge_response_length > sizeof(challenge_response_enc) ||
+        (challenge_response_length % 16) != 0) {
         http_buffer_free(&response);
         set_error("Invalid server challenge response");
         return LEGACY_GAMESTREAM_INVALID;
@@ -1068,7 +1117,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
     {
         size_t i;
 
-        for (i = 0; i < sizeof(challenge_response_enc); ++i) {
+        for (i = 0; i < challenge_response_length; ++i) {
             unsigned int byte = 0;
             sscanf(result + i * 2, "%2x", &byte);
             challenge_response_enc[i] = (unsigned char)byte;
@@ -1077,7 +1126,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
 
     if (decrypt_ecb(
             challenge_response_enc,
-            sizeof(challenge_response_enc),
+            challenge_response_length,
             aes_key,
             challenge_response) != LEGACY_GAMESTREAM_OK) {
         http_buffer_free(&response);
@@ -1174,6 +1223,51 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
             unsigned int byte = 0;
             sscanf(result + i * 2, "%2x", &byte);
             pairing_secret[i] = (unsigned char)byte;
+        }
+    }
+
+    {
+        unsigned char server_certificate_signature[SIGNATURE_LEN];
+        unsigned char expected_response_input[16 + SIGNATURE_LEN + 16];
+        unsigned char expected_response_hash[SHA256_DIGEST_LENGTH];
+        size_t server_certificate_signature_length = 0;
+
+        if (!get_certificate_signature(
+                plaincert,
+                server_certificate_signature,
+                sizeof(server_certificate_signature),
+                &server_certificate_signature_length)) {
+            http_buffer_free(&response);
+            set_error("Unable to parse server certificate signature");
+            return LEGACY_GAMESTREAM_FAILED;
+        }
+
+        memcpy(expected_response_input, challenge_data, sizeof(challenge_data));
+        memcpy(
+            expected_response_input + sizeof(challenge_data),
+            server_certificate_signature,
+            server_certificate_signature_length);
+        memcpy(
+            expected_response_input + sizeof(challenge_data) + server_certificate_signature_length,
+            pairing_secret,
+            16);
+
+        if (hash_length == 32) {
+            SHA256(
+                expected_response_input,
+                sizeof(challenge_data) + server_certificate_signature_length + 16,
+                expected_response_hash);
+        } else {
+            SHA1(
+                expected_response_input,
+                sizeof(challenge_data) + server_certificate_signature_length + 16,
+                expected_response_hash);
+        }
+
+        if (memcmp(challenge_response, expected_response_hash, (size_t)hash_length) != 0) {
+            http_buffer_free(&response);
+            set_error("Incorrect pairing PIN");
+            return LEGACY_GAMESTREAM_FAILED;
         }
     }
 
