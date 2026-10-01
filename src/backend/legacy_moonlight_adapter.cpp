@@ -103,6 +103,11 @@ int LegacyMoonlightAdapter::GetHosts(MoonlightHost *out, int capacity)
     return legacy_device_store_get_hosts(out, capacity);
 }
 
+int LegacyMoonlightAdapter::GetDiscoveredHosts(MoonlightHost *out, int capacity)
+{
+    return moonlight_api_get_discovered_hosts(out, capacity);
+}
+
 int LegacyMoonlightAdapter::SearchHosts()
 {
     return moonlight_api_search_hosts();
