@@ -25,6 +25,16 @@ Search::Search()
 
     for (int i = 0; i < kMaxHosts; ++i) {
         m_hosts[i] = MoonlightHost();
+        m_button_contexts[i].page = this;
+        m_button_contexts[i].index = i;
+        paf::ui::Widget *button = root->FindChild(HostButtonId(i));
+        if (button) {
+            button->SetEventCallback(
+                paf::ui::ButtonBase::CB_BTN_DECIDE,
+                OnHostButton,
+                &m_button_contexts[i]);
+            button->Hide(paf::common::transition::Type_Reset);
+        }
     }
 
     MoonlightApp::Instance()->SetEventCallback(OnMoonlightEvent, this);
@@ -35,6 +45,42 @@ Search::Search()
 Search::~Search() {
     MoonlightApp::Instance()->Discovery().Stop();
     MoonlightApp::Instance()->SetEventCallback(NULL, NULL);
+}
+
+void Search::OnHostButton(int32_t type,
+                           paf::ui::Handler *self,
+                           paf::ui::Event *event,
+                           void *userdata) {
+    (void)type;
+    (void)self;
+    (void)event;
+
+    HostButtonContext *context = (HostButtonContext *)userdata;
+    if (!context || !context->page) return;
+    context->page->SelectHost(context->index);
+}
+
+void Search::SelectHost(int index) {
+    if (index < 0 || index >= m_host_count) return;
+
+    MoonlightHost host = m_hosts[index];
+    SetStatus("Connecting to PC...");
+
+    MoonlightApp *app = MoonlightApp::Instance();
+    if (!app) {
+        SetStatus("Connection failed");
+        return;
+    }
+
+    if (app->Connection().Connect(host) != 0) {
+        SetStatus("Connection failed");
+        return;
+    }
+
+    SetStatus("Pairing with PC...");
+    if (app->Pairing().Pair() != 0) {
+        SetStatus("Pairing failed");
+    }
 }
 
 void Search::SetStatus(const char *text) {
@@ -100,6 +146,24 @@ void Search::OnMoonlightEvent(const MoonlightEvent *event, void *userdata) {
     case MOONLIGHT_EVENT_HOST_SCAN_FAILED:
         search->SetStatus("PC search failed");
         break;
+    case MOONLIGHT_EVENT_PAIRING_FINISHED:
+        if (search->m_host_count > 0 && event->host_id >= 0) {
+            for (int i = 0; i < search->m_host_count; ++i) {
+                if (search->m_hosts[i].id == event->host_id) {
+                    if (MoonlightApp::Instance()->Hosts().MarkPaired(search->m_hosts[i]) == 0) {
+                        search->SetStatus("PC paired");
+                    } else {
+                        search->SetStatus("Paired, but could not save PC");
+                    }
+                    return;
+                }
+            }
+        }
+        search->SetStatus("PC paired");
+        return;
+    case MOONLIGHT_EVENT_PAIRING_FAILED:
+        search->SetStatus("Pairing failed");
+        return;
     default:
         break;
     }
