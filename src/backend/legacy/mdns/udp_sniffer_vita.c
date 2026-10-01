@@ -160,6 +160,7 @@ void udp_sniffer_vita_poll(void) {
         // Reemplazo de sceNetInetAddr por sceNetInetPton
         int ptonres = sceNetInetPton(SCE_NET_AF_INET, MCAST_ADDR, &mreq.imr_multiaddr.s_addr);
         MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: after sceNetInetPton, res=%d\n", ptonres);
+        (void)ptonres;
         mreq.imr_interface.s_addr = sceNetHtonl(SCE_NET_INADDR_ANY);
         int sockoptres = sceNetSetsockopt(sock, SCE_NET_IPPROTO_IP, SCE_NET_IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
         MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: after sceNetSetsockopt(IP_ADD_MEMBERSHIP), res=%d\n", sockoptres);
@@ -177,9 +178,11 @@ void udp_sniffer_vita_poll(void) {
         mcast_addr.sin_family = SCE_NET_AF_INET;
         int ptonres2 = sceNetInetPton(SCE_NET_AF_INET, MCAST_ADDR, &mcast_addr.sin_addr.s_addr);
         MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: after sceNetInetPton (mcast_addr), res=%d\n", ptonres2);
+        (void)ptonres2;
         mcast_addr.sin_port = sceNetHtons(MCAST_PORT);
         int sendto_res = sceNetSendto(sock, query, sizeof(query), 0, (SceNetSockaddr*)&mcast_addr, sizeof(mcast_addr));
         MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: after sceNetSendto, res=%d\n", sendto_res);
+        (void)sendto_res;
         memset(sunshine_table, 0, sizeof(sunshine_table));
         initialized = 1;
         MDNS_LOG("[VITA] mDNS UDP Sniffer initialized.\n");
