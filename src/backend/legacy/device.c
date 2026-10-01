@@ -228,51 +228,38 @@ bool load_device_info(device_info_t *info) {
   }
 }
 
-bool save_device_info(const device_info_t *info) {
-  if (info == NULL || info->name[0] == '\0') {
-    return false;
-  }
-
+void save_device_info(const device_info_t *info) {
   char path[512] = {0};
   device_file_path(path, info->name);
-  vita_debug_log("save_device_info: device file path: %s\\n", path);
+  vita_debug_log("save_device_info: device file path: %s\n", path);
 
-  char data[2048];
-  int length = snprintf(
-    data, sizeof(data),
-    "paired = %s\\n"
-    "internal = %s\\n"
-    "external = %s\\n"
-    "mac = %s\\n"
-    "port = %d\\n"
-    "prefer_external = %s\\n",
-    info->paired ? "true" : "false",
-    info->internal,
-    info->external,
-    info->mac,
-    info->port,
-    info->prefer_external ? "true" : "false");
+  // Ya no se intenta obtener la MAC por ARP. Solo se guarda la que esté en info->mac.
 
-  if (length < 0 || length >= (int)sizeof(data)) {
-    vita_debug_log("save_device_info: data buffer is too small\\n");
-    return false;
+  FILE* fd = fopen(path, "w");
+  if (!fd) {
+    // FIXME
+    vita_debug_log("save_device_info: cannot open device file\n");
+    return;
   }
 
-  SceUID fd = sceIoOpen(path, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
-  if (fd < 0) {
-    vita_debug_log("save_device_info: sceIoOpen failed: 0x%08X\\n", fd);
-    return false;
-  }
+  vita_debug_log("save_device_info: paired = %s\n", info->paired ? "true" : "false");
+  write_bool(fd, "paired", info->paired);
 
-  SceSize written = sceIoWrite(fd, data, (SceSize)length);
-  int close_result = sceIoClose(fd);
-  if (written != (SceSize)length || close_result < 0) {
-    vita_debug_log(
-      "save_device_info: write/close failed (written=%d, expected=%d, close=0x%08X)\\n",
-      (int)written, length, close_result);
-    return false;
-  }
+  vita_debug_log("save_device_info: internal = %s\n", info->internal);
+  write_string(fd, "internal", info->internal);
 
-  vita_debug_log("save_device_info: file written successfully\\n");
-  return true;
+  vita_debug_log("save_device_info: external = %s\n", info->external);
+  write_string(fd, "external", info->external);
+
+  vita_debug_log("save_device_info: mac = %s\n", info->mac);
+  write_string(fd, "mac", info->mac);
+
+  vita_debug_log("save_device_info: port = %d\n", info->port);
+  write_int(fd, "port", info->port);
+
+  vita_debug_log("save_device_info: prefer_external = %s\n", info->prefer_external ? "true" : "false");
+  write_bool(fd, "prefer_external", info->prefer_external);
+
+  fclose(fd);
+  vita_debug_log("save_device_info: file closed\n");
 }
