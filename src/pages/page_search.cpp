@@ -127,6 +127,17 @@ void Search::SelectHost(int index) {
         return;
     }
 
+    if (app->Connection().State() == MOONLIGHT_CONNECTION_PAIRED) {
+        m_pairing_pending = false;
+        m_host_selected = true;
+        if (selected_button) {
+            selected_button->SetString(
+                paf::common::string_util::ToWString("ALREADY PAIRED"));
+        }
+        SetStatus("PC is already paired");
+        return;
+    }
+
     char pin[5] = {0};
     int prepare_result = app->Pairing().Prepare(pin);
     if (prepare_result != 0) {
