@@ -24,6 +24,7 @@ private:
     void SetStatus(const char *text);
     void SetHostButton(int index, const MoonlightHost &host);
     void SelectHost(int index);
+    void OnConnectionReady();
     void ContinuePairing();
 
     MoonlightHost m_hosts[8];
