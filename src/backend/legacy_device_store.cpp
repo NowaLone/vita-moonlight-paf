@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
 
 #include "backend/legacy_device_store.h"
@@ -40,7 +41,51 @@ static void copy_string(char *destination, size_t size, const char *source)
     destination[size - 1] = '\0';
 }
 
-static void fill_host(const device_info_t *device, int id, MoonlightHost *host)
+
+static int write_device_info(const device_info_t *info)
+{
+    if (!info || !info->name[0]) {
+        return -1;
+    }
+
+    char path[512];
+    snprintf(path, sizeof(path), "%s%s/device.ini", config.key_dir, info->name);
+
+    char data[2048];
+    int length = snprintf(
+        data, sizeof(data),
+        "paired = %s\\n"
+        "internal = %s\\n"
+        "external = %s\\n"
+        "mac = %s\\n"
+        "port = %u\\n"
+        "prefer_external = %s\\n",
+        info->paired ? "true" : "false",
+        info->internal,
+        info->external,
+        info->mac,
+        (unsigned)info->port,
+        info->prefer_external ? "true" : "false");
+    if (length < 0 || length >= (int)sizeof(data)) {
+        return -2;
+    }
+
+    SceUID fd = sceIoOpen(path, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
+    if (fd < 0) {
+        return (int)fd;
+    }
+
+    int written = sceIoWrite(fd, data, length);
+    int close_result = sceIoClose(fd);
+    if (written != length) {
+        return written < 0 ? written : -3;
+    }
+    if (close_result < 0) {
+        return close_result;
+    }
+    return 0;
+}
+\nstatic void fill_host(const device_info_t *device, int id, MoonlightHost *host)
 {
     *host = MoonlightHost();
     host->id = id;
@@ -145,7 +190,7 @@ int legacy_device_store_add_host(const char *address, uint16_t port, const char 
         stored->port = info.port;
     }
 
-    return save_device_info(stored) ? 0 : -1;
+    return write_device_info(stored);
 }
 
 int legacy_device_store_mark_paired(const MoonlightHost *host)
@@ -189,5 +234,5 @@ int legacy_device_store_mark_paired(const MoonlightHost *host)
     stored->port = host->port != 0 ? host->port : stored->port;
     stored->prefer_external = host->prefer_external != 0;
     stored->paired = true;
-    return save_device_info(stored) ? 0 : -1;
+    return write_device_info(stored);
 }
