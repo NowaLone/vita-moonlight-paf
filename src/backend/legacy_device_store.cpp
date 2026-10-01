@@ -54,12 +54,12 @@ static int write_device_info(const device_info_t *info)
     char data[2048];
     int length = snprintf(
         data, sizeof(data),
-        "paired = %s\\n"
-        "internal = %s\\n"
-        "external = %s\\n"
-        "mac = %s\\n"
-        "port = %u\\n"
-        "prefer_external = %s\\n",
+        "paired = %s\n"
+        "internal = %s\n"
+        "external = %s\n"
+        "mac = %s\n"
+        "port = %u\n"
+        "prefer_external = %s\n",
         info->paired ? "true" : "false",
         info->internal,
         info->external,
@@ -71,21 +71,37 @@ static int write_device_info(const device_info_t *info)
     }
 
     SceUID fd = sceIoOpen(path, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
-    if (fd < 0) {
+    if (fd >= 0) {
+        int written = sceIoWrite(fd, data, length);
+        int close_result = sceIoClose(fd);
+
+        if (written == length && close_result >= 0) {
+            SceIoStat stat;
+            if (sceIoGetstat(path, &stat) >= 0) {
+                return 0;
+            }
+        }
+
+        sceIoRemove(path);
+    }
+
+    // Keep compatibility with the original vita-moonlight implementation.
+    FILE *file = fopen(path, "w");
+    if (!file) {
         return (int)fd;
     }
 
-    int written = sceIoWrite(fd, data, length);
-    int close_result = sceIoClose(fd);
-    if (written != length) {
-        return written < 0 ? written : -3;
+    size_t written = fwrite(data, 1, (size_t)length, file);
+    int close_result = fclose(file);
+    if (written != (size_t)length || close_result != 0) {
+        sceIoRemove(path);
+        return -3;
     }
-    if (close_result < 0) {
-        return close_result;
-    }
+
     return 0;
 }
-\nstatic void fill_host(const device_info_t *device, int id, MoonlightHost *host)
+
+static void fill_host(const device_info_t *device, int id, MoonlightHost *host)
 {
     *host = MoonlightHost();
     host->id = id;
