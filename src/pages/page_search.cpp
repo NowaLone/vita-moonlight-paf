@@ -73,10 +73,22 @@ void Search::SelectHost(int index) {
     }
 
     // Discovery is no longer needed once a host has been selected.
-    // Stopping it prevents late HOSTS_CHANGED/HOST_SCAN_FINISHED events
-    // from overwriting the pairing result shown below.
+    // Stopping it prevents late scan events from overwriting the status.
     app->Discovery().Stop();
 
+    SetStatus("Saving PC...");
+    int add_result = app->Hosts().Add(
+        host.internal,
+        host.port,
+        host.name[0] ? host.name : host.internal);
+    if (add_result != 0) {
+        paf::string status = paf::common::FormatString(
+            "Save failed: 0x%08X", (unsigned int)add_result);
+        SetStatus(status.c_str());
+        return;
+    }
+
+    SetStatus("Connecting to PC...");
     if (app->Connection().Connect(host) != 0) {
         SetStatus("Connection failed");
         return;
