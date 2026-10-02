@@ -12,6 +12,7 @@ namespace {
 static const int kReset = (int)0x80410136;
 static const int kEagain = (int)0x80410123;
 static const unsigned short kVideoPort = 47998;
+static const unsigned short kAudioPort = 48000;
 
 static const char *skip_space(const char *text)
 {
@@ -92,7 +93,7 @@ static int connect_rtsp(const char *host, unsigned short port)
     return -1;
 }
 
-static int bind_video(void)
+static int bind_udp(unsigned short port)
 {
     SceNetSockaddrIn address;
     int sock = sceNetSocket("rtp", SCE_NET_AF_INET, SCE_NET_SOCK_DGRAM, 0);
@@ -102,7 +103,7 @@ static int bind_video(void)
     address.sin_len = sizeof(address);
     address.sin_family = SCE_NET_AF_INET;
     address.sin_addr.s_addr = sceNetHtonl(SCE_NET_INADDR_ANY);
-    address.sin_port = sceNetHtons(kVideoPort);
+    address.sin_port = sceNetHtons(port);
     result = sceNetBind(sock, (SceNetSockaddr *)&address, sizeof(address));
     if (result < 0) {
         sceNetSocketClose(sock);
@@ -111,24 +112,21 @@ static int bind_video(void)
     return sock;
 }
 
-static void poke_host(int sock, const char *host, unsigned short port)
+static void send_ping(int sock, const char *host, unsigned short port)
 {
     SceNetSockaddrIn address;
-    char ping[4] = {0, 0, 0, 0};
-    int attempt;
+    static const char ping[] = "PING";
 
+    if (sock < 0 || !host || !port) return;
     memset(&address, 0, sizeof(address));
     address.sin_len = sizeof(address);
     address.sin_family = SCE_NET_AF_INET;
     address.sin_port = sceNetHtons(port);
     if (sceNetInetPton(SCE_NET_AF_INET, host, &address.sin_addr) <= 0) return;
-    for (attempt = 0; attempt < 4; ++attempt) {
-        sceNetSendto(sock, ping, sizeof(ping), 0, (SceNetSockaddr *)&address, sizeof(address));
-        sceKernelDelayThread(50 * 1000);
-    }
+    sceNetSendto(sock, ping, 4, 0, (SceNetSockaddr *)&address, sizeof(address));
 }
 
-static int count_packets(int sock, int milliseconds)
+static int count_packets(int sock, int audio_sock, const char *host, unsigned short video_port, int milliseconds)
 {
     char packet[2048];
     SceNetSockaddrIn from;
@@ -138,6 +136,10 @@ static int count_packets(int sock, int milliseconds)
 
     while (waited < milliseconds) {
         int result;
+        if ((waited % 200) == 0) {
+            send_ping(sock, host, video_port ? video_port : kVideoPort);
+            send_ping(audio_sock, host, kAudioPort);
+        }
         from_length = sizeof(from);
         memset(&from, 0, sizeof(from));
         result = sceNetRecvfrom(sock, packet, sizeof(packet), SCE_NET_MSG_DONTWAIT, (SceNetSockaddr *)&from, &from_length);
@@ -292,6 +294,7 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
     char session[64];
     char sdp[2048];
     int video_sock = -1;
+    int audio_sock = -1;
     int packets = 0;
     int video_port = 0;
     int sdp_length;
@@ -324,26 +327,32 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
              host, port, host);
     if (request_once(host, port, request, response, sizeof(response), "DESCRIBE", status, status_size) != 0) return -1;
 
-    video_sock = bind_video();
+    video_sock = bind_udp(kVideoPort);
+    audio_sock = bind_udp(kAudioPort);
     if (video_sock < 0) {
+        if (audio_sock >= 0) sceNetSocketClose(audio_sock);
         snprintf(status, status_size, "RTP BIND %d", video_sock);
         return -1;
     }
 
-    if (setup_stream(host, port, session, "audio/0/0", 48000, 3, response, sizeof(response), "AUDIO", status, status_size) != 0) {
+    if (setup_stream(host, port, session, "audio/0/0", kAudioPort, 3, response, sizeof(response), "AUDIO", status, status_size) != 0) {
         sceNetSocketClose(video_sock);
+        if (audio_sock >= 0) sceNetSocketClose(audio_sock);
         return -1;
     }
     copy_token(response, "Session:", session, sizeof(session));
     if (setup_stream(host, port, session, "video/0/0", kVideoPort, 4, response, sizeof(response), "VIDEO", status, status_size) != 0) {
         sceNetSocketClose(video_sock);
+        if (audio_sock >= 0) sceNetSocketClose(audio_sock);
         return -1;
     }
     video_port = server_port(response);
     if (!session[0]) copy_token(response, "Session:", session, sizeof(session));
-    poke_host(video_sock, host, video_port ? (unsigned short)video_port : kVideoPort);
+    send_ping(video_sock, host, video_port ? (unsigned short)video_port : kVideoPort);
+    send_ping(audio_sock, host, kAudioPort);
     if (setup_stream(host, port, session, "control/13/0", 47995, 5, response, sizeof(response), "CONTROL", status, status_size) != 0) {
         sceNetSocketClose(video_sock);
+        if (audio_sock >= 0) sceNetSocketClose(audio_sock);
         return -1;
     }
 
@@ -388,6 +397,7 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
                           "a=x-ml-video.configuredBitrateKbps:20000\r\n");
     if (sdp_length < 0 || sdp_length >= (int)sizeof(sdp)) {
         sceNetSocketClose(video_sock);
+        if (audio_sock >= 0) sceNetSocketClose(audio_sock);
         snprintf(status, status_size, "RTSP ANNOUNCE SDP");
         return -1;
     }
@@ -408,6 +418,7 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
              sdp_length, sdp);
     if (request_once(host, port, request, response, sizeof(response), "ANNOUNCE", status, status_size) != 0) {
         sceNetSocketClose(video_sock);
+        if (audio_sock >= 0) sceNetSocketClose(audio_sock);
         return -1;
     }
 
@@ -424,12 +435,13 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
              session[0] ? "\r\n" : "");
     if (request_once(host, port, request, response, sizeof(response), "PLAY", status, status_size) != 0) {
         sceNetSocketClose(video_sock);
+        if (audio_sock >= 0) sceNetSocketClose(audio_sock);
         return -1;
     }
 
-    poke_host(video_sock, host, video_port ? (unsigned short)video_port : kVideoPort);
-    packets = count_packets(video_sock, 6000);
+    packets = count_packets(video_sock, audio_sock, host, (unsigned short)video_port, 6000);
     sceNetSocketClose(video_sock);
+    if (audio_sock >= 0) sceNetSocketClose(audio_sock);
     snprintf(status, status_size, "RTP %d v%d", packets, video_port);
     vita_debug_log("[GameStream] %s session %s", status, session[0] ? session : "none");
     return 0;
