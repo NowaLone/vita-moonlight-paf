@@ -61,6 +61,43 @@
       </plane>
     </page>
 
+    <page id="page_apps">
+      <plane style="style_plane_fill" id="plane_apps_fill">
+        <layout_hint size="960, 544" />
+        <text style="style_text_title" label="Apps" id="text_apps_title">
+          <layout_hint adjust="2, 2" pos="0, 80" />
+        </text>
+        <text style="style_text_body" label="Loading apps..." id="text_apps_status">
+          <layout_hint adjust="2, 2" pos="0, 10" />
+        </text>
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_app_0">
+          <layout_hint pos="0, -105" size="560, 62" />
+        </button>
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_app_1">
+          <layout_hint pos="0, -30" size="560, 62" />
+        </button>
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_app_2">
+          <layout_hint pos="0, 45" size="560, 62" />
+        </button>
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_app_3">
+          <layout_hint pos="0, 120" size="560, 62" />
+        </button>
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_app_4">
+          <layout_hint pos="0, 195" size="560, 62" />
+        </button>
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_app_5">
+          <layout_hint pos="0, 270" size="560, 62" />
+        </button>
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_app_6">
+          <layout_hint pos="0, 345" size="560, 62" />
+        </button>
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_app_7">
+          <layout_hint pos="0, 420" size="560, 62" />
+        </button>
+        <corner_button style="_common_style_corner_bottom_left" id="btn_close_apps" />
+      </plane>
+    </page>
+
     <page id="page_add_manually">
       <plane style="style_plane_fill" id="plane_add_manual_fill">
         <layout_hint size="960, 544" />
