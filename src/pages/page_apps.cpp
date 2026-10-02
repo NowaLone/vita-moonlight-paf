@@ -170,10 +170,11 @@ void Apps::OnMoonlightEvent(const MoonlightEvent *event, void *userdata) {
         paf::ui::Widget *button = (apps->root && button_id)
             ? apps->root->FindChild(button_id)
             : NULL;
+        const char *label = (event->address && event->address[0]) ? event->address : "LAUNCHED";
         if (button) {
-            button->SetString(paf::common::string_util::ToWString("LAUNCHED, NO VIDEO"));
+            button->SetString(paf::common::string_util::ToWString(label));
         }
-        apps->SetStatus("Host accepted launch, video not implemented");
+        apps->SetStatus(label);
         break;
     }
     case MOONLIGHT_EVENT_STREAM_FAILED: {

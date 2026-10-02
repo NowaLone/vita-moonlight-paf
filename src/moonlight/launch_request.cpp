@@ -8,6 +8,8 @@
 
 #include "debug.h"
 
+extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_t status_size);
+
 namespace {
 
 struct LaunchCall {
@@ -49,6 +51,7 @@ static void *launch_thread(void *argument)
     char *url;
     FILE *unique_file;
     LaunchBuffer buffer;
+    char rtsp_status[64];
 
     call->result = -1;
     call->session_url[0] = '\0';
@@ -124,6 +127,12 @@ static void *launch_thread(void *argument)
     }
     vita_debug_log("[GameStream] launch ok session %s", call->session_url[0] ? call->session_url : "none");
     free(buffer.memory);
+    rtsp_status[0] = '\0';
+    moonlight_rtsp_start(call->session_url, rtsp_status, sizeof(rtsp_status));
+    if (rtsp_status[0]) {
+        strncpy(call->session_url, rtsp_status, sizeof(call->session_url) - 1);
+        call->session_url[sizeof(call->session_url) - 1] = '\0';
+    }
     call->result = 0;
     return NULL;
 }
