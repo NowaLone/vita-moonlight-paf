@@ -9,6 +9,7 @@
 
 namespace {
 
+static const int kReset = (int)0x80410136;
 static const int kEagain = (int)0x80410123;
 
 static const char *skip_space(const char *text)
@@ -58,12 +59,21 @@ static char *header_end(char *response)
     return end ? end : strstr(response, "\n\n");
 }
 
+static int is_again(int result)
+{
+    return result == kEagain || result == -kEagain;
+}
+
+static int is_reset(int result)
+{
+    return result == kReset || result == -kReset;
+}
+
 static int rtsp_exchange(int sock, const char *request, char *response, size_t response_size)
 {
     int sent = 0;
     int length = (int)strlen(request);
     int received = 0;
-    int waited = 0;
     char *end;
     int body;
     int marker;
@@ -71,7 +81,7 @@ static int rtsp_exchange(int sock, const char *request, char *response, size_t r
     response[0] = '\0';
     while (sent < length) {
         int result = sceNetSend(sock, request + sent, length - sent, 0);
-        if (result == kEagain || result == -kEagain) {
+        if (is_again(result)) {
             sceKernelDelayThread(20 * 1000);
             continue;
         }
@@ -79,14 +89,13 @@ static int rtsp_exchange(int sock, const char *request, char *response, size_t r
         sent += result;
     }
 
-    while (received < (int)response_size - 1 && waited < 8000) {
-        int result = sceNetRecv(sock, response + received, response_size - 1 - received, SCE_NET_MSG_DONTWAIT);
-        if (result == kEagain || result == -kEagain || result == 0) {
+    while (received < (int)response_size - 1) {
+        int result = sceNetRecv(sock, response + received, response_size - 1 - received, 0);
+        if (is_again(result)) {
             sceKernelDelayThread(50 * 1000);
-            waited += 50;
             continue;
         }
-        if (result < 0) return received > 0 ? received : result;
+        if (result <= 0) return received > 0 ? received : result;
         received += result;
         response[received] = '\0';
         end = header_end(response);
@@ -150,11 +159,23 @@ static void fail_step(char *status, size_t status_size, int sock, const char *st
 {
     if (response && response[0]) {
         snprintf(status, status_size, "RTSP %s %d", step, status_code(response));
+    } else if (is_reset(result)) {
+        snprintf(status, status_size, "RTSP %s RESET", step);
     } else {
         snprintf(status, status_size, "RTSP %s NO REPLY %d", step, result);
     }
     vita_debug_log("[GameStream] %s", status);
-    sceNetSocketClose(sock);
+    if (sock >= 0) sceNetSocketClose(sock);
+}
+
+static int send_step(int sock, const char *request, char *response, size_t response_size, const char *step, char *status, size_t status_size)
+{
+    int result = rtsp_exchange(sock, request, response, response_size);
+    if (result < 0 || status_code(response) != 200) {
+        fail_step(status, status_size, sock, step, response, result);
+        return -1;
+    }
+    return 0;
 }
 
 }
@@ -165,7 +186,6 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
     unsigned short port = 0;
     int sock;
     int error = 0;
-    int result;
     char request[1024];
     char response[8192];
     int video_port = 0;
@@ -189,54 +209,42 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
              "OPTIONS rtsp://%s:%u RTSP/1.0\r\n"
              "CSeq: 1\r\n"
              "X-GS-ClientVersion: 14\r\n"
-             "Host: %s\r\n\r\n",
+             "Host: %s\r\n"
+             "\r\n",
              host, port, host);
-    result = rtsp_exchange(sock, request, response, sizeof(response));
-    if (result < 0 || status_code(response) != 200) {
-        fail_step(status, status_size, sock, "OPTIONS", response, result);
-        return -1;
-    }
+    if (send_step(sock, request, response, sizeof(response), "OPTIONS", status, status_size) != 0) return -1;
 
     snprintf(request, sizeof(request),
              "DESCRIBE rtsp://%s:%u RTSP/1.0\r\n"
              "CSeq: 2\r\n"
-             "User-Agent: Moonlight/4.3.1\r\n"
              "Accept: application/sdp\r\n"
              "If-Modified-Since: Thu, 01 Jan 1970 00:00:00 GMT\r\n"
              "X-GS-ClientVersion: 14\r\n"
-             "Host: %s\r\n\r\n",
+             "Host: %s\r\n"
+             "\r\n",
              host, port, host);
-    result = rtsp_exchange(sock, request, response, sizeof(response));
-    if (result < 0 || status_code(response) != 200) {
-        fail_step(status, status_size, sock, "DESCRIBE", response, result);
-        return -1;
-    }
+    if (send_step(sock, request, response, sizeof(response), "DESCRIBE", status, status_size) != 0) return -1;
 
     snprintf(request, sizeof(request),
              "SETUP rtsp://%s:%u/streamid=video/0/0 RTSP/1.0\r\n"
              "CSeq: 3\r\n"
-             "Transport: RTP/AVP/UDP;unicast;client_port=47998-47999\r\n"
+             "Transport: RTP/AVP/UDP;unicast;client_port=47998-47999;mode=play\r\n"
              "X-GS-ClientVersion: 14\r\n"
-             "Host: %s\r\n\r\n",
+             "Host: %s\r\n"
+             "\r\n",
              host, port, host);
-    result = rtsp_exchange(sock, request, response, sizeof(response));
-    if (result < 0 || status_code(response) != 200) {
-        fail_step(status, status_size, sock, "SETUP", response, result);
-        return -1;
-    }
+    if (send_step(sock, request, response, sizeof(response), "SETUP", status, status_size) != 0) return -1;
     video_port = server_port(response);
 
     snprintf(request, sizeof(request),
-             "PLAY rtsp://%s:%u RTSP/1.0\r\n"
+             "PLAY rtsp://%s:%u/ RTSP/1.0\r\n"
              "CSeq: 4\r\n"
+             "Session: 0\r\n"
              "X-GS-ClientVersion: 14\r\n"
-             "Host: %s\r\n\r\n",
+             "Host: %s\r\n"
+             "\r\n",
              host, port, host);
-    result = rtsp_exchange(sock, request, response, sizeof(response));
-    if (result < 0 || status_code(response) != 200) {
-        fail_step(status, status_size, sock, "PLAY", response, result);
-        return -1;
-    }
+    if (send_step(sock, request, response, sizeof(response), "PLAY", status, status_size) != 0) return -1;
 
     sceNetSocketClose(sock);
     snprintf(status, status_size, "RTSP PLAY v%d", video_port);
