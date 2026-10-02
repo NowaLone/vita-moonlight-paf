@@ -41,7 +41,16 @@ Apps::Apps()
     }
 
     MoonlightApp::Instance()->SetEventCallback(OnMoonlightEvent, this);
+    paf::ui::Widget *title = root->FindChild("text_apps_title");
+    if (title) {
+        title->SetString(paf::common::string_util::ToWString("Apps"));
+    }
     SetStatus("Loading apps...");
+    paf::ui::Widget *loading = root->FindChild("btn_app_0");
+    if (loading) {
+        loading->SetString(paf::common::string_util::ToWString("LOADING APPS..."));
+        loading->Show(paf::common::transition::Type_Reset);
+    }
 
     int result = MoonlightApp::Instance()->Applications().Refresh();
     if (result != 0) {
@@ -122,6 +131,11 @@ void Apps::ShowApps() {
 
     if (m_app_count == 0) {
         SetStatus("No apps returned");
+        paf::ui::Widget *button = root->FindChild("btn_app_0");
+        if (button) {
+            button->SetString(paf::common::string_util::ToWString("NO APPS"));
+            button->Show(paf::common::transition::Type_Reset);
+        }
     } else {
         SetStatus("Select an app");
     }
@@ -139,6 +153,11 @@ void Apps::OnMoonlightEvent(const MoonlightEvent *event, void *userdata) {
         paf::string status = paf::common::FormatString(
             "App list failed: 0x%08X", (unsigned int)event->result);
         apps->SetStatus(status.c_str());
+        paf::ui::Widget *button = apps->root->FindChild("btn_app_0");
+        if (button) {
+            button->SetString(paf::common::string_util::ToWString("APP LIST FAILED"));
+            button->Show(paf::common::transition::Type_Reset);
+        }
         break;
     }
     case MOONLIGHT_EVENT_STREAM_STARTED:
