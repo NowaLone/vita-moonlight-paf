@@ -105,7 +105,7 @@ void Search::SelectHost(int index) {
     paf::ui::Widget *selected_button = root->FindChild(HostButtonId(index));
     if (selected_button) {
         paf::string result_label = paf::common::FormatString(
-            add_result == 0 ? "SAVED 0x00000000\\n%s" : "SAVE ERROR 0x%08X\\n%s",
+            add_result == 0 ? "SAVED 0x00000000\n%s" : "SAVE ERROR 0x%08X\n%s",
             (unsigned int)add_result,
             host.internal);
         selected_button->SetString(
@@ -170,7 +170,7 @@ void Search::OnConnectionReady() {
 
     if (selected_button) {
         paf::string pairing_label = paf::common::FormatString(
-            "PIN %s\\nEnter on PC, then press X",
+            "PIN %s\nEnter on PC, then press X",
             m_pairing_pin);
         selected_button->SetString(
             paf::common::string_util::ToWString(pairing_label));
@@ -224,7 +224,7 @@ void Search::SetHostButton(int index, const MoonlightHost &host) {
     if (!widget) return;
 
     paf::string label = paf::common::FormatString(
-        "%s\\n%s",
+        "%s\n%s",
         host.name[0] ? host.name : "PC",
         host.internal[0] ? host.internal : "Unknown address");
     widget->SetString(paf::common::string_util::ToWString(label));
@@ -282,7 +282,7 @@ void Search::OnMoonlightEvent(const MoonlightEvent *event, void *userdata) {
                 HostButtonId(search->m_selected_index));
             if (button) {
                 paf::string pairing_label = paf::common::FormatString(
-                    "PIN %s\\nEnter on PC, then press X",
+                    "PIN %s\nEnter on PC, then press X",
                     search->m_pairing_pin);
                 button->SetString(
                     paf::common::string_util::ToWString(pairing_label));
@@ -291,21 +291,34 @@ void Search::OnMoonlightEvent(const MoonlightEvent *event, void *userdata) {
             search->SetStatus("Enter the PIN on the PC, then press X");
         }
         break;
-    case MOONLIGHT_EVENT_PAIRING_FINISHED:
+    case MOONLIGHT_EVENT_PAIRING_FINISHED: {
+        paf::ui::Widget *button = search->root->FindChild(
+            HostButtonId(search->m_selected_index));
         if (event->result == 0) {
             search->SetStatus("PC paired and saved");
+            if (button) {
+                button->SetString(paf::common::string_util::ToWString("PAIRED"));
+            }
         } else {
             paf::string status = paf::common::FormatString(
                 "Paired, local save failed: 0x%08X",
                 (unsigned int)event->result);
             search->SetStatus(status.c_str());
+            if (button) {
+                button->SetString(paf::common::string_util::ToWString("PAIRED, SAVE FAILED"));
+            }
         }
         break;
+    }
     case MOONLIGHT_EVENT_PAIRING_FAILED: {
         paf::string status = paf::common::FormatString(
             "Pairing failed: 0x%08X", (unsigned int)event->result);
         search->SetStatus(status.c_str());
-        /* Allow the same host button to retry after a failed pair. */
+        paf::ui::Widget *button = search->root->FindChild(
+            HostButtonId(search->m_selected_index));
+        if (button) {
+            button->SetString(paf::common::string_util::ToWString("PAIR FAILED"));
+        }
         if (search->m_pairing_pin[0]) {
             search->m_pairing_pending = true;
         }
@@ -319,6 +332,11 @@ void Search::OnMoonlightEvent(const MoonlightEvent *event, void *userdata) {
             paf::string status = paf::common::FormatString(
                 "Connection failed: 0x%08X", (unsigned int)event->result);
             search->SetStatus(status.c_str());
+            paf::ui::Widget *button = search->root->FindChild(
+                HostButtonId(search->m_selected_index));
+            if (button) {
+                button->SetString(paf::common::string_util::ToWString("CONNECT FAILED"));
+            }
             search->m_host_selected = false;
             search->m_pairing_pending = false;
         }
