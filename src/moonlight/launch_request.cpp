@@ -40,6 +40,20 @@ static size_t launch_write(void *contents, size_t size, size_t count, void *user
     return length;
 }
 
+static void copy_session_url(char *out, size_t out_size, const char *value)
+{
+    size_t length;
+
+    while (value && (*value == ' ' || *value == '\n' || *value == '\r' || *value == '\t')) ++value;
+    length = value ? strlen(value) : 0;
+    while (length > 0 && (value[length - 1] == ' ' || value[length - 1] == '\n' || value[length - 1] == '\r' || value[length - 1] == '\t')) {
+        --length;
+    }
+    if (length >= out_size) length = out_size - 1;
+    if (length > 0) memcpy(out, value, length);
+    out[length] = '\0';
+}
+
 static void *launch_thread(void *argument)
 {
     LaunchCall *call = (LaunchCall *)argument;
@@ -94,7 +108,7 @@ static void *launch_thread(void *argument)
     buffer.memory[0] = '\0';
     buffer.size = 0;
     snprintf(url, 2048,
-             "https://%s:%u/launch?uniqueid=%s&uuid=%s&appid=%d&mode=1280x720x60&additional=0&rikey=%s&rikeyid=%u&localAudioPlayMode=0&surroundAudioInfo=197322&remoteControllersBitmap=1&gcmap=1&sops=1&corever=1",
+             "https://%s:%u/launch?uniqueid=%s&uuid=%s&appid=%d&mode=1280x720x60&additional=0&rikey=%s&rikeyid=%u&localAudioPlayMode=0&surroundAudioInfo=197322&remoteControllersBitmap=1&gcmap=1&sops=1",
              call->address,
              call->https_port ? call->https_port : 47984,
              unique_id,
@@ -118,14 +132,21 @@ static void *launch_thread(void *argument)
     }
     const char *session = strstr(buffer.memory, "<sessionUrl0>");
     if (session) {
+        const char *end;
+        char raw[256];
+        size_t length;
         session += 13;
-        const char *end = strstr(session, "</sessionUrl0>");
-        size_t length = end ? (size_t)(end - session) : 0;
-        if (length >= sizeof(call->session_url)) length = sizeof(call->session_url) - 1;
-        memcpy(call->session_url, session, length);
-        call->session_url[length] = '\0';
+        end = strstr(session, "</sessionUrl0>");
+        length = end ? (size_t)(end - session) : 0;
+        if (length >= sizeof(raw)) length = sizeof(raw) - 1;
+        memcpy(raw, session, length);
+        raw[length] = '\0';
+        copy_session_url(call->session_url, sizeof(call->session_url), raw);
     }
-    vita_debug_log("[GameStream] launch ok session %s", call->session_url[0] ? call->session_url : "none");
+    if (!call->session_url[0]) {
+        snprintf(call->session_url, sizeof(call->session_url), "rtsp://%s:48010", call->address);
+    }
+    vita_debug_log("[GameStream] launch ok session %s", call->session_url);
     free(buffer.memory);
     rtsp_status[0] = '\0';
     moonlight_rtsp_start(call->session_url, rtsp_status, sizeof(rtsp_status));
