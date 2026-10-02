@@ -64,19 +64,38 @@ static int is_again(int result)
     return result == kEagain || result == -kEagain;
 }
 
-static int is_reset(int result)
+static int connect_rtsp(const char *host, unsigned short port)
 {
-    return result == kReset || result == -kReset;
+    SceNetSockaddrIn address;
+    int sock;
+    int result;
+    int attempt;
+
+    for (attempt = 0; attempt < 5; ++attempt) {
+        sock = sceNetSocket("rtsp", SCE_NET_AF_INET, SCE_NET_SOCK_STREAM, 0);
+        if (sock < 0) return sock;
+        memset(&address, 0, sizeof(address));
+        address.sin_len = sizeof(address);
+        address.sin_family = SCE_NET_AF_INET;
+        address.sin_port = sceNetHtons(port);
+        result = sceNetInetPton(SCE_NET_AF_INET, host, &address.sin_addr);
+        if (result <= 0) {
+            sceNetSocketClose(sock);
+            return -2;
+        }
+        result = sceNetConnect(sock, (SceNetSockaddr *)&address, sizeof(address));
+        if (result >= 0) return sock;
+        sceNetSocketClose(sock);
+        sceKernelDelayThread(150 * 1000);
+    }
+    return -1;
 }
 
-static int rtsp_exchange(int sock, const char *request, char *response, size_t response_size)
+static int exchange(int sock, const char *request, char *response, size_t response_size)
 {
     int sent = 0;
     int length = (int)strlen(request);
     int received = 0;
-    char *end;
-    int body;
-    int marker;
 
     response[0] = '\0';
     while (sent < length) {
@@ -91,8 +110,11 @@ static int rtsp_exchange(int sock, const char *request, char *response, size_t r
 
     while (received < (int)response_size - 1) {
         int result = sceNetRecv(sock, response + received, response_size - 1 - received, 0);
+        char *end;
+        int body;
+        int marker;
         if (is_again(result)) {
-            sceKernelDelayThread(50 * 1000);
+            sceKernelDelayThread(20 * 1000);
             continue;
         }
         if (result <= 0) return received > 0 ? received : result;
@@ -120,59 +142,50 @@ static int server_port(const char *response)
     return marker ? atoi(marker + 12) : 0;
 }
 
-static int connect_rtsp(const char *host, unsigned short port, int *out_error)
+static void copy_token(const char *response, const char *name, char *out, size_t out_size)
 {
-    SceNetSockaddrIn address;
-    int sock;
+    const char *marker = response ? strstr(response, name) : NULL;
+    size_t length;
+    if (!marker || out_size == 0) {
+        if (out_size) out[0] = '\0';
+        return;
+    }
+    marker += strlen(name);
+    while (*marker == ' ') ++marker;
+    length = 0;
+    while (marker[length] && marker[length] != '\r' && marker[length] != '\n' && marker[length] != ';') ++length;
+    if (length >= out_size) length = out_size - 1;
+    memcpy(out, marker, length);
+    out[length] = '\0';
+}
+
+static int request_once(
+    const char *host,
+    unsigned short port,
+    const char *request,
+    char *response,
+    size_t response_size,
+    const char *step,
+    char *status,
+    size_t status_size)
+{
+    int sock = connect_rtsp(host, port);
     int result;
-    int attempt;
-
-    *out_error = 0;
-    for (attempt = 0; attempt < 8; ++attempt) {
-        sock = sceNetSocket("rtsp", SCE_NET_AF_INET, SCE_NET_SOCK_STREAM, 0);
-        if (sock < 0) {
-            *out_error = sock;
-            return -1;
-        }
-
-        memset(&address, 0, sizeof(address));
-        address.sin_len = sizeof(address);
-        address.sin_family = SCE_NET_AF_INET;
-        address.sin_port = sceNetHtons(port);
-        result = sceNetInetPton(SCE_NET_AF_INET, host, &address.sin_addr);
-        if (result <= 0) {
-            sceNetSocketClose(sock);
-            *out_error = result;
-            return -2;
-        }
-        result = sceNetConnect(sock, (SceNetSockaddr *)&address, sizeof(address));
-        if (result >= 0) return sock;
-
-        *out_error = result;
-        sceNetSocketClose(sock);
-        sceKernelDelayThread(250 * 1000);
+    if (sock < 0) {
+        snprintf(status, status_size, "RTSP %s CONNECT", step);
+        return -1;
     }
-    return -1;
-}
-
-static void fail_step(char *status, size_t status_size, int sock, const char *step, const char *response, int result)
-{
-    if (response && response[0]) {
-        snprintf(status, status_size, "RTSP %s %d", step, status_code(response));
-    } else if (is_reset(result)) {
+    result = exchange(sock, request, response, response_size);
+    sceNetSocketClose(sock);
+    if (result == kReset || result == -kReset) {
         snprintf(status, status_size, "RTSP %s RESET", step);
-    } else {
-        snprintf(status, status_size, "RTSP %s NO REPLY %d", step, result);
+        vita_debug_log("[GameStream] %s", status);
+        return -1;
     }
-    vita_debug_log("[GameStream] %s", status);
-    if (sock >= 0) sceNetSocketClose(sock);
-}
-
-static int send_step(int sock, const char *request, char *response, size_t response_size, const char *step, char *status, size_t status_size)
-{
-    int result = rtsp_exchange(sock, request, response, response_size);
-    if (result < 0 || status_code(response) != 200) {
-        fail_step(status, status_size, sock, step, response, result);
+    if (result <= 0 || status_code(response) != 200) {
+        if (response[0]) snprintf(status, status_size, "RTSP %s %d", step, status_code(response));
+        else snprintf(status, status_size, "RTSP %s NO REPLY %d", step, result);
+        vita_debug_log("[GameStream] %s", status);
         return -1;
     }
     return 0;
@@ -184,24 +197,16 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
 {
     char host[128];
     unsigned short port = 0;
-    int sock;
-    int error = 0;
     char request[1024];
     char response[8192];
+    char session[64];
     int video_port = 0;
 
     if (!status || status_size == 0) return -1;
     snprintf(status, status_size, "RTSP FAIL");
+    session[0] = '\0';
     if (parse_rtsp_url(session_url, host, sizeof(host), &port) != 0) {
         snprintf(status, status_size, "RTSP BAD URL");
-        vita_debug_log("[GameStream] bad session url: %.80s", session_url ? session_url : "empty");
-        return -1;
-    }
-
-    sock = connect_rtsp(host, port, &error);
-    if (sock < 0) {
-        snprintf(status, status_size, "RTSP CONNECT %s:%u %d", host, port, error);
-        vita_debug_log("[GameStream] %s", status);
         return -1;
     }
 
@@ -212,42 +217,45 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
              "Host: %s\r\n"
              "\r\n",
              host, port, host);
-    if (send_step(sock, request, response, sizeof(response), "OPTIONS", status, status_size) != 0) return -1;
+    if (request_once(host, port, request, response, sizeof(response), "OPTIONS", status, status_size) != 0) return -1;
 
     snprintf(request, sizeof(request),
              "DESCRIBE rtsp://%s:%u RTSP/1.0\r\n"
              "CSeq: 2\r\n"
-             "Accept: application/sdp\r\n"
-             "If-Modified-Since: Thu, 01 Jan 1970 00:00:00 GMT\r\n"
              "X-GS-ClientVersion: 14\r\n"
              "Host: %s\r\n"
+             "Accept: application/sdp\r\n"
+             "If-Modified-Since: Thu, 01 Jan 1970 00:00:00 GMT\r\n"
              "\r\n",
              host, port, host);
-    if (send_step(sock, request, response, sizeof(response), "DESCRIBE", status, status_size) != 0) return -1;
+    if (request_once(host, port, request, response, sizeof(response), "DESCRIBE", status, status_size) != 0) return -1;
 
     snprintf(request, sizeof(request),
              "SETUP rtsp://%s:%u/streamid=video/0/0 RTSP/1.0\r\n"
              "CSeq: 3\r\n"
-             "Transport: RTP/AVP/UDP;unicast;client_port=47998-47999;mode=play\r\n"
              "X-GS-ClientVersion: 14\r\n"
              "Host: %s\r\n"
+             "Transport: RTP/AVP/UDP;unicast;client_port=47998-47999;mode=play\r\n"
              "\r\n",
              host, port, host);
-    if (send_step(sock, request, response, sizeof(response), "SETUP", status, status_size) != 0) return -1;
+    if (request_once(host, port, request, response, sizeof(response), "SETUP", status, status_size) != 0) return -1;
     video_port = server_port(response);
+    copy_token(response, "Session:", session, sizeof(session));
 
     snprintf(request, sizeof(request),
              "PLAY rtsp://%s:%u/ RTSP/1.0\r\n"
              "CSeq: 4\r\n"
-             "Session: 0\r\n"
              "X-GS-ClientVersion: 14\r\n"
              "Host: %s\r\n"
+             "%s%s%s"
              "\r\n",
-             host, port, host);
-    if (send_step(sock, request, response, sizeof(response), "PLAY", status, status_size) != 0) return -1;
+             host, port, host,
+             session[0] ? "Session: " : "",
+             session,
+             session[0] ? "\r\n" : "");
+    if (request_once(host, port, request, response, sizeof(response), "PLAY", status, status_size) != 0) return -1;
 
-    sceNetSocketClose(sock);
     snprintf(status, status_size, "RTSP PLAY v%d", video_port);
-    vita_debug_log("[GameStream] %s", status);
+    vita_debug_log("[GameStream] %s session %s", status, session[0] ? session : "none");
     return 0;
 }
