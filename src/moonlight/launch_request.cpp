@@ -54,6 +54,11 @@ static void copy_session_url(char *out, size_t out_size, const char *value)
     out[length] = '\0';
 }
 
+static int host_already_running(const char *body)
+{
+    return body && (strstr(body, "already") || strstr(body, "running") || strstr(body, "<resume>1</resume>"));
+}
+
 static void *launch_thread(void *argument)
 {
     LaunchCall *call = (LaunchCall *)argument;
@@ -66,6 +71,7 @@ static void *launch_thread(void *argument)
     FILE *unique_file;
     LaunchBuffer buffer;
     char rtsp_status[64];
+    int accepted = 0;
 
     call->result = -1;
     call->session_url[0] = '\0';
@@ -124,10 +130,17 @@ static void *launch_thread(void *argument)
     vita_debug_log("[GameStream] launching app %d on %s", call->app_id, call->address);
     CURLcode curl_result = curl_easy_perform((CURL *)call->curl);
     free(url);
-    if (curl_result != CURLE_OK || !buffer.memory || !strstr(buffer.memory, "status_code=\"200\"")) {
+    if (curl_result != CURLE_OK || !buffer.memory) {
         vita_debug_log("[GameStream] launch rejected: %.180s", buffer.memory ? buffer.memory : curl_easy_strerror(curl_result));
         free(buffer.memory);
-        call->result = curl_result != CURLE_OK ? (int)curl_result : -5;
+        call->result = (int)curl_result;
+        return NULL;
+    }
+    accepted = strstr(buffer.memory, "status_code=\"200\"") != NULL;
+    if (!accepted && !host_already_running(buffer.memory)) {
+        vita_debug_log("[GameStream] launch rejected: %.180s", buffer.memory);
+        free(buffer.memory);
+        call->result = -5;
         return NULL;
     }
     const char *session = strstr(buffer.memory, "<sessionUrl0>");
@@ -146,7 +159,7 @@ static void *launch_thread(void *argument)
     if (!call->session_url[0]) {
         snprintf(call->session_url, sizeof(call->session_url), "rtsp://%s:48010", call->address);
     }
-    vita_debug_log("[GameStream] launch ok session %s", call->session_url);
+    vita_debug_log("[GameStream] launch %s session %s", accepted ? "ok" : "busy", call->session_url);
     free(buffer.memory);
     rtsp_status[0] = '\0';
     moonlight_rtsp_start(call->session_url, rtsp_status, sizeof(rtsp_status));
