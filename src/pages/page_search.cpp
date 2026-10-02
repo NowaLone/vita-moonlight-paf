@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "pages/page_search.h"
+#include "pages/page_apps.h"
 #include "app/moonlight_app.h"
 
 namespace page {
@@ -15,6 +16,13 @@ static const char *HostButtonId(int index) {
         "btn_host_4", "btn_host_5", "btn_host_6", "btn_host_7"
     };
     return (index >= 0 && index < kMaxHosts) ? ids[index] : NULL;
+}
+
+static void OpenAppsPage() {
+    if (!Base::IsOpen("page_apps")) {
+        Apps *apps = new Apps();
+        if (!apps->IsValid()) delete apps;
+    }
 }
 }
 
@@ -152,6 +160,7 @@ void Search::OnConnectionReady() {
                 paf::common::string_util::ToWString("ALREADY PAIRED"));
         }
         SetStatus("PC is already paired");
+        OpenAppsPage();
         return;
     }
 
@@ -299,6 +308,7 @@ void Search::OnMoonlightEvent(const MoonlightEvent *event, void *userdata) {
             if (button) {
                 button->SetString(paf::common::string_util::ToWString("PAIRED"));
             }
+            OpenAppsPage();
         } else {
             paf::string status = paf::common::FormatString(
                 "Paired, local save failed: 0x%08X",
