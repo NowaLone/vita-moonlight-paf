@@ -40,6 +40,12 @@ int legacy_gamestream_pair(
     LegacyGameStreamServer *server,
     const char *pin);
 
+int legacy_gamestream_launch(
+    LegacyGameStreamServer *server,
+    int app_id,
+    char *session_url,
+    size_t session_url_size);
+
 int legacy_gamestream_get_server_mac(
     LegacyGameStreamServer *server,
     char *mac,
