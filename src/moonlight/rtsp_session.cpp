@@ -8,6 +8,12 @@
 
 namespace {
 
+static const char *skip_space(const char *text)
+{
+    while (text && (*text == ' ' || *text == '\n' || *text == '\r' || *text == '\t')) ++text;
+    return text;
+}
+
 static int parse_rtsp_url(const char *url, char *host, size_t host_size, unsigned short *port)
 {
     const char *start;
@@ -15,8 +21,12 @@ static int parse_rtsp_url(const char *url, char *host, size_t host_size, unsigne
     const char *slash;
     size_t length;
 
-    if (!url || strncmp(url, "rtsp://", 7) != 0) return -1;
-    start = url + 7;
+    url = skip_space(url);
+    if (!url) return -1;
+    if (strncmp(url, "rtsp://", 7) == 0) start = url + 7;
+    else if (strncmp(url, "rtspenc://", 10) == 0) start = url + 10;
+    else return -1;
+
     slash = strchr(start, '/');
     colon = strchr(start, ':');
     if (colon && (!slash || colon < slash)) {
@@ -84,6 +94,7 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
     snprintf(status, status_size, "RTSP FAIL");
     if (parse_rtsp_url(session_url, host, sizeof(host), &port) != 0) {
         snprintf(status, status_size, "RTSP BAD URL");
+        vita_debug_log("[GameStream] bad session url: %.80s", session_url ? session_url : "empty");
         return -1;
     }
 
