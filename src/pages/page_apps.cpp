@@ -23,6 +23,7 @@ Apps::Apps()
            paf::Plugin::TransitionType_SlideFromBottom,
            paf::Plugin::TransitionType_SlideFromBottom),
       m_app_count(0),
+      m_selected_index(-1),
       m_launching(false) {
     if (!IsValid()) return;
 
@@ -81,6 +82,7 @@ void Apps::SelectApp(int index) {
     if (m_launching || index < 0 || index >= m_app_count) return;
 
     m_launching = true;
+    m_selected_index = index;
     SetStatus("Requesting launch...");
 
     paf::ui::Widget *button = root->FindChild(AppButtonId(index));
@@ -98,10 +100,7 @@ void Apps::SelectApp(int index) {
         return;
     }
 
-    if (button) {
-        button->SetString(paf::common::string_util::ToWString("NO STREAM YET"));
-    }
-    SetStatus("Launch accepted, stream not implemented");
+    SetStatus("Waiting for host...");
 }
 
 void Apps::SetStatus(const char *text) {
@@ -166,13 +165,29 @@ void Apps::OnMoonlightEvent(const MoonlightEvent *event, void *userdata) {
         }
         break;
     }
-    case MOONLIGHT_EVENT_STREAM_STARTED:
-        apps->SetStatus("Launch accepted, stream not implemented");
+    case MOONLIGHT_EVENT_STREAM_STARTED: {
+        const char *button_id = AppButtonId(apps->m_selected_index);
+        paf::ui::Widget *button = (apps->root && button_id)
+            ? apps->root->FindChild(button_id)
+            : NULL;
+        if (button) {
+            button->SetString(paf::common::string_util::ToWString("LAUNCHED, NO VIDEO"));
+        }
+        apps->SetStatus("Host accepted launch, video not implemented");
         break;
-    case MOONLIGHT_EVENT_STREAM_FAILED:
+    }
+    case MOONLIGHT_EVENT_STREAM_FAILED: {
+        const char *button_id = AppButtonId(apps->m_selected_index);
+        paf::ui::Widget *button = (apps->root && button_id)
+            ? apps->root->FindChild(button_id)
+            : NULL;
         apps->m_launching = false;
+        if (button) {
+            button->SetString(paf::common::string_util::ToWString("LAUNCH FAILED"));
+        }
         apps->SetStatus("Launch failed");
         break;
+    }
     default:
         break;
     }
