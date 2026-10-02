@@ -264,10 +264,10 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
 {
     char host[128];
     unsigned short port = 0;
-    char request[2048];
+    char request[3072];
     char response[8192];
     char session[64];
-    char sdp[1024];
+    char sdp[2048];
     int video_sock = -1;
     int packets = 0;
     int video_port = 0;
@@ -334,8 +334,38 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
                           "a=x-nv-video[0].clientViewportHt:720\r\n"
                           "a=x-nv-video[0].maxFPS:60\r\n"
                           "a=x-nv-video[0].packetSize:1024\r\n"
+                          "a=x-nv-video[0].rateControlMode:4\r\n"
+                          "a=x-nv-video[0].timeoutLengthMs:7000\r\n"
+                          "a=x-nv-video[0].framesWithInvalidRefThreshold:0\r\n"
+                          "a=x-nv-video[0].initialBitrateKbps:4000\r\n"
+                          "a=x-nv-video[0].initialPeakBitrateKbps:4000\r\n"
+                          "a=x-nv-video[0].videoEncoderSlicesPerFrame:1\r\n"
+                          "a=x-nv-video[0].videoEncoderMaxNumRefFrames:1\r\n"
+                          "a=x-nv-video[0].encoderCscMode:0\r\n"
+                          "a=x-nv-video[0].dynamicRangeMode:0\r\n"
                           "a=x-nv-vqos[0].bw.minimumBitrateKbps:4000\r\n"
-                          "a=x-nv-vqos[0].bw.maximumBitrateKbps:20000\r\n");
+                          "a=x-nv-vqos[0].bw.maximumBitrateKbps:20000\r\n"
+                          "a=x-nv-vqos[0].fec.enable:1\r\n"
+                          "a=x-nv-vqos[0].fec.minRequiredFecPackets:0\r\n"
+                          "a=x-nv-vqos[0].bitStreamFormat:0\r\n"
+                          "a=x-nv-vqos[0].qosTrafficType:5\r\n"
+                          "a=x-nv-vqos[0].videoQualityScoreUpdateTime:5000\r\n"
+                          "a=x-nv-aqos.packetDuration:5\r\n"
+                          "a=x-nv-aqos.qosTrafficType:4\r\n"
+                          "a=x-nv-audio.surround.numChannels:2\r\n"
+                          "a=x-nv-audio.surround.channelMask:3\r\n"
+                          "a=x-nv-audio.surround.AudioQuality:0\r\n"
+                          "a=x-nv-general.useReliableUdp:0\r\n"
+                          "a=x-nv-general.featureFlags:135\r\n"
+                          "a=x-ss-general.encryptionEnabled:0\r\n"
+                          "a=x-ss-video[0].chromaSamplingType:0\r\n"
+                          "a=x-ml-general.featureFlags:0\r\n"
+                          "a=x-ml-video.configuredBitrateKbps:20000\r\n");
+    if (sdp_length < 0 || sdp_length >= (int)sizeof(sdp)) {
+        sceNetSocketClose(video_sock);
+        snprintf(status, status_size, "RTSP ANNOUNCE SDP");
+        return -1;
+    }
     snprintf(request, sizeof(request),
              "ANNOUNCE rtsp://%s:%u/streamid=video RTSP/1.0\r\n"
              "CSeq: 6\r\n"
