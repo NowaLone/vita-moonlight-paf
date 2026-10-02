@@ -228,18 +228,50 @@ static int request_once(
     return 0;
 }
 
+static int setup_stream(
+    const char *host,
+    unsigned short port,
+    const char *session,
+    const char *stream,
+    int rtp_port,
+    int seq,
+    char *response,
+    size_t response_size,
+    const char *step,
+    char *status,
+    size_t status_size)
+{
+    char request[1024];
+    snprintf(request, sizeof(request),
+             "SETUP rtsp://%s:%u/streamid=%s RTSP/1.0\r\n"
+             "CSeq: %d\r\n"
+             "X-GS-ClientVersion: 14\r\n"
+             "Host: %s\r\n"
+             "%s%s%s"
+             "Transport: RTP/AVP/UDP;unicast;client_port=%d-%d;mode=play\r\n"
+             "\r\n",
+             host, port, stream, seq, host,
+             session[0] ? "Session: " : "",
+             session,
+             session[0] ? "\r\n" : "",
+             rtp_port, rtp_port + 1);
+    return request_once(host, port, request, response, response_size, step, status, status_size);
+}
+
 }
 
 extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_t status_size)
 {
     char host[128];
     unsigned short port = 0;
-    char request[1024];
+    char request[2048];
     char response[8192];
     char session[64];
+    char sdp[1024];
     int video_sock = -1;
     int packets = 0;
     int video_port = 0;
+    int sdp_length;
 
     if (!status || status_size == 0) return -1;
     snprintf(status, status_size, "RTSP FAIL");
@@ -275,24 +307,58 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
         return -1;
     }
 
-    snprintf(request, sizeof(request),
-             "SETUP rtsp://%s:%u/streamid=video/0/0 RTSP/1.0\r\n"
-             "CSeq: 3\r\n"
-             "X-GS-ClientVersion: 14\r\n"
-             "Host: %s\r\n"
-             "Transport: RTP/AVP/UDP;unicast;client_port=47998-47999;mode=play\r\n"
-             "\r\n",
-             host, port, host);
-    if (request_once(host, port, request, response, sizeof(response), "SETUP", status, status_size) != 0) {
+    if (setup_stream(host, port, session, "audio/0/0", 48000, 3, response, sizeof(response), "AUDIO", status, status_size) != 0) {
+        sceNetSocketClose(video_sock);
+        return -1;
+    }
+    copy_token(response, "Session:", session, sizeof(session));
+    if (setup_stream(host, port, session, "video/0/0", kVideoPort, 4, response, sizeof(response), "VIDEO", status, status_size) != 0) {
         sceNetSocketClose(video_sock);
         return -1;
     }
     video_port = server_port(response);
-    copy_token(response, "Session:", session, sizeof(session));
+    if (!session[0]) copy_token(response, "Session:", session, sizeof(session));
+    if (setup_stream(host, port, session, "control/13/0", 47995, 5, response, sizeof(response), "CONTROL", status, status_size) != 0) {
+        sceNetSocketClose(video_sock);
+        return -1;
+    }
+
+    sdp_length = snprintf(sdp, sizeof(sdp),
+                          "v=0\r\n"
+                          "o=android 0 14 IN IP4 127.0.0.1\r\n"
+                          "s=NVIDIA Streaming Client\r\n"
+                          "t=0 0\r\n"
+                          "m=video 47998 RTP/AVP 96\r\n"
+                          "a=rtpmap:96 H264/90000\r\n"
+                          "a=x-nv-video[0].clientViewportWd:1280\r\n"
+                          "a=x-nv-video[0].clientViewportHt:720\r\n"
+                          "a=x-nv-video[0].maxFPS:60\r\n"
+                          "a=x-nv-video[0].packetSize:1024\r\n"
+                          "a=x-nv-vqos[0].bw.minimumBitrateKbps:4000\r\n"
+                          "a=x-nv-vqos[0].bw.maximumBitrateKbps:20000\r\n");
+    snprintf(request, sizeof(request),
+             "ANNOUNCE rtsp://%s:%u/streamid=video RTSP/1.0\r\n"
+             "CSeq: 6\r\n"
+             "X-GS-ClientVersion: 14\r\n"
+             "Host: %s\r\n"
+             "%s%s%s"
+             "Content-Type: application/sdp\r\n"
+             "Content-Length: %d\r\n"
+             "\r\n"
+             "%s",
+             host, port, host,
+             session[0] ? "Session: " : "",
+             session,
+             session[0] ? "\r\n" : "",
+             sdp_length, sdp);
+    if (request_once(host, port, request, response, sizeof(response), "ANNOUNCE", status, status_size) != 0) {
+        sceNetSocketClose(video_sock);
+        return -1;
+    }
 
     snprintf(request, sizeof(request),
              "PLAY rtsp://%s:%u/ RTSP/1.0\r\n"
-             "CSeq: 4\r\n"
+             "CSeq: 7\r\n"
              "X-GS-ClientVersion: 14\r\n"
              "Host: %s\r\n"
              "%s%s%s"
@@ -306,7 +372,7 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
         return -1;
     }
 
-    packets = count_packets(video_sock, 2000);
+    packets = count_packets(video_sock, 4000);
     sceNetSocketClose(video_sock);
     snprintf(status, status_size, "RTP %d v%d", packets, video_port);
     vita_debug_log("[GameStream] %s session %s", status, session[0] ? session : "none");
