@@ -84,6 +84,7 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_main.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_search.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_apps.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_add_host.cpp
 )
 
