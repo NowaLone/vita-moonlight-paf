@@ -340,7 +340,7 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
                           "a=x-nv-video[0].initialBitrateKbps:4000\r\n"
                           "a=x-nv-video[0].initialPeakBitrateKbps:4000\r\n"
                           "a=x-nv-video[0].videoEncoderSlicesPerFrame:1\r\n"
-                          "a=x-nv-video[0].videoEncoderMaxNumRefFrames:1\r\n"
+                          "a=x-nv-video[0].maxNumReferenceFrames:1\r\n"
                           "a=x-nv-video[0].encoderCscMode:0\r\n"
                           "a=x-nv-video[0].dynamicRangeMode:0\r\n"
                           "a=x-nv-vqos[0].bw.minimumBitrateKbps:4000\r\n"
@@ -359,6 +359,7 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
                           "a=x-nv-general.featureFlags:135\r\n"
                           "a=x-ss-general.encryptionEnabled:0\r\n"
                           "a=x-ss-video[0].chromaSamplingType:0\r\n"
+                          "a=x-ss-video[0].intraRefresh:0\r\n"
                           "a=x-ml-general.featureFlags:0\r\n"
                           "a=x-ml-video.configuredBitrateKbps:20000\r\n");
     if (sdp_length < 0 || sdp_length >= (int)sizeof(sdp)) {
