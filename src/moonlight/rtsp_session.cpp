@@ -111,13 +111,36 @@ static int bind_video(void)
     return sock;
 }
 
+static void poke_host(int sock, const char *host, unsigned short port)
+{
+    SceNetSockaddrIn address;
+    char ping[4] = {0, 0, 0, 0};
+    int attempt;
+
+    memset(&address, 0, sizeof(address));
+    address.sin_len = sizeof(address);
+    address.sin_family = SCE_NET_AF_INET;
+    address.sin_port = sceNetHtons(port);
+    if (sceNetInetPton(SCE_NET_AF_INET, host, &address.sin_addr) <= 0) return;
+    for (attempt = 0; attempt < 4; ++attempt) {
+        sceNetSendto(sock, ping, sizeof(ping), 0, (SceNetSockaddr *)&address, sizeof(address));
+        sceKernelDelayThread(50 * 1000);
+    }
+}
+
 static int count_packets(int sock, int milliseconds)
 {
     char packet[2048];
+    SceNetSockaddrIn from;
+    unsigned int from_length;
     int count = 0;
     int waited = 0;
+
     while (waited < milliseconds) {
-        int result = sceNetRecv(sock, packet, sizeof(packet), SCE_NET_MSG_DONTWAIT);
+        int result;
+        from_length = sizeof(from);
+        memset(&from, 0, sizeof(from));
+        result = sceNetRecvfrom(sock, packet, sizeof(packet), SCE_NET_MSG_DONTWAIT, (SceNetSockaddr *)&from, &from_length);
         if (result > 0) {
             ++count;
             continue;
@@ -318,6 +341,7 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
     }
     video_port = server_port(response);
     if (!session[0]) copy_token(response, "Session:", session, sizeof(session));
+    poke_host(video_sock, host, video_port ? (unsigned short)video_port : kVideoPort);
     if (setup_stream(host, port, session, "control/13/0", 47995, 5, response, sizeof(response), "CONTROL", status, status_size) != 0) {
         sceNetSocketClose(video_sock);
         return -1;
@@ -403,7 +427,8 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
         return -1;
     }
 
-    packets = count_packets(video_sock, 4000);
+    poke_host(video_sock, host, video_port ? (unsigned short)video_port : kVideoPort);
+    packets = count_packets(video_sock, 6000);
     sceNetSocketClose(video_sock);
     snprintf(status, status_size, "RTP %d v%d", packets, video_port);
     vita_debug_log("[GameStream] %s session %s", status, session[0] ? session : "none");
