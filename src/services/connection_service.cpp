@@ -29,6 +29,29 @@ private:
     MoonlightHost m_host;
 };
 
+class StartJob : public paf::job::JobItem {
+public:
+    StartJob(MoonlightBackend &backend, int application_id)
+        : paf::job::JobItem("ConnectionService::StartJob", NULL),
+          m_backend(backend),
+          m_application_id(application_id)
+    {
+    }
+
+    virtual ~StartJob() {}
+
+    virtual void Run()
+    {
+        m_backend.StartApplication(m_application_id);
+    }
+
+    virtual void Finish() {}
+
+private:
+    MoonlightBackend &m_backend;
+    int m_application_id;
+};
+
 }
 
 ConnectionService::ConnectionService(MoonlightBackend &backend)
@@ -55,7 +78,15 @@ int ConnectionService::Connect(const MoonlightHost &host)
 
 int ConnectionService::Start(int application_id)
 {
-    return m_backend.StartApplication(application_id);
+    if (paf::job::JobQueue::default_queue == NULL) {
+        return -1;
+    }
+
+    paf::common::SharedPtr<paf::job::JobItem> item(
+        new StartJob(m_backend, application_id)
+    );
+
+    return paf::job::JobQueue::default_queue->Enqueue(item);
 }
 
 int ConnectionService::Stop()
