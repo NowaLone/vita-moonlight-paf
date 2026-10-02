@@ -8,6 +8,7 @@ public:
     explicit ApplicationService(MoonlightBackend &backend);
 
     int GetAll(MoonlightApplication *out, int capacity);
+    int Refresh();
 
 private:
     MoonlightBackend &m_backend;
