@@ -26,6 +26,7 @@ private:
 
     MoonlightApplication m_apps[8];
     int m_app_count;
+    int m_selected_index;
     bool m_launching;
     AppButtonContext m_button_contexts[8];
 };
