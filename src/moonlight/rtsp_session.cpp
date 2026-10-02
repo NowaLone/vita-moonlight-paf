@@ -9,11 +9,6 @@
 
 namespace {
 
-struct RtspTimeval {
-    long tv_sec;
-    long tv_usec;
-};
-
 static const char *skip_space(const char *text)
 {
     while (text && (*text == ' ' || *text == '\n' || *text == '\r' || *text == '\t')) ++text;
@@ -55,13 +50,20 @@ static int content_length(const char *response)
     return marker ? atoi(marker + 15) : 0;
 }
 
+static char *header_end(char *response)
+{
+    char *end = strstr(response, "\r\n\r\n");
+    return end ? end : strstr(response, "\n\n");
+}
+
 static int rtsp_exchange(int sock, const char *request, char *response, size_t response_size)
 {
     int sent = 0;
     int length = (int)strlen(request);
     int received = 0;
-    char *header_end;
+    char *end;
     int body;
+    int marker;
 
     response[0] = '\0';
     while (sent < length) {
@@ -75,11 +77,12 @@ static int rtsp_exchange(int sock, const char *request, char *response, size_t r
         if (result <= 0) break;
         received += result;
         response[received] = '\0';
-        header_end = strstr(response, "\r\n\r\n");
-        if (!header_end) continue;
+        end = header_end(response);
+        if (!end) continue;
+        marker = (end[0] == '\r') ? 4 : 2;
         body = content_length(response);
         if (body < 0) body = 0;
-        if (received >= (int)(header_end - response) + 4 + body) break;
+        if (received >= (int)(end - response) + marker + body) break;
     }
     return received > 0 ? received : -1;
 }
@@ -150,7 +153,7 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
     unsigned short port = 0;
     int sock;
     int error = 0;
-    RtspTimeval timeout;
+    int timeout = 5 * 1000 * 1000;
     char request[1024];
     char response[4096];
     int video_port = 0;
@@ -169,8 +172,6 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
         vita_debug_log("[GameStream] %s", status);
         return -1;
     }
-    timeout.tv_sec = 5;
-    timeout.tv_usec = 0;
     sceNetSetsockopt(sock, SCE_NET_SOL_SOCKET, SCE_NET_SO_RCVTIMEO, &timeout, sizeof(timeout));
 
     snprintf(request, sizeof(request),
