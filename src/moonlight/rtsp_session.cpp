@@ -56,6 +56,12 @@ static char *header_end(char *response)
     return end ? end : strstr(response, "\n\n");
 }
 
+static void arm_timeout(int sock)
+{
+    int timeout = 5 * 1000 * 1000;
+    sceNetSetsockopt(sock, SCE_NET_SOL_SOCKET, SCE_NET_SO_RCVTIMEO, &timeout, sizeof(timeout));
+}
+
 static int rtsp_exchange(int sock, const char *request, char *response, size_t response_size)
 {
     int sent = 0;
@@ -64,6 +70,7 @@ static int rtsp_exchange(int sock, const char *request, char *response, size_t r
     char *end;
     int body;
     int marker;
+    int empty_reads = 0;
 
     response[0] = '\0';
     while (sent < length) {
@@ -72,9 +79,16 @@ static int rtsp_exchange(int sock, const char *request, char *response, size_t r
         sent += result;
     }
 
-    while (received < (int)response_size - 1) {
-        int result = sceNetRecv(sock, response + received, response_size - 1 - received, 0);
-        if (result <= 0) break;
+    while (received < (int)response_size - 1 && empty_reads < 4) {
+        int result;
+        arm_timeout(sock);
+        result = sceNetRecv(sock, response + received, response_size - 1 - received, 0);
+        if (result < 0) return received > 0 ? received : result;
+        if (result == 0) {
+            ++empty_reads;
+            sceKernelDelayThread(200 * 1000);
+            continue;
+        }
         received += result;
         response[received] = '\0';
         end = header_end(response);
@@ -134,12 +148,12 @@ static int connect_rtsp(const char *host, unsigned short port, int *out_error)
     return -1;
 }
 
-static void fail_step(char *status, size_t status_size, int sock, const char *step, const char *response)
+static void fail_step(char *status, size_t status_size, int sock, const char *step, const char *response, int result)
 {
     if (response && response[0]) {
         snprintf(status, status_size, "RTSP %s %d", step, status_code(response));
     } else {
-        snprintf(status, status_size, "RTSP %s NO REPLY", step);
+        snprintf(status, status_size, "RTSP %s NO REPLY %d", step, result);
     }
     vita_debug_log("[GameStream] %s", status);
     sceNetSocketClose(sock);
@@ -153,7 +167,7 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
     unsigned short port = 0;
     int sock;
     int error = 0;
-    int timeout = 5 * 1000 * 1000;
+    int result;
     char request[1024];
     char response[4096];
     int video_port = 0;
@@ -172,7 +186,6 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
         vita_debug_log("[GameStream] %s", status);
         return -1;
     }
-    sceNetSetsockopt(sock, SCE_NET_SOL_SOCKET, SCE_NET_SO_RCVTIMEO, &timeout, sizeof(timeout));
 
     snprintf(request, sizeof(request),
              "OPTIONS rtsp://%s:%u RTSP/1.0\r\n"
@@ -180,21 +193,24 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
              "X-GS-ClientVersion: 14\r\n"
              "Host: %s\r\n\r\n",
              host, port, host);
-    if (rtsp_exchange(sock, request, response, sizeof(response)) < 0 || status_code(response) != 200) {
-        fail_step(status, status_size, sock, "OPTIONS", response);
+    result = rtsp_exchange(sock, request, response, sizeof(response));
+    if (result < 0 || status_code(response) != 200) {
+        fail_step(status, status_size, sock, "OPTIONS", response, result);
         return -1;
     }
 
     snprintf(request, sizeof(request),
              "DESCRIBE rtsp://%s:%u RTSP/1.0\r\n"
              "CSeq: 2\r\n"
+             "User-Agent: Moonlight/4.3.1\r\n"
              "Accept: application/sdp\r\n"
              "If-Modified-Since: Thu, 01 Jan 1970 00:00:00 GMT\r\n"
              "X-GS-ClientVersion: 14\r\n"
              "Host: %s\r\n\r\n",
              host, port, host);
-    if (rtsp_exchange(sock, request, response, sizeof(response)) < 0 || status_code(response) != 200) {
-        fail_step(status, status_size, sock, "DESCRIBE", response);
+    result = rtsp_exchange(sock, request, response, sizeof(response));
+    if (result < 0 || status_code(response) != 200) {
+        fail_step(status, status_size, sock, "DESCRIBE", response, result);
         return -1;
     }
 
@@ -205,8 +221,9 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
              "X-GS-ClientVersion: 14\r\n"
              "Host: %s\r\n\r\n",
              host, port, host);
-    if (rtsp_exchange(sock, request, response, sizeof(response)) < 0 || status_code(response) != 200) {
-        fail_step(status, status_size, sock, "SETUP", response);
+    result = rtsp_exchange(sock, request, response, sizeof(response));
+    if (result < 0 || status_code(response) != 200) {
+        fail_step(status, status_size, sock, "SETUP", response, result);
         return -1;
     }
     video_port = server_port(response);
@@ -217,8 +234,9 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
              "X-GS-ClientVersion: 14\r\n"
              "Host: %s\r\n\r\n",
              host, port, host);
-    if (rtsp_exchange(sock, request, response, sizeof(response)) < 0 || status_code(response) != 200) {
-        fail_step(status, status_size, sock, "PLAY", response);
+    result = rtsp_exchange(sock, request, response, sizeof(response));
+    if (result < 0 || status_code(response) != 200) {
+        fail_step(status, status_size, sock, "PLAY", response, result);
         return -1;
     }
 
