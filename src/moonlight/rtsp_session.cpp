@@ -9,6 +9,8 @@
 
 namespace {
 
+static const int kEagain = (int)0x80410123;
+
 static const char *skip_space(const char *text)
 {
     while (text && (*text == ' ' || *text == '\n' || *text == '\r' || *text == '\t')) ++text;
@@ -56,39 +58,35 @@ static char *header_end(char *response)
     return end ? end : strstr(response, "\n\n");
 }
 
-static void arm_timeout(int sock)
-{
-    int timeout = 5 * 1000 * 1000;
-    sceNetSetsockopt(sock, SCE_NET_SOL_SOCKET, SCE_NET_SO_RCVTIMEO, &timeout, sizeof(timeout));
-}
-
 static int rtsp_exchange(int sock, const char *request, char *response, size_t response_size)
 {
     int sent = 0;
     int length = (int)strlen(request);
     int received = 0;
+    int waited = 0;
     char *end;
     int body;
     int marker;
-    int empty_reads = 0;
 
     response[0] = '\0';
     while (sent < length) {
         int result = sceNetSend(sock, request + sent, length - sent, 0);
-        if (result <= 0) return -1;
+        if (result == kEagain || result == -kEagain) {
+            sceKernelDelayThread(20 * 1000);
+            continue;
+        }
+        if (result <= 0) return result;
         sent += result;
     }
 
-    while (received < (int)response_size - 1 && empty_reads < 4) {
-        int result;
-        arm_timeout(sock);
-        result = sceNetRecv(sock, response + received, response_size - 1 - received, 0);
-        if (result < 0) return received > 0 ? received : result;
-        if (result == 0) {
-            ++empty_reads;
-            sceKernelDelayThread(200 * 1000);
+    while (received < (int)response_size - 1 && waited < 8000) {
+        int result = sceNetRecv(sock, response + received, response_size - 1 - received, SCE_NET_MSG_DONTWAIT);
+        if (result == kEagain || result == -kEagain || result == 0) {
+            sceKernelDelayThread(50 * 1000);
+            waited += 50;
             continue;
         }
+        if (result < 0) return received > 0 ? received : result;
         received += result;
         response[received] = '\0';
         end = header_end(response);
@@ -169,7 +167,7 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
     int error = 0;
     int result;
     char request[1024];
-    char response[4096];
+    char response[8192];
     int video_port = 0;
 
     if (!status || status_size == 0) return -1;
