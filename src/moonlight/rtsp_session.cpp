@@ -9,6 +9,11 @@
 
 namespace {
 
+struct RtspTimeval {
+    long tv_sec;
+    long tv_usec;
+};
+
 static const char *skip_space(const char *text)
 {
     while (text && (*text == ' ' || *text == '\n' || *text == '\r' || *text == '\t')) ++text;
@@ -145,7 +150,7 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
     unsigned short port = 0;
     int sock;
     int error = 0;
-    SceNetTimeval timeout;
+    RtspTimeval timeout;
     char request[1024];
     char response[4096];
     int video_port = 0;
