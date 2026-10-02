@@ -93,9 +93,10 @@ void Apps::SelectApp(int index) {
     int result = MoonlightApp::Instance()->Connection().Start(m_apps[index].id);
     if (result != 0) {
         m_launching = false;
-        SetStatus("Launch start failed");
+        paf::string status = paf::common::FormatString("LAUNCH START %d", result);
+        SetStatus(status.c_str());
         if (button) {
-            button->SetString(paf::common::string_util::ToWString("LAUNCH FAILED"));
+            button->SetString(paf::common::string_util::ToWString(status));
         }
         return;
     }
@@ -182,11 +183,12 @@ void Apps::OnMoonlightEvent(const MoonlightEvent *event, void *userdata) {
         paf::ui::Widget *button = (apps->root && button_id)
             ? apps->root->FindChild(button_id)
             : NULL;
+        paf::string status = paf::common::FormatString("LAUNCH FAILED %d", event->result);
         apps->m_launching = false;
         if (button) {
-            button->SetString(paf::common::string_util::ToWString("LAUNCH FAILED"));
+            button->SetString(paf::common::string_util::ToWString(status));
         }
-        apps->SetStatus("Launch failed");
+        apps->SetStatus(status.c_str());
         break;
     }
     default:
