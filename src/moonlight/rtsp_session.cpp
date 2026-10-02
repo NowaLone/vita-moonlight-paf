@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <psp2/kernel/threadmgr.h>
 #include <psp2/net/net.h>
 
 #include "debug.h"
@@ -76,15 +77,50 @@ static int server_port(const char *response)
     return marker ? atoi(marker + 12) : 0;
 }
 
+static int connect_rtsp(const char *host, unsigned short port, int *out_error)
+{
+    SceNetSockaddrIn address;
+    int sock;
+    int result;
+    int attempt;
+
+    *out_error = 0;
+    for (attempt = 0; attempt < 8; ++attempt) {
+        sock = sceNetSocket("rtsp", SCE_NET_AF_INET, SCE_NET_SOCK_STREAM, 0);
+        if (sock < 0) {
+            *out_error = sock;
+            return -1;
+        }
+
+        memset(&address, 0, sizeof(address));
+        address.sin_len = sizeof(address);
+        address.sin_family = SCE_NET_AF_INET;
+        address.sin_port = sceNetHtons(port);
+        result = sceNetInetPton(SCE_NET_AF_INET, host, &address.sin_addr);
+        if (result <= 0) {
+            sceNetSocketClose(sock);
+            *out_error = result;
+            return -2;
+        }
+        result = sceNetConnect(sock, (SceNetSockaddr *)&address, sizeof(address));
+        if (result >= 0) return sock;
+
+        *out_error = result;
+        sceNetSocketClose(sock);
+        sceKernelDelayThread(250 * 1000);
+    }
+    return -1;
+}
+
 }
 
 extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_t status_size)
 {
     char host[128];
     unsigned short port = 0;
-    SceNetSockaddrIn address;
     int sock;
-    int timeout = 5000;
+    int error = 0;
+    int timeout = 5 * 1000 * 1000;
     char request[1024];
     char response[2048];
     int code;
@@ -98,23 +134,13 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
         return -1;
     }
 
-    sock = sceNetSocket("rtsp", SCE_NET_AF_INET, SCE_NET_SOCK_STREAM, 0);
+    sock = connect_rtsp(host, port, &error);
     if (sock < 0) {
-        snprintf(status, status_size, "RTSP SOCKET");
+        snprintf(status, status_size, "RTSP CONNECT %s:%u %d", host, port, error);
+        vita_debug_log("[GameStream] %s", status);
         return -1;
     }
     sceNetSetsockopt(sock, SCE_NET_SOL_SOCKET, SCE_NET_SO_RCVTIMEO, &timeout, sizeof(timeout));
-    sceNetSetsockopt(sock, SCE_NET_SOL_SOCKET, SCE_NET_SO_SNDTIMEO, &timeout, sizeof(timeout));
-
-    memset(&address, 0, sizeof(address));
-    address.sin_family = SCE_NET_AF_INET;
-    address.sin_port = sceNetHtons(port);
-    if (sceNetInetPton(SCE_NET_AF_INET, host, &address.sin_addr) <= 0 ||
-        sceNetConnect(sock, (SceNetSockaddr *)&address, sizeof(address)) < 0) {
-        sceNetSocketClose(sock);
-        snprintf(status, status_size, "RTSP CONNECT");
-        return -1;
-    }
 
     snprintf(request, sizeof(request),
              "OPTIONS rtsp://%s:%u RTSP/1.0\r\n"
