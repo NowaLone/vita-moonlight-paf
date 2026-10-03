@@ -355,6 +355,16 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
         if (audio_sock >= 0) sceNetSocketClose(audio_sock);
         return -1;
     }
+    {
+        char connect_data[32];
+        connect_data[0] = '\0';
+        copy_token(response, "X-SS-Connect-Data:", connect_data, sizeof(connect_data));
+        if (connect_data[0]) control_connect_data = (unsigned int)strtoul(connect_data, NULL, 0);
+        control_port = (unsigned short)server_port(response);
+        if (!control_port) control_port = kControlPort;
+        vita_debug_log("[GameStream] ENet target port=%u connectData=0x%08x",
+                       (unsigned int)control_port, control_connect_data);
+    }
 
     sdp_length = snprintf(sdp, sizeof(sdp),
                           "v=0\r\n"
