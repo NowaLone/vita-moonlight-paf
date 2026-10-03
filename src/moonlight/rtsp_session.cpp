@@ -112,6 +112,30 @@ static int bind_udp(unsigned short port)
     return sock;
 }
 
+static unsigned short read_be16(const unsigned char *data)
+{
+    return (unsigned short)(((unsigned short)data[0] << 8) | data[1]);
+}
+
+static void write_be16(unsigned char *data, unsigned short value)
+{
+    data[0] = (unsigned char)(value >> 8);
+    data[1] = (unsigned char)value;
+}
+
+static void write_be32(unsigned char *data, unsigned int value)
+{
+    data[0] = (unsigned char)(value >> 24);
+    data[1] = (unsigned char)(value >> 16);
+    data[2] = (unsigned char)(value >> 8);
+    data[3] = (unsigned char)value;
+}
+
+static void write_host32(unsigned char *data, unsigned int value)
+{
+    memcpy(data, &value, sizeof(value));
+}
+
 static int start_enet_control(const char *host, unsigned short port, unsigned int connect_data, int *out_sock)
 {
     unsigned char connect_packet[52];
