@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include <psp2/kernel/threadmgr.h>
+#include <psp2/kernel/rng.h>
 #include <psp2/net/net.h>
 
 #include "debug.h"
@@ -13,6 +14,51 @@ static const int kReset = (int)0x80410136;
 static const int kEagain = (int)0x80410123;
 static const unsigned short kVideoPort = 47998;
 static const unsigned short kAudioPort = 48000;
+static const unsigned short kControlPort = 47999;
+static const unsigned short kEnetPeerIdMaximum = 0x0fff;
+static const unsigned short kEnetHeaderSentTime = 0x8000;
+static const unsigned char kEnetCommandAcknowledge = 1;
+static const unsigned char kEnetCommandConnect = 2;
+static const unsigned char kEnetCommandVerifyConnect = 3;
+static const unsigned char kEnetCommandFlagAcknowledge = 0x80;
+static const unsigned char kEnetChannelCount = 0x30;
+static const unsigned int kEnetMtu = 1392;
+static const unsigned int kEnetWindowSize = 65536;
+static const unsigned int kEnetThrottleInterval = 5000;
+static const unsigned int kEnetThrottleAcceleration = 2;
+static const unsigned int kEnetThrottleDeceleration = 2;
+
+static unsigned short read_be16(const unsigned char *data)
+{
+    return (unsigned short)(((unsigned short)data[0] << 8) | data[1]);
+}
+
+static unsigned int read_be32(const unsigned char *data)
+{
+    return ((unsigned int)data[0] << 24) |
+           ((unsigned int)data[1] << 16) |
+           ((unsigned int)data[2] << 8) |
+           (unsigned int)data[3];
+}
+
+static void write_be16(unsigned char *data, unsigned short value)
+{
+    data[0] = (unsigned char)(value >> 8);
+    data[1] = (unsigned char)value;
+}
+
+static void write_be32(unsigned char *data, unsigned int value)
+{
+    data[0] = (unsigned char)(value >> 24);
+    data[1] = (unsigned char)(value >> 16);
+    data[2] = (unsigned char)(value >> 8);
+    data[3] = (unsigned char)value;
+}
+
+static void write_host32(unsigned char *data, unsigned int value)
+{
+    memcpy(data, &value, sizeof(value));
+}
 
 static const char *skip_space(const char *text)
 {
@@ -124,6 +170,138 @@ static void send_ping(int sock, const char *host, unsigned short port)
     address.sin_port = sceNetHtons(port);
     if (sceNetInetPton(SCE_NET_AF_INET, host, &address.sin_addr) <= 0) return;
     sceNetSendto(sock, ping, 4, 0, (SceNetSockaddr *)&address, sizeof(address));
+}
+
+static int start_enet_control(const char *host, unsigned short port, int *out_sock)
+{
+    unsigned char connect_packet[52];
+    unsigned char verify_packet[256];
+    unsigned char ack_packet[10];
+    SceNetSockaddrIn address;
+    SceNetSockaddrIn from;
+    unsigned int from_length;
+    unsigned int connect_id;
+    int sock;
+    int result;
+    int waited;
+    int header_size;
+    unsigned short verify_peer_id;
+    unsigned short verify_reliable_sequence;
+    unsigned char outgoing_session_id;
+    unsigned int packet_connect_id;
+
+    if (!host || !out_sock) return -1;
+    *out_sock = -1;
+
+    sock = bind_udp(0);
+    if (sock < 0) return sock;
+
+    if (sceKernelGetRandomNumber(&connect_id, sizeof(connect_id)) < 0 || connect_id == 0) {
+        connect_id = 0x4d4c5046U;
+    }
+
+    memset(connect_packet, 0, sizeof(connect_packet));
+    write_be16(connect_packet + 0, (unsigned short)(kEnetPeerIdMaximum | kEnetHeaderSentTime));
+    write_be16(connect_packet + 2, 0);
+    connect_packet[4] = (unsigned char)(kEnetCommandConnect | kEnetCommandFlagAcknowledge);
+    connect_packet[5] = 0xff;
+    write_be16(connect_packet + 6, 1);
+    write_be16(connect_packet + 8, 0);
+    connect_packet[10] = 0xff;
+    connect_packet[11] = 0xff;
+    write_be32(connect_packet + 12, kEnetMtu);
+    write_be32(connect_packet + 16, kEnetWindowSize);
+    write_be32(connect_packet + 20, kEnetChannelCount);
+    write_be32(connect_packet + 24, 0);
+    write_be32(connect_packet + 28, 0);
+    write_be32(connect_packet + 32, kEnetThrottleInterval);
+    write_be32(connect_packet + 36, kEnetThrottleAcceleration);
+    write_be32(connect_packet + 40, kEnetThrottleDeceleration);
+    write_host32(connect_packet + 44, connect_id);
+    write_be32(connect_packet + 48, 0);
+
+    memset(&address, 0, sizeof(address));
+    address.sin_len = sizeof(address);
+    address.sin_family = SCE_NET_AF_INET;
+    address.sin_port = sceNetHtons(port);
+    result = sceNetInetPton(SCE_NET_AF_INET, host, &address.sin_addr);
+    if (result <= 0) {
+        sceNetSocketClose(sock);
+        return -2;
+    }
+
+    result = sceNetSendto(sock, connect_packet, sizeof(connect_packet), 0,
+                          (SceNetSockaddr *)&address, sizeof(address));
+    if (result != (int)sizeof(connect_packet)) {
+        sceNetSocketClose(sock);
+        return -3;
+    }
+
+    waited = 0;
+    while (waited < 3000) {
+        from_length = sizeof(from);
+        memset(&from, 0, sizeof(from));
+        result = sceNetRecvfrom(sock, verify_packet, sizeof(verify_packet),
+                                SCE_NET_MSG_DONTWAIT,
+                                (SceNetSockaddr *)&from, &from_length);
+        if (result > 0) {
+            unsigned short peer_flags;
+            unsigned char command;
+            const unsigned char *verify;
+
+            if (result < 2) continue;
+            peer_flags = read_be16(verify_packet);
+            header_size = (peer_flags & kEnetHeaderSentTime) ? 4 : 2;
+            if (result < header_size + 44) continue;
+
+            verify = verify_packet + header_size;
+            command = verify[0];
+            if ((command & 0x0f) != kEnetCommandVerifyConnect) continue;
+            if ((command & kEnetCommandFlagAcknowledge) == 0) continue;
+            if (verify[1] != 0xff) continue;
+
+            memcpy(&packet_connect_id, verify + 40, sizeof(packet_connect_id));
+            if (packet_connect_id != connect_id) continue;
+
+            verify_peer_id = (unsigned short)(read_be16(verify + 4) & kEnetPeerIdMaximum);
+            outgoing_session_id = verify[7];
+            verify_reliable_sequence = read_be16(verify + 2);
+
+            memset(ack_packet, 0, sizeof(ack_packet));
+            write_be16(
+                ack_packet + 0,
+                (unsigned short)(verify_peer_id |
+                    ((unsigned short)(outgoing_session_id & 0x03) << 12)));
+            ack_packet[2] = kEnetCommandAcknowledge;
+            ack_packet[3] = 0xff;
+            write_be16(ack_packet + 4, verify_reliable_sequence);
+            write_be16(ack_packet + 6, verify_reliable_sequence);
+            write_be16(
+                ack_packet + 8,
+                (peer_flags & kEnetHeaderSentTime) ? read_be16(verify_packet + 2) : 0);
+
+            result = sceNetSendto(sock, ack_packet, sizeof(ack_packet), 0,
+                                  (SceNetSockaddr *)&address, sizeof(address));
+            if (result == (int)sizeof(ack_packet)) {
+                vita_debug_log("[GameStream] ENet control connected peer=%u session=%u",
+                               (unsigned int)verify_peer_id,
+                               (unsigned int)(outgoing_session_id & 0x03));
+                *out_sock = sock;
+                sceKernelDelayThread(100 * 1000);
+                return 0;
+            }
+
+            sceNetSocketClose(sock);
+            return -4;
+        }
+
+        sceKernelDelayThread(20 * 1000);
+        waited += 20;
+    }
+
+    vita_debug_log("[GameStream] ENet control connect timeout");
+    sceNetSocketClose(sock);
+    return -5;
 }
 
 static int count_packets(int sock, int audio_sock, const char *host, unsigned short video_port, int milliseconds)
@@ -295,6 +473,7 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
     char sdp[2048];
     int video_sock = -1;
     int audio_sock = -1;
+    int control_sock = -1;
     int packets = 0;
     int video_port = 0;
     int sdp_length;
@@ -353,6 +532,13 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
     if (setup_stream(host, port, session, "control/13/0", 47995, 5, response, sizeof(response), "CONTROL", status, status_size) != 0) {
         sceNetSocketClose(video_sock);
         if (audio_sock >= 0) sceNetSocketClose(audio_sock);
+        return -1;
+    }
+
+    if (start_enet_control(host, kControlPort, &control_sock) != 0) {
+        sceNetSocketClose(video_sock);
+        if (audio_sock >= 0) sceNetSocketClose(audio_sock);
+        snprintf(status, status_size, "ENET CONTROL");
         return -1;
     }
 
@@ -417,6 +603,7 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
              session[0] ? "\r\n" : "",
              sdp_length, sdp);
     if (request_once(host, port, request, response, sizeof(response), "ANNOUNCE", status, status_size) != 0) {
+        if (control_sock >= 0) sceNetSocketClose(control_sock);
         sceNetSocketClose(video_sock);
         if (audio_sock >= 0) sceNetSocketClose(audio_sock);
         return -1;
@@ -434,12 +621,14 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
              session,
              session[0] ? "\r\n" : "");
     if (request_once(host, port, request, response, sizeof(response), "PLAY", status, status_size) != 0) {
+        if (control_sock >= 0) sceNetSocketClose(control_sock);
         sceNetSocketClose(video_sock);
         if (audio_sock >= 0) sceNetSocketClose(audio_sock);
         return -1;
     }
 
     packets = count_packets(video_sock, audio_sock, host, (unsigned short)video_port, 6000);
+    if (control_sock >= 0) sceNetSocketClose(control_sock);
     sceNetSocketClose(video_sock);
     if (audio_sock >= 0) sceNetSocketClose(audio_sock);
     snprintf(status, status_size, "RTP %d v%d", packets, video_port);
