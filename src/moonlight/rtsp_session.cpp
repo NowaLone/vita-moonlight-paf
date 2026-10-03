@@ -254,44 +254,101 @@ static int start_enet_control(const char *host, unsigned short port, unsigned in
     return -5;
 }
 
-static void send_ping(int sock, const char *host, unsigned short port)
+static void send_ping(
+    int sock,
+    const char *host,
+    unsigned short port,
+    const char *payload,
+    unsigned int *sequence)
 {
     SceNetSockaddrIn address;
-    static const char ping[] = "PING";
+    unsigned char ping[20];
 
     if (sock < 0 || !host || !port) return;
+
     memset(&address, 0, sizeof(address));
     address.sin_len = sizeof(address);
     address.sin_family = SCE_NET_AF_INET;
     address.sin_port = sceNetHtons(port);
     if (sceNetInetPton(SCE_NET_AF_INET, host, &address.sin_addr) <= 0) return;
-    sceNetSendto(sock, ping, 4, 0, (SceNetSockaddr *)&address, sizeof(address));
+
+    if (payload && strlen(payload) == 16) {
+        memcpy(ping, payload, 16);
+        ++(*sequence);
+        write_be32(ping + 16, *sequence);
+
+        sceNetSendto(
+            sock,
+            ping,
+            sizeof(ping),
+            0,
+            (SceNetSockaddr *)&address,
+            sizeof(address));
+    } else {
+        static const char legacy_ping[] = "PING";
+        sceNetSendto(
+            sock,
+            legacy_ping,
+            sizeof(legacy_ping) - 1,
+            0,
+            (SceNetSockaddr *)&address,
+            sizeof(address));
+    }
 }
 
-static int count_packets(int sock, int audio_sock, const char *host, unsigned short video_port, int milliseconds)
+static int count_packets(
+    int sock,
+    int audio_sock,
+    const char *host,
+    unsigned short video_port,
+    const char *ping_payload,
+    int milliseconds)
 {
     char packet[2048];
     SceNetSockaddrIn from;
     unsigned int from_length;
+    unsigned int video_ping_sequence = 0;
+    unsigned int audio_ping_sequence = 0;
     int count = 0;
     int waited = 0;
 
     while (waited < milliseconds) {
         int result;
-        if ((waited % 200) == 0) {
-            send_ping(sock, host, video_port ? video_port : kVideoPort);
-            send_ping(audio_sock, host, kAudioPort);
+
+        if ((waited % 500) == 0) {
+            send_ping(
+                sock,
+                host,
+                video_port ? video_port : kVideoPort,
+                ping_payload,
+                &video_ping_sequence);
+            send_ping(
+                audio_sock,
+                host,
+                kAudioPort,
+                ping_payload,
+                &audio_ping_sequence);
         }
+
         from_length = sizeof(from);
         memset(&from, 0, sizeof(from));
-        result = sceNetRecvfrom(sock, packet, sizeof(packet), SCE_NET_MSG_DONTWAIT, (SceNetSockaddr *)&from, &from_length);
+        result = sceNetRecvfrom(
+            sock,
+            packet,
+            sizeof(packet),
+            SCE_NET_MSG_DONTWAIT,
+            (SceNetSockaddr *)&from,
+            &from_length);
+
         if (result > 0) {
             ++count;
-            continue;
+        } else {
+            sceKernelDelayThread(20 * 1000);
         }
-        sceKernelDelayThread(20 * 1000);
+
         waited += 20;
     }
+
     return count;
 }
 
@@ -440,6 +497,7 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
     int control_sock = -1;
     unsigned int control_connect_data = 0;
     unsigned short control_port = 47999;
+    char video_ping_payload[17];
     int packets = 0;
     int video_port = 0;
     int sdp_length;
@@ -447,6 +505,7 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
     if (!status || status_size == 0) return -1;
     snprintf(status, status_size, "RTSP FAIL");
     session[0] = '\0';
+    video_ping_payload[0] = '\0';
     if (parse_rtsp_url(session_url, host, sizeof(host), &port) != 0) {
         snprintf(status, status_size, "RTSP BAD URL");
         return -1;
@@ -492,9 +551,33 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
         return -1;
     }
     video_port = server_port(response);
+    copy_token(
+        response,
+        "X-SS-Ping-Payload:",
+        video_ping_payload,
+        sizeof(video_ping_payload));
     if (!session[0]) copy_token(response, "Session:", session, sizeof(session));
-    send_ping(video_sock, host, video_port ? (unsigned short)video_port : kVideoPort);
-    send_ping(audio_sock, host, kAudioPort);
+
+    vita_debug_log(
+        "[GameStream] video ping payload=%s",
+        video_ping_payload[0] ? video_ping_payload : "legacy");
+
+    {
+        unsigned int video_ping_sequence = 0;
+        unsigned int audio_ping_sequence = 0;
+        send_ping(
+            video_sock,
+            host,
+            video_port ? (unsigned short)video_port : kVideoPort,
+            video_ping_payload,
+            &video_ping_sequence);
+        send_ping(
+            audio_sock,
+            host,
+            kAudioPort,
+            video_ping_payload,
+            &audio_ping_sequence);
+    }
     if (setup_stream(host, port, session, "control/13/0", 47995, 5, response, sizeof(response), "CONTROL", status, status_size) != 0) {
         sceNetSocketClose(video_sock);
         if (audio_sock >= 0) sceNetSocketClose(audio_sock);
@@ -550,7 +633,7 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
                           "a=x-ss-general.encryptionEnabled:0\r\n"
                           "a=x-ss-video[0].chromaSamplingType:0\r\n"
                           "a=x-ss-video[0].intraRefresh:0\r\n"
-                          "a=x-ml-general.featureFlags:0\r\n"
+                          "a=x-ml-general.featureFlags:3\r\n"
                           "a=x-ml-video.configuredBitrateKbps:20000\r\n");
     if (sdp_length < 0 || sdp_length >= (int)sizeof(sdp)) {
         sceNetSocketClose(video_sock);
@@ -603,7 +686,13 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
         return -1;
     }
 
-    packets = count_packets(video_sock, audio_sock, host, (unsigned short)video_port, 6000);
+    packets = count_packets(
+        video_sock,
+        audio_sock,
+        host,
+        (unsigned short)video_port,
+        video_ping_payload,
+        6000);
     sceNetSocketClose(video_sock);
     if (audio_sock >= 0) sceNetSocketClose(audio_sock);
     snprintf(status, status_size, "RTP %d v%d", packets, video_port);
