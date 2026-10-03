@@ -112,6 +112,124 @@ static int bind_udp(unsigned short port)
     return sock;
 }
 
+static int start_enet_control(const char *host, unsigned short port, unsigned int connect_data, int *out_sock)
+{
+    unsigned char connect_packet[52];
+    unsigned char verify_packet[256];
+    unsigned char ack_packet[10];
+    SceNetSockaddrIn address;
+    SceNetSockaddrIn from;
+    unsigned int from_length;
+    unsigned int connect_id = 0x4d4c5001U;
+    int sock;
+    int result;
+    int waited = 0;
+
+    if (!host || !out_sock || !port) return -1;
+    *out_sock = -1;
+
+    sock = bind_udp(0);
+    if (sock < 0) return sock;
+
+    memset(connect_packet, 0, sizeof(connect_packet));
+    write_be16(connect_packet + 0, 0x8fff);
+    write_be16(connect_packet + 2, 0);
+    connect_packet[4] = 0x82;
+    connect_packet[5] = 0xff;
+    write_be16(connect_packet + 6, 1);
+    write_be16(connect_packet + 8, 0);
+    connect_packet[10] = 0xff;
+    connect_packet[11] = 0xff;
+    write_be32(connect_packet + 12, 1392);
+    write_be32(connect_packet + 16, 65536);
+    write_be32(connect_packet + 20, 48);
+    write_be32(connect_packet + 24, 0);
+    write_be32(connect_packet + 28, 0);
+    write_be32(connect_packet + 32, 5000);
+    write_be32(connect_packet + 36, 2);
+    write_be32(connect_packet + 40, 2);
+    write_host32(connect_packet + 44, connect_id);
+    write_be32(connect_packet + 48, connect_data);
+
+    memset(&address, 0, sizeof(address));
+    address.sin_len = sizeof(address);
+    address.sin_family = SCE_NET_AF_INET;
+    address.sin_port = sceNetHtons(port);
+    if (sceNetInetPton(SCE_NET_AF_INET, host, &address.sin_addr) <= 0) {
+        sceNetSocketClose(sock);
+        return -2;
+    }
+
+    vita_debug_log("[GameStream] ENet CONNECT %s:%u data=0x%08x",
+                   host, (unsigned int)port, connect_data);
+    result = sceNetSendto(sock, connect_packet, sizeof(connect_packet), 0,
+                          (SceNetSockaddr *)&address, sizeof(address));
+    if (result != (int)sizeof(connect_packet)) {
+        vita_debug_log("[GameStream] ENet CONNECT send failed %d", result);
+        sceNetSocketClose(sock);
+        return -3;
+    }
+
+    while (waited < 3000) {
+        from_length = sizeof(from);
+        memset(&from, 0, sizeof(from));
+        result = sceNetRecvfrom(sock, verify_packet, sizeof(verify_packet),
+                                SCE_NET_MSG_DONTWAIT,
+                                (SceNetSockaddr *)&from, &from_length);
+        if (result > 0) {
+            unsigned short peer_id;
+            unsigned short reliable_seq;
+            unsigned short sent_time = 0;
+            unsigned char outgoing_session;
+            unsigned int server_connect_id;
+
+            if (result >= 2) {
+                unsigned short header = read_be16(verify_packet);
+                unsigned int header_size = (header & 0x8000) ? 4 : 2;
+                if (result >= (int)header_size + 44 &&
+                    (verify_packet[header_size] & 0x0f) == 3 &&
+                    (verify_packet[header_size] & 0x80) != 0) {
+                    memcpy(&server_connect_id, verify_packet + header_size + 40, sizeof(server_connect_id));
+                    if (server_connect_id == connect_id) {
+                        peer_id = (unsigned short)(read_be16(verify_packet + header_size + 4) & 0x0fff);
+                        reliable_seq = read_be16(verify_packet + header_size + 2);
+                        outgoing_session = verify_packet[header_size + 7];
+                        if (header & 0x8000) sent_time = read_be16(verify_packet + 2);
+
+                        memset(ack_packet, 0, sizeof(ack_packet));
+                        write_be16(ack_packet + 0,
+                                   (unsigned short)(peer_id |
+                                   (((unsigned short)outgoing_session & 0x03) << 12)));
+                        ack_packet[2] = 1;
+                        ack_packet[3] = 0xff;
+                        write_be16(ack_packet + 4, reliable_seq);
+                        write_be16(ack_packet + 6, reliable_seq);
+                        write_be16(ack_packet + 8, sent_time);
+
+                        result = sceNetSendto(sock, ack_packet, sizeof(ack_packet), 0,
+                                              (SceNetSockaddr *)&address, sizeof(address));
+                        if (result == (int)sizeof(ack_packet)) {
+                            vita_debug_log("[GameStream] ENet connected peer=%u session=%u",
+                                           (unsigned int)peer_id,
+                                           (unsigned int)(outgoing_session & 0x03));
+                            *out_sock = sock;
+                            return 0;
+                        }
+                        sceNetSocketClose(sock);
+                        return -4;
+                    }
+                }
+            }
+        }
+        sceKernelDelayThread(20 * 1000);
+        waited += 20;
+    }
+
+    vita_debug_log("[GameStream] ENet VERIFY timeout");
+    sceNetSocketClose(sock);
+    return -5;
+}
+
 static void send_ping(int sock, const char *host, unsigned short port)
 {
     SceNetSockaddrIn address;
@@ -295,6 +413,9 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
     char sdp[2048];
     int video_sock = -1;
     int audio_sock = -1;
+    int control_sock = -1;
+    unsigned int control_connect_data = 0;
+    unsigned short control_port = 47999;
     int packets = 0;
     int video_port = 0;
     int sdp_length;
@@ -359,10 +480,12 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
         char connect_data[32];
         connect_data[0] = '\0';
         copy_token(response, "X-SS-Connect-Data:", connect_data, sizeof(connect_data));
-        if (connect_data[0]) control_connect_data = (unsigned int)strtoul(connect_data, NULL, 0);
+        if (connect_data[0]) {
+            control_connect_data = (unsigned int)strtoul(connect_data, NULL, 0);
+        }
         control_port = (unsigned short)server_port(response);
-        if (!control_port) control_port = kControlPort;
-        vita_debug_log("[GameStream] ENet target port=%u connectData=0x%08x",
+        if (!control_port) control_port = 47999;
+        vita_debug_log("[GameStream] control port=%u connectData=0x%08x",
                        (unsigned int)control_port, control_connect_data);
     }
 
@@ -446,6 +569,13 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
     if (request_once(host, port, request, response, sizeof(response), "PLAY", status, status_size) != 0) {
         sceNetSocketClose(video_sock);
         if (audio_sock >= 0) sceNetSocketClose(audio_sock);
+        return -1;
+    }
+
+    if (start_enet_control(host, control_port, control_connect_data, &control_sock) != 0) {
+        sceNetSocketClose(video_sock);
+        if (audio_sock >= 0) sceNetSocketClose(audio_sock);
+        snprintf(status, status_size, "ENET CONTROL");
         return -1;
     }
 
