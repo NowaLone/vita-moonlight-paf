@@ -33,14 +33,6 @@ static unsigned short read_be16(const unsigned char *data)
     return (unsigned short)(((unsigned short)data[0] << 8) | data[1]);
 }
 
-static unsigned int read_be32(const unsigned char *data)
-{
-    return ((unsigned int)data[0] << 24) |
-           ((unsigned int)data[1] << 16) |
-           ((unsigned int)data[2] << 8) |
-           (unsigned int)data[3];
-}
-
 static void write_be16(unsigned char *data, unsigned short value)
 {
     data[0] = (unsigned char)(value >> 8);
@@ -582,6 +574,7 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
                           "a=x-ml-general.featureFlags:0\r\n"
                           "a=x-ml-video.configuredBitrateKbps:20000\r\n");
     if (sdp_length < 0 || sdp_length >= (int)sizeof(sdp)) {
+        if (control_sock >= 0) sceNetSocketClose(control_sock);
         sceNetSocketClose(video_sock);
         if (audio_sock >= 0) sceNetSocketClose(audio_sock);
         snprintf(status, status_size, "RTSP ANNOUNCE SDP");
