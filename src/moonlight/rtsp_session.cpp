@@ -527,13 +527,6 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
         return -1;
     }
 
-    if (start_enet_control(host, kControlPort, &control_sock) != 0) {
-        sceNetSocketClose(video_sock);
-        if (audio_sock >= 0) sceNetSocketClose(audio_sock);
-        snprintf(status, status_size, "ENET CONTROL");
-        return -1;
-    }
-
     sdp_length = snprintf(sdp, sizeof(sdp),
                           "v=0\r\n"
                           "o=android 0 14 IN IP4 127.0.0.1\r\n"
@@ -574,7 +567,6 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
                           "a=x-ml-general.featureFlags:0\r\n"
                           "a=x-ml-video.configuredBitrateKbps:20000\r\n");
     if (sdp_length < 0 || sdp_length >= (int)sizeof(sdp)) {
-        if (control_sock >= 0) sceNetSocketClose(control_sock);
         sceNetSocketClose(video_sock);
         if (audio_sock >= 0) sceNetSocketClose(audio_sock);
         snprintf(status, status_size, "RTSP ANNOUNCE SDP");
@@ -617,6 +609,13 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
         if (control_sock >= 0) sceNetSocketClose(control_sock);
         sceNetSocketClose(video_sock);
         if (audio_sock >= 0) sceNetSocketClose(audio_sock);
+        return -1;
+    }
+
+    if (start_enet_control(host, kControlPort, &control_sock) != 0) {
+        sceNetSocketClose(video_sock);
+        if (audio_sock >= 0) sceNetSocketClose(audio_sock);
+        snprintf(status, status_size, "ENET CONTROL");
         return -1;
     }
 
