@@ -4,7 +4,6 @@
 #include <psp2/touch.h>
 #include <stdbool.h>
 #include <string.h>
-#include <stdlib.h>
 #include <math.h>
 
 #include "debug.h"
@@ -31,13 +30,6 @@ static bool s_left_mouse_down = false;
 static bool s_two_finger_active = false;
 static int s_two_finger_last_y = 0;
 
-static int clamp_mouse_delta(double value)
-{
-    int result = (int)lround(value);
-    if (result > 32767) return 32767;
-    if (result < -32768) return -32768;
-    return result;
-}
 
 static void release_touch_state(void)
 {
