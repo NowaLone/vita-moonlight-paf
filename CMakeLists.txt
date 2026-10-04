@@ -59,6 +59,44 @@ else()
   endif()
 endif()
 
+
+# Upstream Moonlight streaming engine and its ENet transport.
+set(MOONLIGHT_COMMON_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/AudioStream.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/ByteBuffer.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/Connection.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/ConnectionTester.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/ControlStream.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/FakeCallbacks.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/InputStream.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/LinkedBlockingQueue.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/Misc.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/Platform.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/PlatformCrypto.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/PlatformSockets.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/RecorderCallbacks.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/RtpAudioQueue.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/RtpVideoQueue.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/RtspConnection.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/RtspParser.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/SdpGenerator.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/SimpleStun.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/VideoDepacketizer.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/VideoStream.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/reedsolomon/rs.c
+)
+
+set(ENET_SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/enet/callbacks.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/enet/compress.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/enet/host.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/enet/list.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/enet/packet.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/enet/peer.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/enet/protocol.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/enet/unix.c
+)
+
 add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/app/paf_runtime.cpp
@@ -80,20 +118,25 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/services/settings_service.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/option_menu.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/api.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/launch_request.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/rtsp_session.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/stream_session.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/vita_video_renderer.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/settings.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_main.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_search.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_apps.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_add_host.cpp
+  ${MOONLIGHT_COMMON_SOURCES}
+  ${ENET_SOURCES}
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/legacy
   ${CMAKE_CURRENT_SOURCE_DIR}/third_party/inih
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/reedsolomon
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/enet/include
 )
 
 target_link_libraries(${PROJECT_NAME}
@@ -120,6 +163,7 @@ target_link_libraries(${PROJECT_NAME}
   SceProcessmgr_stub
   SceNet_stub
   SceNetCtl_stub
+  SceVideodec_stub
   SceSsl_stub
   SceHttp_stub
   ScePaf_stub_weak

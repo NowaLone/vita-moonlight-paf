@@ -13,6 +13,7 @@
 #include "legacy_host_discovery.h"
 #include "backend/legacy_device_store.h"
 #include "legacy_gamestream.h"
+#include "moonlight/stream_session.h"
 #include "config.h"
 #include "debug.h"
 
@@ -28,6 +29,8 @@ static bool s_game_stream_initialized = false;
 static MoonlightApplication s_applications[8];
 static int s_application_count = 0;
 static bool s_applications_valid = false;
+static int s_stream_application_id = -1;
+static bool s_stream_active = false;
 
 static void emit(MoonlightEventType type,
                  int result,
@@ -126,6 +129,32 @@ static void update_host_from_server()
     }
 }
 
+static void on_stream_event(
+    MoonlightEventType type,
+    int result,
+    void *userdata)
+{
+    (void)userdata;
+
+    if (type == MOONLIGHT_EVENT_STREAM_STARTED) {
+        s_stream_active = true;
+        s_connection_state = MOONLIGHT_CONNECTION_STREAMING;
+    } else if (type == MOONLIGHT_EVENT_STREAM_STOPPED) {
+        s_stream_active = false;
+        s_connection_state = MOONLIGHT_CONNECTION_PAIRED;
+    } else if (type == MOONLIGHT_EVENT_STREAM_FAILED) {
+        s_stream_active = false;
+        s_connection_state = MOONLIGHT_CONNECTION_PAIRED;
+    }
+
+    emit(
+        type,
+        result,
+        s_current_host.id,
+        s_stream_application_id,
+        s_current_host.internal);
+}
+
 }
 
 int moonlight_api_init(void)
@@ -140,6 +169,10 @@ int moonlight_api_init(void)
 
 void moonlight_api_shutdown(void)
 {
+    if (s_stream_active) {
+        moonlight_stream_stop();
+        s_stream_active = false;
+    }
     legacy_gamestream_shutdown(&s_server);
     s_game_stream_initialized = false;
 
@@ -513,53 +546,63 @@ extern "C" int moonlight_launch_request(
 
 int moonlight_api_start_application(int application_id)
 {
-    char session_url[256];
     char unique_path[512];
     const char *name;
     int written;
     int result;
+    MoonlightSettings settings;
 
     if (!s_has_current_host || !s_game_stream_initialized || !s_server.curl ||
         s_connection_state != MOONLIGHT_CONNECTION_PAIRED) {
         return -1;
     }
 
+    if (moonlight_settings_get_all(&settings) != 0) {
+        return -2;
+    }
+
     name = s_current_host.name[0] ? s_current_host.name : s_current_host.internal;
-    written = snprintf(unique_path, sizeof(unique_path), "%s%s/uniqueid.dat", config.key_dir, name);
+    written = snprintf(
+        unique_path,
+        sizeof(unique_path),
+        "%s%s/uniqueid.dat",
+        config.key_dir,
+        name);
     if (written < 0 || (size_t)written >= sizeof(unique_path)) {
         return -1;
     }
 
-    session_url[0] = '\0';
-    result = moonlight_launch_request(
-        s_server.curl,
-        s_server.address,
-        s_server.https_port,
+    s_stream_application_id = application_id;
+    result = moonlight_stream_start(
+        &s_server,
         unique_path,
         application_id,
-        session_url,
-        sizeof(session_url));
+        &settings,
+        on_stream_event,
+        NULL);
+    s_stream_application_id = -1;
+
     if (result != 0) {
-        vita_debug_log("[GameStream] launch failed for app %d: %d", application_id, result);
-        emit(MOONLIGHT_EVENT_STREAM_FAILED, result, s_current_host.id, application_id, s_current_host.internal);
+        vita_debug_log(
+            "[GameStream] stream failed for app %d: %d",
+            application_id,
+            result);
+        if (!s_stream_active) {
+            s_connection_state = MOONLIGHT_CONNECTION_PAIRED;
+        }
         return result;
     }
 
-    s_connection_state = MOONLIGHT_CONNECTION_STREAMING;
-    vita_debug_log("[GameStream] launch accepted, session %s", session_url);
-    emit(MOONLIGHT_EVENT_STREAM_STARTED, 0, s_current_host.id, application_id, session_url[0] ? session_url : s_current_host.internal);
     return 0;
 }
 
 int moonlight_api_stop_application(void)
 {
-    if (!s_has_current_host || s_connection_state != MOONLIGHT_CONNECTION_STREAMING) {
+    if (!s_has_current_host || !s_stream_active) {
         return -1;
     }
 
-    s_connection_state = MOONLIGHT_CONNECTION_PAIRED;
-    emit(MOONLIGHT_EVENT_STREAM_STOPPED, 0, s_current_host.id, -1, s_current_host.internal);
-    return 0;
+    return moonlight_stream_stop();
 }
 
 int moonlight_api_disconnect_host(void)
@@ -568,17 +611,23 @@ int moonlight_api_disconnect_host(void)
         return 0;
     }
 
+    if (s_stream_active) {
+        moonlight_stream_stop();
+        s_stream_active = false;
+    }
+
     if (s_game_stream_initialized) {
         legacy_gamestream_shutdown(&s_server);
         s_game_stream_initialized = false;
     }
 
     s_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
-    emit(MOONLIGHT_EVENT_CONNECTION_CLOSED,
-         0,
-         s_current_host.id,
-         -1,
-         s_current_host.internal);
+    emit(
+        MOONLIGHT_EVENT_CONNECTION_CLOSED,
+        0,
+        s_current_host.id,
+        -1,
+        s_current_host.internal);
 
     s_has_current_host = false;
     return 0;

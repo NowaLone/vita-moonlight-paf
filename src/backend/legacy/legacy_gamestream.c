@@ -767,6 +767,8 @@ static int load_server_info(LegacyGameStreamServer *server, bool https)
     char current_game[32];
     char paired[16];
     char app_version[64];
+    char gfe_version[64];
+    char codec_mode_support[32];
     char state[256];
     char https_port[16];
     char mac[64];
@@ -828,6 +830,18 @@ static int load_server_info(LegacyGameStreamServer *server, bool https)
 
     server->paired = strcmp(paired, "1") == 0;
     server->current_game = atoi(current_game);
+    strncpy(server->server_info_app_version, app_version, sizeof(server->server_info_app_version) - 1);
+    server->server_info_app_version[sizeof(server->server_info_app_version) - 1] = '\0';
+    if (xml_find_value(response.memory, response.size, "GfeVersion", gfe_version, sizeof(gfe_version)) == LEGACY_GAMESTREAM_OK) {
+        strncpy(server->server_info_gfe_version, gfe_version, sizeof(server->server_info_gfe_version) - 1);
+        server->server_info_gfe_version[sizeof(server->server_info_gfe_version) - 1] = '\0';
+    }
+    if (xml_find_value(response.memory, response.size, "ServerCodecModeSupport",
+                       codec_mode_support, sizeof(codec_mode_support)) == LEGACY_GAMESTREAM_OK) {
+        server->server_codec_mode_support = atoi(codec_mode_support);
+    } else {
+        server->server_codec_mode_support = 0x00000001;
+    }
     if (strstr(state, "_SERVER_BUSY") == NULL) {
         server->current_game = 0;
     }
