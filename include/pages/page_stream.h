@@ -21,6 +21,22 @@ public:
     static void PresentTask(void *userdata);
 
 private:
+    class PadListener : public paf::inputdevice::InputListener {
+    public:
+        explicit PadListener(Stream *parent)
+            : InputListener(paf::inputdevice::DEVICE_TYPE_PAD),
+              m_parent(parent) {}
+
+        virtual void OnUpdate(paf::inputdevice::Data *data) {
+            if (m_parent) {
+                m_parent->OnPadUpdate(data);
+            }
+        }
+
+    private:
+        Stream *m_parent;
+    };
+
     static const unsigned int kSurfaceSlotCount = 3;
 
     struct Frame {
@@ -41,9 +57,12 @@ private:
 
     void PresentFrame(const Frame &frame);
     SurfaceSlot *FindSurfaceSlot(void *buffer);
+    void OnPadUpdate(paf::inputdevice::Data *data);
 
     paf::ui::Plane *m_video_plane;
     SurfaceSlot m_surface_slots[kSurfaceSlotCount];
+    paf::common::SharedPtr<paf::inputdevice::InputListener> m_pad_listener;
+    bool m_stopping;
 
     static Stream *s_instance;
     static Frame s_pending_frame;
