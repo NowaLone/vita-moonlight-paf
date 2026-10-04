@@ -21,11 +21,6 @@ Stream::Stream()
 {
     unsigned int i;
 
-    paf::common::SharedPtr<paf::inputdevice::InputListener> listener(
-        new PadListener(this));
-    m_pad_listener = listener;
-    paf::inputdevice::AddInputListener(m_pad_listener);
-
     s_instance = this;
 
     for (i = 0; i < kSurfaceSlotCount; ++i) {
@@ -37,8 +32,16 @@ Stream::Stream()
     }
 
     if (!root) {
+        if (s_instance == this) {
+            s_instance = NULL;
+        }
         return;
     }
+
+    paf::common::SharedPtr<paf::inputdevice::InputListener> listener(
+        new PadListener(this));
+    m_pad_listener = listener;
+    paf::inputdevice::AddInputListener(m_pad_listener);
 
     m_video_plane = static_cast<ui::Plane *>(
         root->FindChild("plane_stream_video"));
@@ -65,7 +68,6 @@ Stream::~Stream()
     }
 
     paf::inputdevice::DelInputListener(m_pad_listener);
-    m_pad_listener.reset();
 
     /*
      * Stop PAF from sampling the external framebuffer before dropping the
