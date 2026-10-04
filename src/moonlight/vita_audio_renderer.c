@@ -37,12 +37,26 @@ static void vita_audio_cleanup(void)
     }
 
     if (s_port >= 0) {
+        /*
+         * sceAudioOutOutput(port, NULL) waits until all queued samples have
+         * finished playing. Without this drain the main audio port can still
+         * be busy when ReleasePort is called.
+         */
+        int drain_result = sceAudioOutOutput(s_port, NULL);
+        vita_debug_log(
+            "[Audio] drain port=%d result=0x%08x",
+            s_port,
+            drain_result);
+
         int result = sceAudioOutReleasePort(s_port);
         vita_debug_log(
             "[Audio] release port=%d result=0x%08x",
             s_port,
             result);
-        s_port = -1;
+
+        if (result == 0) {
+            s_port = -1;
+        }
     }
 }
 
