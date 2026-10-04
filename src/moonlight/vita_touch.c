@@ -190,7 +190,6 @@ static void process_ds4_touch(void)
 
 static void process_absolute_mouse(void)
 {
-    unsigned int i;
     int finger_count = (int)s_front.reportNum;
     int x = 0;
     int y = 0;
