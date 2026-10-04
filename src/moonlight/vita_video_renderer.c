@@ -1,6 +1,7 @@
 #include <psp2/kernel/sysmem.h>
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/videodec.h>
+#include <psp2/gxm.h>
 
 #include <Limelight.h>
 
@@ -20,6 +21,7 @@ static SceAvcdecQueryDecoderInfo *s_decoder_info;
 static char *s_decoder_buffer;
 static size_t s_decoder_buffer_size;
 static void *s_frame_buffer;
+static int s_frame_gpu_mapped;
 static unsigned int s_frame_width;
 static unsigned int s_frame_height;
 static const unsigned int s_output_width = 960;
@@ -178,6 +180,24 @@ static int vita_video_setup(
         goto fail_frame_memblock;
     }
 
+    result = sceGxmMapMemory(
+        s_frame_buffer,
+        frame_size,
+        SCE_GXM_MEMORY_ATTRIB_READ |
+        SCE_GXM_MEMORY_ATTRIB_WRITE);
+    if (result < 0) {
+        vita_debug_log(
+            "[Video] sceGxmMapMemory failed 0x%08x",
+            result);
+        goto fail_frame_memblock;
+    }
+    s_frame_gpu_mapped = 1;
+
+    vita_debug_log(
+        "[Video] frame mapped for GXM buffer=%p size=0x%08x",
+        s_frame_buffer,
+        (unsigned int)frame_size);
+
     memset(s_frame_buffer, 0, frame_size);
 
     s_active = 1;
@@ -226,6 +246,14 @@ static void vita_video_cleanup(void)
     }
 
     gs_sps_stop();
+
+    if (s_frame_gpu_mapped && s_frame_buffer) {
+        int result = sceGxmUnmapMemory(s_frame_buffer);
+        vita_debug_log(
+            "[Video] sceGxmUnmapMemory result=0x%08x",
+            result);
+        s_frame_gpu_mapped = 0;
+    }
 
     if (s_frame_memblock >= 0) {
         sceKernelFreeMemBlock(s_frame_memblock);
@@ -343,6 +371,10 @@ static int vita_video_submit(PDECODE_UNIT decode_unit)
     }
 
     if (array_picture.numOfOutput > 0 && s_active) {
+        vita_debug_log(
+            "[Video] present frame=%u buffer=%p",
+            s_decoded_frames + 1,
+            s_frame_buffer);
         moonlight_video_present(
             s_frame_buffer,
             s_frame_width,
