@@ -346,7 +346,7 @@ static void vita_video_release_frame_buffers_internal(void)
     vita_debug_log("[Video] deferred frame buffers released");
 }
 
-extern "C" void moonlight_video_release_frame_buffers(void)
+void moonlight_video_release_frame_buffers(void)
 {
     vita_video_release_frame_buffers_internal();
 }
