@@ -15,10 +15,19 @@ Stream::Stream()
     : Base("page_stream", NULL,
            Plugin::TransitionType_None,
            Plugin::TransitionType_None),
-      m_video_plane(NULL),
-      m_surface()
+      m_video_plane(NULL)
 {
+    unsigned int i;
+
     s_instance = this;
+
+    for (i = 0; i < kSurfaceSlotCount; ++i) {
+        m_surface_slots[i].buffer = NULL;
+        m_surface_slots[i].width = 0;
+        m_surface_slots[i].height = 0;
+        m_surface_slots[i].pitch = 0;
+        m_surface_slots[i].surface.clear();
+    }
 
     if (!root) {
         return;
@@ -48,7 +57,16 @@ Stream::~Stream()
         s_instance = NULL;
     }
 
-    m_surface.clear();
+    unsigned int i;
+
+    for (i = 0; i < kSurfaceSlotCount; ++i) {
+        m_surface_slots[i].surface.clear();
+        m_surface_slots[i].buffer = NULL;
+        m_surface_slots[i].width = 0;
+        m_surface_slots[i].height = 0;
+        m_surface_slots[i].pitch = 0;
+    }
+
     m_video_plane = NULL;
 }
 
@@ -99,6 +117,27 @@ void Stream::PresentTask(void *)
     }
 }
 
+Stream::SurfaceSlot *Stream::FindSurfaceSlot(void *buffer)
+{
+    unsigned int i;
+    SurfaceSlot *free_slot = NULL;
+
+    if (!buffer) {
+        return NULL;
+    }
+
+    for (i = 0; i < kSurfaceSlotCount; ++i) {
+        if (m_surface_slots[i].buffer == buffer) {
+            return &m_surface_slots[i];
+        }
+        if (!free_slot && m_surface_slots[i].buffer == NULL) {
+            free_slot = &m_surface_slots[i];
+        }
+    }
+
+    return free_slot;
+}
+
 void Stream::PresentFrame(const Frame &frame)
 {
     if (!m_video_plane || !frame.buffer ||
@@ -106,8 +145,24 @@ void Stream::PresentFrame(const Frame &frame)
         return;
     }
 
-    if (!m_surface.get()) {
-        m_surface = new graph::Surface(
+    SurfaceSlot *slot = FindSurfaceSlot(frame.buffer);
+    if (!slot) {
+        return;
+    }
+
+    if (slot->buffer != frame.buffer ||
+        slot->width != frame.width ||
+        slot->height != frame.height ||
+        slot->pitch != frame.pitch) {
+        slot->surface.clear();
+        slot->buffer = frame.buffer;
+        slot->width = frame.width;
+        slot->height = frame.height;
+        slot->pitch = frame.pitch;
+    }
+
+    if (!slot->surface.get()) {
+        slot->surface = new graph::Surface(
             frame.width,
             frame.height,
             ImageMode_RGBA8888,
@@ -119,8 +174,8 @@ void Stream::PresentFrame(const Frame &frame)
             0);
     }
 
-    if (m_surface.get()) {
-        m_video_plane->SetTexture(m_surface);
+    if (slot->surface.get()) {
+        m_video_plane->SetTexture(slot->surface);
 
         paf::graph::PlaneObj *plane_obj =
             static_cast<paf::graph::PlaneObj *>(
