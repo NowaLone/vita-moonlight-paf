@@ -11,6 +11,7 @@ namespace page {
 Stream *Stream::s_instance = NULL;
 Stream::Frame Stream::s_pending_frame = { NULL, 0, 0, 0, false };
 bool Stream::s_task_registered = false;
+unsigned int Stream::s_release_delay = 0;
 
 Stream::Stream()
     : Base("page_stream", NULL,
@@ -77,6 +78,13 @@ Stream::~Stream()
     if (m_video_plane) {
         m_video_plane->Hide(common::transition::Type_Reset);
         m_video_plane->SetActivate(false);
+
+        /*
+         * Match NetStream's teardown order: detach the external texture from
+         * the plane before dropping the Surface references. We cannot reuse
+         * the external framebuffer after this point.
+         */
+        m_video_plane->SetTexture(paf::intrusive_ptr<paf::graph::Surface>());
     }
 
     unsigned int i;
@@ -137,6 +145,27 @@ void Stream::PresentTask(void *)
     if (register_task) {
         common::MainThreadCallList::Register(PresentTask, NULL);
     }
+}
+
+void Stream::ReleaseFrameBuffersTask(void *)
+{
+    if (s_release_delay != 0) {
+        --s_release_delay;
+        common::MainThreadCallList::Register(
+            ReleaseFrameBuffersTask,
+            NULL);
+        return;
+    }
+
+    moonlight_video_release_frame_buffers();
+}
+
+void Stream::ScheduleFrameBufferRelease()
+{
+    s_release_delay = 3;
+    common::MainThreadCallList::Register(
+        ReleaseFrameBuffersTask,
+        NULL);
 }
 
 void Stream::OnPadUpdate(paf::inputdevice::Data *data)
