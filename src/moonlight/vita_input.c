@@ -2,6 +2,7 @@
 
 #include <Limelight.h>
 #include <psp2/ctrl.h>
+#include <psp2/touch.h>
 #include <psp2/shellutil.h>
 #include <psp2/kernel/threadmgr.h>
 #include <stdbool.h>
@@ -22,9 +23,14 @@ static bool s_ps_button_locked = false;
 static int s_touchscreen_mode = 0;
 static int s_mouse_acceleration = 0;
 static bool s_motion_enabled = false;
+static int s_back_deadzone_top = 0;
+static int s_back_deadzone_right = 0;
+static int s_back_deadzone_bottom = 0;
+static int s_back_deadzone_left = 0;
 
 static SceCtrlData s_pad;
 static SceCtrlData s_pad_old;
+static uint32_t s_back_buttons_old = 0;
 
 static short vita_axis_to_limelight(unsigned char value)
 {
@@ -52,8 +58,57 @@ static uint8_t get_controller_type(int controller_type)
     }
 }
 
-static void vita_input_send(void)
+static uint32_t vita_read_back_touch(const SceTouchData *back)
 {
+    enum {
+        BACK_NORTHWEST = 0x01,
+        BACK_NORTHEAST = 0x02,
+        BACK_SOUTHWEST = 0x04,
+        BACK_SOUTHEAST = 0x08
+    };
+
+    const int vertical =
+        (960 - s_back_deadzone_left - s_back_deadzone_right) / 2 +
+        s_back_deadzone_left;
+    const int horizontal =
+        (544 - s_back_deadzone_top - s_back_deadzone_bottom) / 2 +
+        s_back_deadzone_top;
+
+    uint32_t buttons = 0;
+    unsigned int i;
+
+    for (i = 0; i < back->reportNum && i < SCE_TOUCH_MAX_REPORT; ++i) {
+        int x = (int)back->report[i].x * 960 / 1920;
+        int y = (int)back->report[i].y * 544 / 1088;
+
+        if (x < s_back_deadzone_left ||
+            x > 960 - s_back_deadzone_right ||
+            y < s_back_deadzone_top ||
+            y > 544 - s_back_deadzone_bottom) {
+            continue;
+        }
+
+        if (x <= vertical && y <= horizontal) {
+            buttons |= BACK_NORTHWEST;
+        } else if (x > vertical && y <= horizontal) {
+            buttons |= BACK_NORTHEAST;
+        } else if (x <= vertical && y > horizontal) {
+            buttons |= BACK_SOUTHWEST;
+        } else {
+            buttons |= BACK_SOUTHEAST;
+        }
+    }
+
+    return buttons;
+}
+
+
+static void vita_input_send(uint32_t back_buttons)
+{
+    const uint32_t BACK_NORTHWEST = 0x01;
+    const uint32_t BACK_NORTHEAST = 0x02;
+    const uint32_t BACK_SOUTHWEST = 0x04;
+    const uint32_t BACK_SOUTHEAST = 0x08;
     int button_flags = 0;
     unsigned char left_trigger = 0;
     unsigned char right_trigger = 0;
@@ -98,6 +153,12 @@ static void vita_input_send(void)
         if (s_pad.buttons & SCE_CTRL_R1) {
             right_trigger = 0xFF;
         }
+        if (back_buttons & BACK_NORTHWEST) {
+            button_flags |= LB_FLAG;
+        }
+        if (back_buttons & BACK_NORTHEAST) {
+            button_flags |= RB_FLAG;
+        }
     } else {
         if (s_pad.buttons & SCE_CTRL_L1) {
             button_flags |= LB_FLAG;
@@ -105,12 +166,18 @@ static void vita_input_send(void)
         if (s_pad.buttons & SCE_CTRL_R1) {
             button_flags |= RB_FLAG;
         }
+        if (back_buttons & BACK_NORTHWEST) {
+            left_trigger = 0xFF;
+        }
+        if (back_buttons & BACK_NORTHEAST) {
+            right_trigger = 0xFF;
+        }
     }
 
-    if (s_pad.buttons & SCE_CTRL_L3) {
+    if (back_buttons & BACK_SOUTHWEST) {
         button_flags |= LS_CLK_FLAG;
     }
-    if (s_pad.buttons & SCE_CTRL_R3) {
+    if (back_buttons & BACK_SOUTHEAST) {
         button_flags |= RS_CLK_FLAG;
     }
 
@@ -130,6 +197,7 @@ static void vita_input_process(void)
 {
     bool ps_pressed;
     bool ps_pressed_old;
+    uint32_t back_buttons;
 
     sceCtrlSetSamplingModeExt(SCE_CTRL_MODE_ANALOG_WIDE);
     sceCtrlPeekBufferPositiveExt2(0, &s_pad, 1);
@@ -143,9 +211,13 @@ static void vita_input_process(void)
         s_pad.buttons &= ~SCE_CTRL_PSBUTTON;
     }
 
-    if (memcmp(&s_pad, &s_pad_old, sizeof(SceCtrlData)) != 0) {
-        vita_input_send();
+    back_buttons = vita_read_back_touch(&s_back);
+
+    if (memcmp(&s_pad, &s_pad_old, sizeof(SceCtrlData)) != 0 ||
+        back_buttons != s_back_buttons_old) {
+        vita_input_send(back_buttons);
         memcpy(&s_pad_old, &s_pad, sizeof(SceCtrlData));
+        s_back_buttons_old = back_buttons;
     }
 
     vita_touch_process();
@@ -204,7 +276,14 @@ static void vita_input_ensure_thread(void)
 int vita_input_configure(
     int controller_type,
     int swap_shoulder_buttons,
-    int ps_button_capture)
+    int ps_button_capture,
+    int touchscreen_mode,
+    int mouse_acceleration,
+    int motion_enabled,
+    int back_deadzone_top,
+    int back_deadzone_right,
+    int back_deadzone_bottom,
+    int back_deadzone_left)
 {
     s_controller_type = get_controller_type(controller_type);
     s_swap_shoulder_buttons = swap_shoulder_buttons != 0;
@@ -212,6 +291,19 @@ int vita_input_configure(
     s_touchscreen_mode = touchscreen_mode;
     s_mouse_acceleration = mouse_acceleration;
     s_motion_enabled = motion_enabled != 0;
+    s_back_deadzone_top = back_deadzone_top;
+    s_back_deadzone_right = back_deadzone_right;
+    s_back_deadzone_bottom = back_deadzone_bottom;
+    s_back_deadzone_left = back_deadzone_left;
+
+    if (s_back_deadzone_top < 0) s_back_deadzone_top = 0;
+    if (s_back_deadzone_right < 0) s_back_deadzone_right = 0;
+    if (s_back_deadzone_bottom < 0) s_back_deadzone_bottom = 0;
+    if (s_back_deadzone_left < 0) s_back_deadzone_left = 0;
+    if (s_back_deadzone_top > 480) s_back_deadzone_top = 480;
+    if (s_back_deadzone_right > 480) s_back_deadzone_right = 480;
+    if (s_back_deadzone_bottom > 480) s_back_deadzone_bottom = 480;
+    if (s_back_deadzone_left > 480) s_back_deadzone_left = 480;
 
     vita_touch_configure(
         s_touchscreen_mode,
@@ -226,6 +318,7 @@ void vita_input_start(void)
 
     memset(&s_pad, 0, sizeof(s_pad));
     memset(&s_pad_old, 0, sizeof(s_pad_old));
+    s_back_buttons_old = 0;
 
     /*
      * Match the controller declaration used by the original Vita Moonlight.
