@@ -38,7 +38,6 @@ struct StreamThreadArgs {
 static StreamContext s_stream_context = { NULL, NULL, 0 };
 static pthread_t s_stream_thread;
 static volatile int s_stream_thread_running = 0;
-static int s_stream_thread_created = 0;
 
 static size_t write_response(void *contents, size_t size, size_t count, void *userdata)
 {
@@ -370,7 +369,6 @@ static int run_stream_session(
             sizeof(session_url),
             remote_key,
             remote_iv) != 0) {
-        emit_event(MOONLIGHT_EVENT_STREAM_FAILED, -1);
         return -1;
     }
 
@@ -524,7 +522,6 @@ extern "C" int moonlight_stream_start(
         return -4;
     }
 
-    s_stream_thread_created = 1;
     pthread_detach(s_stream_thread);
 
     vita_debug_log(
