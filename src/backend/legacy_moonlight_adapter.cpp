@@ -5,6 +5,7 @@
 #include "moonlight/api.h"
 #include "moonlight/settings.h"
 #include "backend/legacy_device_store.h"
+#include "debug.h"
 
 LegacyMoonlightAdapter::LegacyMoonlightAdapter()
     : m_connection_state(MOONLIGHT_CONNECTION_DISCONNECTED),
@@ -176,7 +177,14 @@ int LegacyMoonlightAdapter::GetApplications(MoonlightApplication *out, int capac
 
 int LegacyMoonlightAdapter::StartApplication(int application_id)
 {
+    vita_debug_log(
+        "[LegacyAdapter] StartApplication app=%d has_host=%d state=%d",
+        application_id,
+        m_has_current_host ? 1 : 0,
+        (int)m_connection_state);
+
     if (!m_has_current_host) {
+        vita_debug_log("[LegacyAdapter] StartApplication rejected: no current host");
         return -1;
     }
 
