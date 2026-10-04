@@ -581,7 +581,13 @@ int moonlight_api_start_application(int application_id)
         return -1;
     }
 
+    if (moonlight_settings_init() != 0) {
+        vita_debug_log("[GameStream] settings init failed");
+        return -2;
+    }
+
     if (moonlight_settings_get_all(&settings) != 0) {
+        vita_debug_log("[GameStream] settings get_all failed");
         return -2;
     }
 
