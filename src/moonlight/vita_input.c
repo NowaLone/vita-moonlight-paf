@@ -30,6 +30,7 @@ static int s_back_deadzone_left = 0;
 
 static SceCtrlData s_pad;
 static SceCtrlData s_pad_old;
+static SceTouchData s_back;
 static uint32_t s_back_buttons_old = 0;
 
 static short vita_axis_to_limelight(unsigned char value)
@@ -201,6 +202,7 @@ static void vita_input_process(void)
 
     sceCtrlSetSamplingModeExt(SCE_CTRL_MODE_ANALOG_WIDE);
     sceCtrlPeekBufferPositiveExt2(0, &s_pad, 1);
+    sceTouchPeek(SCE_TOUCH_PORT_BACK, &s_back, 1);
 
     ps_pressed = (s_pad.buttons & SCE_CTRL_PSBUTTON) != 0;
     ps_pressed_old = (s_pad_old.buttons & SCE_CTRL_PSBUTTON) != 0;
@@ -318,6 +320,7 @@ void vita_input_start(void)
 
     memset(&s_pad, 0, sizeof(s_pad));
     memset(&s_pad_old, 0, sizeof(s_pad_old));
+    memset(&s_back, 0, sizeof(s_back));
     s_back_buttons_old = 0;
 
     /*
