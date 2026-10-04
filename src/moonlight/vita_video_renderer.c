@@ -21,6 +21,7 @@ static SceUID s_frame_memblocks[VITA_VIDEO_FRAME_COUNT] = { -1, -1, -1 };
 static void *s_frame_buffers[VITA_VIDEO_FRAME_COUNT] = { NULL, NULL, NULL };
 static int s_frame_gpu_mapped[VITA_VIDEO_FRAME_COUNT] = { 0, 0, 0 };
 static unsigned int s_frame_index = 0;
+static int s_frame_pool_pending_release;
 static SceVideodecQueryInitInfoHwAvcdec *s_init_info;
 static SceAvcdecQueryDecoderInfo *s_decoder_info;
 static char *s_decoder_buffer;
@@ -280,31 +281,13 @@ static void vita_video_cleanup(void)
 
     gs_sps_stop();
 
-    {
-        int frame_index;
-        for (frame_index = 0;
-             frame_index < VITA_VIDEO_FRAME_COUNT;
-             ++frame_index) {
-            if (s_frame_gpu_mapped[frame_index] &&
-                s_frame_buffers[frame_index]) {
-                int result = sceGxmUnmapMemory(
-                    s_frame_buffers[frame_index]);
-                vita_debug_log(
-                    "[Video] frame[%d] sceGxmUnmapMemory result=0x%08x",
-                    frame_index,
-                    result);
-                s_frame_gpu_mapped[frame_index] = 0;
-            }
-
-            if (s_frame_memblocks[frame_index] >= 0) {
-                sceKernelFreeMemBlock(s_frame_memblocks[frame_index]);
-                s_frame_memblocks[frame_index] = -1;
-            }
-
-            s_frame_buffers[frame_index] = NULL;
-        }
-        s_frame_index = 0;
-    }
+    /*
+     * PAF owns graph::Surface objects which reference these framebuffers.
+     * Limelight cleanup runs before the STREAM_STOPPED event reaches the
+     * PAF main thread, so keep the GPU-visible buffers alive until that page
+     * has been detached and destroyed.
+     */
+    s_frame_pool_pending_release = 1;
 
     if (s_decoder_memblock >= 0) {
         sceKernelFreeMemBlock(s_decoder_memblock);
@@ -326,6 +309,46 @@ static void vita_video_cleanup(void)
     vita_debug_log(
         "[Video] decoded frames=%u",
         s_decoded_frames);
+}
+
+static void vita_video_release_frame_buffers_internal(void)
+{
+    int frame_index;
+
+    if (!s_frame_pool_pending_release) {
+        return;
+    }
+
+    for (frame_index = 0;
+         frame_index < VITA_VIDEO_FRAME_COUNT;
+         ++frame_index) {
+        if (s_frame_gpu_mapped[frame_index] &&
+            s_frame_buffers[frame_index]) {
+            int result = sceGxmUnmapMemory(s_frame_buffers[frame_index]);
+            vita_debug_log(
+                "[Video] frame[%d] release unmap result=0x%08x",
+                frame_index,
+                result);
+            s_frame_gpu_mapped[frame_index] = 0;
+        }
+
+        if (s_frame_memblocks[frame_index] >= 0) {
+            sceKernelFreeMemBlock(s_frame_memblocks[frame_index]);
+            s_frame_memblocks[frame_index] = -1;
+        }
+
+        s_frame_buffers[frame_index] = NULL;
+    }
+
+    s_frame_index = 0;
+    s_frame_pool_pending_release = 0;
+
+    vita_debug_log("[Video] deferred frame buffers released");
+}
+
+extern "C" void moonlight_video_release_frame_buffers(void)
+{
+    vita_video_release_frame_buffers_internal();
 }
 
 static int vita_video_submit(PDECODE_UNIT decode_unit)
