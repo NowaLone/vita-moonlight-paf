@@ -10,6 +10,7 @@
 
 #include "debug.h"
 #include "sps.h"
+#include "vita_video_renderer.h"
 
 static SceAvcdecCtrl *s_decoder;
 static SceUID s_decoder_memblock = -1;
@@ -204,7 +205,6 @@ fail_info:
     s_decoder_info = NULL;
 fail_library:
     sceVideodecTermLibrary(SCE_VIDEODEC_TYPE_HW_AVCDEC);
-fail_library_info:
     free(s_init_info);
     s_init_info = NULL;
 fail:
