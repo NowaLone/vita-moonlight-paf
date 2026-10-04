@@ -3,6 +3,7 @@
 #include <arpa/inet.h>
 #include <curl/curl.h>
 #include <psp2/kernel/rng.h>
+#include <pthread.h>
 
 #include <Limelight.h>
 
@@ -27,7 +28,17 @@ struct StreamContext {
     int started;
 };
 
+struct StreamThreadArgs {
+    LegacyGameStreamServer *server;
+    char unique_path[512];
+    int application_id;
+    MoonlightSettings settings;
+};
+
 static StreamContext s_stream_context = { NULL, NULL, 0 };
+static pthread_t s_stream_thread;
+static volatile int s_stream_thread_running = 0;
+static int s_stream_thread_created = 0;
 
 static size_t write_response(void *contents, size_t size, size_t count, void *userdata)
 {
@@ -332,15 +343,11 @@ static int load_launch_session(
     return 0;
 }
 
-}
-
-extern "C" int moonlight_stream_start(
+static int run_stream_session(
     LegacyGameStreamServer *server,
     const char *unique_path,
     int application_id,
-    const MoonlightSettings *settings,
-    MoonlightStreamEventCallback callback,
-    void *userdata)
+    const MoonlightSettings *settings)
 {
     char session_url[256];
     unsigned char remote_key[16];
@@ -349,10 +356,6 @@ extern "C" int moonlight_stream_start(
     STREAM_CONFIGURATION stream_config;
     CONNECTION_LISTENER_CALLBACKS callbacks;
     int result;
-
-    if (!server || !settings || !server->curl || !server->address[0]) {
-        return -1;
-    }
 
     memset(&session_url, 0, sizeof(session_url));
     memset(remote_key, 0, sizeof(remote_key));
@@ -407,9 +410,6 @@ extern "C" int moonlight_stream_start(
             : SCM_H264;
 
     initialize_connection_callbacks(&callbacks);
-    s_stream_context.callback = callback;
-    s_stream_context.userdata = userdata;
-    s_stream_context.started = 0;
 
     vita_debug_log(
         "[Stream] LiStartConnection %dx%d %dfps %dkbps server=%s codec=0x%08x",
@@ -435,16 +435,102 @@ extern "C" int moonlight_stream_start(
         vita_debug_log(
             "[Stream] LiStartConnection failed result=%d",
             result);
-        if (!s_stream_context.started) {
-            emit_event(MOONLIGHT_EVENT_STREAM_FAILED, result);
-        }
-        s_stream_context.callback = NULL;
-        s_stream_context.userdata = NULL;
-        return result;
     }
 
-    s_stream_context.callback = NULL;
-    s_stream_context.userdata = NULL;
+    return result;
+}
+
+static void *stream_thread_main(void *arg)
+{
+    StreamThreadArgs *args = (StreamThreadArgs *)arg;
+    int result;
+
+    vita_debug_log(
+        "[Stream] worker start app=%d",
+        args->application_id);
+
+    result = run_stream_session(
+        args->server,
+        args->unique_path,
+        args->application_id,
+        &args->settings);
+
+    vita_debug_log(
+        "[Stream] worker finished app=%d result=%d",
+        args->application_id,
+        result);
+
+    if (result != 0 && !s_stream_context.started) {
+        emit_event(MOONLIGHT_EVENT_STREAM_FAILED, result);
+    }
+
+    free(args);
+    s_stream_thread_running = 0;
+    return NULL;
+}
+
+}
+
+extern "C" int moonlight_stream_start(
+    LegacyGameStreamServer *server,
+    const char *unique_path,
+    int application_id,
+    const MoonlightSettings *settings,
+    MoonlightStreamEventCallback callback,
+    void *userdata)
+{
+    StreamThreadArgs *args;
+    int result;
+
+    if (!server || !settings || !server->curl || !server->address[0] ||
+        !unique_path) {
+        return -1;
+    }
+
+    if (s_stream_thread_running) {
+        vita_debug_log("[Stream] start rejected: worker already running");
+        return -2;
+    }
+
+    args = (StreamThreadArgs *)malloc(sizeof(*args));
+    if (!args) {
+        return -3;
+    }
+
+    args->server = server;
+    strncpy(args->unique_path, unique_path, sizeof(args->unique_path) - 1);
+    args->unique_path[sizeof(args->unique_path) - 1] = '\0';
+    args->application_id = application_id;
+    args->settings = *settings;
+
+    s_stream_context.callback = callback;
+    s_stream_context.userdata = userdata;
+    s_stream_context.started = 0;
+
+    s_stream_thread_running = 1;
+    result = pthread_create(
+        &s_stream_thread,
+        NULL,
+        stream_thread_main,
+        args);
+    if (result != 0) {
+        s_stream_thread_running = 0;
+        free(args);
+        vita_debug_log(
+            "[Stream] pthread_create failed result=%d",
+            result);
+        s_stream_context.callback = NULL;
+        s_stream_context.userdata = NULL;
+        return -4;
+    }
+
+    s_stream_thread_created = 1;
+    pthread_detach(s_stream_thread);
+
+    vita_debug_log(
+        "[Stream] worker launched for app=%d",
+        application_id);
+
     return 0;
 }
 
