@@ -36,36 +36,7 @@ private:
     MoonlightHost m_host;
 };
 
-class StartJob : public paf::job::JobItem {
-public:
-    StartJob(MoonlightBackend &backend, int application_id)
-        : paf::job::JobItem("ConnectionService::StartJob", NULL),
-          m_backend(backend),
-          m_application_id(application_id)
-    {
-    }
 
-    virtual ~StartJob() {}
-
-    virtual void Run()
-    {
-        vita_debug_log(
-            "[ConnectionService] StartJob::Run app=%d",
-            m_application_id);
-        int result = m_backend.StartApplication(m_application_id);
-        vita_debug_log(
-            "[ConnectionService] StartJob::Run result=%d",
-            result);
-    }
-
-    virtual void Finish() {}
-
-private:
-    MoonlightBackend &m_backend;
-    int m_application_id;
-};
-
-}
 
 ConnectionService::ConnectionService(MoonlightBackend &backend)
     : m_backend(backend)
@@ -97,20 +68,22 @@ int ConnectionService::Connect(const MoonlightHost &host)
 
 int ConnectionService::Start(int application_id)
 {
-    if (paf::job::JobQueue::default_queue == NULL) {
-        vita_debug_log("[ConnectionService] Start: no default job queue");
-        return -1;
-    }
-
-    paf::common::SharedPtr<paf::job::JobItem> item(
-        new StartJob(m_backend, application_id)
-    );
-
-    int result = paf::job::JobQueue::default_queue->Enqueue(item);
     vita_debug_log(
-        "[ConnectionService] Start enqueue app=%d result=%d",
+        "[ConnectionService] Start app=%d",
+        application_id);
+
+    /*
+     * moonlight_stream_start() creates its own worker thread, so putting the
+     * operation into PAF's JobQueue only adds another asynchronous hop and
+     * can hide launch failures from the caller/UI.
+     */
+    int result = m_backend.StartApplication(application_id);
+
+    vita_debug_log(
+        "[ConnectionService] Start app=%d result=%d",
         application_id,
         result);
+
     return result;
 }
 
