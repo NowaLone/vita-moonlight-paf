@@ -1,6 +1,8 @@
 #ifndef VITA_MOONLIGHT_MOTION_H
 #define VITA_MOONLIGHT_MOTION_H
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
