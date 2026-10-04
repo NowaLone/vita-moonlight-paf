@@ -535,9 +535,26 @@ extern "C" int moonlight_stream_start(
 
 static void *stream_stop_thread_main(void *)
 {
+    int was_started;
+
     vita_debug_log("[Stream] stop worker start");
+
     LiStopConnection();
+
+    was_started = s_stream_context.started;
+    s_stream_context.started = 0;
     s_stream_stop_requested = 0;
+
+    /*
+     * moonlight-common-c deliberately does not invoke
+     * connectionTerminated() after LiStopConnection(). Emit our own
+     * application-level stop event once Limelight has finished cleanup.
+     */
+    if (was_started) {
+        vita_debug_log("[Stream] emitting manual STREAM_STOPPED");
+        emit_event(MOONLIGHT_EVENT_STREAM_STOPPED, 0);
+    }
+
     vita_debug_log("[Stream] stop worker finished");
     return NULL;
 }
