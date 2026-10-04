@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-int vita_input_configure(int controller_type, int swap_shoulder_buttons);
+int vita_input_configure(int controller_type, int swap_shoulder_buttons, int ps_button_capture);
 void vita_input_start(void);
 void vita_input_stop(void);
 
