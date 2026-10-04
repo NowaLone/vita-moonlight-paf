@@ -15,6 +15,7 @@ void moonlight_video_present(
 
 void moonlight_video_invalidate(void);
 void moonlight_video_release_frame_buffers(void);
+unsigned int moonlight_video_get_frame_pool_generation(void);
 
 #ifdef __cplusplus
 }
