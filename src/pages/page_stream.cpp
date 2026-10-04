@@ -44,26 +44,43 @@ Stream *Stream::Instance()
 
 void Stream::PresentTask(void *)
 {
-    while (true) {
-        Frame frame = { NULL, 0, 0, 0, false };
+    Frame frame = { NULL, 0, 0, 0, false };
 
-        thread::RMutex::main_thread_mutex.Lock();
+    thread::RMutex::main_thread_mutex.Lock();
 
-        if (!s_pending_frame.valid) {
-            s_task_registered = false;
-            thread::RMutex::main_thread_mutex.Unlock();
-            return;
-        }
-
-        frame = s_pending_frame;
-        s_pending_frame.valid = false;
-
+    if (!s_pending_frame.valid) {
+        s_task_registered = false;
         thread::RMutex::main_thread_mutex.Unlock();
+        return;
+    }
 
-        Stream *stream = s_instance;
-        if (stream) {
-            stream->PresentFrame(frame);
-        }
+    frame = s_pending_frame;
+    s_pending_frame.valid = false;
+
+    thread::RMutex::main_thread_mutex.Unlock();
+
+    Stream *stream = s_instance;
+    if (stream) {
+        stream->PresentFrame(frame);
+    }
+
+    /*
+     * MainThreadCallList callbacks must return promptly. Keep at most one
+     * callback queued while the decoder continuously produces frames.
+     */
+    bool register_task = false;
+    thread::RMutex::main_thread_mutex.Lock();
+
+    if (s_pending_frame.valid && s_instance != NULL) {
+        register_task = true;
+    } else {
+        s_task_registered = false;
+    }
+
+    thread::RMutex::main_thread_mutex.Unlock();
+
+    if (register_task) {
+        common::MainThreadCallList::Register(PresentTask, NULL);
     }
 }
 
