@@ -1,4 +1,5 @@
 #include <paf.h>
+#include <stdint.h>
 
 #include "debug.h"
 #include "app/moonlight_app.h"
@@ -13,6 +14,7 @@ Stream *Stream::s_instance = NULL;
 Stream::Frame Stream::s_pending_frame = { NULL, 0, 0, 0, false };
 bool Stream::s_task_registered = false;
 unsigned int Stream::s_release_delay = 0;
+unsigned int Stream::s_generation = 0;
 
 Stream::Stream()
     : Base("page_stream", NULL,
@@ -22,6 +24,11 @@ Stream::Stream()
       m_stopping(false)
 {
     unsigned int i;
+
+    ++s_generation;
+    if (s_generation == 0) {
+        ++s_generation;
+    }
 
     s_instance = this;
 
@@ -148,13 +155,24 @@ void Stream::PresentTask(void *)
     }
 }
 
-void Stream::ReleaseFrameBuffersTask(void *)
+void Stream::ReleaseFrameBuffersTask(void *userdata)
 {
+    unsigned int generation =
+        (unsigned int)(uintptr_t)userdata;
+
+    /*
+     * A delayed task from an older stream must never release the framebuffer
+     * pool belonging to a newer stream.
+     */
+    if (generation != s_generation || s_instance != NULL) {
+        return;
+    }
+
     if (s_release_delay != 0) {
         --s_release_delay;
         common::MainThreadCallList::Register(
             ReleaseFrameBuffersTask,
-            NULL);
+            userdata);
         return;
     }
 
@@ -163,10 +181,12 @@ void Stream::ReleaseFrameBuffersTask(void *)
 
 void Stream::ScheduleFrameBufferRelease()
 {
+    unsigned int generation = s_generation;
+
     s_release_delay = 3;
     common::MainThreadCallList::Register(
         ReleaseFrameBuffersTask,
-        NULL);
+        (void *)(uintptr_t)generation);
 }
 
 void Stream::OnPadUpdate(paf::inputdevice::Data *data)
