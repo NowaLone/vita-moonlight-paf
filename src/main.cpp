@@ -59,6 +59,19 @@ void _free_vita_malloc(void);
 void _free_vita_reent(void);
 void _free_vita_heap(void);
 
+/*
+ * -nostartfiles/-nostdlib removes crti/crtn, which normally provide
+ * _init/_fini.  This module has its own entry point and initializes
+ * newlib explicitly, so these hooks intentionally remain no-ops.
+ */
+void _init(void)
+{
+}
+
+void _fini(void)
+{
+}
+
 void _free_vita_newlib(void)
 {
 	_free_vita_io();
