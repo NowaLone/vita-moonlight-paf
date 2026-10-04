@@ -10,6 +10,8 @@
 
 #include "debug.h"
 #include "moonlight/stream_session.h"
+#include "vita_touch.h"
+#include "vita_motion.h"
 
 static volatile bool s_input_active = false;
 static bool s_thread_started = false;
@@ -17,6 +19,9 @@ static uint8_t s_controller_type = LI_CTYPE_PS;
 static bool s_swap_shoulder_buttons = false;
 static bool s_ps_button_capture = true;
 static bool s_ps_button_locked = false;
+static int s_touchscreen_mode = 0;
+static int s_mouse_acceleration = 0;
+static bool s_motion_enabled = false;
 
 static SceCtrlData s_pad;
 static SceCtrlData s_pad_old;
@@ -142,6 +147,8 @@ static void vita_input_process(void)
         vita_input_send();
         memcpy(&s_pad_old, &s_pad, sizeof(SceCtrlData));
     }
+
+    vita_touch_process();
 }
 
 static int vita_input_thread(SceSize args, void *argp)
@@ -202,6 +209,13 @@ int vita_input_configure(
     s_controller_type = get_controller_type(controller_type);
     s_swap_shoulder_buttons = swap_shoulder_buttons != 0;
     s_ps_button_capture = ps_button_capture != 0;
+    s_touchscreen_mode = touchscreen_mode;
+    s_mouse_acceleration = mouse_acceleration;
+    s_motion_enabled = motion_enabled != 0;
+
+    vita_touch_configure(
+        s_touchscreen_mode,
+        s_mouse_acceleration);
 
     return 0;
 }
@@ -217,12 +231,24 @@ void vita_input_start(void)
      * Match the controller declaration used by the original Vita Moonlight.
      * We currently implement the standard Vita buttons and both analog sticks.
      */
+    uint32_t supported_buttons = 0xFFFF;
+    uint16_t capabilities = LI_CCAP_ANALOG_TRIGGERS;
+
+    if (s_touchscreen_mode == 1) {
+        supported_buttons |= TOUCHPAD_FLAG;
+        capabilities |= LI_CCAP_TOUCHPAD;
+    }
+
+    if (s_motion_enabled) {
+        capabilities |= LI_CCAP_GYRO | LI_CCAP_ACCEL;
+    }
+
     LiSendControllerArrivalEvent(
         0,
         1,
         s_controller_type,
-        0xFFFF,
-        LI_CCAP_ANALOG_TRIGGERS);
+        supported_buttons,
+        capabilities);
 
     if (s_ps_button_capture && !s_ps_button_locked) {
         int result = sceShellUtilLock(
@@ -239,18 +265,25 @@ void vita_input_start(void)
             (unsigned int)result);
     }
 
+    vita_touch_start();
+    vita_motion_start(s_motion_enabled ? 1 : 0);
     s_input_active = true;
 
     vita_debug_log(
-        "[Input] start type=%u swap_shoulders=%d ps_capture=%d",
+        "[Input] start type=%u swap_shoulders=%d ps_capture=%d touch_mode=%d motion=%d",
         (unsigned int)s_controller_type,
         s_swap_shoulder_buttons ? 1 : 0,
-        s_ps_button_capture ? 1 : 0);
+        s_ps_button_capture ? 1 : 0,
+        s_touchscreen_mode,
+        s_motion_enabled ? 1 : 0);
 }
 
 void vita_input_stop(void)
 {
     s_input_active = false;
+
+    vita_touch_stop();
+    vita_motion_stop();
 
     /*
      * Explicitly release every host-side button/trigger before the input
@@ -285,4 +318,15 @@ void vita_input_stop(void)
     }
 
     vita_debug_log("[Input] stop");
+}
+
+void vita_input_set_motion_state(
+    uint16_t controller,
+    uint8_t motion_type,
+    uint16_t report_rate_hz)
+{
+    vita_motion_set_state(
+        controller,
+        motion_type,
+        report_rate_hz);
 }
