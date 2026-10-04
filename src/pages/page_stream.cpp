@@ -3,6 +3,7 @@
 #include "debug.h"
 #include "app/moonlight_app.h"
 #include "pages/page_stream.h"
+#include "../moonlight/vita_video_renderer.h"
 
 using namespace paf;
 
