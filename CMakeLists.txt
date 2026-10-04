@@ -120,6 +120,10 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/api.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/stream_session.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/vita_video_renderer.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/sps.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/h264bitstream/h264_stream.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/h264bitstream/h264_nal.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/h264bitstream/h264_sei.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/settings.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_main.cpp
@@ -137,6 +141,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src
   ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/reedsolomon
   ${CMAKE_CURRENT_SOURCE_DIR}/third_party/enet/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/h264bitstream
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight
 )
 
 target_link_libraries(${PROJECT_NAME}
