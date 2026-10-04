@@ -33,7 +33,7 @@ Stream::~Stream()
         s_instance = NULL;
     }
 
-    m_surface.reset();
+    m_surface.clear();
     m_video_plane = NULL;
 }
 
