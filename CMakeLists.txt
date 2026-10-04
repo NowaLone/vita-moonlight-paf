@@ -122,6 +122,8 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/vita_video_renderer.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/vita_audio_renderer.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/vita_input.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/vita_touch.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/vita_motion.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/sps.c
   ${CMAKE_CURRENT_SOURCE_DIR}/third_party/h264bitstream/h264_stream.c
   ${CMAKE_CURRENT_SOURCE_DIR}/third_party/h264bitstream/h264_nal.c
@@ -167,6 +169,8 @@ target_link_libraries(${PROJECT_NAME}
   SceRtc_stub
   SceSysmodule_stub
   SceCtrl_stub
+  SceTouch_stub
+  SceMotion_stub
   SceShellSvc_stub
   SceLibKernel_stub
   SceLibc_stub_weak
