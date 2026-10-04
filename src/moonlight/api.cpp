@@ -31,6 +31,7 @@ static int s_application_count = 0;
 static bool s_applications_valid = false;
 static int s_stream_application_id = -1;
 static bool s_stream_active = false;
+static bool s_stream_pending = false;
 
 static void emit(MoonlightEventType type,
                  int result,
@@ -137,12 +138,15 @@ static void on_stream_event(
     (void)userdata;
 
     if (type == MOONLIGHT_EVENT_STREAM_STARTED) {
+        s_stream_pending = false;
         s_stream_active = true;
         s_connection_state = MOONLIGHT_CONNECTION_STREAMING;
     } else if (type == MOONLIGHT_EVENT_STREAM_STOPPED) {
+        s_stream_pending = false;
         s_stream_active = false;
         s_connection_state = MOONLIGHT_CONNECTION_PAIRED;
     } else if (type == MOONLIGHT_EVENT_STREAM_FAILED) {
+        s_stream_pending = false;
         s_stream_active = false;
         s_connection_state = MOONLIGHT_CONNECTION_PAIRED;
     }
@@ -153,6 +157,11 @@ static void on_stream_event(
         s_current_host.id,
         s_stream_application_id,
         s_current_host.internal);
+
+    if (type == MOONLIGHT_EVENT_STREAM_STOPPED ||
+        type == MOONLIGHT_EVENT_STREAM_FAILED) {
+        s_stream_application_id = -1;
+    }
 }
 
 }
@@ -169,9 +178,11 @@ int moonlight_api_init(void)
 
 void moonlight_api_shutdown(void)
 {
-    if (s_stream_active) {
+    if (s_stream_active || s_stream_pending) {
         moonlight_stream_stop();
         s_stream_active = false;
+        s_stream_pending = false;
+        s_stream_application_id = -1;
     }
     legacy_gamestream_shutdown(&s_server);
     s_game_stream_initialized = false;
@@ -573,6 +584,8 @@ int moonlight_api_start_application(int application_id)
     }
 
     s_stream_application_id = application_id;
+    s_stream_pending = true;
+
     result = moonlight_stream_start(
         &s_server,
         unique_path,
@@ -580,7 +593,11 @@ int moonlight_api_start_application(int application_id)
         &settings,
         on_stream_event,
         NULL);
-    s_stream_application_id = -1;
+
+    if (result != 0) {
+        s_stream_pending = false;
+        s_stream_application_id = -1;
+    }
 
     if (result != 0) {
         vita_debug_log(
