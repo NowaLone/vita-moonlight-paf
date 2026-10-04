@@ -4,6 +4,7 @@
 #include "pages/page_apps.h"
 #include "app/moonlight_app.h"
 #include "pages/page_stream.h"
+#include "moonlight/vita_video_renderer.h"
 
 namespace page {
 
@@ -191,6 +192,13 @@ void Apps::OnMoonlightEvent(const MoonlightEvent *event, void *userdata) {
             page::Base *stream = page::Base::Find("page_stream");
             delete stream;
         }
+
+        /*
+         * Decoder cleanup keeps the framebuffers alive until the PAF page
+         * is gone, because its graph::Surface objects reference those buffers.
+         */
+        moonlight_video_release_frame_buffers();
+
         apps->m_launching = false;
         apps->SetStatus("Stream stopped");
         break;
