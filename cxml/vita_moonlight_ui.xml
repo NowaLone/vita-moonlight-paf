@@ -5,22 +5,36 @@
     <page id="page_main">
       <plane texture="_bg_texture" id="plane_main_bg">
         <layout_hint size="960, 544" />
-        <text style="style_text_title" label="msg_moonlight_title" id="text_title">
-          <layout_hint adjust="2, 2" pos="0, 170" />
-        </text>
-        <text style="style_text_body" label="msg_no_pcs" id="text_no_pcs">
-          <layout_hint adjust="2, 2" pos="0, 90" />
-        </text>
-        <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_search_pcs" id="btn_search_pcs">
-          <layout_hint pos="0, 10" size="320, 72" />
-        </button>
-        <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_add_manually" id="btn_add_manually">
-          <layout_hint pos="0, -80" size="320, 72" />
-        </button>
-        <corner_button style="_common_style_corner_bottom_right" id="settings_button" />
       </plane>
-    </page>
 
+      <plane style="_common_style_plane_transparent" id="plane_main_top">
+        <layout_hint align="0, 2" size="960, 64" pos="0, 240" />
+        <text style="style_text_main_title" id="text_title">
+          <layout_hint size="760, 0" align="0, 4" adjust="0, 2" pos="0, 0" />
+        </text>
+        <plane texture="_common_texture_ruled_line" id="plane_main_top_separator">
+          <layout_hint size="960, 2" pos="0, 0" anchor="0, 1" />
+        </plane>
+      </plane>
+
+      <text style="style_text_main_status" label="msg_select_pc" id="text_main_status">
+        <layout_hint adjust="2, 2" pos="0, 190" />
+      </text>
+
+      <list_view style="style_list_view_main" id="host_list">
+        <layout_hint anchor="0, 2" align="0, 2" size="960, 360" pos="0, -98" />
+      </list_view>
+
+      <button sound="_common_sound_button_enter" style="style_button_main_action" label="msg_search_pcs" id="btn_search_pcs">
+        <layout_hint size="270, 62" pos="-145, -260" />
+      </button>
+
+      <button sound="_common_sound_button_enter" style="style_button_main_action" label="msg_add_manually" id="btn_add_manually">
+        <layout_hint size="270, 62" pos="145, -260" />
+      </button>
+
+      <corner_button style="_common_style_corner_bottom_right" id="settings_button" />
+    </page>
     <page id="page_search_pcs">
       <plane style="style_plane_fill" id="plane_search_fill">
         <layout_hint size="960, 544" />
@@ -143,6 +157,42 @@
       <textobj font_size="36" bold="1" color="1, 1, 1, 1" align_x="1" align_y="1" ellipsis="0" emboss="0" id="title_obj" />
     </style_text>
 
+    <style_text id="style_text_main_title">
+      <textobj font_size="34" bold="1" color="1, 1, 1, 1" align_x="0" align_y="1" ellipsis="0" emboss="0" id="main_title_obj" />
+    </style_text>
+
+    <style_text id="style_text_main_status">
+      <textobj font_size="22" bold="0" color="1, 1, 1, 0.90" align_x="1" align_y="1" word_wrap="1" ellipsis="1" id="main_status_obj" />
+    </style_text>
+
+    <style_list_view color="0, 0, 0, 0" sbar_v_margin="6, 24, 9" id="style_list_view_main" />
+    <style_list_item color="1, 1, 1, 0" id="style_list_item_main" />
+
+    <style_image_button
+      layout_type_x="1"
+      layout_type_y="0"
+      color="1, 1, 1, 1"
+      glow_obj="main_list_glow"
+      label_obj="main_list_label"
+      bg_obj="main_list_bg"
+      image_margin="10"
+      id="style_image_button_main_list">
+      <planeobj texture0="_common_texture_list_70px" id="main_list_bg" />
+      <textobj font_size="28" bold="1" max_line_count="2" enlarge_line_pitch="1" line_pitch="28" word_wrap="1" ellipsis="1" align_y="1" id="main_list_label" />
+      <planeobj texture0="_common_texture_list_glow_70px" blend="2" id="main_list_glow" />
+    </style_image_button>
+
+    <style_button id="style_button_main_action"
+      bottom_margin="12" right_margin="20" top_margin="12" left_margin="20"
+      label_obj="main_action_label"
+      bg_obj="main_action_bg"
+      glow_obj="main_action_glow"
+      sound="_common_sound_button_enter">
+      <planeobj texture0="_common_texture_list_70px" id="main_action_bg" />
+      <textobj font_size="24" bold="1" align_y="1" align_x="1" ellipsis="1" id="main_action_label" />
+      <planeobj texture0="_common_texture_list_glow_70px" blend="2" id="main_action_glow" />
+    </style_button>
+
     <style_text id="style_text_body">
       <textobj font_size="22" bold="0" color="1, 1, 1, 0.85" align_x="1" align_y="1" word_wrap="1" ellipsis="0" emboss="0" id="body_obj" />
     </style_text>
@@ -157,6 +207,22 @@
   <texturetable>
     <texture src="texture/bg.png" id="_bg_texture" type="texture/png" />
   </texturetable>
+
+    <templatetable>
+      <template fast_open="1" id="template_host_list_item">
+        <list_item style="style_list_item_main" id="list_item_host">
+          <layout_hint size="960, 78" />
+          <image_button
+            sound="_common_sound_image_button"
+            enable_long_press_text_auto_scroll="1"
+            style="style_image_button_main_list"
+            id="image_button_host">
+            <focus_hint focus_shape="3" />
+            <layout_hint size="840, 70" />
+          </image_button>
+        </list_item>
+      </template>
+    </templatetable>
 
   <stringtable>
     <locale src="locale/en.xml" compress="on" id="en" />
