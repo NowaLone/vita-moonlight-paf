@@ -1,5 +1,6 @@
 #include <psp2/kernel/sysmem.h>
 #include <psp2/kernel/threadmgr.h>
+#include <psp2/display.h>
 #include <psp2/videodec.h>
 
 #include <Limelight.h>
@@ -20,6 +21,8 @@ static size_t s_decoder_buffer_size;
 static void *s_frame_buffer;
 static unsigned int s_frame_width;
 static unsigned int s_frame_height;
+static const unsigned int s_output_width = 960;
+static const unsigned int s_output_height = 544;
 static volatile int s_active;
 static unsigned int s_decoded_frames;
 
@@ -45,8 +48,8 @@ static int vita_video_setup(
         return -1;
     }
 
-    s_frame_width = (unsigned int)((width + 15) & ~15);
-    s_frame_height = (unsigned int)((height + 15) & ~15);
+    s_frame_width = s_output_width;
+    s_frame_height = s_output_height;
 
     s_decoder_buffer_size = 128 * 1024 + 64;
     s_decoder_buffer = (char *)malloc(s_decoder_buffer_size);
@@ -100,6 +103,11 @@ static int vita_video_setup(
         goto fail_info;
     }
 
+    vita_debug_log(
+        "[Video] decoder frameMemSize=0x%08x alloc=0x%08x",
+        (unsigned int)decoder_mem_info.frameMemSize,
+        (unsigned int)decoder_size);
+
     s_decoder->frameBuf.size = decoder_size;
     s_decoder_memblock = sceKernelAllocMemBlock(
         "moonlight_decoder",
@@ -134,13 +142,24 @@ static int vita_video_setup(
         goto fail_decoder_memblock;
     }
 
-    frame_size = (size_t)s_frame_width * (size_t)s_frame_height * 4;
-    frame_size = (frame_size + 0xFFFF) & ~(size_t)0xFFFF;
+    /*
+     * The original vita-moonlight renderer uses a 960x544 framebuffer
+     * (2 MiB CDRAM) even when the stream itself is 1280x720. The decoder
+     * writes its output directly into that display-sized buffer.
+     */
+    frame_size = 2 * 1024 * 1024;
+
+    SceKernelAllocMemBlockOpt frame_opt;
+    memset(&frame_opt, 0, sizeof(frame_opt));
+    frame_opt.size = sizeof(frame_opt);
+    frame_opt.attr = 0x00000004;
+    frame_opt.alignment = 256 * 1024;
+
     s_frame_memblock = sceKernelAllocMemBlock(
         "moonlight_frame",
-        SCE_KERNEL_MEMBLOCK_TYPE_USER_MAIN_PHYCONT_NC_RW,
+        SCE_KERNEL_MEMBLOCK_TYPE_USER_CDRAM_RW,
         frame_size,
-        NULL);
+        &frame_opt);
     if (s_frame_memblock < 0) {
         vita_debug_log(
             "[Video] frame memblock failed 0x%08x",
@@ -316,5 +335,6 @@ DECODER_RENDERER_CALLBACKS decoder_callbacks_vita = {
     .stop = NULL,
     .cleanup = vita_video_cleanup,
     .submitDecodeUnit = vita_video_submit,
-    .capabilities = CAPABILITY_DIRECT_SUBMIT
+    .capabilities = CAPABILITY_DIRECT_SUBMIT |
+                    CAPABILITY_SLICES_PER_FRAME(2)
 };
