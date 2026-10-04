@@ -70,7 +70,6 @@ private:
     static Frame s_pending_frame;
     static bool s_task_registered;
     static unsigned int s_release_delay;
-    static unsigned int s_generation;
 };
 
 }
