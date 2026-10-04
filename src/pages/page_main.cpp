@@ -48,6 +48,11 @@ static void onSettingsButton(int32_t type, paf::ui::Handler *self, paf::ui::Even
     new OptionMenu(g_plugin, main ? main->root : NULL, onOptionMenu, NULL);
 }
 
+Main *Main::Instance()
+{
+    return s_main;
+}
+
 Main::Main()
     : Base("page_main", NULL,
            paf::Plugin::TransitionType_None,
