@@ -19,6 +19,8 @@ public:
         unsigned int pitch);
     static void InvalidateFrame();
     static void PresentTask(void *userdata);
+    static void ReleaseFrameBuffersTask(void *userdata);
+    static void ScheduleFrameBufferRelease();
 
 private:
     class PadListener : public paf::inputdevice::InputListener {
@@ -67,6 +69,7 @@ private:
     static Stream *s_instance;
     static Frame s_pending_frame;
     static bool s_task_registered;
+    static unsigned int s_release_delay;
 };
 
 }
