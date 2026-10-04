@@ -159,8 +159,16 @@ void vita_motion_init(void)
 
 void vita_motion_start(int enabled)
 {
-    vita_motion_init();
     s_enabled = enabled != 0;
+
+    if (!s_enabled) {
+        s_active = false;
+        s_gyro_rate = 0;
+        s_accel_rate = 0;
+        return;
+    }
+
+    vita_motion_init();
     s_active = true;
 }
 
