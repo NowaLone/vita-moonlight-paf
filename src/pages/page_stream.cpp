@@ -1,6 +1,7 @@
 #include <paf.h>
 
 #include "debug.h"
+#include "app/moonlight_app.h"
 #include "pages/page_stream.h"
 
 using namespace paf;
@@ -15,9 +16,15 @@ Stream::Stream()
     : Base("page_stream", NULL,
            Plugin::TransitionType_None,
            Plugin::TransitionType_None),
-      m_video_plane(NULL)
+      m_video_plane(NULL),
+      m_stopping(false)
 {
     unsigned int i;
+
+    paf::common::SharedPtr<paf::inputdevice::InputListener> listener(
+        new PadListener(this));
+    m_pad_listener = listener;
+    paf::inputdevice::AddInputListener(m_pad_listener);
 
     s_instance = this;
 
@@ -56,6 +63,9 @@ Stream::~Stream()
     if (s_instance == this) {
         s_instance = NULL;
     }
+
+    paf::inputdevice::DelInputListener(m_pad_listener);
+    m_pad_listener.reset();
 
     /*
      * Stop PAF from sampling the external framebuffer before dropping the
@@ -124,6 +134,23 @@ void Stream::PresentTask(void *)
 
     if (register_task) {
         common::MainThreadCallList::Register(PresentTask, NULL);
+    }
+}
+
+void Stream::OnPadUpdate(paf::inputdevice::Data *data)
+{
+    if (!data || !data->m_pad_data || !data->m_pad_data_pre || m_stopping) {
+        return;
+    }
+
+    const uint32_t buttons = data->m_pad_data->paddata;
+    const uint32_t previous = data->m_pad_data_pre->paddata;
+
+    if ((buttons & paf::inputdevice::pad::Data::PAD_ESCAPE) &&
+        !(previous & paf::inputdevice::pad::Data::PAD_ESCAPE)) {
+        m_stopping = true;
+        vita_debug_log("[StreamPage] stopping stream from PAD_ESCAPE");
+        MoonlightApp::Instance()->Connection().Stop();
     }
 }
 
