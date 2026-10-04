@@ -1,5 +1,6 @@
 #include <paf.h>
 
+#include "debug.h"
 #include "pages/page_stream.h"
 
 using namespace paf;
