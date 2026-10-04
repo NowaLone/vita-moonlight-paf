@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "debug.h"
+#include "sps.h"
 
 static SceAvcdecCtrl *s_decoder;
 static SceUID s_decoder_memblock = -1;
@@ -64,8 +65,10 @@ static int vita_video_setup(
     }
 
     s_init_info->size = sizeof(*s_init_info);
-    s_init_info->horizontal = s_frame_width;
-    s_init_info->vertical = s_frame_height;
+    gs_sps_init(width, height);
+
+    s_init_info->horizontal = (unsigned int)(((width + 15) / 16) * 16);
+    s_init_info->vertical = (unsigned int)(((height + 15) / 16) * 16);
     s_init_info->numOfRefFrames = 4;
     s_init_info->numOfStreams = 1;
 
@@ -220,6 +223,8 @@ static void vita_video_cleanup(void)
         s_decoder = NULL;
     }
 
+    gs_sps_stop();
+
     if (s_frame_memblock >= 0) {
         sceKernelFreeMemBlock(s_frame_memblock);
         s_frame_memblock = -1;
@@ -278,10 +283,29 @@ static int vita_video_submit(PDECODE_UNIT decode_unit)
     entry = decode_unit->bufferList;
     while (entry) {
         if (entry->length > 0) {
-            memcpy(s_decoder_buffer + length, entry->data, (size_t)entry->length);
-            length += (size_t)entry->length;
+            if (entry->bufferType == BUFFER_TYPE_SPS) {
+                gs_sps_fix(
+                    entry,
+                    GS_SPS_BITSTREAM_FIXUP,
+                    (uint8_t *)s_decoder_buffer,
+                    (uint32_t *)&length);
+            } else {
+                memcpy(
+                    s_decoder_buffer + length,
+                    entry->data,
+                    (size_t)entry->length);
+                length += (size_t)entry->length;
+            }
         }
         entry = entry->next;
+    }
+
+    if (length == 0 || length > (size_t)decode_unit->fullLength + 64) {
+        vita_debug_log(
+            "[Video] invalid assembled decode unit length=%u full=%u",
+            (unsigned int)length,
+            decode_unit->fullLength);
+        return DR_NEED_IDR;
     }
 
     memset(&au, 0, sizeof(au));
