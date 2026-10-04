@@ -246,7 +246,6 @@ fail_frame_pool:
         }
         s_frame_buffers[frame_index] = NULL;
     }
-fail_decoder_created:
     sceAvcdecDeleteDecoder(s_decoder);
 fail_decoder_memblock:
     sceKernelFreeMemBlock(s_decoder_memblock);
