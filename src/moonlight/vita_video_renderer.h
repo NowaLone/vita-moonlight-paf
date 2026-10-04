@@ -14,6 +14,7 @@ void moonlight_video_present(
     unsigned int pitch);
 
 void moonlight_video_invalidate(void);
+void moonlight_video_release_frame_buffers(void);
 
 #ifdef __cplusplus
 }
