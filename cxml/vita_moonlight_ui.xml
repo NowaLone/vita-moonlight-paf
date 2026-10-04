@@ -62,7 +62,7 @@
     </page>
 
     <page id="page_stream">
-      <plane id="plane_stream_video">
+      <plane texture="_bg_texture" id="plane_stream_video">
         <layout_hint size="960, 544" />
       </plane>
     </page>
