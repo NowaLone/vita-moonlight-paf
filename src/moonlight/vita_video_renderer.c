@@ -15,13 +15,16 @@
 
 static SceAvcdecCtrl *s_decoder;
 static SceUID s_decoder_memblock = -1;
-static SceUID s_frame_memblock = -1;
+#define VITA_VIDEO_FRAME_COUNT 3
+
+static SceUID s_frame_memblocks[VITA_VIDEO_FRAME_COUNT] = { -1, -1, -1 };
+static void *s_frame_buffers[VITA_VIDEO_FRAME_COUNT] = { NULL, NULL, NULL };
+static int s_frame_gpu_mapped[VITA_VIDEO_FRAME_COUNT] = { 0, 0, 0 };
+static unsigned int s_frame_index = 0;
 static SceVideodecQueryInitInfoHwAvcdec *s_init_info;
 static SceAvcdecQueryDecoderInfo *s_decoder_info;
 static char *s_decoder_buffer;
 static size_t s_decoder_buffer_size;
-static void *s_frame_buffer;
-static int s_frame_gpu_mapped;
 static unsigned int s_frame_width;
 static unsigned int s_frame_height;
 static const unsigned int s_output_width = 960;
@@ -154,51 +157,69 @@ static int vita_video_setup(
      */
     frame_size = 2 * 1024 * 1024;
 
-    SceKernelAllocMemBlockOpt frame_opt;
-    memset(&frame_opt, 0, sizeof(frame_opt));
-    frame_opt.size = sizeof(frame_opt);
-    frame_opt.attr = 0x00000004;
-    frame_opt.alignment = 256 * 1024;
+    int frame_index;
 
-    s_frame_memblock = sceKernelAllocMemBlock(
-        "moonlight_frame",
-        SCE_KERNEL_MEMBLOCK_TYPE_USER_CDRAM_RW,
-        frame_size,
-        &frame_opt);
-    if (s_frame_memblock < 0) {
+    /*
+     * Keep three external framebuffers, matching the triple-buffered pattern
+     * used by libvita2d. Each buffer gets its own PAF Surface and is reused
+     * only after two other decoder outputs have been produced.
+     */
+    s_frame_index = 0;
+
+    for (frame_index = 0;
+         frame_index < VITA_VIDEO_FRAME_COUNT;
+         ++frame_index) {
+        SceKernelAllocMemBlockOpt frame_opt;
+        memset(&frame_opt, 0, sizeof(frame_opt));
+        frame_opt.size = sizeof(frame_opt);
+        frame_opt.attr = 0x00000004;
+        frame_opt.alignment = 256 * 1024;
+
+        s_frame_memblocks[frame_index] = sceKernelAllocMemBlock(
+            "moonlight_frame",
+            SCE_KERNEL_MEMBLOCK_TYPE_USER_CDRAM_RW,
+            frame_size,
+            &frame_opt);
+        if (s_frame_memblocks[frame_index] < 0) {
+            vita_debug_log(
+                "[Video] frame[%d] memblock failed 0x%08x",
+                frame_index,
+                s_frame_memblocks[frame_index]);
+            goto fail_frame_pool;
+        }
+
+        result = sceKernelGetMemBlockBase(
+            s_frame_memblocks[frame_index],
+            &s_frame_buffers[frame_index]);
+        if (result < 0) {
+            vita_debug_log(
+                "[Video] frame[%d] base failed 0x%08x",
+                frame_index,
+                result);
+            goto fail_frame_pool;
+        }
+
+        result = sceGxmMapMemory(
+            s_frame_buffers[frame_index],
+            frame_size,
+            SCE_GXM_MEMORY_ATTRIB_READ |
+            SCE_GXM_MEMORY_ATTRIB_WRITE);
+        if (result < 0) {
+            vita_debug_log(
+                "[Video] frame[%d] sceGxmMapMemory failed 0x%08x",
+                frame_index,
+                result);
+            goto fail_frame_pool;
+        }
+        s_frame_gpu_mapped[frame_index] = 1;
+
+        memset(s_frame_buffers[frame_index], 0, frame_size);
+
         vita_debug_log(
-            "[Video] frame memblock failed 0x%08x",
-            s_frame_memblock);
-        goto fail_decoder_created;
+            "[Video] frame[%d] buffer=%p mapped",
+            frame_index,
+            s_frame_buffers[frame_index]);
     }
-
-    result = sceKernelGetMemBlockBase(s_frame_memblock, &s_frame_buffer);
-    if (result < 0) {
-        vita_debug_log(
-            "[Video] frame base failed 0x%08x",
-            result);
-        goto fail_frame_memblock;
-    }
-
-    result = sceGxmMapMemory(
-        s_frame_buffer,
-        frame_size,
-        SCE_GXM_MEMORY_ATTRIB_READ |
-        SCE_GXM_MEMORY_ATTRIB_WRITE);
-    if (result < 0) {
-        vita_debug_log(
-            "[Video] sceGxmMapMemory failed 0x%08x",
-            result);
-        goto fail_frame_memblock;
-    }
-    s_frame_gpu_mapped = 1;
-
-    vita_debug_log(
-        "[Video] frame mapped for GXM buffer=%p size=0x%08x",
-        s_frame_buffer,
-        (unsigned int)frame_size);
-
-    memset(s_frame_buffer, 0, frame_size);
 
     s_active = 1;
     s_decoded_frames = 0;
@@ -209,9 +230,21 @@ static int vita_video_setup(
         s_frame_height);
     return 0;
 
-fail_frame_memblock:
-    sceKernelFreeMemBlock(s_frame_memblock);
-    s_frame_memblock = -1;
+fail_frame_pool:
+    for (frame_index = 0;
+         frame_index < VITA_VIDEO_FRAME_COUNT;
+         ++frame_index) {
+        if (s_frame_gpu_mapped[frame_index] &&
+            s_frame_buffers[frame_index]) {
+            sceGxmUnmapMemory(s_frame_buffers[frame_index]);
+            s_frame_gpu_mapped[frame_index] = 0;
+        }
+        if (s_frame_memblocks[frame_index] >= 0) {
+            sceKernelFreeMemBlock(s_frame_memblocks[frame_index]);
+            s_frame_memblocks[frame_index] = -1;
+        }
+        s_frame_buffers[frame_index] = NULL;
+    }
 fail_decoder_created:
     sceAvcdecDeleteDecoder(s_decoder);
 fail_decoder_memblock:
@@ -247,18 +280,30 @@ static void vita_video_cleanup(void)
 
     gs_sps_stop();
 
-    if (s_frame_gpu_mapped && s_frame_buffer) {
-        int result = sceGxmUnmapMemory(s_frame_buffer);
-        vita_debug_log(
-            "[Video] sceGxmUnmapMemory result=0x%08x",
-            result);
-        s_frame_gpu_mapped = 0;
-    }
+    {
+        int frame_index;
+        for (frame_index = 0;
+             frame_index < VITA_VIDEO_FRAME_COUNT;
+             ++frame_index) {
+            if (s_frame_gpu_mapped[frame_index] &&
+                s_frame_buffers[frame_index]) {
+                int result = sceGxmUnmapMemory(
+                    s_frame_buffers[frame_index]);
+                vita_debug_log(
+                    "[Video] frame[%d] sceGxmUnmapMemory result=0x%08x",
+                    frame_index,
+                    result);
+                s_frame_gpu_mapped[frame_index] = 0;
+            }
 
-    if (s_frame_memblock >= 0) {
-        sceKernelFreeMemBlock(s_frame_memblock);
-        s_frame_memblock = -1;
-        s_frame_buffer = NULL;
+            if (s_frame_memblocks[frame_index] >= 0) {
+                sceKernelFreeMemBlock(s_frame_memblocks[frame_index]);
+                s_frame_memblocks[frame_index] = -1;
+            }
+
+            s_frame_buffers[frame_index] = NULL;
+        }
+        s_frame_index = 0;
     }
 
     if (s_decoder_memblock >= 0) {
@@ -294,7 +339,8 @@ static int vita_video_submit(PDECODE_UNIT decode_unit)
     size_t length = 0;
     int result;
 
-    if (!decode_unit || !s_decoder || !s_frame_buffer) {
+    if (!decode_unit || !s_decoder ||
+        !s_frame_buffers[s_frame_index]) {
         return DR_NEED_IDR;
     }
 
@@ -351,7 +397,7 @@ static int vita_video_submit(PDECODE_UNIT decode_unit)
     picture.frame.framePitch = s_frame_width;
     picture.frame.frameWidth = s_frame_width;
     picture.frame.frameHeight = s_frame_height;
-    picture.frame.pPicture[0] = s_frame_buffer;
+    picture.frame.pPicture[0] = s_frame_buffers[s_frame_index];
 
     au.es.pBuf = s_decoder_buffer;
     au.es.size = (uint32_t)length;
@@ -372,14 +418,18 @@ static int vita_video_submit(PDECODE_UNIT decode_unit)
 
     if (array_picture.numOfOutput > 0 && s_active) {
         vita_debug_log(
-            "[Video] present frame=%u buffer=%p",
+            "[Video] present frame=%u buffer=%p slot=%u",
             s_decoded_frames + 1,
-            s_frame_buffer);
+            s_frame_buffers[s_frame_index],
+            s_frame_index);
         moonlight_video_present(
-            s_frame_buffer,
+            s_frame_buffers[s_frame_index],
             s_frame_width,
             s_frame_height,
             s_frame_width);
+
+        s_frame_index =
+            (s_frame_index + 1) % VITA_VIDEO_FRAME_COUNT;
     }
 
     if (array_picture.numOfOutput > 0 && s_active) {
