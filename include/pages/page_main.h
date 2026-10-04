@@ -30,6 +30,8 @@ public:
     static Main *Instance();
     void SuspendForSystemSettings();
     void RestoreAfterSystemSettings();
+    void OpenSearch();
+    void OpenAddHost();
 
 private:
     static void OnHostButton(int32_t type, paf::ui::Handler *self, paf::ui::Event *event, void *userdata);
@@ -39,8 +41,6 @@ private:
     void RefreshHosts();
     void SelectHost(int index);
     void SetStatus(const char *text);
-    void OpenSearch();
-    void OpenAddHost();
 
     MoonlightHost m_hosts[8];
     int m_host_count;
