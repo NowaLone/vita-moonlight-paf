@@ -4,7 +4,6 @@
 #include "pages/page_apps.h"
 #include "app/moonlight_app.h"
 #include "pages/page_stream.h"
-#include "../moonlight/vita_video_renderer.h"
 
 namespace page {
 
