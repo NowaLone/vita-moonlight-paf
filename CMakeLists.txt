@@ -167,6 +167,7 @@ target_link_libraries(${PROJECT_NAME}
   SceRtc_stub
   SceSysmodule_stub
   SceCtrl_stub
+  SceShellUtil_stub
   SceLibKernel_stub
   SceLibc_stub_weak
   SceIofilemgr_stub
