@@ -13,11 +13,6 @@ namespace page {
 
 static Main *s_main = NULL;
 
-static void onMoonlightEventBridge(const MoonlightEvent *event, void *userdata)
-{
-    Main::OnMoonlightEvent(event, userdata);
-}
-
 static void onSearch(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata)
 {
     (void)type; (void)self; (void)e; (void)userdata;
@@ -84,12 +79,12 @@ Main::Main()
     bind_decide(root, "btn_add_manually", onAdd, this);
     bind_decide(root, "settings_button", onSettingsButton, this);
 
-    MoonlightApp::Instance()->SetEventCallback(onMoonlightEventBridge, this);
+    MoonlightApp::Instance()->SetEventCallback(OnMoonlightEvent, this);
 
     paf::ui::Widget *title = root->FindChild("text_title");
     if (title) {
         ((paf::ui::Text *)title)->SetString(
-            paf::common::string_util::ToWString("Moonlight"));
+            paf::common::string_util::ToWString("Connect to a PC"));
     }
 
     SetStatus("Select a PC to connect.");
