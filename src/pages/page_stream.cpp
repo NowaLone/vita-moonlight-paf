@@ -25,6 +25,20 @@ Stream::Stream()
 
     m_video_plane = static_cast<ui::Plane *>(
         root->FindChild("plane_stream_video"));
+
+    vita_debug_log(
+        "[StreamPage] root=%p video_plane=%p",
+        root,
+        m_video_plane);
+
+    if (m_video_plane) {
+        paf::graph::PlaneObj *plane_obj =
+            static_cast<paf::graph::PlaneObj *>(
+                m_video_plane->GetDrawObj(paf::ui::Plane::OBJ_PLANE));
+        vita_debug_log(
+            "[StreamPage] video plane obj=%p",
+            plane_obj);
+    }
 }
 
 Stream::~Stream()
