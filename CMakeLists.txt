@@ -171,6 +171,7 @@ target_link_libraries(${PROJECT_NAME}
   SceNet_stub
   SceNetCtl_stub
   SceVideodec_stub
+  SceGxm_stub
   SceSsl_stub
   SceHttp_stub
   ScePaf_stub_weak
