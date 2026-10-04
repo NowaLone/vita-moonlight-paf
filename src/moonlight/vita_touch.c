@@ -237,8 +237,10 @@ static void process_absolute_mouse(void)
         } else {
             int delta = avg_y - s_two_finger_last_y;
             if (delta != 0) {
-                int scroll = clamp_mouse_delta(
-                    ((double)delta / 2.0) * s_mouse_multiplier);
+                int scroll = (int)lround(
+                    ((double)delta / 8.0) * s_mouse_multiplier);
+                if (scroll > 127) scroll = 127;
+                if (scroll < -127) scroll = -127;
                 if (scroll != 0) {
                     LiSendScrollEvent((signed char)scroll);
                 }
