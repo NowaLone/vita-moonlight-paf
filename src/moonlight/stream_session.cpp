@@ -141,6 +141,17 @@ static void on_hdr_mode(bool enabled)
     vita_debug_log("[Stream] HDR mode=%d", enabled ? 1 : 0);
 }
 
+static void on_motion_event_state(
+    uint16_t controller,
+    uint8_t motion_type,
+    uint16_t report_rate_hz)
+{
+    vita_input_set_motion_state(
+        controller,
+        motion_type,
+        report_rate_hz);
+}
+
 static void initialize_connection_callbacks(
     CONNECTION_LISTENER_CALLBACKS *callbacks)
 {
@@ -153,6 +164,7 @@ static void initialize_connection_callbacks(
     callbacks->logMessage = on_log_message;
     callbacks->connectionStatusUpdate = on_status_update;
     callbacks->setHdrMode = on_hdr_mode;
+    callbacks->setMotionEventState = on_motion_event_state;
 }
 
 static int make_hex(
@@ -509,7 +521,10 @@ extern "C" int moonlight_stream_start(
     vita_input_configure(
         settings->controller_type,
         settings->swap_shoulder_buttons,
-        settings->enable_psbutton_capture);
+        settings->enable_psbutton_capture,
+        settings->touchscreen_mode,
+        settings->mouse_acceleration,
+        settings->enable_motion_controls);
 
     s_stream_context.callback = callback;
     s_stream_context.userdata = userdata;
