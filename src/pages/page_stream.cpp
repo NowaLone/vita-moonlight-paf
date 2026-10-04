@@ -14,7 +14,6 @@ Stream *Stream::s_instance = NULL;
 Stream::Frame Stream::s_pending_frame = { NULL, 0, 0, 0, false };
 bool Stream::s_task_registered = false;
 unsigned int Stream::s_release_delay = 0;
-unsigned int Stream::s_generation = 0;
 
 Stream::Stream()
     : Base("page_stream", NULL,
@@ -24,11 +23,6 @@ Stream::Stream()
       m_stopping(false)
 {
     unsigned int i;
-
-    ++s_generation;
-    if (s_generation == 0) {
-        ++s_generation;
-    }
 
     s_instance = this;
 
@@ -161,10 +155,11 @@ void Stream::ReleaseFrameBuffersTask(void *userdata)
         (unsigned int)(uintptr_t)userdata;
 
     /*
-     * A delayed task from an older stream must never release the framebuffer
-     * pool belonging to a newer stream.
+     * A delayed task from an older decoder session must never release the
+     * framebuffer pool belonging to a newer session.
      */
-    if (generation != s_generation || s_instance != NULL) {
+    if (generation != moonlight_video_get_frame_pool_generation() ||
+        s_instance != NULL) {
         return;
     }
 
@@ -181,7 +176,8 @@ void Stream::ReleaseFrameBuffersTask(void *userdata)
 
 void Stream::ScheduleFrameBufferRelease()
 {
-    unsigned int generation = s_generation;
+    unsigned int generation =
+        moonlight_video_get_frame_pool_generation();
 
     s_release_delay = 3;
     common::MainThreadCallList::Register(
