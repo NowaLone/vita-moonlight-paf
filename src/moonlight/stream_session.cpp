@@ -14,6 +14,7 @@
 
 #include "debug.h"
 #include "vita_video_renderer.h"
+#include "vita_audio_renderer.h"
 
 namespace {
 
@@ -424,7 +425,7 @@ static int run_stream_session(
         &stream_config,
         &callbacks,
         &decoder_callbacks_vita,
-        NULL,
+        &audio_callbacks_vita,
         NULL,
         0,
         NULL,
