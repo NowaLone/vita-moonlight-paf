@@ -15,6 +15,7 @@
 #include "debug.h"
 #include "vita_video_renderer.h"
 #include "vita_audio_renderer.h"
+#include "vita_input.h"
 
 namespace {
 
@@ -100,6 +101,7 @@ static void on_stage_failed(int stage, int result)
 static void on_connection_started(void)
 {
     s_stream_context.started = 1;
+    vita_input_start();
     vita_debug_log("[Stream] connection started");
     emit_event(MOONLIGHT_EVENT_STREAM_STARTED, 0);
 }
@@ -111,6 +113,7 @@ static void on_connection_terminated(int result)
         result);
 
     if (s_stream_context.started) {
+        vita_input_stop();
         emit_event(MOONLIGHT_EVENT_STREAM_STOPPED, result);
     }
     s_stream_context.started = 0;
@@ -503,6 +506,10 @@ extern "C" int moonlight_stream_start(
     args->application_id = application_id;
     args->settings = *settings;
 
+    vita_input_configure(
+        settings->controller_type,
+        settings->swap_shoulder_buttons);
+
     s_stream_context.callback = callback;
     s_stream_context.userdata = userdata;
     s_stream_context.started = 0;
@@ -539,6 +546,10 @@ static void *stream_stop_thread_main(void *)
     int was_started;
 
     vita_debug_log("[Stream] stop worker start");
+
+    if (s_stream_context.started) {
+        vita_input_stop();
+    }
 
     LiStopConnection();
 
