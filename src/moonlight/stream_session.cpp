@@ -207,7 +207,7 @@ static int load_launch_session(
     snprintf(
         uuid,
         sizeof(uuid),
-        "%02x%02x%02x%02x-%02x-%02x-%02x-%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+        "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x%02x%02x",
         uuid_bytes[0], uuid_bytes[1], uuid_bytes[2], uuid_bytes[3],
         uuid_bytes[4], uuid_bytes[5], uuid_bytes[6], uuid_bytes[7],
         uuid_bytes[8], uuid_bytes[9], uuid_bytes[10], uuid_bytes[11],
