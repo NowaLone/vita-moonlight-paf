@@ -40,7 +40,21 @@ Base::Base(const char *id, const char *back_id,
         return;
     }
 
-    root = g_plugin->PageOpen(id, make_open_param(open_transition));
+    paf::Plugin::PageOpenParam open_param = make_open_param(open_transition);
+
+    /*
+     * Full-screen playback pages in PAF applications use the same graphics
+     * mode as NetStream. Without graphics_flag/draw-priority the page can
+     * exist in the page stack without participating in the intended render
+     * layer.
+     */
+    if (sce_paf_strcmp(id, "page_stream") == 0) {
+        open_param.graphics_flag = 0x80;
+        open_param.overwrite_draw_priority = 8;
+        open_param.fade = false;
+    }
+
+    root = g_plugin->PageOpen(id, open_param);
     if (root == NULL) {
         return;
     }
