@@ -57,6 +57,16 @@ Stream::~Stream()
         s_instance = NULL;
     }
 
+    /*
+     * Stop PAF from sampling the external framebuffer before dropping the
+     * Surface references. The decoder releases the framebuffer pool only
+     * after this page has been destroyed.
+     */
+    if (m_video_plane) {
+        m_video_plane->Hide(common::transition::Type_Reset);
+        m_video_plane->SetActivate(false);
+    }
+
     unsigned int i;
 
     for (i = 0; i < kSurfaceSlotCount; ++i) {
