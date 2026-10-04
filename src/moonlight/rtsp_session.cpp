@@ -266,6 +266,8 @@ static int start_enet_control(
 
 static int send_enet_reliable(
     int sock,
+    const char *host,
+    unsigned short port,
     unsigned short peer_id,
     unsigned char session_id,
     unsigned short reliable_sequence,
@@ -274,10 +276,19 @@ static int send_enet_reliable(
     unsigned short payload_length)
 {
     unsigned char packet[256];
+    SceNetSockaddrIn address;
     unsigned short data_length = (unsigned short)(2 + payload_length);
     size_t length = 2 + 6 + data_length;
 
-    if (sock < 0 || payload_length > 248) return -1;
+    if (sock < 0 || !host || !port || payload_length > 248) return -1;
+
+    memset(&address, 0, sizeof(address));
+    address.sin_len = sizeof(address);
+    address.sin_family = SCE_NET_AF_INET;
+    address.sin_port = sceNetHtons(port);
+    if (sceNetInetPton(SCE_NET_AF_INET, host, &address.sin_addr) <= 0) {
+        return -1;
+    }
 
     memset(packet, 0, sizeof(packet));
 
@@ -302,8 +313,8 @@ static int send_enet_reliable(
         packet,
         (unsigned int)length,
         0,
-        NULL,
-        0) == (int)length ? 0 : -1;
+        (SceNetSockaddr *)&address,
+        sizeof(address)) == (int)length ? 0 : -1;
 }
 
 static int service_enet_control(
@@ -435,6 +446,9 @@ static int count_packets(
     const char *host,
     unsigned short video_port,
     const char *ping_payload,
+    int control_sock,
+    unsigned short control_peer_id,
+    unsigned char control_session_id,
     int milliseconds)
 {
     char packet[2048];
@@ -448,7 +462,7 @@ static int count_packets(
     while (waited < milliseconds) {
         int result;
 
-        service_enet_control(sock, 0, 0);
+        service_enet_control(control_sock, control_peer_id, control_session_id);
 
         if ((waited % 500) == 0) {
             send_ping(
@@ -837,6 +851,8 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
         ++control_reliable_sequence;
         if (send_enet_reliable(
                 control_sock,
+                host,
+                control_port,
                 control_peer_id,
                 control_session_id,
                 control_reliable_sequence,
@@ -851,6 +867,8 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
         ++control_reliable_sequence;
         if (send_enet_reliable(
                 control_sock,
+                host,
+                control_port,
                 control_peer_id,
                 control_session_id,
                 control_reliable_sequence,
@@ -874,6 +892,9 @@ extern "C" int moonlight_rtsp_start(const char *session_url, char *status, size_
         host,
         (unsigned short)video_port,
         video_ping_payload,
+        control_sock,
+        control_peer_id,
+        control_session_id,
         6000);
     service_enet_control(control_sock, control_peer_id, control_session_id);
     sceNetSocketClose(video_sock);
