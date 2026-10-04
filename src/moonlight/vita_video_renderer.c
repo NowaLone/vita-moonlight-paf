@@ -1,6 +1,5 @@
 #include <psp2/kernel/sysmem.h>
 #include <psp2/kernel/threadmgr.h>
-#include <psp2/display.h>
 #include <psp2/videodec.h>
 
 #include <Limelight.h>
@@ -26,9 +25,6 @@ static const unsigned int s_output_width = 960;
 static const unsigned int s_output_height = 544;
 static volatile int s_active;
 static unsigned int s_decoded_frames;
-static int s_display_takeover;
-static int s_display_presented;
-static SceDisplayFrameBuf s_previous_display_framebuf;
 
 static int vita_video_setup(
     int video_format,
@@ -183,27 +179,6 @@ static int vita_video_setup(
 
     memset(s_frame_buffer, 0, frame_size);
 
-    /*
-     * PAF owns the normal UI renderer, so do not initialize a second GXM/
-     * vita2d stack here. For the first video-rendering step we temporarily
-     * present the decoder's 960x544 CDRAM buffer directly through SceDisplay.
-     * This keeps the decoded frame path independent from PAF's rendering code.
-     */
-    memset(&s_previous_display_framebuf, 0, sizeof(s_previous_display_framebuf));
-    s_previous_display_framebuf.size = sizeof(s_previous_display_framebuf);
-    result = sceDisplayGetFrameBuf(
-        &s_previous_display_framebuf,
-        SCE_DISPLAY_SETBUF_NEXTFRAME);
-    if (result < 0) {
-        vita_debug_log(
-            "[Video] sceDisplayGetFrameBuf failed 0x%08x",
-            result);
-        s_display_takeover = 0;
-    } else {
-        s_display_takeover = 1;
-        s_display_presented = 0;
-    }
-
     s_active = 1;
     s_decoded_frames = 0;
 
@@ -243,19 +218,7 @@ static void vita_video_cleanup(void)
 {
     s_active = 0;
 
-    if (s_display_takeover) {
-        int result = sceDisplaySetFrameBuf(
-            &s_previous_display_framebuf,
-            SCE_DISPLAY_SETBUF_NEXTFRAME);
-        vita_debug_log(
-            "[Video] restore display framebuffer result=0x%08x",
-            result);
-        if (result >= 0) {
-            sceDisplayWaitVblankStart();
-        }
-        s_display_takeover = 0;
-        s_display_presented = 0;
-    }
+    moonlight_video_invalidate();
 
     if (s_decoder) {
         sceAvcdecDeleteDecoder(s_decoder);
@@ -379,32 +342,12 @@ static int vita_video_submit(PDECODE_UNIT decode_unit)
         return DR_NEED_IDR;
     }
 
-    if (array_picture.numOfOutput > 0 && s_active && s_display_takeover) {
-        SceDisplayFrameBuf display_framebuf;
-        memset(&display_framebuf, 0, sizeof(display_framebuf));
-        display_framebuf.size = sizeof(display_framebuf);
-        display_framebuf.base = s_frame_buffer;
-        display_framebuf.pitch = s_frame_width;
-        display_framebuf.pixelformat = SCE_DISPLAY_PIXELFORMAT_A8B8G8R8;
-        display_framebuf.width = s_frame_width;
-        display_framebuf.height = s_frame_height;
-
-        result = sceDisplaySetFrameBuf(
-            &display_framebuf,
-            SCE_DISPLAY_SETBUF_NEXTFRAME);
-        if (result < 0) {
-            vita_debug_log(
-                "[Video] sceDisplaySetFrameBuf failed frame=%d err=0x%08x",
-                decode_unit->frameNumber,
-                result);
-        } else if (s_display_presented == 0) {
-            vita_debug_log(
-                "[Video] first decoded frame presented directly at %ux%u pitch=%u",
-                display_framebuf.width,
-                display_framebuf.height,
-                display_framebuf.pitch);
-            s_display_presented = 1;
-        }
+    if (array_picture.numOfOutput > 0 && s_active) {
+        moonlight_video_present(
+            s_frame_buffer,
+            s_frame_width,
+            s_frame_height,
+            s_frame_width);
     }
 
     if (array_picture.numOfOutput > 0 && s_active) {

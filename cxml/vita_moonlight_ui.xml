@@ -61,6 +61,12 @@
       </plane>
     </page>
 
+    <page id="page_stream">
+      <plane id="plane_stream_video">
+        <layout_hint size="960, 544" />
+      </plane>
+    </page>
+
     <page id="page_apps">
       <plane style="style_plane_fill" id="plane_apps_fill">
         <layout_hint size="960, 544" />

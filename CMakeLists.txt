@@ -129,6 +129,7 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_main.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_search.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_apps.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_stream.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_add_host.cpp
   ${MOONLIGHT_COMMON_SOURCES}
   ${ENET_SOURCES}
@@ -161,7 +162,6 @@ target_link_libraries(${PROJECT_NAME}
   SceKernelThreadMgr_stub
   SceSysmem_stub
   SceRtc_stub
-  SceDisplay_stub
   SceSysmodule_stub
   SceCtrl_stub
   SceLibKernel_stub

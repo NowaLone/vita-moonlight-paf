@@ -3,6 +3,7 @@
 
 #include "pages/page_apps.h"
 #include "app/moonlight_app.h"
+#include "pages/page_stream.h"
 
 namespace page {
 
@@ -167,6 +168,13 @@ void Apps::OnMoonlightEvent(const MoonlightEvent *event, void *userdata) {
         break;
     }
     case MOONLIGHT_EVENT_STREAM_STARTED: {
+        if (!page::Base::IsOpen("page_stream")) {
+            page::Stream *stream = new page::Stream();
+            if (!stream->IsValid()) {
+                delete stream;
+            }
+        }
+
         const char *button_id = AppButtonId(apps->m_selected_index);
         paf::ui::Widget *button = (apps->root && button_id)
             ? apps->root->FindChild(button_id)
@@ -178,6 +186,14 @@ void Apps::OnMoonlightEvent(const MoonlightEvent *event, void *userdata) {
         apps->SetStatus(label);
         break;
     }
+    case MOONLIGHT_EVENT_STREAM_STOPPED:
+        if (page::Base::IsOpen("page_stream")) {
+            page::Base *stream = page::Base::Find("page_stream");
+            delete stream;
+        }
+        apps->m_launching = false;
+        apps->SetStatus("Stream stopped");
+        break;
     case MOONLIGHT_EVENT_STREAM_FAILED: {
         const char *button_id = AppButtonId(apps->m_selected_index);
         paf::ui::Widget *button = (apps->root && button_id)
