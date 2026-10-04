@@ -37,6 +37,7 @@ private:
 };
 
 
+}
 
 ConnectionService::ConnectionService(MoonlightBackend &backend)
     : m_backend(backend)
