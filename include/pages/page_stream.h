@@ -21,6 +21,8 @@ public:
     static void PresentTask(void *userdata);
 
 private:
+    static const unsigned int kSurfaceSlotCount = 3;
+
     struct Frame {
         void *buffer;
         unsigned int width;
@@ -29,10 +31,19 @@ private:
         bool valid;
     };
 
+    struct SurfaceSlot {
+        void *buffer;
+        unsigned int width;
+        unsigned int height;
+        unsigned int pitch;
+        paf::intrusive_ptr<paf::graph::Surface> surface;
+    };
+
     void PresentFrame(const Frame &frame);
+    SurfaceSlot *FindSurfaceSlot(void *buffer);
 
     paf::ui::Plane *m_video_plane;
-    paf::intrusive_ptr<paf::graph::Surface> m_surface;
+    SurfaceSlot m_surface_slots[kSurfaceSlotCount];
 
     static Stream *s_instance;
     static Frame s_pending_frame;
