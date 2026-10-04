@@ -197,7 +197,7 @@ void Apps::OnMoonlightEvent(const MoonlightEvent *event, void *userdata) {
          * Decoder cleanup keeps the framebuffers alive until the PAF page
          * is gone, because its graph::Surface objects reference those buffers.
          */
-        moonlight_video_release_frame_buffers();
+        page::Stream::ScheduleFrameBufferRelease();
 
         apps->m_launching = false;
         apps->SetStatus("Stream stopped");
