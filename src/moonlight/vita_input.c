@@ -2,17 +2,21 @@
 
 #include <Limelight.h>
 #include <psp2/ctrl.h>
+#include <psp2/shellutil.h>
 #include <psp2/kernel/threadmgr.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
 #include "debug.h"
+#include "moonlight/stream_session.h"
 
 static volatile bool s_input_active = false;
 static bool s_thread_started = false;
 static uint8_t s_controller_type = LI_CTYPE_PS;
 static bool s_swap_shoulder_buttons = false;
+static bool s_ps_button_capture = true;
+static bool s_ps_button_locked = false;
 
 static SceCtrlData s_pad;
 static SceCtrlData s_pad_old;
@@ -119,9 +123,20 @@ static void vita_input_send(void)
 
 static void vita_input_process(void)
 {
-    sceCtrlSetSamplingModeExt(SCE_CTRL_MODE_ANALOG_WIDE);
+    bool ps_pressed;
+    bool ps_pressed_old;
 
+    sceCtrlSetSamplingModeExt(SCE_CTRL_MODE_ANALOG_WIDE);
     sceCtrlPeekBufferPositiveExt2(0, &s_pad, 1);
+
+    ps_pressed = (s_pad.buttons & SCE_CTRL_PSBUTTON) != 0;
+    ps_pressed_old = (s_pad_old.buttons & SCE_CTRL_PSBUTTON) != 0;
+
+    if (s_ps_button_capture && ps_pressed && !ps_pressed_old) {
+        vita_debug_log("[Input] PS Button pressed, stopping stream");
+        moonlight_stream_stop();
+        s_pad.buttons &= ~SCE_CTRL_PSBUTTON;
+    }
 
     if (memcmp(&s_pad, &s_pad_old, sizeof(SceCtrlData)) != 0) {
         vita_input_send();
@@ -179,10 +194,14 @@ static void vita_input_ensure_thread(void)
     s_thread_started = true;
 }
 
-int vita_input_configure(int controller_type, int swap_shoulder_buttons)
+int vita_input_configure(
+    int controller_type,
+    int swap_shoulder_buttons,
+    int ps_button_capture)
 {
     s_controller_type = get_controller_type(controller_type);
     s_swap_shoulder_buttons = swap_shoulder_buttons != 0;
+    s_ps_button_capture = ps_button_capture != 0;
 
     return 0;
 }
@@ -205,12 +224,28 @@ void vita_input_start(void)
         0xFFFF,
         LI_CCAP_ANALOG_TRIGGERS);
 
+    if (s_ps_button_capture && !s_ps_button_locked) {
+        int result = sceShellUtilLock(
+            (SceShellUtilLockType)(
+                SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN |
+                SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN_2));
+
+        if (result == 0) {
+            s_ps_button_locked = true;
+        }
+
+        vita_debug_log(
+            "[Input] PS Button lock result=0x%08x",
+            (unsigned int)result);
+    }
+
     s_input_active = true;
 
     vita_debug_log(
-        "[Input] start type=%u swap_shoulders=%d",
+        "[Input] start type=%u swap_shoulders=%d ps_capture=%d",
         (unsigned int)s_controller_type,
-        s_swap_shoulder_buttons ? 1 : 0);
+        s_swap_shoulder_buttons ? 1 : 0,
+        s_ps_button_capture ? 1 : 0);
 }
 
 void vita_input_stop(void)
@@ -235,6 +270,19 @@ void vita_input_stop(void)
 
     memset(&s_pad, 0, sizeof(s_pad));
     memset(&s_pad_old, 0, sizeof(s_pad_old));
+
+    if (s_ps_button_locked) {
+        int result = sceShellUtilUnlock(
+            (SceShellUtilLockType)(
+                SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN |
+                SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN_2));
+
+        vita_debug_log(
+            "[Input] PS Button unlock result=0x%08x",
+            (unsigned int)result);
+
+        s_ps_button_locked = false;
+    }
 
     vita_debug_log("[Input] stop");
 }
