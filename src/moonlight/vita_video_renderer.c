@@ -22,6 +22,7 @@ static void *s_frame_buffers[VITA_VIDEO_FRAME_COUNT] = { NULL, NULL, NULL };
 static int s_frame_gpu_mapped[VITA_VIDEO_FRAME_COUNT] = { 0, 0, 0 };
 static unsigned int s_frame_index = 0;
 static int s_frame_pool_pending_release;
+static unsigned int s_frame_pool_generation;
 static SceVideodecQueryInitInfoHwAvcdec *s_init_info;
 static SceAvcdecQueryDecoderInfo *s_decoder_info;
 static char *s_decoder_buffer;
@@ -157,6 +158,16 @@ static int vita_video_setup(
      * writes its output directly into that display-sized buffer.
      */
     frame_size = 2 * 1024 * 1024;
+
+    /*
+     * A new decoder session invalidates every previously queued deferred
+     * framebuffer release task.
+     */
+    ++s_frame_pool_generation;
+    if (s_frame_pool_generation == 0) {
+        ++s_frame_pool_generation;
+    }
+    s_frame_pool_pending_release = 0;
 
     int frame_index;
 
@@ -348,6 +359,11 @@ static void vita_video_release_frame_buffers_internal(void)
 void moonlight_video_release_frame_buffers(void)
 {
     vita_video_release_frame_buffers_internal();
+}
+
+unsigned int moonlight_video_get_frame_pool_generation(void)
+{
+    return s_frame_pool_generation;
 }
 
 static int vita_video_submit(PDECODE_UNIT decode_unit)
