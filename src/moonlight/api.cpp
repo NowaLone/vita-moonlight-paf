@@ -557,6 +557,13 @@ extern "C" int moonlight_launch_request(
 
 int moonlight_api_start_application(int application_id)
 {
+    vita_debug_log(
+        "[GameStream] moonlight_api_start_application app=%d state=%d has_host=%d initialized=%d",
+        application_id,
+        (int)s_connection_state,
+        s_has_current_host ? 1 : 0,
+        s_game_stream_initialized ? 1 : 0);
+
     char unique_path[512];
     const char *name;
     int written;
@@ -565,6 +572,12 @@ int moonlight_api_start_application(int application_id)
 
     if (!s_has_current_host || !s_game_stream_initialized || !s_server.curl ||
         s_connection_state != MOONLIGHT_CONNECTION_PAIRED) {
+        vita_debug_log(
+            "[GameStream] start rejected: host=%d initialized=%d curl=%d state=%d",
+            s_has_current_host ? 1 : 0,
+            s_game_stream_initialized ? 1 : 0,
+            s_server.curl ? 1 : 0,
+            (int)s_connection_state);
         return -1;
     }
 
@@ -586,6 +599,11 @@ int moonlight_api_start_application(int application_id)
     s_stream_application_id = application_id;
     s_stream_pending = true;
 
+    vita_debug_log(
+        "[GameStream] starting stream worker app=%d unique=%s",
+        application_id,
+        unique_path);
+
     result = moonlight_stream_start(
         &s_server,
         unique_path,
@@ -593,6 +611,11 @@ int moonlight_api_start_application(int application_id)
         &settings,
         on_stream_event,
         NULL);
+
+    vita_debug_log(
+        "[GameStream] moonlight_stream_start returned %d app=%d",
+        result,
+        application_id);
 
     if (result != 0) {
         s_stream_pending = false;
