@@ -524,7 +524,11 @@ extern "C" int moonlight_stream_start(
         settings->enable_psbutton_capture,
         settings->touchscreen_mode,
         settings->mouse_acceleration,
-        settings->enable_motion_controls);
+        settings->enable_motion_controls,
+        settings->back_deadzone_top,
+        settings->back_deadzone_right,
+        settings->back_deadzone_bottom,
+        settings->back_deadzone_left);
 
     s_stream_context.callback = callback;
     s_stream_context.userdata = userdata;
