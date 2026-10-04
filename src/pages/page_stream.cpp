@@ -106,6 +106,15 @@ void Stream::PresentFrame(const Frame &frame)
 
     if (m_surface.get()) {
         m_video_plane->SetTexture(m_surface);
+
+        paf::graph::PlaneObj *plane_obj =
+            static_cast<paf::graph::PlaneObj *>(
+                m_video_plane->GetDrawObj(paf::ui::Plane::OBJ_PLANE));
+        if (plane_obj) {
+            plane_obj->SetScaleMode(
+                paf::graph::PlaneObj::SCALE_ASPECT_SIZE,
+                paf::graph::PlaneObj::SCALE_ASPECT_SIZE);
+        }
     }
 }
 
