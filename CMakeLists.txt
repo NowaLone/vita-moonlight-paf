@@ -121,6 +121,7 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/stream_session.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/vita_video_renderer.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/vita_audio_renderer.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/vita_input.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/sps.c
   ${CMAKE_CURRENT_SOURCE_DIR}/third_party/h264bitstream/h264_stream.c
   ${CMAKE_CURRENT_SOURCE_DIR}/third_party/h264bitstream/h264_nal.c
