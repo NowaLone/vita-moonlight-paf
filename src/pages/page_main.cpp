@@ -27,7 +27,7 @@ static void onAdd(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void 
     if (main) main->OpenAddHost();
 }
 
-static void onOptionMenu(int type, int button_index, void *userdata)
+static void onOptionMenu(OptionMenu::EventType type, int button_index, void *userdata)
 {
     (void)userdata;
     if (type != OptionMenu::Event_Button || button_index != 0) return;
@@ -130,8 +130,7 @@ paf::ui::ListItem *Main::CreateListItem(
     const MoonlightHost &host = m_hosts[param.cell_index];
 
     paf::string label = paf::common::FormatString(
-        "%s
-%s",
+        "%s\n%s",
         host.name[0] ? host.name : "PC",
         host.internal[0] ? host.internal : "Unknown host");
 
