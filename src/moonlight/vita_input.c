@@ -5,6 +5,7 @@
 #include <psp2/kernel/threadmgr.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "debug.h"
 
