@@ -8,7 +8,7 @@
       </plane>
 
       <template_ref id="template_ref_main_title" template="template_top_title_bar" />
-      <template_ref id="template_ref_main_host_list" template="template_main_host_list" />
+      <template_ref id="template_ref_main_host_list" template="template_list_view_generic" />
 
       <text style="style_text_main_status" label="msg_select_pc" id="text_main_status">
         <layout_hint anchor="0, 2" align="0, 2" size="760, 0" pos="0, -225" adjust="0, 2" />
