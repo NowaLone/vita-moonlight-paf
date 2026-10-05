@@ -86,7 +86,7 @@ Main::Main()
 
     MoonlightApp::Instance()->SetEventCallback(OnMoonlightEvent, this);
 
-    paf::ui::Widget *title = root->FindChild("text_title");
+    paf::ui::Widget *title = root->FindChild("main_title_text");
     if (title) {
         ((paf::ui::Text *)title)->SetString(
             paf::common::string_util::ToWString("Connect to a PC"));
@@ -283,6 +283,11 @@ void Main::OnMoonlightEvent(const MoonlightEvent *event, void *userdata)
         }
         break;
 
+    case MOONLIGHT_EVENT_SETTINGS_CLOSED:
+        main->RestoreAfterSystemSettings();
+        main->RefreshHosts();
+        break;
+
     case MOONLIGHT_EVENT_PAIRING_REQUIRED:
         /*
          * Saved unpaired hosts are uncommon, but keep the UI truthful rather
@@ -306,13 +311,11 @@ void Main::SuspendForSystemSettings()
 {
     if (!root) return;
     root->SetActivate(false);
-    root->Hide(paf::common::transition::Type_Reset);
 }
 
 void Main::RestoreAfterSystemSettings()
 {
     if (!root) return;
-    root->Show(paf::common::transition::Type_Reset);
     root->SetActivate(true);
 }
 
