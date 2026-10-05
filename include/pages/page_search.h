@@ -8,11 +8,22 @@ namespace page {
 
 class Search : public Base {
 public:
+    class ListViewFactory : public paf::ui::listview::ItemFactory {
+    public:
+        explicit ListViewFactory(Search *parent) : m_parent(parent) {}
+        virtual paf::ui::ListItem *Create(CreateParam &param) {
+            return m_parent->CreateListItem(param);
+        }
+    private:
+        Search *m_parent;
+    };
+
     Search();
     virtual ~Search();
     virtual Type GetType() { return Type_Search; }
 
     void RestoreEventCallback();
+    paf::ui::ListItem *CreateListItem(paf::ui::listview::ItemFactory::CreateParam &param);
 
 private:
     struct HostButtonContext {
@@ -24,7 +35,6 @@ private:
     static void OnMoonlightEvent(const MoonlightEvent *event, void *userdata);
     void RefreshHosts();
     void SetStatus(const char *text);
-    void SetHostButton(int index, const MoonlightHost &host);
     void SelectHost(int index);
     void OnConnectionReady();
     void ContinuePairing();
@@ -36,6 +46,8 @@ private:
     int m_selected_index;
     char m_pairing_pin[5];
     HostButtonContext m_button_contexts[8];
+    paf::ui::ListView *m_list;
+
 };
 
 }
