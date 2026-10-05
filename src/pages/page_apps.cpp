@@ -11,14 +11,6 @@ namespace page {
 
 namespace {
 static const int kMaxApps = 8;
-
-static const char *AppButtonId(int index) {
-    static const char *ids[kMaxApps] = {
-        "btn_app_0", "btn_app_1", "btn_app_2", "btn_app_3",
-        "btn_app_4", "btn_app_5", "btn_app_6", "btn_app_7"
-    };
-    return (index >= 0 && index < kMaxApps) ? ids[index] : NULL;
-}
 }
 
 Apps::Apps()
@@ -27,43 +19,45 @@ Apps::Apps()
            paf::Plugin::TransitionType_SlideFromBottom),
       m_app_count(0),
       m_selected_index(-1),
-      m_launching(false) {
+      m_launching(false),
+      m_list(NULL) {
     if (!IsValid()) return;
 
     for (int i = 0; i < kMaxApps; ++i) {
         memset(&m_apps[i], 0, sizeof(m_apps[i]));
         m_button_contexts[i].page = this;
         m_button_contexts[i].index = i;
-        paf::ui::Widget *button = root->FindChild(AppButtonId(i));
-        if (button) {
-            button->SetEventCallback(
-                paf::ui::ButtonBase::CB_BTN_DECIDE,
-                OnAppButton,
-                &m_button_contexts[i]);
-            button->Hide(paf::common::transition::Type_Reset);
-        }
+    }
+
+    m_list = static_cast<paf::ui::ListView *>(
+        root->FindChild("list_view_generic"));
+
+    if (m_list) {
+        m_list->SetItemFactory(new ListViewFactory(this));
+        m_list->InsertSegment(0, 1);
+        m_list->SetCellSizeDefault(0, { 960.0f, 80.0f });
+        m_list->SetSegmentLayoutType(0, paf::ui::ListView::LAYOUT_TYPE_LIST);
     }
 
     MoonlightApp::Instance()->SetEventCallback(OnMoonlightEvent, this);
-    paf::ui::Widget *title = root->FindChild("text_apps_title");
+
+    paf::ui::Widget *title = root->FindChild("main_title_text");
     if (title) {
-        title->SetString(paf::common::string_util::ToWString("Apps"));
+        ((paf::ui::Text *)title)->SetString(
+            paf::common::string_util::ToWString("Applications"));
     }
-    SetStatus("Loading apps...");
-    paf::ui::Widget *loading = root->FindChild("btn_app_0");
-    if (loading) {
-        loading->SetString(paf::common::string_util::ToWString("LOADING APPS..."));
-        loading->Show(paf::common::transition::Type_Reset);
-    }
+
+    SetStatus("Loading applications...");
 
     int result = MoonlightApp::Instance()->Applications().Refresh();
     if (result != 0) {
-        SetStatus("App list start failed");
+        SetStatus("Unable to load applications.");
     }
 }
 
 Apps::~Apps() {
-    if (!MoonlightApp::Instance() || !MoonlightApp::Instance()->IsInitialized()) {
+    if (!MoonlightApp::Instance() ||
+        !MoonlightApp::Instance()->IsInitialized()) {
         return;
     }
 
@@ -82,11 +76,37 @@ Apps::~Apps() {
     MoonlightApp::Instance()->SetEventCallback(NULL, NULL);
 }
 
-void Apps::RestoreEventCallback()
-{
+void Apps::RestoreEventCallback() {
     if (MoonlightApp::Instance()->IsInitialized()) {
         MoonlightApp::Instance()->SetEventCallback(OnMoonlightEvent, this);
     }
+}
+
+paf::ui::ListItem *Apps::CreateListItem(
+    paf::ui::listview::ItemFactory::CreateParam &param) {
+    paf::Plugin::TemplateOpenParam tmp;
+    g_plugin->TemplateOpen(param.parent, "template_generic_list_item", tmp);
+
+    paf::ui::ListItem *item = static_cast<paf::ui::ListItem *>(
+        param.parent->GetChild(param.parent->GetChildrenNum() - 1));
+
+    paf::ui::Widget *button = item->FindChild("image_button_list_item");
+    if (!button || param.cell_index < 0 || param.cell_index >= m_app_count) {
+        return item;
+    }
+
+    button->SetName((uint32_t)param.cell_index);
+    button->AddEventCallback(
+        paf::ui::ButtonBase::CB_BTN_DECIDE,
+        OnAppButton,
+        &m_button_contexts[param.cell_index]);
+
+    const MoonlightApplication &app = m_apps[param.cell_index];
+    button->SetString(
+        paf::common::string_util::ToWString(
+            app.name[0] ? app.name : "Application"));
+
+    return item;
 }
 
 void Apps::OnAppButton(int32_t type,
@@ -99,6 +119,7 @@ void Apps::OnAppButton(int32_t type,
 
     AppButtonContext *context = (AppButtonContext *)userdata;
     if (!context || !context->page) return;
+
     context->page->SelectApp(context->index);
 }
 
@@ -107,71 +128,59 @@ void Apps::SelectApp(int index) {
 
     m_launching = true;
     m_selected_index = index;
-    SetStatus("Requesting launch...");
+    SetStatus("Launching application...");
 
-    paf::ui::Widget *button = root->FindChild(AppButtonId(index));
-    if (button) {
-        button->SetString(paf::common::string_util::ToWString("LAUNCH..."));
-    }
+    int result = MoonlightApp::Instance()->Connection().Start(
+        m_apps[index].id);
 
-    int result = MoonlightApp::Instance()->Connection().Start(m_apps[index].id);
     if (result != 0) {
         m_launching = false;
-        paf::string status = paf::common::FormatString("LAUNCH START %d", result);
+        paf::string status = paf::common::FormatString(
+            "Unable to launch application: 0x%08X",
+            (unsigned int)result);
         SetStatus(status.c_str());
-        if (button) {
-            button->SetString(paf::common::string_util::ToWString(status));
-        }
         return;
     }
 
-    SetStatus("Waiting for host...");
+    SetStatus("Waiting for PC...");
 }
 
 void Apps::SetStatus(const char *text) {
     if (!root || !text) return;
+
     paf::ui::Widget *widget = root->FindChild("text_apps_status");
     if (!widget) return;
+
     ((paf::ui::Text *)widget)->SetString(
         paf::common::string_util::ToWString(text));
 }
 
 void Apps::ShowApps() {
-    if (!root) return;
+    if (!root || !m_list) return;
 
-    m_app_count = MoonlightApp::Instance()->Applications().GetAll(m_apps, kMaxApps);
+    m_app_count = MoonlightApp::Instance()->Applications().GetAll(
+        m_apps,
+        kMaxApps);
+
     if (m_app_count < 0) m_app_count = 0;
     if (m_app_count > kMaxApps) m_app_count = kMaxApps;
 
-    for (int i = 0; i < kMaxApps; ++i) {
-        paf::ui::Widget *button = root->FindChild(AppButtonId(i));
-        if (!button) continue;
-
-        if (i < m_app_count) {
-            paf::string label = paf::common::FormatString(
-                "%s\n%d",
-                m_apps[i].name[0] ? m_apps[i].name : "App",
-                m_apps[i].id);
-            button->SetString(paf::common::string_util::ToWString(label));
-            button->Show(paf::common::transition::Type_Reset);
-        } else {
-            button->Hide(paf::common::transition::Type_Reset);
-        }
+    const int existing = m_list->GetCellNum(0);
+    if (existing > 0) {
+        m_list->DeleteCell(0, 0, existing);
     }
 
-    if (m_app_count == 0) {
-        SetStatus("No apps returned");
-        paf::ui::Widget *button = root->FindChild("btn_app_0");
-        if (button) {
-            button->SetString(paf::common::string_util::ToWString("NO APPS"));
-            button->Show(paf::common::transition::Type_Reset);
-        }
+    if (m_app_count > 0) {
+        m_list->InsertCell(0, 0, m_app_count);
+        SetStatus("Select an application.");
     } else {
-        SetStatus("Select an app");
+        SetStatus("No applications available.");
     }
 }
 
-void Apps::OnMoonlightEvent(const MoonlightEvent *event, void *userdata) {
+void Apps::OnMoonlightEvent(
+    const MoonlightEvent *event,
+    void *userdata) {
     Apps *apps = (Apps *)userdata;
     if (!apps || !event) return;
 
@@ -179,64 +188,47 @@ void Apps::OnMoonlightEvent(const MoonlightEvent *event, void *userdata) {
     case MOONLIGHT_EVENT_APPLICATIONS_READY:
         apps->ShowApps();
         break;
+
     case MOONLIGHT_EVENT_APPLICATIONS_FAILED: {
         paf::string status = paf::common::FormatString(
-            "App list failed: 0x%08X", (unsigned int)event->result);
+            "Unable to load applications: 0x%08X",
+            (unsigned int)event->result);
         apps->SetStatus(status.c_str());
-        paf::ui::Widget *button = apps->root->FindChild("btn_app_0");
-        if (button) {
-            button->SetString(paf::common::string_util::ToWString("APP LIST FAILED"));
-            button->Show(paf::common::transition::Type_Reset);
-        }
         break;
     }
+
     case MOONLIGHT_EVENT_STREAM_STARTED: {
-        if (!page::Base::IsOpen("page_stream")) {
-            page::Stream *stream = new page::Stream();
+        if (!Base::IsOpen("page_stream")) {
+            Stream *stream = new Stream();
             if (!stream->IsValid()) {
                 delete stream;
             }
         }
 
-        const char *button_id = AppButtonId(apps->m_selected_index);
-        paf::ui::Widget *button = (apps->root && button_id)
-            ? apps->root->FindChild(button_id)
-            : NULL;
-        const char *label = (event->address && event->address[0]) ? event->address : "LAUNCHED";
-        if (button) {
-            button->SetString(paf::common::string_util::ToWString(label));
-        }
-        apps->SetStatus(label);
+        apps->SetStatus("Connected.");
         break;
     }
+
     case MOONLIGHT_EVENT_STREAM_STOPPED:
-        if (page::Base::IsOpen("page_stream")) {
-            page::Base *stream = page::Base::Find("page_stream");
+        if (Base::IsOpen("page_stream")) {
+            Base *stream = Base::Find("page_stream");
             delete stream;
         }
 
-        /*
-         * Decoder cleanup keeps the framebuffers alive until the PAF page
-         * is gone, because its graph::Surface objects reference those buffers.
-         */
-        page::Stream::ScheduleFrameBufferRelease();
-
+        Stream::ScheduleFrameBufferRelease();
         apps->m_launching = false;
-        apps->SetStatus("Stream stopped");
+        apps->SetStatus("Stream stopped.");
         break;
+
     case MOONLIGHT_EVENT_STREAM_FAILED: {
-        const char *button_id = AppButtonId(apps->m_selected_index);
-        paf::ui::Widget *button = (apps->root && button_id)
-            ? apps->root->FindChild(button_id)
-            : NULL;
-        paf::string status = paf::common::FormatString("LAUNCH FAILED %d", event->result);
+        paf::string status = paf::common::FormatString(
+            "Unable to start stream: 0x%08X",
+            (unsigned int)event->result);
         apps->m_launching = false;
-        if (button) {
-            button->SetString(paf::common::string_util::ToWString(status));
-        }
         apps->SetStatus(status.c_str());
         break;
     }
+
     default:
         break;
     }
