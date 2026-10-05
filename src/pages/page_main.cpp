@@ -66,7 +66,8 @@ Main::Main()
            paf::Plugin::TransitionType_None),
       m_host_count(0),
       m_selected_index(-1),
-      m_connecting(false)
+      m_connecting(false),
+      m_initial_refresh_attempts(0)
 {
     s_main = this;
 
@@ -111,7 +112,15 @@ void Main::InitialRefreshTask(void *userdata)
     }
 
     main->RefreshHosts();
-    paf::common::MainThreadCallList::Unregister(InitialRefreshTask, userdata);
+
+    /*
+     * PageOpen returns before the first PAF layout pass. Keep refreshing for
+     * a short warm-up window so the initial host list is populated on the
+     * first visit instead of appearing only after another page is opened.
+     */
+    if (main->m_host_count > 0 || ++main->m_initial_refresh_attempts >= 60) {
+        paf::common::MainThreadCallList::Unregister(InitialRefreshTask, userdata);
+    }
 }
 
 Main::~Main()
