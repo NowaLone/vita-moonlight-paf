@@ -79,7 +79,7 @@ Main::Main()
     }
 
     paf::ui::ListView *list = static_cast<paf::ui::ListView *>(
-        root->FindChild("host_list"));
+        root->FindChild("list_view_generic"));
     if (list) {
         list->SetItemFactory(new ListViewFactory(this));
         list->InsertSegment(0, 1);
@@ -93,7 +93,7 @@ Main::Main()
 
     MoonlightApp::Instance()->SetEventCallback(OnMoonlightEvent, this);
 
-    paf::ui::Widget *title = root->FindChild("main_title_text");
+    paf::ui::Widget *title = root->FindChild("text_top");
     if (title) {
         ((paf::ui::Text *)title)->SetString(
             paf::common::string_util::ToWString("Connect to a PC"));
@@ -123,7 +123,7 @@ paf::ui::ListItem *Main::CreateListItem(
     }
 
     paf::Plugin::TemplateOpenParam tmp;
-    g_plugin->TemplateOpen(param.parent, "template_host_list_item", tmp);
+    g_plugin->TemplateOpen(param.parent, "template_list_item_generic", tmp);
 
     paf::ui::Widget *item = param.parent->GetChild(
         param.parent->GetChildrenNum() - 1);
@@ -180,7 +180,7 @@ void Main::RefreshHosts()
     if (m_host_count > 8) m_host_count = 8;
 
     paf::ui::ListView *list = static_cast<paf::ui::ListView *>(
-        root->FindChild("host_list"));
+        root->FindChild("list_view_generic"));
 
     if (!list) return;
 
@@ -205,7 +205,7 @@ void Main::SelectHost(int index)
     m_connecting = true;
 
     paf::ui::ListView *list = static_cast<paf::ui::ListView *>(
-        root->FindChild("host_list"));
+        root->FindChild("list_view_generic"));
     if (list) {
         list->SetActivate(false);
     }
@@ -275,7 +275,7 @@ void Main::OnMoonlightEvent(const MoonlightEvent *event, void *userdata)
 
         {
             paf::ui::ListView *list = static_cast<paf::ui::ListView *>(
-                main->root->FindChild("host_list"));
+                main->root->FindChild("list_view_generic"));
             if (list) list->SetActivate(true);
         }
         break;
@@ -285,7 +285,7 @@ void Main::OnMoonlightEvent(const MoonlightEvent *event, void *userdata)
         main->SetStatus("Connection closed.");
         {
             paf::ui::ListView *list = static_cast<paf::ui::ListView *>(
-                main->root->FindChild("host_list"));
+                main->root->FindChild("list_view_generic"));
             if (list) list->SetActivate(true);
         }
         break;
@@ -304,7 +304,7 @@ void Main::OnMoonlightEvent(const MoonlightEvent *event, void *userdata)
         main->SetStatus("This PC needs pairing. Use Search PCs.");
         {
             paf::ui::ListView *list = static_cast<paf::ui::ListView *>(
-                main->root->FindChild("host_list"));
+                main->root->FindChild("list_view_generic"));
             if (list) list->SetActivate(true);
         }
         break;
