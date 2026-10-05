@@ -167,7 +167,7 @@ void Apps::ShowApps() {
 
     const int existing = m_list->GetCellNum(0);
     if (existing > 0) {
-        m_list->DeleteCell(0, 0, existing);
+        m_list->DeleteCell(0, 0, existing - 1);
     }
 
     if (m_app_count > 0) {
