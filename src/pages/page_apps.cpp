@@ -4,6 +4,8 @@
 #include "pages/page_apps.h"
 #include "app/moonlight_app.h"
 #include "pages/page_stream.h"
+#include "pages/page_main.h"
+#include "pages/page_search.h"
 
 namespace page {
 
@@ -61,8 +63,29 @@ Apps::Apps()
 }
 
 Apps::~Apps() {
-    if (MoonlightApp::Instance() && MoonlightApp::Instance()->IsInitialized()) {
-        MoonlightApp::Instance()->SetEventCallback(NULL, NULL);
+    if (!MoonlightApp::Instance() || !MoonlightApp::Instance()->IsInitialized()) {
+        return;
+    }
+
+    Search *search = static_cast<Search *>(Base::Find("page_search_pcs"));
+    if (search) {
+        search->RestoreEventCallback();
+        return;
+    }
+
+    Main *main = Main::Instance();
+    if (main) {
+        main->RestoreEventCallback();
+        return;
+    }
+
+    MoonlightApp::Instance()->SetEventCallback(NULL, NULL);
+}
+
+void Apps::RestoreEventCallback()
+{
+    if (MoonlightApp::Instance()->IsInitialized()) {
+        MoonlightApp::Instance()->SetEventCallback(OnMoonlightEvent, this);
     }
 }
 
