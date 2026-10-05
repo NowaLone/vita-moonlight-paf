@@ -18,10 +18,10 @@
         <layout_hint anchor="0, 1" align="0, 1" size="960, 72" pos="0, 0" />
         <box style="_common_default_style_box" id="box_main_actions">
           <layout_box layout_type="2" bottom_margin="0" top_margin="0" right_margin="40" left_margin="40" />
-          <button sound="_common_sound_button_enter" style="style_button_main_action" label="msg_search_pcs" id="btn_search_pcs">
+          <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_search_pcs" id="btn_search_pcs">
             <layout_hint size="202, 60" />
           </button>
-          <button sound="_common_sound_button_enter" style="style_button_main_action" label="msg_add_manually" id="btn_add_manually">
+          <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_add_manually" id="btn_add_manually">
             <layout_hint size="202, 60" />
           </button>
         </box>
@@ -177,15 +177,6 @@
       <planeobj texture0="_common_texture_list_glow_70px" blend="2" id="main_list_glow" />
     </style_image_button>
 
-    <style_button sound="_common_sound_button_enter"
-      label_obj="main_action_label"
-      bg_obj="main_action_bg"
-      glow_obj="main_action_glow"
-      id="style_button_main_action">
-      <planeobj texture0="_common_texture_option_menu_button_single" id="main_action_bg" />
-      <textobj font_size="28" bold="1" align_y="1" align_x="3" id="main_action_label" />
-      <planeobj texture0="_common_texture_option_menu_button_single_glow" blend="2" id="main_action_glow" />
-    </style_button>
 
     <style_text id="style_text_body">
       <textobj font_size="22" bold="0" color="1, 1, 1, 0.85" align_x="1" align_y="1" word_wrap="1" ellipsis="0" emboss="0" id="body_obj" />
