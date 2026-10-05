@@ -3,6 +3,7 @@
 
 #include "pages/page_search.h"
 #include "pages/page_apps.h"
+#include "pages/page_main.h"
 #include "app/moonlight_app.h"
 
 namespace page {
@@ -59,7 +60,20 @@ Search::Search()
 
 Search::~Search() {
     MoonlightApp::Instance()->Discovery().Stop();
-    MoonlightApp::Instance()->SetEventCallback(NULL, NULL);
+
+    Main *main = Main::Instance();
+    if (main) {
+        main->RestoreEventCallback();
+    } else {
+        MoonlightApp::Instance()->SetEventCallback(NULL, NULL);
+    }
+}
+
+void Search::RestoreEventCallback()
+{
+    if (MoonlightApp::Instance()->IsInitialized()) {
+        MoonlightApp::Instance()->SetEventCallback(OnMoonlightEvent, this);
+    }
 }
 
 void Search::OnHostButton(int32_t type,
