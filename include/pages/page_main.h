@@ -48,6 +48,7 @@ private:
     int m_host_count;
     int m_selected_index;
     bool m_connecting;
+    int m_initial_refresh_attempts;
     HostButtonContext m_button_contexts[8];
 };
 
