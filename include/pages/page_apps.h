@@ -12,6 +12,8 @@ public:
     virtual ~Apps();
     virtual Type GetType() { return Type_Apps; }
 
+    void RestoreEventCallback();
+
 private:
     struct AppButtonContext {
         Apps *page;
