@@ -53,6 +53,13 @@ Main *Main::Instance()
     return s_main;
 }
 
+void Main::RestoreEventCallback()
+{
+    if (MoonlightApp::Instance()->IsInitialized()) {
+        MoonlightApp::Instance()->SetEventCallback(OnMoonlightEvent, this);
+    }
+}
+
 Main::Main()
     : Base("page_main", NULL,
            paf::Plugin::TransitionType_None,
