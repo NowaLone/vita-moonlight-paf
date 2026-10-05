@@ -43,7 +43,7 @@ Apps::Apps()
 
     MoonlightApp::Instance()->SetEventCallback(OnMoonlightEvent, this);
 
-    paf::ui::Widget *title = root->FindChild("main_title_text");
+    paf::ui::Widget *title = root->FindChild("text_top");
     if (title) {
         ((paf::ui::Text *)title)->SetString(
             paf::common::string_util::ToWString("Applications"));
@@ -87,7 +87,7 @@ void Apps::RestoreEventCallback() {
 paf::ui::ListItem *Apps::CreateListItem(
     paf::ui::listview::ItemFactory::CreateParam &param) {
     paf::Plugin::TemplateOpenParam tmp;
-    g_plugin->TemplateOpen(param.parent, "template_generic_list_item", tmp);
+    g_plugin->TemplateOpen(param.parent, "template_list_item_generic", tmp);
 
     paf::ui::ListItem *item = static_cast<paf::ui::ListItem *>(
         param.parent->GetChild(param.parent->GetChildrenNum() - 1));
