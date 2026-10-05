@@ -31,43 +31,18 @@
     </page>
 
     <page id="page_search_pcs">
-      <plane style="style_plane_fill" id="plane_search_fill">
+      <plane texture="_bg_texture" id="plane_search_bg">
         <layout_hint size="960, 544" />
-        <text style="style_text_title" label="msg_search_pcs" id="text_search_title">
-          <layout_hint adjust="2, 2" pos="0, 80" />
-        </text>
-        <text style="style_text_body" label="msg_search_pcs_description" id="text_search_description">
-          <layout_hint adjust="2, 2" pos="0, 55" />
-        </text>
-        <text style="style_text_body" label="msg_searching_pcs" id="text_search_status">
-          <layout_hint adjust="2, 2" pos="0, 10" />
-        </text>
-        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_host_0">
-          <layout_hint pos="0, -105" size="560, 62" />
-        </button>
-        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_host_1">
-          <layout_hint pos="0, -30" size="560, 62" />
-        </button>
-        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_host_2">
-          <layout_hint pos="0, 45" size="560, 62" />
-        </button>
-        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_host_3">
-          <layout_hint pos="0, 120" size="560, 62" />
-        </button>
-        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_host_4">
-          <layout_hint pos="0, 195" size="560, 62" />
-        </button>
-        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_host_5">
-          <layout_hint pos="0, 270" size="560, 62" />
-        </button>
-        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_host_6">
-          <layout_hint pos="0, 345" size="560, 62" />
-        </button>
-        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_host_7">
-          <layout_hint pos="0, 420" size="560, 62" />
-        </button>
-        <corner_button style="_common_style_corner_bottom_left" id="btn_close_search" />
       </plane>
+
+      <template_ref id="search_title_ref" template="template_main_title_bar" />
+      <template_ref id="search_list_ref" template="template_generic_list_view" />
+
+      <text style="style_text_main_status" label="msg_searching_pcs" id="text_search_status">
+        <layout_hint anchor="0, 2" align="0, 2" size="760, 0" pos="0, -220" adjust="0, 2" />
+      </text>
+
+      <corner_button style="_common_style_corner_bottom_left" id="btn_close_search" />
     </page>
 
     <page id="page_stream">
@@ -77,40 +52,18 @@
     </page>
 
     <page id="page_apps">
-      <plane style="style_plane_fill" id="plane_apps_fill">
+      <plane texture="_bg_texture" id="plane_apps_bg">
         <layout_hint size="960, 544" />
-        <text style="style_text_title" label="msg_apps" id="text_apps_title">
-          <layout_hint adjust="2, 2" pos="0, 80" />
-        </text>
-        <text style="style_text_body" label="msg_loading_apps" id="text_apps_status">
-          <layout_hint adjust="2, 2" pos="0, 10" />
-        </text>
-        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_app_0">
-          <layout_hint pos="0, -105" size="560, 62" />
-        </button>
-        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_app_1">
-          <layout_hint pos="0, -30" size="560, 62" />
-        </button>
-        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_app_2">
-          <layout_hint pos="0, 45" size="560, 62" />
-        </button>
-        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_app_3">
-          <layout_hint pos="0, 120" size="560, 62" />
-        </button>
-        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_app_4">
-          <layout_hint pos="0, 195" size="560, 62" />
-        </button>
-        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_app_5">
-          <layout_hint pos="0, 270" size="560, 62" />
-        </button>
-        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_app_6">
-          <layout_hint pos="0, 345" size="560, 62" />
-        </button>
-        <button sound="_common_sound_button_enter" style="_common_default_style_button" id="btn_app_7">
-          <layout_hint pos="0, 420" size="560, 62" />
-        </button>
-        <corner_button style="_common_style_corner_bottom_left" id="btn_close_apps" />
       </plane>
+
+      <template_ref id="apps_title_ref" template="template_main_title_bar" />
+      <template_ref id="apps_list_ref" template="template_generic_list_view" />
+
+      <text style="style_text_main_status" label="msg_loading_apps" id="text_apps_status">
+        <layout_hint anchor="0, 2" align="0, 2" size="760, 0" pos="0, -220" adjust="0, 2" />
+      </text>
+
+      <corner_button style="_common_style_corner_bottom_left" id="btn_close_apps" />
     </page>
 
     <page id="page_add_manually">
@@ -194,6 +147,25 @@
   </texturetable>
 
     <templatetable>
+      <template fast_open="1" id="template_generic_list_view">
+        <list_view style="style_list_view_main" id="list_view_generic">
+          <layout_hint align="0, 1" size="960, 448" pos="0, -206" />
+        </list_view>
+      </template>
+
+      <template fast_open="1" id="template_generic_list_item">
+        <list_item style="style_list_item_main" id="list_item_generic">
+          <layout_hint size="960, 80" />
+          <image_button sound="_common_sound_image_button"
+            enable_long_press_text_auto_scroll="1"
+            style="style_image_button_main_list"
+            id="image_button_list_item">
+            <focus_hint focus_shape="3" />
+            <layout_hint size="840, 80" />
+          </image_button>
+        </list_item>
+      </template>
+
       <template fast_open="1" id="template_main_title_bar">
         <plane style="_common_style_plane_transparent" id="main_title_plane">
           <layout_hint align="0, 2" size="960, 64" pos="0, 240" />
