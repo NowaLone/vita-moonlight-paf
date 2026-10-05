@@ -100,7 +100,18 @@ Main::Main()
     }
 
     SetStatus("Select a PC to connect.");
-    RefreshHosts();
+    paf::common::MainThreadCallList::Register(InitialRefreshTask, this);
+}
+
+void Main::InitialRefreshTask(void *userdata)
+{
+    Main *main = (Main *)userdata;
+    if (!main) {
+        return;
+    }
+
+    main->RefreshHosts();
+    paf::common::MainThreadCallList::Unregister(InitialRefreshTask, userdata);
 }
 
 Main::~Main()
