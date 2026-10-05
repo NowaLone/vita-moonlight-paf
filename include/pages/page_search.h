@@ -12,6 +12,8 @@ public:
     virtual ~Search();
     virtual Type GetType() { return Type_Search; }
 
+    void RestoreEventCallback();
+
 private:
     struct HostButtonContext {
         Search *page;
