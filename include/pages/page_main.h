@@ -32,6 +32,7 @@ public:
     void RestoreAfterSystemSettings();
     void OpenSearch();
     void OpenAddHost();
+    void RestoreEventCallback();
 
 private:
     static void OnHostButton(int32_t type, paf::ui::Handler *self, paf::ui::Event *event, void *userdata);
