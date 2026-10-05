@@ -78,14 +78,47 @@ device_info_t* find_device(const char *name) {
 }
 
 device_info_t* find_device_by_address(const char *address) {
-  if (address == NULL)
+  if (address == NULL || address[0] == '\0')
     return NULL;
   for (int i = 0; i < known_devices.count; i++) {
     device_info_t *d = &known_devices.devices[i];
-    if (strcmp(d->internal, address) == 0 || strcmp(d->external, address) == 0) {
+    if ((d->internal[0] && strcmp(d->internal, address) == 0) ||
+        (d->external[0] && strcmp(d->external, address) == 0)) {
       return d;
     }
   }
+  return NULL;
+}
+
+static device_info_t* find_device_by_identity(const device_info_t *info) {
+  if (!info)
+    return NULL;
+
+  device_info_t *device = find_device(info->name);
+  if (device)
+    return device;
+
+  if (info->internal[0]) {
+    device = find_device_by_address(info->internal);
+    if (device)
+      return device;
+  }
+
+  if (info->external[0]) {
+    device = find_device_by_address(info->external);
+    if (device)
+      return device;
+  }
+
+  if (info->mac[0]) {
+    for (int i = 0; i < known_devices.count; ++i) {
+      if (known_devices.devices[i].mac[0] &&
+          strcmp(known_devices.devices[i].mac, info->mac) == 0) {
+        return &known_devices.devices[i];
+      }
+    }
+  }
+
   return NULL;
 }
 
@@ -115,10 +148,35 @@ static int device_ini_handle(void *out, const char *section, const char *name,
 }
 
 device_info_t* append_device(device_info_t *info) {
-  if (find_device(info->name)) {
-    vita_debug_log("append_device: device %s is already in the list\n", info->name);
+  if (!info) {
     return NULL;
   }
+
+  device_info_t *existing = find_device_by_identity(info);
+  if (existing) {
+    if (info->paired) {
+      existing->paired = true;
+    }
+    if (info->internal[0]) {
+      strncpy(existing->internal, info->internal, 255);
+      existing->internal[255] = '\0';
+    }
+    if (info->external[0]) {
+      strncpy(existing->external, info->external, 255);
+      existing->external[255] = '\0';
+    }
+    if (info->mac[0]) {
+      strncpy(existing->mac, info->mac, 17);
+      existing->mac[17] = '\0';
+    }
+    if (info->port != 0) {
+      existing->port = info->port;
+    }
+    existing->prefer_external = info->prefer_external;
+    vita_debug_log("append_device: device %s already exists, merging\n", existing->name);
+    return existing;
+  }
+
   // FIXME: need mutex
   if (known_devices.size == 0) {
     vita_debug_log("append_device: allocating memory for the initial device list...\n");
