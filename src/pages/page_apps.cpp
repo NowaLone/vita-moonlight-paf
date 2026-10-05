@@ -1,6 +1,8 @@
 #include <paf.h>
 #include <string.h>
 
+#include "common.h"
+
 #include "pages/page_apps.h"
 #include "app/moonlight_app.h"
 #include "pages/page_stream.h"
