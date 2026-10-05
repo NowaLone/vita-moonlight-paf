@@ -83,7 +83,7 @@ Main::Main()
     if (list) {
         list->SetItemFactory(new ListViewFactory(this));
         list->InsertSegment(0, 1);
-        list->SetCellSizeDefault(0, { 960.0f, 78.0f });
+        list->SetCellSizeDefault(0, { 960.0f, 80.0f });
         list->SetSegmentLayoutType(0, paf::ui::ListView::LAYOUT_TYPE_LIST);
     }
 
@@ -139,7 +139,7 @@ paf::ui::ListItem *Main::CreateListItem(
     paf::ui::Widget *item = param.parent->GetChild(
         param.parent->GetChildrenNum() - 1);
 
-    paf::ui::Widget *button = item->FindChild("image_button_host");
+    paf::ui::Widget *button = item->FindChild("image_button_list_item");
     if (!button) {
         return static_cast<paf::ui::ListItem *>(item);
     }
