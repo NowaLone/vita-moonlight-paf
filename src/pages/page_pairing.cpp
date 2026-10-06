@@ -46,7 +46,7 @@ Pairing::Pairing(const char pin[5])
             paf::common::string_util::ToWString("Pair with PC"));
     }
 
-    SetStatus("Enter this PIN on the PC.");
+    SetStatus("Enter this PIN in the Sunshine Web UI.");
     StartPairing();
 }
 
