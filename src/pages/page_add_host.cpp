@@ -172,8 +172,12 @@ void AddHost::StartIme()
             (unsigned int)result);
 
         if (result == SCE_COMMON_DIALOG_ERROR_BUSY) {
+            if (!m_ime_retry_pending) {
+                vita_debug_log("[AddHost] IME busy, waiting for common dialog");
+                SetStatus("Opening system keyboard...");
+            }
+
             m_ime_retry_pending = true;
-            SetStatus("Opening system keyboard...");
             if (!m_ime_task_registered) {
                 paf::common::MainThreadCallList::Register(ImePollTask, this);
                 m_ime_task_registered = true;
