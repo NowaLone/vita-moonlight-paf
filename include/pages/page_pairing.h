@@ -2,10 +2,10 @@
 #define VITA_MOONLIGHT_PAGE_PAIRING_H
 
 #include <stdint.h>
-#include <common_gui_dialog.h>
 
 #include "pages/page.h"
 #include "moonlight/types.h"
+#include <psp2/message_dialog.h>
 
 namespace page {
 
@@ -19,20 +19,24 @@ public:
 
 private:
     static void OnMoonlightEvent(const MoonlightEvent *event, void *userdata);
-    static void OnDialogEvent(
-        int32_t instanceSlot,
-        CommonGuiDialog::DIALOG_CB buttonCode,
-        void *userdata);
+    static void DialogPollTask(void *userdata);
 
     void StartPairing();
     void ShowPairingError();
     void RetryPairing();
+    void ShowSystemError();
     void SetPin(const char pin[5]);
     void SetStatus(const char *text);
 
     char m_pin[5];
     bool m_pairing_started;
-    int32_t m_dialog_slot;
+    bool m_dialog_open;
+    bool m_dialog_task_registered;
+    SceMsgDialogParam m_dialog_param;
+    SceMsgDialogUserMessageParam m_dialog_user;
+    SceMsgDialogButtonsParam m_dialog_buttons;
+    char m_dialog_title[128];
+    char m_dialog_message[512];
 };
 
 }
