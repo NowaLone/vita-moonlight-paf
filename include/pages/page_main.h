@@ -49,7 +49,6 @@ private:
     void StartAddPcIme();
     void HandleAddPcImeResult();
     void StartManualConnection(const char *address);
-    void SetAddPcLabel(const char *text);
 
     MoonlightHost m_hosts[8];
     int m_host_count;
