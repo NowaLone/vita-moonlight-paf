@@ -317,45 +317,6 @@ void Search::OnMoonlightEvent(
         }
         break;
 
-    case MOONLIGHT_EVENT_PAIRING_REQUIRED:
-        if (search->m_selected_index >= 0 && event->pairing_pin[0]) {
-            memcpy(
-                search->m_pairing_pin,
-                event->pairing_pin,
-                sizeof(search->m_pairing_pin));
-            search->m_pairing_pending = true;
-            paf::string pairing_status = paf::common::FormatString(
-                "PIN: %s\nEnter it on the PC.",
-                search->m_pairing_pin);
-            search->SetStatus(pairing_status.c_str());
-        }
-        break;
-
-    case MOONLIGHT_EVENT_PAIRING_FINISHED:
-        if (event->result == 0) {
-            search->SetStatus("PC paired.");
-            if (!Base::IsOpen("page_apps")) {
-                Apps *apps = new Apps();
-                if (!apps->IsValid()) delete apps;
-            }
-        } else {
-            paf::string status = paf::common::FormatString(
-                "Pairing failed: 0x%08X",
-                (unsigned int)event->result);
-            search->SetStatus(status.c_str());
-            search->m_pairing_pending = search->m_pairing_pin[0] != '\0';
-        }
-        break;
-
-    case MOONLIGHT_EVENT_PAIRING_FAILED: {
-        paf::string status = paf::common::FormatString(
-            "Pairing failed: 0x%08X",
-            (unsigned int)event->result);
-        search->SetStatus(status.c_str());
-        search->m_pairing_pending = search->m_pairing_pin[0] != ' ';
-        break;
-    }
-
     case MOONLIGHT_EVENT_CONNECTION_READY:
         search->OnConnectionReady();
         break;
