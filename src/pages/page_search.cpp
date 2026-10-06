@@ -5,6 +5,7 @@
 
 #include "pages/page_search.h"
 #include "pages/page_apps.h"
+#include "pages/page_pairing.h"
 #include "pages/page_main.h"
 #include "app/moonlight_app.h"
 
@@ -22,10 +23,8 @@ Search::Search()
            paf::Plugin::TransitionType_SlideFromBottom),
       m_host_count(0),
       m_host_selected(false),
-      m_pairing_pending(false),
       m_selected_index(-1),
       m_list(NULL) {
-    m_pairing_pin[0] = '\0';
 
     if (!IsValid()) return;
 
@@ -225,12 +224,14 @@ void Search::OnConnectionReady() {
     }
 
     if (app->Connection().State() == MOONLIGHT_CONNECTION_PAIRED) {
-        m_pairing_pending = false;
-        m_host_selected = true;
-        SetStatus("PC is already paired.");
+        SetStatus("PC is paired. Loading applications...");
         if (!Base::IsOpen("page_apps")) {
             Apps *apps = new Apps();
-            if (!apps->IsValid()) delete apps;
+            if (!apps->IsValid()) {
+                delete apps;
+                m_host_selected = false;
+                SetStatus("Unable to open applications.");
+            }
         }
         return;
     }
@@ -246,26 +247,11 @@ void Search::OnConnectionReady() {
         return;
     }
 
-    memcpy(m_pairing_pin, pin, sizeof(m_pairing_pin));
-    m_pairing_pending = true;
-
-    paf::string pairing_status = paf::common::FormatString(
-        "PIN: %s\nEnter it on the PC.",
-        m_pairing_pin);
-    SetStatus(pairing_status.c_str());
-
-    /*
-     * Pair() must be started immediately. It sends the initial pairing
-     * request to the host; without it the host has no pairing request to
-     * react to and the PIN cannot be entered there.
-     */
-    int pair_result = app->Pairing().Pair(m_pairing_pin);
-    if (pair_result != 0) {
-        paf::string status = paf::common::FormatString(
-            "Pairing start failed: 0x%08X",
-            (unsigned int)pair_result);
-        SetStatus(status.c_str());
-        m_pairing_pending = false;
+    Pairing *pairing = new Pairing(pin);
+    if (!pairing || !pairing->IsValid()) {
+        delete pairing;
+        m_host_selected = false;
+        SetStatus("Unable to open pairing screen.");
     }
 }
 
@@ -372,17 +358,6 @@ void Search::OnMoonlightEvent(
 
     case MOONLIGHT_EVENT_CONNECTION_READY:
         search->OnConnectionReady();
-        break;
-
-    case MOONLIGHT_EVENT_CONNECTION_FAILED:
-        if (search->m_host_selected) {
-            paf::string status = paf::common::FormatString(
-                "Connection failed: 0x%08X",
-                (unsigned int)event->result);
-            search->SetStatus(status.c_str());
-            search->m_host_selected = false;
-            search->m_pairing_pending = false;
-        }
         break;
 
     default:
