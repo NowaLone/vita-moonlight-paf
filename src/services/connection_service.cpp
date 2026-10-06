@@ -43,8 +43,12 @@ private:
 ConnectionService::ConnectionService(MoonlightBackend &backend)
     : m_backend(backend),
       m_progress_dialog_open(false),
+      m_progress_dialog_closing(false),
       m_error_dialog_open(false),
-      m_dialog_task_registered(false)
+      m_error_pending(false),
+      m_dialog_task_registered(false),
+      m_success_event_pending(false),
+      m_success_event_ready(false)
 {
     m_error_message[0] = '\0';
 }
@@ -56,7 +60,8 @@ ConnectionService::~ConnectionService()
 
 void ConnectionService::StartConnectionDialog()
 {
-    if (m_progress_dialog_open || m_error_dialog_open) {
+    if (m_progress_dialog_open || m_progress_dialog_closing ||
+        m_error_dialog_open || m_error_pending) {
         return;
     }
 
@@ -83,18 +88,25 @@ void ConnectionService::StartConnectionDialog()
 
 void ConnectionService::CloseDialog()
 {
-    if (m_progress_dialog_open || m_error_dialog_open) {
+    if (m_error_dialog_open) {
         sceMsgDialogAbort();
+        m_error_dialog_open = false;
         sceMsgDialogTerm();
     }
 
-    m_progress_dialog_open = false;
-    m_error_dialog_open = false;
+    if (m_progress_dialog_open && !m_progress_dialog_closing) {
+        sceMsgDialogAbort();
+        m_progress_dialog_closing = true;
+    }
+
+    m_error_pending = false;
+    m_success_event_pending = false;
+    m_success_event_ready = false;
     m_error_message[0] = '\0';
 
-    if (m_dialog_task_registered) {
-        paf::common::MainThreadCallList::Unregister(DialogPollTask, this);
-        m_dialog_task_registered = false;
+    if (!m_dialog_task_registered && m_progress_dialog_closing) {
+        paf::common::MainThreadCallList::Register(DialogPollTask, this);
+        m_dialog_task_registered = true;
     }
 }
 
@@ -102,7 +114,25 @@ void ConnectionService::ShowConnectionError(const char *address)
 {
     (void)address;
 
-    CloseDialog();
+    m_error_pending = true;
+
+    if (m_progress_dialog_open && !m_progress_dialog_closing) {
+        sceMsgDialogAbort();
+        m_progress_dialog_closing = true;
+    }
+
+    if (!m_dialog_task_registered) {
+        paf::common::MainThreadCallList::Register(DialogPollTask, this);
+        m_dialog_task_registered = true;
+    }
+}
+
+void ConnectionService::TryShowConnectionError()
+{
+    if (!m_error_pending || m_progress_dialog_open ||
+        m_progress_dialog_closing || m_error_dialog_open) {
+        return;
+    }
 
     strncpy(
         m_error_message,
@@ -124,62 +154,135 @@ void ConnectionService::ShowConnectionError(const char *address)
 
     int result = sceMsgDialogInit(&param);
     if (result < 0) {
-        vita_debug_log(
-            "[ConnectionService] connection error dialog init failed: 0x%08X",
-            (unsigned int)result);
-        m_error_message[0] = '\0';
+        if (result != SCE_COMMON_DIALOG_ERROR_BUSY) {
+            vita_debug_log(
+                "[ConnectionService] connection error dialog init failed: 0x%08X",
+                (unsigned int)result);
+        }
         return;
     }
 
+    m_error_pending = false;
     m_error_dialog_open = true;
-    if (!m_dialog_task_registered) {
-        paf::common::MainThreadCallList::Register(DialogPollTask, this);
-        m_dialog_task_registered = true;
-    }
 }
 
 void ConnectionService::FinishConnection(bool success, const char *address)
 {
     if (success) {
-        CloseDialog();
+        if (!m_success_event_pending) {
+            m_success_event_pending = true;
+            m_success_event_ready = false;
+        }
+
+        if (m_progress_dialog_open && !m_progress_dialog_closing) {
+            sceMsgDialogAbort();
+            m_progress_dialog_closing = true;
+            if (!m_dialog_task_registered) {
+                paf::common::MainThreadCallList::Register(DialogPollTask, this);
+                m_dialog_task_registered = true;
+            }
+            return;
+        }
+
+        if (!m_progress_dialog_closing && !m_error_dialog_open &&
+            !m_error_pending) {
+            m_success_event_ready = true;
+        }
         return;
     }
 
     ShowConnectionError(address);
 }
 
+void ConnectionService::ConsumeSuccessEvent()
+{
+    m_success_event_pending = false;
+    m_success_event_ready = false;
+}
+
 void ConnectionService::DialogPollTask(void *userdata)
 {
     ConnectionService *service = (ConnectionService *)userdata;
-    if (!service || !service->m_error_dialog_open) {
-        if (service && service->m_dialog_task_registered) {
+    if (!service) {
+        return;
+    }
+
+    if (service->m_progress_dialog_closing) {
+        if (sceMsgDialogGetStatus() != SCE_COMMON_DIALOG_STATUS_FINISHED) {
+            return;
+        }
+
+        sceMsgDialogTerm();
+        service->m_progress_dialog_open = false;
+        service->m_progress_dialog_closing = false;
+
+        if (service->m_success_event_pending) {
+            service->m_success_event_ready = true;
+        }
+    }
+
+    if (service->m_error_pending && !service->m_progress_dialog_open &&
+        !service->m_progress_dialog_closing &&
+        !service->m_error_dialog_open) {
+        service->TryShowConnectionError();
+    }
+
+    if (service->m_error_dialog_open) {
+        if (sceMsgDialogGetStatus() != SCE_COMMON_DIALOG_STATUS_FINISHED) {
+            return;
+        }
+
+        SceMsgDialogResult result;
+        memset(&result, 0, sizeof(result));
+        sceMsgDialogGetResult(&result);
+        sceMsgDialogTerm();
+
+        service->m_error_dialog_open = false;
+        service->m_error_message[0] = '\0';
+    }
+
+    if (!service->m_progress_dialog_closing &&
+        !service->m_error_pending &&
+        !service->m_error_dialog_open) {
+        if (service->m_dialog_task_registered) {
             paf::common::MainThreadCallList::Unregister(DialogPollTask, service);
             service->m_dialog_task_registered = false;
         }
-        return;
-    }
-
-    if (sceMsgDialogGetStatus() != SCE_COMMON_DIALOG_STATUS_FINISHED) {
-        return;
-    }
-
-    SceMsgDialogResult result;
-    memset(&result, 0, sizeof(result));
-    sceMsgDialogGetResult(&result);
-    sceMsgDialogTerm();
-
-    service->m_error_dialog_open = false;
-    service->m_error_message[0] = '\0';
-
-    if (service->m_dialog_task_registered) {
-        paf::common::MainThreadCallList::Unregister(DialogPollTask, service);
-        service->m_dialog_task_registered = false;
     }
 }
 
 void ConnectionService::Shutdown()
 {
-    CloseDialog();
+    if (m_progress_dialog_open || m_progress_dialog_closing) {
+        if (!m_progress_dialog_closing) {
+            sceMsgDialogAbort();
+            m_progress_dialog_closing = true;
+        }
+
+        if (sceMsgDialogGetStatus() == SCE_COMMON_DIALOG_STATUS_FINISHED) {
+            sceMsgDialogTerm();
+            m_progress_dialog_open = false;
+            m_progress_dialog_closing = false;
+        }
+    }
+
+    if (m_error_dialog_open) {
+        sceMsgDialogAbort();
+        if (sceMsgDialogGetStatus() == SCE_COMMON_DIALOG_STATUS_FINISHED) {
+            sceMsgDialogTerm();
+        }
+        m_error_dialog_open = false;
+    }
+
+    m_error_pending = false;
+    m_success_event_pending = false;
+    m_success_event_ready = false;
+    m_error_message[0] = '\0';
+
+    if (m_dialog_task_registered) {
+        paf::common::MainThreadCallList::Unregister(DialogPollTask, this);
+        m_dialog_task_registered = false;
+    }
 }
 
 int ConnectionService::Connect(const MoonlightHost &host)
@@ -187,6 +290,10 @@ int ConnectionService::Connect(const MoonlightHost &host)
     if (!host.internal[0]) {
         return -1;
     }
+
+    m_success_event_pending = false;
+    m_success_event_ready = false;
+    m_error_pending = false;
 
     StartConnectionDialog();
 
