@@ -2,8 +2,10 @@
 #define VITA_MOONLIGHT_PAGE_PAIRING_H
 
 #include <stdint.h>
+#include <common_gui_dialog.h>
 
 #include "pages/page.h"
+#include "moonlight/types.h"
 
 namespace page {
 
