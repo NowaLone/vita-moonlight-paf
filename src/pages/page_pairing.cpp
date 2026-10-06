@@ -7,6 +7,7 @@
 #include "pages/page_apps.h"
 #include "pages/page_main.h"
 #include "app/moonlight_app.h"
+#include "debug.h"
 
 namespace page {
 
@@ -20,8 +21,18 @@ Pairing::Pairing(const char pin[5])
 {
     m_pin[0] = '\0';
 
+    vita_debug_log(
+        "[Pairing] constructor pin=%s valid=%d root=%p",
+        pin ? pin : "(null)",
+        IsValid() ? 1 : 0,
+        root);
+
     if (!IsValid()) {
         return;
+    }
+
+    if (root) {
+        root->SetActivate(true);
     }
 
     SetPin(pin);
@@ -29,6 +40,7 @@ Pairing::Pairing(const char pin[5])
     MoonlightApp::Instance()->SetEventCallback(OnMoonlightEvent, this);
 
     paf::ui::Widget *title = root->FindChild("text_top");
+    vita_debug_log("[Pairing] text_top=%p", title);
     if (title) {
         ((paf::ui::Text *)title)->SetString(
             paf::common::string_util::ToWString("Pair with PC"));
@@ -89,6 +101,7 @@ void Pairing::SetPin(const char pin[5])
 
     if (root) {
         paf::ui::Widget *widget = root->FindChild("text_pairing_pin");
+        vita_debug_log("[Pairing] text_pairing_pin=%p", widget);
         if (widget) {
             paf::string pin_text = paf::common::FormatString(
                 "%c  %c  %c  %c",
@@ -108,6 +121,7 @@ void Pairing::SetStatus(const char *text)
     if (!root || !text) return;
 
     paf::ui::Widget *widget = root->FindChild("text_pairing_status");
+    vita_debug_log("[Pairing] text_pairing_status=%p text=%s", widget, text);
     if (!widget) return;
 
     ((paf::ui::Text *)widget)->SetString(
