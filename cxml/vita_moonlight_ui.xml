@@ -52,17 +52,20 @@
 
       <template_ref id="pairing_title_ref" template="template_top_title_bar" />
 
-      <text style="style_text_body" label="msg_pairing_enter_pin" id="text_pairing_instruction">
-        <layout_hint anchor="0, 2" align="0, 2" size="760, 0" pos="0, 40" adjust="0, 2" />
-      </text>
+      <plane style="_common_style_plane_transparent" id="plane_pairing_content">
+        <layout_hint size="960, 544" />
+        <text style="style_text_body" label="msg_pairing_enter_pin" id="text_pairing_instruction">
+          <layout_hint adjust="2, 2" pos="0, 70" size="760, 50" />
+        </text>
 
-      <text style="style_text_title" id="text_pairing_pin">
-        <layout_hint anchor="0, 2" align="0, 2" size="760, 90" pos="0, -20" adjust="0, 2" />
-      </text>
+        <text style="style_text_title" id="text_pairing_pin">
+          <layout_hint adjust="2, 2" pos="0, 0" size="760, 90" />
+        </text>
 
-      <text style="style_text_main_status" id="text_pairing_status">
-        <layout_hint anchor="0, 2" align="0, 2" size="760, 0" pos="0, -150" adjust="0, 2" />
-      </text>
+        <text style="style_text_main_status" id="text_pairing_status">
+          <layout_hint adjust="2, 2" pos="0, -80" size="760, 50" />
+        </text>
+      </plane>
 
       <corner_button style="_common_style_corner_bottom_left" id="btn_close_pairing" />
     </page>
