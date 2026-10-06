@@ -101,6 +101,9 @@
         <text style="style_text_body" label="msg_add_manually_description" id="text_add_manual_description">
           <layout_hint adjust="2, 2" pos="0, 10" />
         </text>
+        <text style="style_text_main_status" id="text_add_manual_status">
+          <layout_hint size="760, 0" anchor="0, 2" align="0, 2" adjust="0, 2" pos="0, -70" />
+        </text>
         <corner_button style="_common_style_corner_bottom_left" id="btn_close_add_manual" />
       </plane>
     </page>

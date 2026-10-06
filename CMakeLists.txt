@@ -189,6 +189,7 @@ target_link_libraries(${PROJECT_NAME}
   SceAppUtil_stub
   SceCommonDialog_stub
   SceCommonGuiDialog_stub
+  SceIme_stub
   -Wl,--end-group
 )
 
