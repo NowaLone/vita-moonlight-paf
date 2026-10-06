@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include <psp2/ime_dialog.h>
+#include <psp2/common_dialog.h>
 #include <psp2/sysmodule.h>
 
 #include "pages/page_add_host.h"
@@ -52,6 +53,7 @@ AddHost::AddHost()
            paf::Plugin::TransitionType_SlideFromBottom),
       m_ime_open(false),
       m_ime_task_registered(false),
+      m_ime_retry_pending(false),
       m_ime_module_loaded(false),
       m_connecting(false)
 {
@@ -92,6 +94,7 @@ AddHost::~AddHost()
         paf::common::MainThreadCallList::Unregister(ImePollTask, this);
         m_ime_task_registered = false;
     }
+    m_ime_retry_pending = false;
 
     if (m_ime_open) {
         sceImeDialogAbort();
@@ -167,10 +170,27 @@ void AddHost::StartIme()
         vita_debug_log(
             "[AddHost] sceImeDialogInit failed: 0x%08X",
             (unsigned int)result);
+
+        if (result == SCE_COMMON_DIALOG_ERROR_BUSY) {
+            m_ime_retry_pending = true;
+            SetStatus("Opening system keyboard...");
+            if (!m_ime_task_registered) {
+                paf::common::MainThreadCallList::Register(ImePollTask, this);
+                m_ime_task_registered = true;
+            }
+            return;
+        }
+
+        m_ime_retry_pending = false;
         SetStatus("Unable to open the system keyboard.");
+        if (m_ime_task_registered) {
+            paf::common::MainThreadCallList::Unregister(ImePollTask, this);
+            m_ime_task_registered = false;
+        }
         return;
     }
 
+    m_ime_retry_pending = false;
     m_ime_open = true;
     if (!m_ime_task_registered) {
         paf::common::MainThreadCallList::Register(ImePollTask, this);
@@ -180,6 +200,8 @@ void AddHost::StartIme()
 
 void AddHost::HandleImeResult()
 {
+    m_ime_retry_pending = false;
+
     SceImeDialogResult result;
     memset(&result, 0, sizeof(result));
 
@@ -226,7 +248,20 @@ void AddHost::HandleImeResult()
 void AddHost::ImePollTask(void *userdata)
 {
     AddHost *page = (AddHost *)userdata;
-    if (!page || !page->m_ime_open) {
+    if (!page) {
+        return;
+    }
+
+    if (page->m_ime_retry_pending && !page->m_ime_open) {
+        page->StartIme();
+        return;
+    }
+
+    if (!page->m_ime_open) {
+        if (page->m_ime_task_registered) {
+            paf::common::MainThreadCallList::Unregister(ImePollTask, page);
+            page->m_ime_task_registered = false;
+        }
         return;
     }
 
@@ -246,16 +281,6 @@ void AddHost::AddAndConnect(const char *address)
     MoonlightApp *app = MoonlightApp::Instance();
     if (!app) {
         SetStatus("Unable to connect to PC.");
-        return;
-    }
-
-    int add_result = app->Hosts().Add(address, kGameStreamPort, address);
-    if (add_result != 0) {
-        vita_debug_log(
-            "[AddHost] saving host failed: 0x%08X",
-            (unsigned int)add_result);
-        SetStatus("Unable to save this PC.");
-        StartIme();
         return;
     }
 
