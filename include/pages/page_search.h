@@ -37,14 +37,11 @@ private:
     void SetStatus(const char *text);
     void SelectHost(int index);
     void OnConnectionReady();
-    void ContinuePairing();
 
     MoonlightHost m_hosts[8];
     int m_host_count;
     bool m_host_selected;
-    bool m_pairing_pending;
     int m_selected_index;
-    char m_pairing_pin[5];
     HostButtonContext m_button_contexts[8];
     paf::ui::ListView *m_list;
 
