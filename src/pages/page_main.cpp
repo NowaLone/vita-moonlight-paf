@@ -5,6 +5,7 @@
 #include "pages/page_search.h"
 #include "pages/page_add_host.h"
 #include "pages/page_apps.h"
+#include "pages/page_pairing.h"
 #include "option_menu.h"
 #include "common.h"
 #include "app/moonlight_app.h"
