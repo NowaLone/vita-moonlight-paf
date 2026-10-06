@@ -196,7 +196,10 @@ static int device_ini_handle(void *out, const char *section, const char *name,
                              const char *value) {
   device_info_t *info = out;
 
-  if (strcmp(name, "paired") == 0) {
+  if (strcmp(name, "name") == 0) {
+    strncpy(info->name, value, sizeof(info->name) - 1);
+    info->name[sizeof(info->name) - 1] = '\0';
+  } else if (strcmp(name, "paired") == 0) {
     info->paired = BOOL(value);
   } else if (strcmp(name, "host_id") == 0) {
     strncpy(info->host_id, value, sizeof(info->host_id) - 1);
@@ -396,6 +399,9 @@ void save_device_info(const device_info_t *info) {
     vita_debug_log("save_device_info: cannot open device file\n");
     return;
   }
+
+  vita_debug_log("save_device_info: name = %s\n", info->name);
+  write_string(fd, "name", info->name);
 
   vita_debug_log("save_device_info: paired = %s\n", info->paired ? "true" : "false");
   write_bool(fd, "paired", info->paired);
