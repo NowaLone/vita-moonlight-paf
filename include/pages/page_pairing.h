@@ -30,6 +30,7 @@ private:
 
     char m_pin[5];
     bool m_pairing_started;
+    int m_last_error_result;
     bool m_dialog_open;
     bool m_dialog_task_registered;
     SceMsgDialogParam m_dialog_param;

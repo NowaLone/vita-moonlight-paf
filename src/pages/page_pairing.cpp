@@ -17,6 +17,7 @@ Pairing::Pairing(const char pin[5])
            paf::Plugin::TransitionType_SlideFromBottom,
            paf::Plugin::TransitionType_SlideFromBottom),
       m_pairing_started(false),
+      m_last_error_result(MOONLIGHT_PAIRING_ERROR_INTERNAL),
       m_dialog_open(false),
       m_dialog_task_registered(false)
 {
@@ -153,6 +154,8 @@ void Pairing::StartPairing()
 
 void Pairing::ShowPairingError(int result)
 {
+    m_last_error_result = result;
+
     const char *message = "Unable to complete pairing.";
 
     switch (result) {
@@ -231,6 +234,16 @@ void Pairing::DialogPollTask(void *userdata)
     if (pairing->m_dialog_task_registered) {
         paf::common::MainThreadCallList::Unregister(DialogPollTask, pairing);
         pairing->m_dialog_task_registered = false;
+    }
+
+    if (pairing->m_last_error_result == MOONLIGHT_PAIRING_ERROR_NETWORK) {
+        /*
+         * There is no useful automatic retry when the PC/network is
+         * unreachable. Close the pairing page and return to the PC list
+         * instead of restarting the pairing loop every time the dialog ends.
+         */
+        Base::CloseCurrent();
+        return;
     }
 
     pairing->RetryPairing();
