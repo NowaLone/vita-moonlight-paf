@@ -29,7 +29,7 @@ The PAF layer is responsible for UI and navigation. Streaming protocol, GameStre
 The current application supports:
 
 - Native PAF main screen and page navigation.
-- Inline manual PC address input with the native Vita IME (`host` or `host:port`; `[IPv6]:port` is also supported).
+- Inline manual PC address input with the native Vita IME (`host` or `host:port`).
 - Native system connection loading and error dialogs.
 - System-style title bars and list views based on the patterns used by Vita system applications and `GrapheneCt/NetStream`.
 - LAN/mDNS PC discovery.
