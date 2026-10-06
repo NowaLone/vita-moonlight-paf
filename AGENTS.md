@@ -119,7 +119,7 @@ CXML changes require rebuilding the RCO before the application build.
 - `page::Base` owns the page stack and generic back-button behavior.
 - New pages should follow the existing `Base` pattern instead of implementing a second page stack.
 - Every CXML `<style_text>` must explicitly bind its `textobj` attribute to the corresponding inner `<textobj id="...">`; do not create unbound text styles.
-- Add PC uses the native `SceImeDialog` with URL input mode; do not replace this with a custom PAF keyboard.
+- Add PC uses the native `SceImeDialog` with URL input mode; do not replace this with a custom PAF keyboard. Manual connection input accepts `host`/IP with optional `:port`; bracketed `[IPv6]:port` is supported. The default GameStream port is 47989.
 - `SceImeDialog` is owned by the Main page: load `SCE_SYSMODULE_IME` when Add PC is invoked, terminate the dialog before unloading the module, and poll completion from the PAF main-thread call list. The IME input buffers must outlive the dialog.
 - Add PC is an inline Main-page control; there is no dedicated Add PC page.
 - Current UI uses PAF CXML resources and NetStream-style generic list/title templates.
