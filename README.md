@@ -1,77 +1,211 @@
 # Vita Moonlight PAF
 
-Empty native PS Vita shell for a future [vita-moonlight](https://github.com/xyzz/vita-moonlight) UI.
+Native PS Vita Moonlight frontend built with Sony's PAF framework.
 
-It uses PAF so the app looks like a system Vita program. There is no streaming, pairing, or host discovery yet — only navigation and layout.
+The project provides a system-style PAF UI on top of the real Moonlight/GameStream stack used by Vita Moonlight. It is no longer just a UI shell: host discovery, persistence, pairing, application listing, streaming, video/audio output, and Vita input paths are implemented.
 
 ## Architecture
 
-Frontend is split the same way as NetStream / BetterHomebrewBrowser:
+The project is intentionally split into a frontend/service/backend stack:
 
 ```
-src/main.cpp                 PAF sysmodule + module_start
-src/paf_sample.cpp           Framework bootstrap, plugin load
-src/pages/page.cpp           page::Base stack (open/close, SetActivate, back fade)
-src/pages/page_main.cpp      hosts empty state, Search / Add / ...
-src/pages/page_search.cpp
-src/pages/page_add_host.cpp
-src/option_menu.cpp          overflow balloon from ...
-src/moonlight/settings.cpp   Vita Sce::AppSettings integration
-src/moonlight/api.cpp        thin C API for the Moonlight core
+PAF Page
+  ↓
+MoonlightApp
+  ↓
+Services
+  ↓
+MoonlightBackend
+  ↓
+LegacyMoonlightAdapter
+  ↓
+legacy GameStream / Moonlight streaming code
 ```
 
-`page_main` stays at the bottom of the stack. Overlays disable the page underneath. Circle / the bottom-left corner button closes the top page.
+The PAF layer is responsible for UI and navigation. Streaming protocol, GameStream, networking, decoding, audio and device input remain below the frontend boundary.
 
-Settings use the Vita system `SceAppSettings` service, the same model used by NetStream and BetterHomebrewBrowser. The settings UI is declared in `cxml/moonlight_settings.xml`, while `moonlight/settings.cpp` is only a thin adapter between the system service and the Moonlight API.
+## Features
 
-There is no `moonlight.conf` compatibility layer and no custom settings file parser. Application settings are stored by the system AppSettings service. The settings subsystem is initialized lazily when settings are opened or the core first reads a setting. The Moonlight core should read them through `moonlight_api_get_settings()` or the individual `moonlight_api_get_setting_value()` calls.
+The current application supports:
 
-Streaming must not be folded into the PAF plugin. Call `moonlight_api_*` from page callbacks.
+- Native PAF main screen and page navigation.
+- System-style title bars and list views based on the patterns used by Vita system applications and `GrapheneCt/NetStream`.
+- LAN/mDNS PC discovery.
+- Saved PC list.
+- Moonlight PIN pairing.
+- Retrieving the application list from a paired PC.
+- H.264 video streaming and Vita AVC presentation.
+- Opus audio playback.
+- Vita controller input.
+- Front touchscreen input.
+- Motion/gyro input path.
+- PS Button/application lifecycle handling.
+- Stable stream shutdown and cleanup.
 
-## Screens
+## Repository Layout
 
-- **Main** — title, empty-host state, Search PCs, Add Manually, settings corner button
-- **Search PCs / Add Manually** — placeholder pages with a dim overlay and back
-- **Settings** — system `SceAppSettings` UI opened from the `...` button
+```
+src/
+  main.cpp
+  app/                 PAF runtime and MoonlightApp
+  pages/               PAF pages and navigation
+  services/            host/discovery/pairing/connection/apps/settings
+  backend/              backend abstraction and legacy adapter
+  backend/legacy/       Vita Moonlight/GameStream compatibility code
+  moonlight/            Moonlight API, stream session, Vita renderers/input
+include/               project headers
+cxml/                  PAF UI and AppSettings resources
+third_party/
+  moonlight-common-c/  Moonlight streaming implementation
+  enet/                ENet transport
+  inih/                INI parser
+  h264bitstream/       H.264 parsing support
+```
 
-PAF layout is **center-origin** on 960×544: `(0, 0)` is the middle of the screen, `+Y` is up. CSS-style top-left coordinates will pile widgets on top of each other.
+## UI
+
+The UI is implemented with PAF CXML resources.
+
+The current list/title resources intentionally follow the real patterns used by `GrapheneCt/NetStream`, including:
+
+- `template_top_title_bar`
+- `template_list_view_generic`
+- `template_list_item_generic`
+- `style_text_top_title_bar`
+- `style_list_view_generic`
+- `style_image_button_list_button`
+
+The main page contains a saved-PC list, Search PCs, Add Manually, and access to the system AppSettings UI.
+
+PAF uses a **center-origin 960×544 coordinate system**:
+
+- `(0, 0)` is screen center;
+- positive Y points upward;
+- positions are relative to the parent center rather than CSS-style top-left coordinates.
+
+## Settings
+
+Application settings use Sony's **SceAppSettings** service.
+
+The declarative settings UI is:
+
+```
+cxml/moonlight_settings.xml
+```
+
+The adapter is:
+
+```
+src/moonlight/settings.cpp
+```
+
+Settings such as resolution, FPS, bitrate, touch mode, controller type, gyro and other streaming/input options are stored through AppSettings.
+
+The project does **not** use the old `moonlight.conf` settings model.
+
+## Host Persistence
+
+Saved PCs are intentionally separate from AppSettings.
+
+The persistent host data follows the compatible Vita Moonlight model:
+
+```
+ux0:data/moonlight/
+    <PC name>/
+        device.ini
+        uniqueid.dat
+        pairing/key material
+```
+
+Host metadata includes:
+
+```
+paired
+internal
+external
+mac
+port
+prefer_external
+```
+
+The current store deduplicates hosts by name, internal/external address, or MAC when building the in-memory host list. Old duplicate directories on disk are not automatically deleted.
+
+Host persistence is compatibility-sensitive because the host directory also contains pairing/key data and the per-host `uniqueid.dat`.
 
 ## Build
 
-Requires [VITASDK](https://github.com/vitasdk/vitasdk), [vitasdk-paf-component](https://github.com/Princess-of-Sleeping/vitasdk-paf-component) and [psp2cxml-tool](https://github.com/Princess-of-Sleeping/psp2cxml-tool). The PAF component provides the `AppSettings` headers and stubs used by this project.
+Requirements:
+
+- [VITASDK](https://github.com/vitasdk/vitasdk)
+- [vitasdk-paf-component](https://github.com/Princess-of-Sleeping/vitasdk-paf-component)
+- [psp2cxml-tool](https://github.com/Princess-of-Sleeping/psp2cxml-tool)
+- `psp2shell_cli` for the development deploy script
+
+Typical setup:
 
 ```bash
-export VITASDK=/path/to/vitasdk
+export VITASDK=/usr/local/vitasdk
+```
+
+Full build:
+
+```bash
 bash build.sh
 ```
 
-The build is fail-fast: a generated `vita_moonlight_ui.rco` is required and the bundled CXML compiler cannot fall back to an unrelated sample resource.
+Outputs:
 
-VPK: `build/vita_moonlight_paf.vpk`
+```
+build/vita_moonlight_paf
+build/vita_moonlight_paf.self
+build/vita_moonlight_paf.vpk
+```
 
-Rebuild CXML after XML edits:
+Rebuild CXML manually:
 
 ```bash
 bash build_cxml.sh
-cd build && cmake .. && make
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make
 ```
 
-Install the VPK with VitaShell.
+Development rebuild + deployment:
 
-## Layout notes
+```bash
+PSVITAIP=192.168.1.123 ./dev-build-run.sh
+```
 
-Widget `pos` is relative to the **parent center**, not the top-left corner:
+The deployment script uses title ID `VLMP00001`.
 
-| Position | Approximate `pos` |
-|---|---|
-| Screen center | `0, 0` |
-| Upper center | `0, 170` |
-| Lower center | `0, -80` |
-| Header under status bar | `0, 240` |
-| List under header | `0, -96` |
+The CXML build is fail-fast: if `psp2cxml-tool` is not available, the build stops instead of using an unrelated fallback resource.
 
-`list_view` height must be a multiple of 32. Status bar uses `Framework` `graphics_option = 7`.
+## Runtime Validation
+
+There is currently no automated test suite.
+
+Changes are validated primarily on real PS Vita hardware:
+
+1. build the VPK/SELF;
+2. deploy to the Vita;
+3. reproduce the affected UI, discovery, pairing, or streaming path;
+4. inspect the runtime log.
+
+For streaming-related changes, verify at least connection setup, video/audio, input, and clean stream shutdown.
+
+## Development Principles
+
+- Reuse real upstream/legacy Moonlight logic where possible.
+- Keep PAF UI independent from streaming implementation.
+- Route application behavior through `MoonlightApp`, services, backend interfaces, and the legacy adapter.
+- Deliver asynchronous backend events to PAF on the main thread.
+- Prefer small, verifiable commits.
+- Do not casually change persistent storage formats or paths without considering compatibility and migration.
+
+## Status
+
+The project is an actively developed working Vita Moonlight frontend. Streaming is functional, but the UI, host-management behavior, lifecycle edge cases, and some device/input paths are still under active development.
 
 ## License
 
-Part of the Vita Moonlight ecosystem. Add a LICENSE before shipping a release.
+Part of the Vita Moonlight ecosystem. Add/maintain an appropriate LICENSE before publishing a release.
