@@ -99,7 +99,8 @@ MoonlightApp::MoonlightApp()
       m_hosts(m_backend),
       m_discovery(m_backend),
       m_pairing(m_backend),
-      m_connection(m_backend),
+      m_notifications(),
+      m_connection(m_backend, m_notifications),
       m_applications(m_backend),
       m_settings(m_backend),
       m_event_callback(NULL),
@@ -170,6 +171,11 @@ int MoonlightApp::Initialize()
         return 0;
     }
 
+    int notification_result = m_notifications.Initialize();
+    if (notification_result != 0) {
+        /* Notification UI is optional; connection and streaming must remain usable. */
+    }
+
     int result = m_backend.Initialize();
     if (result != 0) {
         return result;
@@ -222,6 +228,7 @@ void MoonlightApp::Shutdown()
     }
 
     m_backend.Shutdown();
+    m_notifications.Shutdown();
     m_initialized = false;
 
     ShutdownNetwork();
@@ -322,6 +329,12 @@ void MoonlightApp::ProcessEventTask(void *userdata)
         void *callback_userdata = app->m_event_userdata;
 
         paf::thread::RMutex::main_thread_mutex.Unlock();
+
+        if (event.type == MOONLIGHT_EVENT_CONNECTION_READY) {
+            app->m_notifications.FinishConnection(true, event.address);
+        } else if (event.type == MOONLIGHT_EVENT_CONNECTION_FAILED) {
+            app->m_notifications.FinishConnection(false, event.address);
+        }
 
         if (callback) {
             callback(&event, callback_userdata);
