@@ -117,6 +117,15 @@ typedef enum MoonlightEventType {
     MOONLIGHT_EVENT_SETTINGS_CLOSED
 } MoonlightEventType;
 
+typedef enum MoonlightPairingResult {
+    MOONLIGHT_PAIRING_SUCCESS = 0,
+    MOONLIGHT_PAIRING_ERROR_INCORRECT_PIN = -1001,
+    MOONLIGHT_PAIRING_ERROR_NETWORK = -1002,
+    MOONLIGHT_PAIRING_ERROR_PROTOCOL = -1003,
+    MOONLIGHT_PAIRING_ERROR_SECURITY = -1004,
+    MOONLIGHT_PAIRING_ERROR_INTERNAL = -1005
+} MoonlightPairingResult;
+
 typedef struct MoonlightEvent {
     MoonlightEventType type;
     int result;

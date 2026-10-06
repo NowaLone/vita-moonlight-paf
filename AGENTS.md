@@ -129,6 +129,8 @@ CXML changes require rebuilding the RCO before the application build.
 - `MoonlightApp` owns backend lifecycle and queues backend events for main-thread delivery.
 - Asynchronous backend callbacks must not mutate PAF UI directly from worker threads.
 - `LegacyMoonlightAdapter` is the compatibility boundary between the service/backend layer and the legacy Moonlight code.
+- Pairing events use semantic `MoonlightPairingResult` values at the Moonlight API boundary. Only `MOONLIGHT_PAIRING_ERROR_INCORRECT_PIN` means the cryptographic PIN check failed; transport, protocol, security, and local/internal failures remain distinguishable.
+- `MOONLIGHT_EVENT_PAIRING_FINISHED` reports pairing success independently of host-persistence errors. A persistence failure may be logged, but it must not be presented as a failed pairing operation.
 
 ### Settings
 

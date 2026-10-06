@@ -97,6 +97,54 @@ static void on_discovery_event(
     }
 }
 
+static bool is_pairing_network_error(int error_code)
+{
+    switch ((CURLcode)error_code) {
+    case CURLE_OPERATION_TIMEDOUT:
+    case CURLE_COULDNT_CONNECT:
+    case CURLE_COULDNT_RESOLVE_HOST:
+    case CURLE_RECV_ERROR:
+    case CURLE_SEND_ERROR:
+    case CURLE_GOT_NOTHING:
+    case CURLE_SSL_CONNECT_ERROR:
+    case CURLE_WRITE_ERROR:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static int classify_pairing_error(int legacy_result)
+{
+    const char *error = legacy_gamestream_error();
+
+    if (legacy_result == LEGACY_GAMESTREAM_OK) {
+        return MOONLIGHT_PAIRING_SUCCESS;
+    }
+
+    if (error && strcmp(error, "Incorrect pairing PIN") == 0) {
+        return MOONLIGHT_PAIRING_ERROR_INCORRECT_PIN;
+    }
+
+    if (error && strcmp(error, "MITM attack detected") == 0) {
+        return MOONLIGHT_PAIRING_ERROR_SECURITY;
+    }
+
+    if (is_pairing_network_error(legacy_gamestream_last_http_error())) {
+        return MOONLIGHT_PAIRING_ERROR_NETWORK;
+    }
+
+    if (legacy_result == LEGACY_GAMESTREAM_OUT_OF_MEMORY) {
+        return MOONLIGHT_PAIRING_ERROR_INTERNAL;
+    }
+
+    /*
+     * Reaching this point means the request got far enough to produce a
+     * protocol or pairing-validation error. It is not proof of a wrong PIN.
+     */
+    return MOONLIGHT_PAIRING_ERROR_PROTOCOL;
+}
+
 static void update_host_from_server()
 {
     s_current_host.paired = s_server.paired ? 1 : 0;
@@ -359,19 +407,22 @@ int moonlight_api_pair_current_host(const char pin[5])
 
     result = legacy_gamestream_pair(&s_server, pin);
     if (result != LEGACY_GAMESTREAM_OK) {
+        int pairing_result = classify_pairing_error(result);
+
         vita_debug_log(
-            "[GameStream] pairing failed for %s: %d (%s)",
+            "[GameStream] pairing failed for %s: legacy=%d result=%d (%s)",
             s_current_host.internal,
             result,
+            pairing_result,
             legacy_gamestream_error());
 
         emit(
             MOONLIGHT_EVENT_PAIRING_FAILED,
-            result,
+            pairing_result,
             s_current_host.id,
             -1,
             s_current_host.internal);
-        return result;
+        return pairing_result;
     }
 
     update_host_from_server();
@@ -384,9 +435,14 @@ int moonlight_api_pair_current_host(const char pin[5])
             save_result);
     }
 
+    /*
+     * Pairing succeeded even when saving the host metadata fails. Persistence
+     * is separate from the protocol result and must not become a fake pairing
+     * failure in the UI.
+     */
     emit(
         MOONLIGHT_EVENT_PAIRING_FINISHED,
-        save_result,
+        MOONLIGHT_PAIRING_SUCCESS,
         s_current_host.id,
         -1,
         s_current_host.internal);

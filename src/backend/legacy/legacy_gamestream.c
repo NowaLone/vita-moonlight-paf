@@ -60,6 +60,7 @@ static char s_cert_hex[8192];
 static char s_unique_id[UNIQUEID_CHARS + 1];
 
 static bool s_curl_initialized = false;
+static CURLcode s_last_http_result = CURLE_OK;
 
 #define GAMESTREAM_WORKER_STACK (256 * 1024)
 
@@ -141,6 +142,11 @@ static void set_error(const char *message)
 const char *legacy_gamestream_error(void)
 {
     return s_error;
+}
+
+int legacy_gamestream_last_http_error(void)
+{
+    return (int)s_last_http_result;
 }
 
 static void bytes_to_hex(const unsigned char *input, char *output, size_t length)
@@ -619,7 +625,9 @@ static int http_request(
         return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
     }
 
+    s_last_http_result = CURLE_OK;
     curl_result = curl_easy_perform((CURL *)server->curl);
+    s_last_http_result = curl_result;
     if (curl_result != CURLE_OK) {
         set_error(curl_easy_strerror(curl_result));
         return LEGACY_GAMESTREAM_FAILED;
@@ -1092,6 +1100,8 @@ static int decrypt_ecb(
 
 static int pair(LegacyGameStreamServer *server, const char *pin)
 {
+    s_last_http_result = CURLE_OK;
+
     unsigned char salt_data[16];
     char salt_hex[sizeof(salt_data) * 2 + 1];
     char uuid[UUID_STRLEN];

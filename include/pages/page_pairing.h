@@ -22,7 +22,7 @@ private:
     static void DialogPollTask(void *userdata);
 
     void StartPairing();
-    void ShowPairingError();
+    void ShowPairingError(int result);
     void RetryPairing();
     void ShowSystemError();
     void SetPin(const char pin[5]);

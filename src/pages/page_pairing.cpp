@@ -7,6 +7,7 @@
 #include "pages/page_apps.h"
 #include "pages/page_main.h"
 #include "app/moonlight_app.h"
+#include "moonlight/types.h"
 #include "debug.h"
 
 namespace page {
@@ -146,12 +147,36 @@ void Pairing::StartPairing()
     int result = app->Pairing().Pair(m_pin);
     if (result != 0) {
         m_pairing_started = false;
-        ShowPairingError();
+        ShowPairingError(MOONLIGHT_PAIRING_ERROR_INTERNAL);
     }
 }
 
-void Pairing::ShowPairingError()
+void Pairing::ShowPairingError(int result)
 {
+    const char *message = "Unable to complete pairing.";
+
+    switch (result) {
+    case MOONLIGHT_PAIRING_ERROR_INCORRECT_PIN:
+        message = "Incorrect PIN. Enter the new PIN in the Sunshine Web UI.";
+        break;
+
+    case MOONLIGHT_PAIRING_ERROR_NETWORK:
+        message = "Could not connect to the PC during pairing. Check the network connection and Sunshine.";
+        break;
+
+    case MOONLIGHT_PAIRING_ERROR_SECURITY:
+        message = "Pairing failed security verification.";
+        break;
+
+    case MOONLIGHT_PAIRING_ERROR_PROTOCOL:
+        message = "The PC rejected the pairing request.";
+        break;
+
+    case MOONLIGHT_PAIRING_ERROR_INTERNAL:
+    default:
+        break;
+    }
+
     if (m_dialog_open) {
         return;
     }
@@ -162,7 +187,7 @@ void Pairing::ShowPairingError()
 
     strncpy(m_dialog_title, "Pairing failed", sizeof(m_dialog_title) - 1);
     m_dialog_title[sizeof(m_dialog_title) - 1] = '\0';
-    strncpy(m_dialog_message, "Incorrect PIN.", sizeof(m_dialog_message) - 1);
+    strncpy(m_dialog_message, message, sizeof(m_dialog_message) - 1);
     m_dialog_message[sizeof(m_dialog_message) - 1] = '\0';
 
     sceMsgDialogParamInit(&m_dialog_param);
@@ -253,13 +278,13 @@ void Pairing::OnMoonlightEvent(
                 }
             }
         } else {
-            pairing->ShowPairingError();
+            pairing->ShowPairingError(event->result);
         }
         break;
 
     case MOONLIGHT_EVENT_PAIRING_FAILED:
         pairing->m_pairing_started = false;
-        pairing->ShowPairingError();
+        pairing->ShowPairingError(event->result);
         break;
 
     case MOONLIGHT_EVENT_CONNECTION_FAILED:

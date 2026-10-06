@@ -59,6 +59,7 @@ int legacy_gamestream_get_server_mac(
 void legacy_gamestream_shutdown(LegacyGameStreamServer *server);
 
 const char *legacy_gamestream_error(void);
+int legacy_gamestream_last_http_error(void);
 
 #ifdef __cplusplus
 }
