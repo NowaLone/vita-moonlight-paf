@@ -127,7 +127,7 @@
       <planeobj color="0.063, 0.294, 0.655, 1" id="plane_obj_fill" />
     </style_plane>
 
-    <style_text id="style_text_title">
+    <style_text textobj="title_obj" id="style_text_title">
       <textobj font_size="36" bold="1" color="1, 1, 1, 1" align_x="1" align_y="1" ellipsis="0" emboss="0" id="title_obj" />
     </style_text>
 
@@ -135,7 +135,7 @@
       <textobj font_size="32" bold="1" align_y="1" align_x="1" ellipsis="1" id="text_obj1" />
     </style_text>
 
-    <style_text id="style_text_main_status">
+    <style_text textobj="main_status_obj" id="style_text_main_status">
       <textobj font_size="22" bold="0" color="1, 1, 1, 0.90" align_x="1" align_y="1" word_wrap="1" ellipsis="1" id="main_status_obj" />
     </style_text>
 
@@ -150,7 +150,7 @@
     </style_image_button>
 
 
-    <style_text id="style_text_body">
+    <style_text textobj="body_obj" id="style_text_body">
       <textobj font_size="22" bold="0" color="1, 1, 1, 0.85" align_x="1" align_y="1" word_wrap="1" ellipsis="0" emboss="0" id="body_obj" />
     </style_text>
 
