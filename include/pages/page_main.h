@@ -36,6 +36,14 @@ public:
     void OpenAddPc();
     void RestoreEventCallback();
 
+    enum SelectionAction {
+        SelectionAction_None = 0,
+        SelectionAction_Copy = 1,
+        SelectionAction_Delete = 2
+    };
+
+    void EnterSelectionMode(int action);
+
 private:
     static void OnHostButton(int32_t type, paf::ui::Handler *self, paf::ui::Event *event, void *userdata);
     static void InitialRefreshTask(void *userdata);
@@ -53,7 +61,6 @@ private:
     void StartAddPcIme();
     void HandleAddPcImeResult();
     void StartManualConnection(const char *address);
-    void EnterSelectionMode(int action);
     void ExitSelectionMode();
     void UpdateSelectionActionBar();
     void UpdateSelectionCount();
@@ -76,12 +83,6 @@ private:
     bool m_ime_task_registered;
     bool m_ime_retry_pending;
     bool m_ime_module_loaded;
-
-    enum SelectionAction {
-        SelectionAction_None = 0,
-        SelectionAction_Copy = 1,
-        SelectionAction_Delete = 2
-    };
 
     bool m_selection_mode;
     SelectionAction m_selection_action;
