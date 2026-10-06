@@ -19,3 +19,8 @@ int HostService::MarkPaired(const MoonlightHost &host)
 {
     return m_backend.MarkHostPaired(host);
 }
+
+int HostService::Delete(const MoonlightHost &host)
+{
+    return m_backend.DeleteHost(host);
+}

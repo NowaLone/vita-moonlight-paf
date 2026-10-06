@@ -1,8 +1,10 @@
 #include <paf.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include <psp2/common_dialog.h>
+#include <psp2/message_dialog.h>
 #include <psp2/sysmodule.h>
 
 #include "pages/page_main.h"
@@ -18,10 +20,13 @@ namespace page {
 
 static Main *s_main = NULL;
 
+extern "C" int sceClipboardSetText(const SceWChar16 *text);
+
 namespace {
 
 static const int kGameStreamPort = 47989;
 static const int kMaxHostAddressLength = 255;
+static const int kMaxClipboardTextLength = 2047;
 
 static const SceWChar16 kImeTitle[] = {
     'P', 'C', ' ', 'a', 'd', 'd', 'r', 'e', 's', 's', 0
@@ -169,13 +174,29 @@ static void onAdd(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void 
 static void onOptionMenu(OptionMenu::EventType type, int button_index, void *userdata)
 {
     (void)userdata;
-    if (type != OptionMenu::Event_Button || button_index != 0) return;
+    if (type != OptionMenu::Event_Button) return;
 
     Main *main = Main::Instance();
-    if (main) main->SuspendForSystemSettings();
+    if (!main) return;
 
-    if (MoonlightApp::Instance()->Settings().Open() != 0 && main) {
-        main->RestoreAfterSystemSettings();
+    switch (button_index) {
+    case OptionMenu::Button_Settings:
+        main->SuspendForSystemSettings();
+        if (MoonlightApp::Instance()->Settings().Open() != 0) {
+            main->RestoreAfterSystemSettings();
+        }
+        break;
+
+    case OptionMenu::Button_Copy:
+        main->EnterSelectionMode(Main::SelectionAction_Copy);
+        break;
+
+    case OptionMenu::Button_Delete:
+        main->EnterSelectionMode(Main::SelectionAction_Delete);
+        break;
+
+    default:
+        break;
     }
 }
 
@@ -210,12 +231,20 @@ Main::Main()
       m_ime_open(false),
       m_ime_task_registered(false),
       m_ime_retry_pending(false),
-      m_ime_module_loaded(false)
+      m_ime_module_loaded(false),
+      m_selection_mode(false),
+      m_selection_action(SelectionAction_None),
+      m_selected_count(0),
+      m_delete_dialog_open(false),
+      m_delete_dialog_task_registered(false),
+      m_clipboard_module_loaded(false)
 {
     memset(&m_ime_param, 0, sizeof(m_ime_param));
     memset(m_ime_input, 0, sizeof(m_ime_input));
     memset(m_ime_initial_text, 0, sizeof(m_ime_initial_text));
     memset(m_add_pc_address, 0, sizeof(m_add_pc_address));
+    memset(m_selected_hosts, 0, sizeof(m_selected_hosts));
+    memset(m_delete_message, 0, sizeof(m_delete_message));
 
     s_main = this;
 
@@ -239,6 +268,11 @@ Main::Main()
     bind_decide(root, "btn_search_pcs", onSearch, this);
     bind_decide(root, "btn_add_pc", onAdd, this);
     bind_decide(root, "settings_button", onSettingsButton, this);
+    bind_decide(root, "btn_selection_cancel", OnSelectionCancel, this);
+    bind_decide(root, "btn_selection_action", OnSelectionAction, this);
+
+    root->FindChild("plane_main_selection_actions")->Hide(
+        paf::common::transition::Type_Reset);
 
     MoonlightApp::Instance()->SetEventCallback(OnMoonlightEvent, this);
 
@@ -273,6 +307,19 @@ void Main::InitialRefreshTask(void *userdata)
 
 Main::~Main()
 {
+    if (m_delete_dialog_task_registered) {
+        paf::common::MainThreadCallList::Unregister(SelectionDialogPollTask, this);
+        m_delete_dialog_task_registered = false;
+    }
+
+    if (m_delete_dialog_open) {
+        sceMsgDialogAbort();
+        if (sceMsgDialogGetStatus() == SCE_COMMON_DIALOG_STATUS_FINISHED) {
+            sceMsgDialogTerm();
+        }
+        m_delete_dialog_open = false;
+    }
+
     if (m_ime_task_registered) {
         paf::common::MainThreadCallList::Unregister(ImePollTask, this);
         m_ime_task_registered = false;
@@ -288,6 +335,11 @@ Main::~Main()
     if (m_ime_module_loaded) {
         sceSysmoduleUnloadModule(SCE_SYSMODULE_IME);
         m_ime_module_loaded = false;
+    }
+
+    if (m_clipboard_module_loaded) {
+        sceSysmoduleUnloadModule(SCE_SYSMODULE_CLIPBOARD);
+        m_clipboard_module_loaded = false;
     }
 
     if (MoonlightApp::Instance()->IsInitialized()) {
@@ -323,6 +375,29 @@ paf::ui::ListItem *Main::CreateListItem(
         paf::ui::ButtonBase::CB_BTN_DECIDE,
         OnHostButton,
         &m_button_contexts[param.cell_index]);
+    button->SetActivate(!m_selection_mode);
+
+    paf::ui::Widget *checkbox_widget = item->FindChild("checkbox_list_item");
+    if (checkbox_widget) {
+        paf::ui::CheckBox *checkbox = (paf::ui::CheckBox *)checkbox_widget;
+        checkbox->SetName((uint32_t)param.cell_index);
+        checkbox->SetCheck(
+            m_selection_mode ? m_selected_hosts[param.cell_index] : false,
+            0.0f,
+            false);
+        checkbox->AddEventCallback(
+            paf::ui::CheckBox::CB_BTN_DECIDE,
+            OnHostSelection,
+            &m_button_contexts[param.cell_index]);
+
+        if (m_selection_mode) {
+            checkbox->Show(paf::common::transition::Type_Reset);
+            checkbox->SetActivate(true);
+        } else {
+            checkbox->Hide(paf::common::transition::Type_Reset);
+            checkbox->SetActivate(false);
+        }
+    }
 
     const MoonlightHost &host = m_hosts[param.cell_index];
 
@@ -350,7 +425,35 @@ void Main::OnHostButton(
     HostButtonContext *context = (HostButtonContext *)userdata;
     if (!context || !context->page) return;
 
+    if (context->page->m_selection_mode) {
+        return;
+    }
+
     context->page->SelectHost(context->index);
+}
+
+void Main::OnHostSelection(
+    int32_t type,
+    paf::ui::Handler *self,
+    paf::ui::Event *event,
+    void *userdata)
+{
+    (void)type;
+    (void)event;
+
+    HostButtonContext *context = (HostButtonContext *)userdata;
+    if (!context || !context->page || !self ||
+        context->index < 0 || context->index >= context->page->m_host_count ||
+        !context->page->m_selection_mode) {
+        return;
+    }
+
+    paf::ui::CheckBox *checkbox = (paf::ui::CheckBox *)self;
+    bool checked = checkbox->IsChecked();
+    if (context->page->m_selected_hosts[context->index] != checked) {
+        context->page->m_selected_hosts[context->index] = checked;
+        context->page->UpdateSelectionCount();
+    }
 }
 
 void Main::RefreshHosts()
@@ -405,6 +508,349 @@ void Main::SelectHost(int index)
         m_connecting = false;
         SetStatus("Unable to start connection.");
         if (list) list->SetActivate(true);
+    }
+}
+
+void Main::UpdateSelectionCount()
+{
+    m_selected_count = 0;
+    for (int i = 0; i < m_host_count; ++i) {
+        if (m_selected_hosts[i]) {
+            ++m_selected_count;
+        }
+    }
+
+    UpdateSelectionActionBar();
+}
+
+void Main::UpdateSelectionActionBar()
+{
+    if (!root || !m_selection_mode) {
+        return;
+    }
+
+    paf::ui::Widget *action = root->FindChild("btn_selection_action");
+    if (action) {
+        action->SetString(paf::common::string_util::ToWString(
+            m_selection_action == SelectionAction_Copy ? "Copy" : "Delete"));
+        action->SetActivate(m_selected_count > 0);
+    }
+}
+
+void Main::EnterSelectionMode(int action)
+{
+    if (m_connecting || m_ime_open || m_ime_retry_pending ||
+        m_host_count <= 0 ||
+        (action != SelectionAction_Copy && action != SelectionAction_Delete)) {
+        return;
+    }
+
+    m_selection_mode = true;
+    m_selection_action = (SelectionAction)action;
+    m_selected_count = 0;
+    memset(m_selected_hosts, 0, sizeof(m_selected_hosts));
+
+    paf::ui::Widget *normal_actions = root->FindChild("plane_main_actions");
+    paf::ui::Widget *status = root->FindChild("text_main_status");
+    paf::ui::Widget *settings = root->FindChild("settings_button");
+    paf::ui::Widget *selection_actions = root->FindChild("plane_main_selection_actions");
+
+    if (normal_actions) normal_actions->Hide(paf::common::transition::Type_Reset);
+    if (status) status->Hide(paf::common::transition::Type_Reset);
+    if (settings) settings->Hide(paf::common::transition::Type_Reset);
+    if (selection_actions) selection_actions->Show(paf::common::transition::Type_Reset);
+
+    RefreshHosts();
+    UpdateSelectionActionBar();
+}
+
+void Main::ExitSelectionMode()
+{
+    if (!m_selection_mode) {
+        return;
+    }
+
+    m_selection_mode = false;
+    m_selection_action = SelectionAction_None;
+    m_selected_count = 0;
+    memset(m_selected_hosts, 0, sizeof(m_selected_hosts));
+
+    paf::ui::Widget *normal_actions = root->FindChild("plane_main_actions");
+    paf::ui::Widget *status = root->FindChild("text_main_status");
+    paf::ui::Widget *settings = root->FindChild("settings_button");
+    paf::ui::Widget *selection_actions = root->FindChild("plane_main_selection_actions");
+
+    if (selection_actions) selection_actions->Hide(paf::common::transition::Type_Reset);
+    if (normal_actions) normal_actions->Show(paf::common::transition::Type_Reset);
+    if (status) status->Show(paf::common::transition::Type_Reset);
+    if (settings) settings->Show(paf::common::transition::Type_Reset);
+
+    RefreshHosts();
+}
+
+void Main::StartDeleteConfirmation()
+{
+    if (!m_selection_mode || m_selection_action != SelectionAction_Delete ||
+        m_selected_count <= 0 || m_delete_dialog_open) {
+        return;
+    }
+
+    snprintf(
+        m_delete_message,
+        sizeof(m_delete_message),
+        "Delete selected PC%s?",
+        m_selected_count == 1 ? "" : "s");
+
+    SceMsgDialogParam param;
+    SceMsgDialogUserMessageParam user_message;
+    memset(&param, 0, sizeof(param));
+    memset(&user_message, 0, sizeof(user_message));
+
+    sceMsgDialogParamInit(&param);
+    user_message.buttonType = SCE_MSG_DIALOG_BUTTON_TYPE_YESNO;
+    user_message.msg = (const SceChar8 *)m_delete_message;
+    user_message.buttonParam = NULL;
+    param.mode = SCE_MSG_DIALOG_MODE_USER_MSG;
+    param.userMsgParam = &user_message;
+
+    int result = sceMsgDialogInit(&param);
+    if (result < 0) {
+        vita_debug_log(
+            "[Main] delete confirmation init failed: 0x%08X",
+            (unsigned int)result);
+        return;
+    }
+
+    m_delete_dialog_open = true;
+    if (!m_delete_dialog_task_registered) {
+        paf::common::MainThreadCallList::Register(SelectionDialogPollTask, this);
+        m_delete_dialog_task_registered = true;
+    }
+}
+
+void Main::DeleteSelectedHosts()
+{
+    if (m_selected_count <= 0) {
+        return;
+    }
+
+    int selected_count = m_selected_count;
+    int deleted_count = 0;
+    bool failed = false;
+
+    for (int i = 0; i < m_host_count; ++i) {
+        if (!m_selected_hosts[i]) {
+            continue;
+        }
+
+        if (MoonlightApp::Instance()->Hosts().Delete(m_hosts[i]) == 0) {
+            ++deleted_count;
+        } else {
+            failed = true;
+        }
+    }
+
+    ExitSelectionMode();
+
+    if (failed) {
+        SetStatus("Unable to delete one or more PCs.");
+    } else {
+        paf::string status = paf::common::FormatString(
+            "Deleted %d PC%s.",
+            deleted_count,
+            selected_count == 1 ? "" : "s");
+        SetStatus(status.c_str());
+    }
+}
+
+void Main::CopySelectedHosts()
+{
+    if (m_selected_count <= 0) {
+        return;
+    }
+
+    if (!m_clipboard_module_loaded) {
+        int result = sceSysmoduleLoadModule(SCE_SYSMODULE_CLIPBOARD);
+        if (result < 0) {
+            vita_debug_log(
+                "[Main] failed to load SceClipboard: 0x%08X",
+                (unsigned int)result);
+            ExitSelectionMode();
+            SetStatus("Unable to open the system clipboard.");
+            return;
+        }
+
+        m_clipboard_module_loaded = true;
+    }
+
+    char text[2048];
+    size_t length = 0;
+    text[0] = '\0';
+
+    for (int i = 0; i < m_host_count; ++i) {
+        if (!m_selected_hosts[i]) {
+            continue;
+        }
+
+        const char *address = m_hosts[i].internal;
+        if (!address[0]) {
+            address = m_hosts[i].external;
+        }
+        if (!address || !address[0]) {
+            continue;
+        }
+
+        int written = snprintf(
+            text + length,
+            sizeof(text) - length,
+            "%s%s%u",
+            length > 0 ? "\n" : "",
+            address,
+            m_hosts[i].port != 0 && m_hosts[i].port != kGameStreamPort
+                ? (unsigned int)m_hosts[i].port
+                : 0u);
+
+        if (written < 0 || (size_t)written >= sizeof(text) - length) {
+            break;
+        }
+
+        if (m_hosts[i].port != 0 && m_hosts[i].port != kGameStreamPort) {
+            /* The formatted string already needs the colon before the port. */
+            size_t current = length + (size_t)written;
+            size_t address_end = current;
+            while (address_end > length && text[address_end - 1] >= '0' && text[address_end - 1] <= '9') {
+                --address_end;
+            }
+            if (address_end == current || address_end == length) {
+                continue;
+            }
+        }
+
+        length += (size_t)written;
+    }
+
+    /* Rebuild the clipboard text with the unambiguous host[:port] syntax. */
+    length = 0;
+    text[0] = '\0';
+    for (int i = 0; i < m_host_count; ++i) {
+        if (!m_selected_hosts[i]) continue;
+        const char *address = m_hosts[i].internal[0]
+            ? m_hosts[i].internal
+            : m_hosts[i].external;
+        if (!address || !address[0]) continue;
+
+        int written = snprintf(
+            text + length,
+            sizeof(text) - length,
+            "%s%s%s",
+            length > 0 ? "\n" : "",
+            address,
+            "");
+        if (written < 0 || (size_t)written >= sizeof(text) - length) break;
+        length += (size_t)written;
+
+        if (m_hosts[i].port != 0 && m_hosts[i].port != kGameStreamPort) {
+            int port_written = snprintf(
+                text + length,
+                sizeof(text) - length,
+                ":%u",
+                (unsigned int)m_hosts[i].port);
+            if (port_written < 0 || (size_t)port_written >= sizeof(text) - length) break;
+            length += (size_t)port_written;
+        }
+    }
+
+    if (length == 0 || length > (size_t)kMaxClipboardTextLength) {
+        ExitSelectionMode();
+        SetStatus("Nothing to copy.");
+        return;
+    }
+
+    SceWChar16 wide_text[2048];
+    CopyImeText(text, wide_text, sizeof(wide_text) / sizeof(wide_text[0]));
+    int result = sceClipboardSetText(wide_text);
+    ExitSelectionMode();
+
+    if (result < 0) {
+        vita_debug_log(
+            "[Main] sceClipboardSetText failed: 0x%08X",
+            (unsigned int)result);
+        SetStatus("Unable to copy selected PCs.");
+        return;
+    }
+
+    SetStatus("Copied selected PC addresses.");
+}
+
+void Main::SelectionDialogPollTask(void *userdata)
+{
+    Main *main = (Main *)userdata;
+    if (!main) return;
+
+    if (!main->m_delete_dialog_open) {
+        if (main->m_delete_dialog_task_registered) {
+            paf::common::MainThreadCallList::Unregister(SelectionDialogPollTask, main);
+            main->m_delete_dialog_task_registered = false;
+        }
+        return;
+    }
+
+    if (sceMsgDialogGetStatus() != SCE_COMMON_DIALOG_STATUS_FINISHED) {
+        return;
+    }
+
+    SceMsgDialogResult result;
+    memset(&result, 0, sizeof(result));
+    sceMsgDialogGetResult(&result);
+    sceMsgDialogTerm();
+    main->m_delete_dialog_open = false;
+
+    if (main->m_delete_dialog_task_registered) {
+        paf::common::MainThreadCallList::Unregister(SelectionDialogPollTask, main);
+        main->m_delete_dialog_task_registered = false;
+    }
+
+    if (result.buttonId == SCE_MSG_DIALOG_BUTTON_ID_YES) {
+        main->DeleteSelectedHosts();
+    } else {
+        main->SetStatus("Select PCs to delete.");
+    }
+}
+
+void Main::OnSelectionCancel(
+    int32_t type,
+    paf::ui::Handler *self,
+    paf::ui::Event *event,
+    void *userdata)
+{
+    (void)type;
+    (void)self;
+    (void)event;
+
+    Main *main = (Main *)userdata;
+    if (!main || main->m_delete_dialog_open) return;
+
+    main->ExitSelectionMode();
+    main->SetStatus("Select a PC to connect.");
+}
+
+void Main::OnSelectionAction(
+    int32_t type,
+    paf::ui::Handler *self,
+    paf::ui::Event *event,
+    void *userdata)
+{
+    (void)type;
+    (void)self;
+    (void)event;
+
+    Main *main = (Main *)userdata;
+    if (!main || main->m_delete_dialog_open || main->m_selected_count <= 0) return;
+
+    if (main->m_selection_action == SelectionAction_Copy) {
+        main->CopySelectedHosts();
+    } else if (main->m_selection_action == SelectionAction_Delete) {
+        main->StartDeleteConfirmation();
     }
 }
 

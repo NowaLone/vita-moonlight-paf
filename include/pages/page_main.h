@@ -41,6 +41,10 @@ private:
     static void InitialRefreshTask(void *userdata);
     static void OnMoonlightEvent(const MoonlightEvent *event, void *userdata);
     static void ImePollTask(void *userdata);
+    static void OnHostSelection(int32_t type, paf::ui::Handler *self, paf::ui::Event *event, void *userdata);
+    static void OnSelectionCancel(int32_t type, paf::ui::Handler *self, paf::ui::Event *event, void *userdata);
+    static void OnSelectionAction(int32_t type, paf::ui::Handler *self, paf::ui::Event *event, void *userdata);
+    static void SelectionDialogPollTask(void *userdata);
 
     paf::ui::ListItem *CreateListItem(paf::ui::listview::ItemFactory::CreateParam &param);
     void RefreshHosts();
@@ -49,6 +53,13 @@ private:
     void StartAddPcIme();
     void HandleAddPcImeResult();
     void StartManualConnection(const char *address);
+    void EnterSelectionMode(int action);
+    void ExitSelectionMode();
+    void UpdateSelectionActionBar();
+    void UpdateSelectionCount();
+    void StartDeleteConfirmation();
+    void DeleteSelectedHosts();
+    void CopySelectedHosts();
 
     MoonlightHost m_hosts[8];
     int m_host_count;
@@ -65,6 +76,21 @@ private:
     bool m_ime_task_registered;
     bool m_ime_retry_pending;
     bool m_ime_module_loaded;
+
+    enum SelectionAction {
+        SelectionAction_None = 0,
+        SelectionAction_Copy = 1,
+        SelectionAction_Delete = 2
+    };
+
+    bool m_selection_mode;
+    SelectionAction m_selection_action;
+    bool m_selected_hosts[8];
+    int m_selected_count;
+    bool m_delete_dialog_open;
+    bool m_delete_dialog_task_registered;
+    char m_delete_message[512];
+    bool m_clipboard_module_loaded;
 };
 
 }

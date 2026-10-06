@@ -30,11 +30,11 @@ void OptionMenu::OnDismiss(int32_t type, paf::ui::Handler *self,
 void OptionMenu::OnSettings(int32_t type, paf::ui::Handler *self,
                             paf::ui::Event *event, void *userdata)
 {
+    OptionMenu *menu = (OptionMenu *)userdata;
     (void)type;
     (void)self;
     (void)event;
 
-    OptionMenu *menu = (OptionMenu *)userdata;
     if (!menu) return;
 
     if (menu->root) {
@@ -46,7 +46,53 @@ void OptionMenu::OnSettings(int32_t type, paf::ui::Handler *self,
     delete menu;
 
     if (callback) {
-        callback(Event_Button, 0, data);
+        callback(Event_Button, Button_Settings, data);
+    }
+}
+
+void OptionMenu::OnCopy(int32_t type, paf::ui::Handler *self,
+                        paf::ui::Event *event, void *userdata)
+{
+    OptionMenu *menu = (OptionMenu *)userdata;
+    (void)type;
+    (void)self;
+    (void)event;
+
+    if (!menu) return;
+
+    if (menu->root) {
+        menu->root->Hide(paf::common::transition::Type_Reset);
+    }
+
+    EventCb callback = menu->m_cb;
+    void *data = menu->m_userdata;
+    delete menu;
+
+    if (callback) {
+        callback(Event_Button, Button_Copy, data);
+    }
+}
+
+void OptionMenu::OnDelete(int32_t type, paf::ui::Handler *self,
+                          paf::ui::Event *event, void *userdata)
+{
+    OptionMenu *menu = (OptionMenu *)userdata;
+    (void)type;
+    (void)self;
+    (void)event;
+
+    if (!menu) return;
+
+    if (menu->root) {
+        menu->root->Hide(paf::common::transition::Type_Reset);
+    }
+
+    EventCb callback = menu->m_cb;
+    void *data = menu->m_userdata;
+    delete menu;
+
+    if (callback) {
+        callback(Event_Button, Button_Delete, data);
     }
 }
 
@@ -69,7 +115,7 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
     if (bubble) {
         const float width = 202.0f;
         const float parent_width = width + 12.0f;
-        const float parent_height = 72.0f;
+        const float parent_height = 216.0f;
 
         bubble->SetSize({parent_width, parent_height, 0, 0}, NULL);
         bubble->SetPos(
@@ -82,6 +128,8 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
     }
 
     bind_decide(root, "btn_settings_balloon", OnSettings, this);
+    bind_decide(root, "btn_copy_balloon", OnCopy, this);
+    bind_decide(root, "btn_delete_balloon", OnDelete, this);
     bind_decide(root, "btn_dismiss_balloon", OnDismiss, this);
 
     set_widget_focusable(
