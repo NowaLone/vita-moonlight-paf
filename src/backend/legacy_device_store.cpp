@@ -165,7 +165,7 @@ int legacy_device_store_add_host(const char *address, uint16_t port, const char 
     }
 
     device_info_t *stored = find_device_by_address(address);
-    if (!stored && (!address || !address[0]) && name && name[0]) {
+    if (!stored && name && name[0]) {
         stored = find_device(name);
     }
 
