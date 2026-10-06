@@ -48,19 +48,23 @@
     <page id="page_pairing">
       <plane texture="_bg_texture" id="plane_pairing_bg">
         <layout_hint size="960, 544" />
-
-        <text style="style_text_body" label="msg_pairing_enter_pin" id="text_pairing_instruction">
-          <layout_hint adjust="2, 2" pos="0, 80" />
-        </text>
-
-        <text style="style_text_title" id="text_pairing_pin">
-          <layout_hint adjust="2, 2" pos="0, 0" />
-        </text>
-
-        <text style="style_text_main_status" id="text_pairing_status">
-          <layout_hint adjust="2, 2" pos="0, -80" />
-        </text>
       </plane>
+
+      <plane style="_common_style_plane_transparent" id="plane_pairing_root">
+        <layout_hint size="960, 544" />
+      </plane>
+
+      <text style="style_text_body" label="msg_pairing_enter_pin" id="text_pairing_instruction">
+        <layout_hint size="760, 0" anchor="0, 2" align="0, 2" adjust="0, 2" pos="0, 80" />
+      </text>
+
+      <text style="style_text_title" id="text_pairing_pin">
+        <layout_hint size="760, 90" anchor="0, 2" align="0, 2" adjust="0, 2" pos="0, 0" />
+      </text>
+
+      <text style="style_text_main_status" id="text_pairing_status">
+        <layout_hint size="760, 0" anchor="0, 2" align="0, 2" adjust="0, 2" pos="0, -80" />
+      </text>
 
       <template_ref id="pairing_title_ref" template="template_top_title_bar" />
 
