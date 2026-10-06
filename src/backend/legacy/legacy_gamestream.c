@@ -603,6 +603,15 @@ static int http_request(
     curl_easy_setopt((CURL *)server->curl, CURLOPT_WRITEDATA, response);
     curl_easy_setopt((CURL *)server->curl, CURLOPT_URL, url);
 
+    /*
+     * GameStream pairing and current Moonlight Qt intentionally avoid
+     * persistent HTTP connections. Sunshine closes the pending getservercert
+     * response, and reusing that connection is unreliable on Vita libcurl.
+     */
+    curl_easy_setopt((CURL *)server->curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+    curl_easy_setopt((CURL *)server->curl, CURLOPT_FRESH_CONNECT, 1L);
+    curl_easy_setopt((CURL *)server->curl, CURLOPT_FORBID_REUSE, 1L);
+
     http_buffer_free(response);
     http_buffer_init(response);
 
@@ -1228,6 +1237,8 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
     bytes_to_hex(challenge_enc, challenge_hex, sizeof(challenge_enc));
     generate_uuid(uuid);
 
+    vita_debug_log("[GameStream] pairing phase=clientchallenge");
+
     snprintf(
         url,
         sizeof(url),
@@ -1332,6 +1343,8 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
         sizeof(challenge_response_hash_enc));
 
     generate_uuid(uuid);
+
+    vita_debug_log("[GameStream] pairing phase=serverchallengeresp");
 
     snprintf(
         url,
@@ -1455,6 +1468,8 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
 
     generate_uuid(uuid);
 
+    vita_debug_log("[GameStream] pairing phase=clientpairingsecret");
+
     snprintf(
         url,
         sizeof(url),
@@ -1480,6 +1495,8 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
     }
 
     generate_uuid(uuid);
+
+    vita_debug_log("[GameStream] pairing phase=pairchallenge");
 
     snprintf(
         url,
