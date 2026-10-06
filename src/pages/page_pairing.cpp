@@ -157,7 +157,7 @@ void Pairing::ShowPairingError()
     m_dialog_buttons.fontSize1 = SCE_MSG_DIALOG_FONT_SIZE_DEFAULT;
 
     m_dialog_user.buttonType = SCE_MSG_DIALOG_BUTTON_TYPE_OK;
-    m_dialog_user.msg = m_dialog_message;
+    m_dialog_user.msg = (const SceChar8 *)m_dialog_message;
     m_dialog_user.buttonParam = &m_dialog_buttons;
 
     m_dialog_param.mode = SCE_MSG_DIALOG_MODE_USER_MSG;
