@@ -1145,11 +1145,32 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
         return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
     }
 
+    /*
+     * Sunshine keeps the initial /pair request open until the operator
+     * enters the PIN in its Web UI. Match Sunshine's five-minute pending
+     * pairing-session lifetime instead of the normal HTTP request timeout.
+     */
+    curl_easy_setopt((CURL *)server->curl, CURLOPT_TIMEOUT, 300L);
+
+    vita_debug_log("[GameStream] pairing phase=getservercert");
     step_result = http_request(server, url, &response);
+
+    /*
+     * Subsequent pairing phases should complete quickly. Restore the
+     * ordinary request timeout once Sunshine has released the first wait.
+     */
+    curl_easy_setopt((CURL *)server->curl, CURLOPT_TIMEOUT, 15L);
+
     if (step_result != LEGACY_GAMESTREAM_OK) {
+        vita_debug_log(
+            "[GameStream] pairing getservercert failed: %d (%s)",
+            step_result,
+            s_error);
         http_buffer_free(&response);
         return step_result;
     }
+
+    vita_debug_log("[GameStream] pairing phase=getservercert response received");
 
     if (xml_status_ok(response.memory, response.size) != LEGACY_GAMESTREAM_OK ||
         xml_find_value(response.memory, response.size, "paired", result, sizeof(result)) != LEGACY_GAMESTREAM_OK ||
