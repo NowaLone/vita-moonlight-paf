@@ -120,7 +120,8 @@ CXML changes require rebuilding the RCO before the application build.
 - New pages should follow the existing `Base` pattern instead of implementing a second page stack.
 - Every CXML `<style_text>` must explicitly bind its `textobj` attribute to the corresponding inner `<textobj id="...">`; do not create unbound text styles.
 - Add PC uses the native `SceImeDialog` with URL input mode; do not replace this with a custom PAF keyboard.
-- `SceImeDialog` is owned by the Add PC page: load `SCE_SYSMODULE_IME` before opening it, terminate the dialog before unloading the module, and poll completion from the PAF main-thread call list. The IME input buffer must outlive the dialog.
+- `SceImeDialog` is owned by the Main page: load `SCE_SYSMODULE_IME` when Add PC is invoked, terminate the dialog before unloading the module, and poll completion from the PAF main-thread call list. The IME input buffers must outlive the dialog.
+- Add PC is an inline Main-page control; there is no dedicated Add PC page.
 - Current UI uses PAF CXML resources and NetStream-style generic list/title templates.
 - The PAF coordinate system is center-origin on a 960×544 screen: `(0,0)` is screen center and positive Y points upward.
 - Do not move streaming implementation into PAF pages.
@@ -153,9 +154,9 @@ The long-term native-integration shortlist below was researched specifically for
 #### Highest-priority system integration
 
 - **`sce::AppSettings` / `SceAppSettings`** — real Sony Settings UI and application settings storage. This is the required Settings implementation, not a custom replacement. Current adapter: `src/moonlight/settings.cpp`; XML definition: `cxml/moonlight_settings.xml`.
-- **`SceIme` / `SceImeDialog`** — native Vita on-screen keyboard. Preferred for Add PC / hostname / text-entry flows instead of implementing a custom keyboard.
+- **`SceIme` / `SceImeDialog`** — native Vita on-screen keyboard. The current Add PC control uses it directly from Main instead of implementing a custom keyboard.
 - **`SceMessageDialog` / internal message-dialog support** — native confirmation, error and progress dialogs. Preferred for pairing failures, delete-PC confirmation, and similar modal flows where a system dialog is appropriate.
-- **`SceNotificationUtil`** — system notifications and progress-style notifications. Useful for non-blocking events such as PC added, pairing completed, connection lost, or long-running operations.
+- **`SceNotificationUtil`** — system notifications and progress-style notifications. The current connection flow uses a native progress notification for connection attempts; keep it in the notification service rather than in PAF pages.
 - **`SceNetCtl`** — system network state information and callbacks. Useful for Wi-Fi/network status, reconnect handling, diagnostics, and exposing network information in UI.
 - **`ScePower`** — power/idle management. Relevant to preventing unwanted suspend during streaming and integrating the existing `disable_power_save` setting. Manual clock/frequency manipulation is not planned unless profiling demonstrates a need.
 - **`SceClipboard`** — system clipboard. Useful for copying/pasting PC addresses, hostnames, or other connection data.
