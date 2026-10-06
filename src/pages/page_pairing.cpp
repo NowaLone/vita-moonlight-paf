@@ -1,5 +1,4 @@
 #include <paf.h>
-#include <common_gui_dialog.h>
 #include <string.h>
 
 #include "common.h"
@@ -16,7 +15,8 @@ Pairing::Pairing(const char pin[5])
            paf::Plugin::TransitionType_SlideFromBottom,
            paf::Plugin::TransitionType_SlideFromBottom),
       m_pairing_started(false),
-      m_dialog_slot(-1)
+      m_dialog_open(false),
+      m_dialog_task_registered(false)
 {
     m_pin[0] = '\0';
 
@@ -40,9 +40,15 @@ Pairing::Pairing(const char pin[5])
 
 Pairing::~Pairing()
 {
-    if (m_dialog_slot >= 0) {
-        CommonGuiDialog::Dialog::Close(m_dialog_slot);
-        m_dialog_slot = -1;
+    if (m_dialog_task_registered) {
+        paf::common::MainThreadCallList::Unregister(DialogPollTask, this);
+        m_dialog_task_registered = false;
+    }
+
+    if (m_dialog_open) {
+        sceMsgDialogAbort();
+        sceMsgDialogTerm();
+        m_dialog_open = false;
     }
 
     if (!MoonlightApp::Instance() ||
@@ -132,22 +138,66 @@ void Pairing::StartPairing()
 
 void Pairing::ShowPairingError()
 {
-    if (m_dialog_slot >= 0 || !g_plugin) {
+    if (m_dialog_open) {
         return;
     }
 
-    paf::wstring title =
-        paf::common::string_util::ToWString("Pairing failed");
-    paf::wstring message =
-        paf::common::string_util::ToWString("Incorrect PIN.");
+    memset(&m_dialog_param, 0, sizeof(m_dialog_param));
+    memset(&m_dialog_user, 0, sizeof(m_dialog_user));
+    memset(&m_dialog_buttons, 0, sizeof(m_dialog_buttons));
 
-    m_dialog_slot = CommonGuiDialog::Dialog::Show(
-        g_plugin,
-        &title,
-        &message,
-        &CommonGuiDialog::Param::s_dialogOk,
-        OnDialogEvent,
-        this);
+    strncpy(m_dialog_title, "Pairing failed", sizeof(m_dialog_title) - 1);
+    m_dialog_title[sizeof(m_dialog_title) - 1] = '\0';
+    strncpy(m_dialog_message, "Incorrect PIN.", sizeof(m_dialog_message) - 1);
+    m_dialog_message[sizeof(m_dialog_message) - 1] = '\0';
+
+    sceMsgDialogParamInit(&m_dialog_param);
+
+    m_dialog_buttons.msg1 = "OK";
+    m_dialog_buttons.fontSize1 = SCE_MSG_DIALOG_FONT_SIZE_DEFAULT;
+
+    m_dialog_user.buttonType = SCE_MSG_DIALOG_BUTTON_TYPE_OK;
+    m_dialog_user.msg = m_dialog_message;
+    m_dialog_user.buttonParam = &m_dialog_buttons;
+
+    m_dialog_param.mode = SCE_MSG_DIALOG_MODE_USER_MSG;
+    m_dialog_param.userMsgParam = &m_dialog_user;
+
+    if (sceMsgDialogInit(&m_dialog_param) < 0) {
+        SetStatus("Pairing failed: unable to show error.");
+        return;
+    }
+
+    m_dialog_open = true;
+    if (!m_dialog_task_registered) {
+        paf::common::MainThreadCallList::Register(DialogPollTask, this);
+        m_dialog_task_registered = true;
+    }
+}
+
+void Pairing::DialogPollTask(void *userdata)
+{
+    Pairing *pairing = (Pairing *)userdata;
+    if (!pairing || !pairing->m_dialog_open) {
+        return;
+    }
+
+    if (sceMsgDialogGetStatus() != SCE_COMMON_DIALOG_STATUS_FINISHED) {
+        return;
+    }
+
+    SceMsgDialogResult result;
+    memset(&result, 0, sizeof(result));
+    sceMsgDialogGetResult(&result);
+    sceMsgDialogTerm();
+
+    pairing->m_dialog_open = false;
+    if (pairing->m_dialog_task_registered) {
+        paf::common::MainThreadCallList::Unregister(DialogPollTask, pairing);
+        pairing->m_dialog_task_registered = false;
+    }
+
+    pairing->RetryPairing();
 }
 
 void Pairing::RetryPairing()
@@ -167,25 +217,6 @@ void Pairing::RetryPairing()
 
     SetPin(pin);
     StartPairing();
-}
-
-void Pairing::OnDialogEvent(
-    int32_t instanceSlot,
-    CommonGuiDialog::DIALOG_CB buttonCode,
-    void *userdata)
-{
-    (void)buttonCode;
-
-    Pairing *pairing = (Pairing *)userdata;
-    CommonGuiDialog::Dialog::Close(instanceSlot);
-
-    if (!pairing) {
-        return;
-    }
-
-    pairing->m_dialog_slot = -1;
-    pairing->m_pairing_started = false;
-    pairing->RetryPairing();
 }
 
 void Pairing::OnMoonlightEvent(
