@@ -39,8 +39,11 @@ private:
 
 }
 
-ConnectionService::ConnectionService(MoonlightBackend &backend)
-    : m_backend(backend)
+ConnectionService::ConnectionService(
+    MoonlightBackend &backend,
+    NotificationService &notifications)
+    : m_backend(backend),
+      m_notifications(notifications)
 {
 }
 
@@ -50,8 +53,11 @@ int ConnectionService::Connect(const MoonlightHost &host)
         return -1;
     }
 
+    m_notifications.StartConnecting(host.internal);
+
     if (paf::job::JobQueue::default_queue == NULL) {
         vita_debug_log("[ConnectionService] Connect: no default job queue");
+        m_notifications.FinishConnection(false, host.internal);
         return -1;
     }
 
@@ -64,6 +70,11 @@ int ConnectionService::Connect(const MoonlightHost &host)
         "[ConnectionService] Connect enqueue host=%s result=%d",
         host.internal,
         result);
+
+    if (result != 0) {
+        m_notifications.FinishConnection(false, host.internal);
+    }
+
     return result;
 }
 
