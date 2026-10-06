@@ -1,4 +1,5 @@
 #include <paf.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <psp2/common_dialog.h>
@@ -71,6 +72,113 @@ static bool CopyImeAddress(
 
     output[length] = '\0';
     return length > 0;
+}
+
+static bool ParsePort(const char *text, uint16_t *port)
+{
+    unsigned long value;
+
+    if (!text || !text[0] || !port) {
+        return false;
+    }
+
+    for (size_t i = 0; text[i] != '\0'; ++i) {
+        if (text[i] < '0' || text[i] > '9') {
+            return false;
+        }
+    }
+
+    value = strtoul(text, NULL, 10);
+    if (value == 0 || value > 65535) {
+        return false;
+    }
+
+    *port = (uint16_t)value;
+    return true;
+}
+
+static bool ParseHostPort(
+    const char *input,
+    char *host,
+    size_t host_size,
+    uint16_t *port)
+{
+    const char *closing_bracket;
+    const char *last_colon;
+    const char *first_colon;
+    const char *port_text;
+    size_t host_length;
+
+    if (!input || !input[0] || !host || host_size < 2 || !port) {
+        return false;
+    }
+
+    *port = (uint16_t)kGameStreamPort;
+
+    if (input[0] == '[') {
+        closing_bracket = strchr(input + 1, ']');
+        if (!closing_bracket || closing_bracket == input + 1) {
+            return false;
+        }
+
+        host_length = (size_t)(closing_bracket - (input + 1));
+        if (host_length >= host_size) {
+            return false;
+        }
+
+        memcpy(host, input + 1, host_length);
+        host[host_length] = '\0';
+
+        if (closing_bracket[1] == '\0') {
+            return true;
+        }
+
+        if (closing_bracket[1] != ':') {
+            return false;
+        }
+
+        port_text = closing_bracket + 2;
+        return ParsePort(port_text, port);
+    }
+
+    first_colon = strchr(input, ':');
+    last_colon = strrchr(input, ':');
+
+    if (first_colon == NULL) {
+        host_length = strlen(input);
+        if (host_length >= host_size) {
+            return false;
+        }
+        memcpy(host, input, host_length + 1);
+        return true;
+    }
+
+    if (first_colon != last_colon) {
+        /*
+         * Unbracketed IPv6 is accepted, but a custom port must use
+         * [IPv6]:port so the port separator remains unambiguous.
+         */
+        host_length = strlen(input);
+        if (host_length >= host_size) {
+            return false;
+        }
+        memcpy(host, input, host_length + 1);
+        return true;
+    }
+
+    host_length = (size_t)(last_colon - input);
+    if (host_length == 0 || host_length >= host_size) {
+        return false;
+    }
+
+    port_text = last_colon + 1;
+    if (!ParsePort(port_text, port)) {
+        return false;
+    }
+
+    memcpy(host, input, host_length);
+    host[host_length] = '\0';
+    return true;
 }
 
 }
@@ -460,7 +568,7 @@ void Main::HandleAddPcImeResult()
 
     char address[kMaxHostAddressLength + 1];
     if (!CopyImeAddress(m_ime_input, address, sizeof(address))) {
-        SetStatus("Enter a valid PC hostname or IP address.");
+        SetStatus("Enter a valid PC address or host:port.");
         StartAddPcIme();
         return;
     }
@@ -472,16 +580,25 @@ void Main::HandleAddPcImeResult()
 
 void Main::StartManualConnection(const char *address)
 {
+    char host_address[256];
+    uint16_t port;
+
     if (m_connecting || !address || !address[0]) {
+        return;
+    }
+
+    if (!ParseHostPort(address, host_address, sizeof(host_address), &port)) {
+        SetStatus("Enter a valid PC address or host:port.");
+        StartAddPcIme();
         return;
     }
 
     MoonlightHost host;
     memset(&host, 0, sizeof(host));
-    host.port = kGameStreamPort;
+    host.port = port;
     strncpy(host.name, address, sizeof(host.name) - 1);
     host.name[sizeof(host.name) - 1] = '\0';
-    strncpy(host.internal, address, sizeof(host.internal) - 1);
+    strncpy(host.internal, host_address, sizeof(host.internal) - 1);
     host.internal[sizeof(host.internal) - 1] = '\0';
 
     m_connecting = true;
