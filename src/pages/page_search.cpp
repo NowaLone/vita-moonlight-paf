@@ -321,6 +321,12 @@ void Search::OnMoonlightEvent(
         search->OnConnectionReady();
         break;
 
+    case MOONLIGHT_EVENT_CONNECTION_FAILED:
+        search->m_host_selected = false;
+        search->m_selected_index = -1;
+        search->SetStatus("Unable to connect to PC.");
+        break;
+
     default:
         break;
     }
