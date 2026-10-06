@@ -30,7 +30,7 @@ The current application supports:
 
 - Native PAF main screen and page navigation.
 - Inline manual PC address input with the native Vita IME.
-- System connection progress notification.
+- Native system connection loading and error dialogs.
 - System-style title bars and list views based on the patterns used by Vita system applications and `GrapheneCt/NetStream`.
 - LAN/mDNS PC discovery.
 - Saved PC list.
