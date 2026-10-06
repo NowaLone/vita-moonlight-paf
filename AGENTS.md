@@ -34,7 +34,7 @@ The long-term goal is to keep the frontend architecture native to PAF while cont
 
 The application currently provides:
 
-- Main PC screen with native PAF title bar, host list, Search PCs, Add Manually, and system-settings entry.
+- Main PC screen with native PAF title bar, saved host list, inline Add PC address input, Search PCs, and system-settings entry.
 - mDNS/LAN host discovery.
 - Persistent saved hosts.
 - Pairing with a PC using the Moonlight PIN flow.
