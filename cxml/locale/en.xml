@@ -9,6 +9,7 @@
   <string src="Searching for PCs..." id="msg_searching_pcs" />
   <string src="Apps" id="msg_apps" />
   <string src="Loading apps..." id="msg_loading_apps" />
+  <string src="Enter this PIN on the PC." id="msg_pairing_enter_pin" />
   <string src="Enter a PC address manually." id="msg_add_manually_description" />
 
   <string src="Stream" id="msg_stream_settings" />
