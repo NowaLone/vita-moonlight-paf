@@ -24,6 +24,7 @@ public:
     virtual int StopHostSearch();
     virtual int AddHost(const char *address, uint16_t port, const char *name);
     virtual int MarkHostPaired(const MoonlightHost &host);
+    virtual int DeleteHost(const MoonlightHost &host);
 
     virtual int ConnectHost(const MoonlightHost &host);
     virtual int PreparePairing(char out_pin[5]);

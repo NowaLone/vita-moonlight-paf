@@ -23,6 +23,7 @@ public:
     virtual int StopHostSearch() = 0;
     virtual int AddHost(const char *address, uint16_t port, const char *name) = 0;
     virtual int MarkHostPaired(const MoonlightHost &host) = 0;
+    virtual int DeleteHost(const MoonlightHost &host) = 0;
 
     virtual int ConnectHost(const MoonlightHost &host) = 0;
     virtual int PreparePairing(char out_pin[5]) = 0;

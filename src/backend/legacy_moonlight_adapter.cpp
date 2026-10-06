@@ -129,6 +129,11 @@ int LegacyMoonlightAdapter::MarkHostPaired(const MoonlightHost &host)
     return legacy_device_store_mark_paired(&host);
 }
 
+int LegacyMoonlightAdapter::DeleteHost(const MoonlightHost &host)
+{
+    return legacy_device_store_delete_host(&host);
+}
+
 int LegacyMoonlightAdapter::ConnectHost(const MoonlightHost &host)
 {
     if (!host.internal[0]) {

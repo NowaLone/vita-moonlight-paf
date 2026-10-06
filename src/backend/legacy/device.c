@@ -179,20 +179,21 @@ static void normalize_known_devices(void) {
   }
 }
 
-bool remove_device(const char *name) {
-  int idx = -1;
-  for (int i = 0; i < known_devices.count; i++) {
-    if (!strcmp(known_devices.devices[i].name, name)) {
-      idx = i;
-      break;
-    }
-  }
-  if (idx == -1) {
-    vita_debug_log("remove_device: device %s not found\n", name);
+static bool remove_device_index(int idx) {
+  if (idx < 0 || idx >= known_devices.count) {
     return false;
   }
-  // Capture the persistent storage location before compacting the array.
+
   char storage_name[256];
+  char device_name[256];
+
+  strncpy(
+      device_name,
+      known_devices.devices[idx].name,
+      sizeof(device_name) - 1);
+  device_name[sizeof(device_name) - 1] = '\0';
+
+  // Capture the persistent storage location before compacting the array.
   strncpy(
       storage_name,
       known_devices.devices[idx].storage_name[0]
@@ -201,35 +202,72 @@ bool remove_device(const char *name) {
       sizeof(storage_name) - 1);
   storage_name[sizeof(storage_name) - 1] = '\0';
 
-  // Eliminar del arreglo
+  // Remove from the in-memory array.
   for (int i = idx; i < known_devices.count - 1; i++) {
     known_devices.devices[i] = known_devices.devices[i + 1];
   }
   known_devices.count--;
 
-  // Eliminar del disco
+  // Remove from disk.
   char dir_path[512];
   snprintf(dir_path, sizeof(dir_path), "%s%s", config.key_dir, storage_name);
   char file_path[512];
   device_file_path(file_path, storage_name);
-  sceIoRemove(file_path); // Elimina device.ini
-  // Elimina todos los archivos dentro de la carpeta antes de borrar la carpeta
+  sceIoRemove(file_path);
+
+  // Remove all files inside the device directory before removing the directory.
   SceIoDirent dirent;
   SceUID dfd = sceIoDopen(dir_path);
   if (dfd >= 0) {
     while (sceIoDread(dfd, &dirent) > 0) {
-      if (strcmp(dirent.d_name, ".") == 0 || strcmp(dirent.d_name, "..") == 0) continue;
+      if (strcmp(dirent.d_name, ".") == 0 ||
+          strcmp(dirent.d_name, "..") == 0) {
+        continue;
+      }
+
       char full_path[512];
       snprintf(full_path, sizeof(full_path), "%s/%s", dir_path, dirent.d_name);
       sceIoRemove(full_path);
     }
     sceIoDclose(dfd);
   }
+
   sceIoRmdir(dir_path);
-  vita_debug_log("remove_device: device %s removed from memory and disk\n", name);
+
+  vita_debug_log(
+      "remove_device: device %s removed from memory and disk\n",
+      device_name);
   return true;
 }
 
+bool remove_device(const char *name) {
+  if (!name) {
+    return false;
+  }
+
+  for (int i = 0; i < known_devices.count; i++) {
+    if (!strcmp(known_devices.devices[i].name, name)) {
+      return remove_device_index(i);
+    }
+  }
+
+  vita_debug_log("remove_device: device %s not found\n", name);
+  return false;
+}
+
+bool remove_device_by_info(const device_info_t *device) {
+  if (!device) {
+    return false;
+  }
+
+  for (int i = 0; i < known_devices.count; ++i) {
+    if (&known_devices.devices[i] == device) {
+      return remove_device_index(i);
+    }
+  }
+
+  return false;
+}
 
 device_infos_t known_devices = {0};
 

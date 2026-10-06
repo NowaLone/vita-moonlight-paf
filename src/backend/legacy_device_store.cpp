@@ -324,6 +324,20 @@ int legacy_device_store_set_host_id(
     return 0;
 }
 
+int legacy_device_store_delete_host(const MoonlightHost *host)
+{
+    if (!s_initialized || !host) {
+        return -1;
+    }
+
+    device_info_t *stored = find_stored_host(host);
+    if (!stored) {
+        return -1;
+    }
+
+    return remove_device_by_info(stored) ? 0 : -1;
+}
+
 int legacy_device_store_get_client_directory(
     char *out,
     size_t size)
