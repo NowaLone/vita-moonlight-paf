@@ -6,6 +6,7 @@
 #include "pages/page_pairing.h"
 #include "pages/page_search.h"
 #include "pages/page_apps.h"
+#include "pages/page_main.h"
 #include "app/moonlight_app.h"
 
 namespace page {
