@@ -32,6 +32,7 @@ private:
     SceWChar16 m_ime_initial_text[1];
     bool m_ime_open;
     bool m_ime_task_registered;
+    bool m_ime_retry_pending;
     bool m_ime_module_loaded;
     bool m_connecting;
 };
