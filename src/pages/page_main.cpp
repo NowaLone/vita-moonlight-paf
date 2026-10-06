@@ -283,10 +283,33 @@ void Main::OnMoonlightEvent(const MoonlightEvent *event, void *userdata)
     case MOONLIGHT_EVENT_CONNECTION_READY:
         main->m_connecting = false;
 
-        if (!Base::IsOpen("page_apps")) {
-            Apps *apps = new Apps();
-            if (!apps->IsValid()) delete apps;
+        if (MoonlightApp::Instance()->Connection().State() ==
+            MOONLIGHT_CONNECTION_PAIRED) {
+            if (!Base::IsOpen("page_apps")) {
+                Apps *apps = new Apps();
+                if (!apps->IsValid()) delete apps;
+            }
+            break;
         }
+
+        if (MoonlightApp::Instance()->Connection().State() ==
+            MOONLIGHT_CONNECTION_READY) {
+            char pin[5] = {0};
+            int prepare_result = MoonlightApp::Instance()->Pairing().Prepare(pin);
+            if (prepare_result != 0) {
+                main->SetStatus("Unable to prepare pairing.");
+                return;
+            }
+
+            Pairing *pairing = new Pairing(pin);
+            if (!pairing || !pairing->IsValid()) {
+                delete pairing;
+                main->SetStatus("Unable to open pairing screen.");
+            }
+            return;
+        }
+
+        main->SetStatus("Unable to connect to PC.");
         break;
 
     case MOONLIGHT_EVENT_CONNECTION_FAILED:
