@@ -54,6 +54,184 @@ static void ensure_host_identity(device_info_t *info) {
 }
 
 // Elimina la carpeta y el archivo del dispositivo
+static bool device_has_credentials(const device_info_t *info) {
+  char path[512];
+  FILE *file;
+
+  if (!info || !info->storage_name[0]) {
+    return false;
+  }
+
+  snprintf(path, sizeof(path), "%s%s/client.pem",
+      config.key_dir, info->storage_name);
+  file = fopen(path, "rb");
+  if (!file) {
+    return false;
+  }
+  fclose(file);
+
+  snprintf(path, sizeof(path), "%s%s/key.pem",
+      config.key_dir, info->storage_name);
+  file = fopen(path, "rb");
+  if (!file) {
+    return false;
+  }
+  fclose(file);
+
+  return true;
+}
+
+static bool devices_same_identity(
+    const device_info_t *left,
+    const device_info_t *right) {
+  if (!left || !right) {
+    return false;
+  }
+
+  if (left->host_id[0] && right->host_id[0] &&
+      strcmp(left->host_id, right->host_id) == 0) {
+    return true;
+  }
+
+  if (left->mac[0] && right->mac[0] &&
+      strcmp(left->mac, right->mac) == 0) {
+    return true;
+  }
+
+  if (left->internal[0] && right->internal[0] &&
+      strcmp(left->internal, right->internal) == 0) {
+    return true;
+  }
+
+  if (left->external[0] && right->external[0] &&
+      strcmp(left->external, right->external) == 0) {
+    return true;
+  }
+
+  if (!left->internal[0] && !left->external[0] &&
+      !right->internal[0] && !right->external[0] &&
+      left->name[0] && right->name[0] &&
+      strcmp(left->name, right->name) == 0) {
+    return true;
+  }
+
+  return false;
+}
+
+static bool should_keep_device(
+    const device_info_t *candidate,
+    const device_info_t *current) {
+  bool candidate_credentials;
+  bool current_credentials;
+
+  if (!candidate || !current) {
+    return false;
+  }
+
+  if (candidate->paired != current->paired) {
+    return candidate->paired;
+  }
+
+  candidate_credentials = device_has_credentials(candidate);
+  current_credentials = device_has_credentials(current);
+
+  if (candidate_credentials != current_credentials) {
+    return candidate_credentials;
+  }
+
+  if (candidate->host_id[0] != current->host_id[0]) {
+    return candidate->host_id[0] != '\0';
+  }
+
+  return strcmp(candidate->storage_name, current->storage_name) < 0;
+}
+
+static void merge_device_info(
+    device_info_t *destination,
+    const device_info_t *source) {
+  if (!destination || !source) {
+    return;
+  }
+
+  if (source->paired) {
+    destination->paired = true;
+  }
+
+  if (source->name[0]) {
+    strncpy(destination->name, source->name, sizeof(destination->name) - 1);
+    destination->name[sizeof(destination->name) - 1] = '\0';
+  }
+
+  if (source->internal[0]) {
+    strncpy(destination->internal, source->internal,
+        sizeof(destination->internal) - 1);
+    destination->internal[sizeof(destination->internal) - 1] = '\0';
+  }
+
+  if (source->external[0]) {
+    strncpy(destination->external, source->external,
+        sizeof(destination->external) - 1);
+    destination->external[sizeof(destination->external) - 1] = '\0';
+  }
+
+  if (source->mac[0]) {
+    strncpy(destination->mac, source->mac,
+        sizeof(destination->mac) - 1);
+    destination->mac[sizeof(destination->mac) - 1] = '\0';
+  }
+
+  destination->port = source->port != 0 ? source->port : destination->port;
+  destination->prefer_external = source->prefer_external;
+}
+
+static void normalize_known_devices(void) {
+  int unique_count = 0;
+
+  for (int i = 0; i < known_devices.count; ++i) {
+    device_info_t source = known_devices.devices[i];
+    int match = -1;
+
+    for (int j = 0; j < unique_count; ++j) {
+      if (devices_same_identity(&known_devices.devices[j], &source)) {
+        match = j;
+        break;
+      }
+    }
+
+    if (match < 0) {
+      if (i != unique_count) {
+        known_devices.devices[unique_count] = source;
+      }
+      ++unique_count;
+      continue;
+    }
+
+    device_info_t *current = &known_devices.devices[match];
+    if (should_keep_device(&source, current)) {
+      device_info_t old = *current;
+      *current = source;
+      merge_device_info(current, &old);
+      vita_debug_log(
+          "normalize_known_devices: selected %s over %s",
+          current->storage_name,
+          old.storage_name);
+    } else {
+      merge_device_info(current, &source);
+      vita_debug_log(
+          "normalize_known_devices: merged duplicate %s into %s",
+          source.storage_name,
+          current->storage_name);
+    }
+  }
+
+  known_devices.count = unique_count;
+
+  for (int i = 0; i < known_devices.count; ++i) {
+    ensure_host_identity(&known_devices.devices[i]);
+    save_device_info(&known_devices.devices[i]);
+  }
+}
+
 bool remove_device(const char *name) {
   int idx = -1;
   for (int i = 0; i < known_devices.count; i++) {
@@ -357,6 +535,9 @@ void load_all_known_devices() {
   } while(true);
 
   sceIoDclose(dfd);
+
+  normalize_known_devices();
+
   return;
 }
 
