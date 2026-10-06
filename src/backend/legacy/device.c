@@ -494,7 +494,7 @@ bool load_device_info(device_info_t *info) {
   info->port = 47989;
   int ret = ini_parse(path, device_ini_handle, info);
   if (!ret) {
-    vita_debug_log("load_device_info: device found:\n", ret);
+    vita_debug_log("load_device_info: device found:\n");
     vita_debug_log("load_device_info:   info->name = %s\n", info->name);
     vita_debug_log("load_device_info:   info->paired = %s\n", info->paired ? "true" : "false");
     vita_debug_log("load_device_info:   info->internal = %s\n", info->internal);

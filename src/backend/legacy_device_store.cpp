@@ -8,6 +8,7 @@
 #include "backend/legacy_device_store.h"
 #include "device.h"
 #include "config.h"
+#include "debug.h"
 
 namespace {
 
@@ -306,8 +307,6 @@ int legacy_device_store_set_host_id(
         }
         stored->port = host->port != 0 ? host->port : stored->port;
     }
-
-    ensure_host_identity(stored);
 
     if (!ensure_device_directory(
             stored->storage_name[0] ? stored->storage_name : stored->name)) {
