@@ -105,23 +105,24 @@ The project does **not** use the old `moonlight.conf` settings model.
 
 ## Host Persistence
 
-Saved PCs are intentionally separate from AppSettings. Host state is owned by the host store, while AppSettings is reserved for global application settings.
+Saved PCs are intentionally separate from AppSettings. Host state is owned by the host store, while the client identity is shared by the entire Vita installation.
 
-The host store follows the compatible Vita Moonlight per-host bundle model:
+The storage model is:
 
 ```
 ux0:data/moonlight/
-    <storage name>/
-        device.ini
+    client/
         uniqueid.dat
         client.pem
         key.pem
         client.p12
+    <storage name>/
+        device.ini
 ```
 
-Each persistent host has a stable `host_id`. The PC display name and IP address are not the persistent identity and must not be used to select the credential directory.
+The `client/` directory contains the single global GameStream client identity. Every PC uses the same client `uniqueid.dat` and RSA certificate/key.
 
-Host metadata includes:
+Each host record stores metadata:
 
 ```
 host_id
@@ -133,15 +134,11 @@ port
 prefer_external
 ```
 
-Existing Vita Moonlight directories keep their original storage names for compatibility. On first load, hosts without `host_id` receive one and the value is written back to `device.ini`. New hosts use their generated `host_id` as the storage directory name.
+`host_id` is the GameStream/Sunshine server UUID obtained from `/serverinfo`. It is the persistent PC identity; the display name and IP address are discovery/connection data, not client-identity storage keys.
 
-Discovery results are temporary. Selecting a discovered PC creates or updates its persistent host record before connection/pairing. Pairing then updates the same host record with its paired state and MAC. Credential files remain in that host's storage directory.
+Discovery results are temporary. Selecting a discovered PC creates or updates its persistent host record before connection/pairing. Pairing updates that host record with its paired state and MAC.
 
-Host identity resolution uses, in order, `host_id`, MAC, internal/external address, and finally display name as a legacy fallback. Duplicate records can therefore be merged without making the display name the primary identity.
-
-Only the host store knows how a `MoonlightHost` maps to its credential directory. GameStream receives the resolved directory from the store and does not construct paths from the PC name.
-
-Host persistence is compatibility-sensitive because the host directory also contains pairing/key data and the per-host `uniqueid.dat`.
+The project does not provide compatibility or migration for the original Vita Moonlight per-host credential layout. Existing per-host `uniqueid.dat`, `client.pem`, `key.pem`, and `client.p12` files are not used by the new global client-identity implementation.
 
 ## Build
 

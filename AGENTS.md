@@ -141,27 +141,34 @@ Do not introduce a new custom settings file or resurrect the old `moonlight.conf
 
 Host persistence is intentionally separate from AppSettings and is owned by the host-store layer.
 
-The compatible per-host model is:
+The client identity is global to the Vita installation:
+
+```
+ux0:data/moonlight/
+    client/
+        uniqueid.dat
+        client.pem
+        key.pem
+        client.p12
+```
+
+Per-host data contains only host metadata:
 
 ```
 ux0:data/moonlight/
     <storage name>/
         device.ini
-        uniqueid.dat
-        pairing/key material
 ```
 
-Each host has a persistent `host_id`. Display name and IP address are not the primary identity. Existing Vita Moonlight directories keep their current storage names; hosts without `host_id` are assigned one on first load and the field is written to `device.ini`. New host records use their generated `host_id` as the storage directory name.
-
-Host identity resolution is ordered as `host_id`, MAC, internal/external address, then display name as a legacy fallback. This permits renamed hosts and IP changes without changing their credential directory.
+`host_id` is the GameStream/Sunshine server UUID returned by `/serverinfo`. The client never generates a host identity. Client `uniqueid.dat` and key/certificate material are never stored in a host directory.
 
 Discovery results are temporary. When the user selects a discovered PC, the host store creates or updates its persistent record before connection. Successful pairing updates the same record with paired state and MAC.
 
-Only the host store resolves a `MoonlightHost` to its credential directory. GameStream must receive the resolved directory from the store rather than constructing a path from the host display name.
+Host identity resolution is ordered as `host_id`, MAC, internal/external address, then display name. The stable server UUID is the primary persistent identity once it is known.
 
-Important: persistence is compatibility-sensitive. Do not casually change storage paths, file format, or host identity rules without considering existing Vita Moonlight data and migration.
+The project does not provide storage compatibility or migration for the original Vita Moonlight per-host credential layout. Old per-host credential files are ignored by the new client-identity code.
 
-The current store may still leave obsolete duplicate directories on disk when multiple legacy records describe the same PC; this is intentionally deferred until credential merging can be handled safely.
+GameStream receives the global client-identity directory from the host store and does not construct credential paths from the selected PC.
 
 ### Streaming
 
