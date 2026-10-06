@@ -117,7 +117,7 @@ void ConnectionService::ShowConnectionError(const char *address)
 
     sceMsgDialogParamInit(&param);
     user_message.buttonType = SCE_MSG_DIALOG_BUTTON_TYPE_OK;
-    user_message.msg = m_error_message;
+    user_message.msg = (const SceChar8 *)m_error_message;
     user_message.buttonParam = NULL;
     param.mode = SCE_MSG_DIALOG_MODE_USER_MSG;
     param.userMsgParam = &user_message;
