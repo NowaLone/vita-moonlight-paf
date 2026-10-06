@@ -8,6 +8,7 @@
 #include "pages/page_stream.h"
 #include "pages/page_main.h"
 #include "pages/page_search.h"
+#include "pages/page_pairing.h"
 
 namespace page {
 
@@ -60,6 +61,12 @@ Apps::Apps()
 Apps::~Apps() {
     if (!MoonlightApp::Instance() ||
         !MoonlightApp::Instance()->IsInitialized()) {
+        return;
+    }
+
+    Pairing *pairing = static_cast<Pairing *>(Base::Find("page_pairing"));
+    if (pairing) {
+        pairing->RestoreEventCallback();
         return;
     }
 
