@@ -326,12 +326,19 @@ void MoonlightApp::ProcessEventTask(void *userdata)
 
         if (event.type == MOONLIGHT_EVENT_CONNECTION_READY) {
             app->m_connection.FinishConnection(true, event.address);
+            if (!app->m_connection.IsSuccessEventReady()) {
+                return;
+            }
         } else if (event.type == MOONLIGHT_EVENT_CONNECTION_FAILED) {
             app->m_connection.FinishConnection(false, event.address);
         }
 
         if (callback) {
             callback(&event, callback_userdata);
+        }
+
+        if (event.type == MOONLIGHT_EVENT_CONNECTION_READY) {
+            app->m_connection.ConsumeSuccessEvent();
         }
     }
 }
