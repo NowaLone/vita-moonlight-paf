@@ -2,7 +2,7 @@
 #define VITA_MOONLIGHT_PAGE_H
 #include <paf.h>
 namespace page {
-enum Type { Type_Main, Type_Search, Type_AddHost, Type_Apps, Type_Stream, Type_OptionMenu };
+enum Type { Type_Main, Type_Search, Type_AddHost, Type_Apps, Type_Pairing, Type_Stream, Type_OptionMenu };
 class Base {
 public:
     Base(const char *id,const char *back_id,paf::Plugin::TransitionType open_transition,paf::Plugin::TransitionType close_transition);
