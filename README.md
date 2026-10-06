@@ -105,21 +105,26 @@ The project does **not** use the old `moonlight.conf` settings model.
 
 ## Host Persistence
 
-Saved PCs are intentionally separate from AppSettings.
+Saved PCs are intentionally separate from AppSettings. Host state is owned by the host store, while AppSettings is reserved for global application settings.
 
-The persistent host data follows the compatible Vita Moonlight model:
+The host store follows the compatible Vita Moonlight per-host bundle model:
 
 ```
 ux0:data/moonlight/
-    <PC name>/
+    <storage name>/
         device.ini
         uniqueid.dat
-        pairing/key material
+        client.pem
+        key.pem
+        client.p12
 ```
+
+Each persistent host has a stable `host_id`. The PC display name and IP address are not the persistent identity and must not be used to select the credential directory.
 
 Host metadata includes:
 
 ```
+host_id
 paired
 internal
 external
@@ -128,7 +133,13 @@ port
 prefer_external
 ```
 
-The current store deduplicates hosts by name, internal/external address, or MAC when building the in-memory host list. Old duplicate directories on disk are not automatically deleted.
+Existing Vita Moonlight directories keep their original storage names for compatibility. On first load, hosts without `host_id` receive one and the value is written back to `device.ini`. New hosts use their generated `host_id` as the storage directory name.
+
+Discovery results are temporary. Selecting a discovered PC creates or updates its persistent host record before connection/pairing. Pairing then updates the same host record with its paired state and MAC. Credential files remain in that host's storage directory.
+
+Host identity resolution uses, in order, `host_id`, MAC, internal/external address, and finally display name as a legacy fallback. Duplicate records can therefore be merged without making the display name the primary identity.
+
+Only the host store knows how a `MoonlightHost` maps to its credential directory. GameStream receives the resolved directory from the store and does not construct paths from the PC name.
 
 Host persistence is compatibility-sensitive because the host directory also contains pairing/key data and the per-host `uniqueid.dat`.
 
