@@ -214,7 +214,7 @@ ux0:data/moonlight/
 
 `host_id` is the GameStream/Sunshine server UUID returned by `/serverinfo`. The client never generates a host identity. Client `uniqueid.dat` and key/certificate material are never stored in a host directory.
 
-Discovery results are temporary. When the user selects a discovered PC, the host store creates or updates its persistent record before connection. Successful pairing updates the same record with paired state and MAC.
+Discovery results are temporary. Search PC selections are persisted before connection. Add Manually does not persist the entered address up front; a successful GameStream connection stores or updates the host through the server UUID returned by /serverinfo. Failed manual connections therefore do not leave a new saved host entry. Successful pairing updates the same record with paired state and MAC.
 
 Host identity resolution is ordered as `host_id`, MAC, internal/external address, then display name. The stable server UUID is the primary persistent identity once it is known.
 
