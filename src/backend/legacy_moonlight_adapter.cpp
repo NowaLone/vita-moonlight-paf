@@ -135,10 +135,21 @@ int LegacyMoonlightAdapter::ConnectHost(const MoonlightHost &host)
         return -1;
     }
 
+    vita_debug_log(
+        "[LegacyAdapter] ConnectHost start host=%s:%u id=%s",
+        host.internal,
+        host.port,
+        host.host_id);
+
     int result = moonlight_api_connect_host(&host);
     if (result != 0) {
+        vita_debug_log(
+            "[LegacyAdapter] ConnectHost failed result=%d",
+            result);
         return result;
     }
+
+    vita_debug_log("[LegacyAdapter] ConnectHost ready");
 
     m_current_host = host;
     m_has_current_host = true;
