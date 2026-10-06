@@ -103,7 +103,6 @@ static bool ParseHostPort(
     size_t host_size,
     uint16_t *port)
 {
-    const char *closing_bracket;
     const char *last_colon;
     const char *first_colon;
     const char *port_text;
