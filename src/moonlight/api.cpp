@@ -298,6 +298,13 @@ int moonlight_api_connect_host(const MoonlightHost *host)
 
     s_game_stream_initialized = true;
     s_current_host = *host;
+    if (s_server.unique_id[0]) {
+        strncpy(
+            s_current_host.host_id,
+            s_server.unique_id,
+            sizeof(s_current_host.host_id) - 1);
+        s_current_host.host_id[sizeof(s_current_host.host_id) - 1] = '\0';
+    }
     update_host_from_server();
     s_has_current_host = true;
 
