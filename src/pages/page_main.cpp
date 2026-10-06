@@ -692,10 +692,9 @@ void Main::CopySelectedHosts()
             continue;
         }
 
-        const char *address = m_hosts[i].internal;
-        if (!address[0]) {
-            address = m_hosts[i].external;
-        }
+        const char *address = m_hosts[i].internal[0]
+            ? m_hosts[i].internal
+            : m_hosts[i].external;
         if (!address || !address[0]) {
             continue;
         }
@@ -703,30 +702,25 @@ void Main::CopySelectedHosts()
         int written = snprintf(
             text + length,
             sizeof(text) - length,
-            "%s%s%u",
+            "%s%s",
             length > 0 ? "\n" : "",
-            address,
-            m_hosts[i].port != 0 && m_hosts[i].port != kGameStreamPort
-                ? (unsigned int)m_hosts[i].port
-                : 0u);
-
+            address);
         if (written < 0 || (size_t)written >= sizeof(text) - length) {
             break;
         }
+        length += (size_t)written;
 
         if (m_hosts[i].port != 0 && m_hosts[i].port != kGameStreamPort) {
-            /* The formatted string already needs the colon before the port. */
-            size_t current = length + (size_t)written;
-            size_t address_end = current;
-            while (address_end > length && text[address_end - 1] >= '0' && text[address_end - 1] <= '9') {
-                --address_end;
+            int port_written = snprintf(
+                text + length,
+                sizeof(text) - length,
+                ":%u",
+                (unsigned int)m_hosts[i].port);
+            if (port_written < 0 || (size_t)port_written >= sizeof(text) - length) {
+                break;
             }
-            if (address_end == current || address_end == length) {
-                continue;
-            }
+            length += (size_t)port_written;
         }
-
-        length += (size_t)written;
     }
 
     /* Rebuild the clipboard text with the unambiguous host[:port] syntax. */
