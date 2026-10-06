@@ -97,29 +97,6 @@ static void on_discovery_event(
     }
 }
 
-static int make_key_directory(const MoonlightHost *host, char *out, size_t size)
-{
-    const char *name;
-
-    if (!host || !out || size == 0) {
-        return -1;
-    }
-
-    name = host->name[0] ? host->name : host->internal;
-
-    int length = snprintf(out, size, "%s%s", config.key_dir, name);
-    if (length < 0 || (size_t)length >= size) {
-        return -1;
-    }
-
-    int result = sceIoMkdir(out, 0777);
-    if (result < 0 && result != 0x80010011) {
-        return result;
-    }
-
-    return 0;
-}
-
 static void update_host_from_server()
 {
     s_current_host.paired = s_server.paired ? 1 : 0;
@@ -268,7 +245,8 @@ int moonlight_api_connect_host(const MoonlightHost *host)
         return -1;
     }
 
-    if (make_key_directory(host, key_directory, sizeof(key_directory)) != 0) {
+    if (legacy_device_store_get_key_directory(
+            host, key_directory, sizeof(key_directory)) != 0) {
         emit(
             MOONLIGHT_EVENT_CONNECTION_FAILED,
             -1,
@@ -427,21 +405,22 @@ int moonlight_api_get_applications(MoonlightApplication *out, int capacity)
     unsigned char random_bytes[16];
     FILE *unique_file;
     char unique_path[512];
-    const char *name = s_current_host.name[0] ? s_current_host.name : s_current_host.internal;
-    int written;
 
     unique_id[0] = '\0';
-    written = snprintf(unique_path, sizeof(unique_path), "%s%s/uniqueid.dat", config.key_dir, name);
-    unique_file = (written > 0 && (size_t)written < sizeof(unique_path)) ? fopen(unique_path, "rb") : NULL;
+    if (legacy_device_store_get_unique_id_path(
+            &s_current_host,
+            unique_path,
+            sizeof(unique_path)) != 0) {
+        emit(MOONLIGHT_EVENT_APPLICATIONS_FAILED, -2, s_current_host.id, -1, s_current_host.internal);
+        return -2;
+    }
+
+    unique_file = fopen(unique_path, "rb");
     if (unique_file) {
         if (fread(unique_id, 1, 16, unique_file) == 16) {
             unique_id[16] = '\0';
         }
         fclose(unique_file);
-    }
-    if (!unique_id[0]) {
-        emit(MOONLIGHT_EVENT_APPLICATIONS_FAILED, -2, s_current_host.id, -1, s_current_host.internal);
-        return -2;
     }
 
     if (sceKernelGetRandomNumber(random_bytes, sizeof(random_bytes)) < 0) {
@@ -565,8 +544,6 @@ int moonlight_api_start_application(int application_id)
         s_game_stream_initialized ? 1 : 0);
 
     char unique_path[512];
-    const char *name;
-    int written;
     int result;
     MoonlightSettings settings;
 
@@ -591,14 +568,10 @@ int moonlight_api_start_application(int application_id)
         return -2;
     }
 
-    name = s_current_host.name[0] ? s_current_host.name : s_current_host.internal;
-    written = snprintf(
-        unique_path,
-        sizeof(unique_path),
-        "%s%s/uniqueid.dat",
-        config.key_dir,
-        name);
-    if (written < 0 || (size_t)written >= sizeof(unique_path)) {
+    if (legacy_device_store_get_unique_id_path(
+            &s_current_host,
+            unique_path,
+            sizeof(unique_path)) != 0) {
         return -1;
     }
 
