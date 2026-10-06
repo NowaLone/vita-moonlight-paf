@@ -118,12 +118,6 @@ void Search::OnHostButton(int32_t type,
 
     Search *search = context->page;
 
-    if (search->m_pairing_pending &&
-        context->index == search->m_selected_index) {
-        search->ContinuePairing();
-        return;
-    }
-
     if (search->m_host_selected) {
         return;
     }
@@ -256,33 +250,23 @@ void Search::OnConnectionReady() {
     m_pairing_pending = true;
 
     paf::string pairing_status = paf::common::FormatString(
-        "PIN: %s\nEnter it on the PC, then press X.",
+        "PIN: %s\nEnter it on the PC.",
         m_pairing_pin);
     SetStatus(pairing_status.c_str());
-}
 
-void Search::ContinuePairing() {
-    if (!m_pairing_pending || m_pairing_pin[0] == '\0') {
-        return;
-    }
-
-    MoonlightApp *app = MoonlightApp::Instance();
-    if (!app) {
-        SetStatus("Connection failed.");
-        return;
-    }
-
-    int result = app->Pairing().Pair(m_pairing_pin);
-    if (result != 0) {
+    /*
+     * Pair() must be started immediately. It sends the initial pairing
+     * request to the host; without it the host has no pairing request to
+     * react to and the PIN cannot be entered there.
+     */
+    int pair_result = app->Pairing().Pair(m_pairing_pin);
+    if (pair_result != 0) {
         paf::string status = paf::common::FormatString(
             "Pairing start failed: 0x%08X",
-            (unsigned int)result);
+            (unsigned int)pair_result);
         SetStatus(status.c_str());
-        return;
+        m_pairing_pending = false;
     }
-
-    m_pairing_pending = false;
-    SetStatus("Pairing with PC...");
 }
 
 void Search::SetStatus(const char *text) {
@@ -355,7 +339,7 @@ void Search::OnMoonlightEvent(
                 sizeof(search->m_pairing_pin));
             search->m_pairing_pending = true;
             paf::string pairing_status = paf::common::FormatString(
-                "PIN: %s\nEnter it on the PC, then press X.",
+                "PIN: %s\nEnter it on the PC.",
                 search->m_pairing_pin);
             search->SetStatus(pairing_status.c_str());
         }
