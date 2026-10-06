@@ -174,9 +174,12 @@ static device_info_t* find_device_by_identity(const device_info_t *info) {
       return device;
   }
 
-  // Name is only a last-resort compatibility identity. Different PCs may
-  // legitimately advertise the same display name.
-  if (info->name[0]) {
+  // Name is only useful when no stronger host identity is available.
+  // Different PCs may legitimately advertise the same display name.
+  if (info->name[0] &&
+      !info->mac[0] &&
+      !info->internal[0] &&
+      !info->external[0]) {
     device = find_device(info->name);
     if (device)
       return device;
