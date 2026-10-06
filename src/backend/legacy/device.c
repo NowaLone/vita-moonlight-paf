@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <dirent.h>
 #include <unistd.h>
@@ -7,6 +8,7 @@
 #include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
 #include <psp2/io/dirent.h>
+#include <psp2/kernel/rng.h>
 #include "wake_on_lan.h"
 
 #include "device.h"
@@ -21,6 +23,32 @@
 #define write_int(fd, key, value) fprintf(fd, "%s = %d\n", key, value)
 #define write_bool(fd, key, value) fprintf(fd, "%s = %s\n", key, value ? "true" : "false");
 #define write_string(fd, key, value) fprintf(fd, "%s = %s\n", key, value)
+
+static bool generate_host_id(device_info_t *info) {
+  unsigned char random_bytes[16];
+  static const char hex[] = "0123456789abcdef";
+
+  if (!info) return false;
+  if (sceKernelGetRandomNumber(random_bytes, sizeof(random_bytes)) < 0) return false;
+
+  for (int i = 0; i < (int)sizeof(random_bytes); ++i) {
+    info->host_id[i * 2] = hex[random_bytes[i] >> 4];
+    info->host_id[i * 2 + 1] = hex[random_bytes[i] & 0x0f];
+  }
+  info->host_id[32] = '\0';
+  return true;
+}
+
+static void ensure_host_identity(device_info_t *info) {
+  if (!info) return;
+  if (info->host_id[0] == '\0') {
+    (void)generate_host_id(info);
+  }
+  if (info->storage_name[0] == '\0') {
+    strncpy(info->storage_name, info->name, sizeof(info->storage_name) - 1);
+    info->storage_name[sizeof(info->storage_name) - 1] = '\0';
+  }
+}
 
 // Elimina la carpeta y el archivo del dispositivo
 bool remove_device(const char *name) {
@@ -43,7 +71,10 @@ bool remove_device(const char *name) {
 
   // Eliminar del disco
   char dir_path[512];
-  snprintf(dir_path, sizeof(dir_path), "%s/%s", config.key_dir, name);
+  const char *storage_name = known_devices.devices[idx].storage_name[0]
+      ? known_devices.devices[idx].storage_name
+      : known_devices.devices[idx].name;
+  snprintf(dir_path, sizeof(dir_path), "%s%s", config.key_dir, storage_name);
   char file_path[512];
   device_file_path(file_path, name);
   sceIoRemove(file_path); // Elimina device.ini
@@ -71,6 +102,16 @@ device_info_t* find_device(const char *name) {
   // TODO: mutex
   for (int i = 0; i < known_devices.count; i++) {
     if (!strcmp(name, known_devices.devices[i].name)) {
+      return &known_devices.devices[i];
+    }
+  }
+  return NULL;
+}
+
+device_info_t* find_device_by_host_id(const char *host_id) {
+  if (host_id == NULL || host_id[0] == '\0') return NULL;
+  for (int i = 0; i < known_devices.count; i++) {
+    if (strcmp(known_devices.devices[i].host_id, host_id) == 0) {
       return &known_devices.devices[i];
     }
   }
@@ -132,6 +173,9 @@ static int device_ini_handle(void *out, const char *section, const char *name,
 
   if (strcmp(name, "paired") == 0) {
     info->paired = BOOL(value);
+  } else if (strcmp(name, "host_id") == 0) {
+    strncpy(info->host_id, value, sizeof(info->host_id) - 1);
+    info->host_id[sizeof(info->host_id) - 1] = '\0';
   } else if (strcmp(name, "internal") == 0) {
     strncpy(info->internal, value, 255);
   } else if (strcmp(name, "external") == 0) {
@@ -169,6 +213,14 @@ device_info_t* append_device(device_info_t *info) {
       strncpy(existing->mac, info->mac, 17);
       existing->mac[17] = '\0';
     }
+    if (existing->host_id[0] == '\0' && info->host_id[0]) {
+      strncpy(existing->host_id, info->host_id, sizeof(existing->host_id) - 1);
+      existing->host_id[sizeof(existing->host_id) - 1] = '\0';
+    }
+    if (existing->storage_name[0] == '\0' && info->storage_name[0]) {
+      strncpy(existing->storage_name, info->storage_name, sizeof(existing->storage_name) - 1);
+      existing->storage_name[sizeof(existing->storage_name) - 1] = '\0';
+    }
     if (info->port != 0) {
       existing->port = info->port;
     }
@@ -202,12 +254,18 @@ device_info_t* append_device(device_info_t *info) {
   }
   device_info_t *p = &known_devices.devices[known_devices.count];
 
+  ensure_host_identity(info);
+
   strncpy(p->name, info->name, 255);
   p->paired = info->paired;
   strncpy(p->internal, info->internal, 255);
   strncpy(p->external, info->external, 255);
   strncpy(p->mac, info->mac, 17);
   p->mac[17] = '\0';
+  strncpy(p->host_id, info->host_id, sizeof(p->host_id) - 1);
+  p->host_id[sizeof(p->host_id) - 1] = '\0';
+  strncpy(p->storage_name, info->storage_name, sizeof(p->storage_name) - 1);
+  p->storage_name[sizeof(p->storage_name) - 1] = '\0';
   p->port = info->port;
   p->prefer_external = info->prefer_external;
   vita_debug_log("append_device: device %s is added to the list\n", p->name);
@@ -253,8 +311,15 @@ void load_all_known_devices() {
 
     memset(&info, 0, sizeof(device_info_t));
     strncpy(info.name, ent.d_name, 255);
+    info.name[255] = '\0';
+    strncpy(info.storage_name, ent.d_name, sizeof(info.storage_name) - 1);
+    info.storage_name[sizeof(info.storage_name) - 1] = '\0';
     if (!load_device_info(&info)) {
       continue;
+    }
+    if (!info.host_id[0]) {
+      ensure_host_identity(&info);
+      save_device_info(&info);
     }
     append_device(&info);
   } while(true);
@@ -288,7 +353,10 @@ bool load_device_info(device_info_t *info) {
 
 void save_device_info(const device_info_t *info) {
   char path[512] = {0};
-  device_file_path(path, info->name);
+  const char *storage_name;
+  if (!info) return;
+  storage_name = info->storage_name[0] ? info->storage_name : info->name;
+  device_file_path(path, storage_name);
   vita_debug_log("save_device_info: device file path: %s\n", path);
 
   // Ya no se intenta obtener la MAC por ARP. Solo se guarda la que esté en info->mac.
@@ -302,6 +370,7 @@ void save_device_info(const device_info_t *info) {
 
   vita_debug_log("save_device_info: paired = %s\n", info->paired ? "true" : "false");
   write_bool(fd, "paired", info->paired);
+  write_string(fd, "host_id", info->host_id);
 
   vita_debug_log("save_device_info: internal = %s\n", info->internal);
   write_string(fd, "internal", info->internal);
