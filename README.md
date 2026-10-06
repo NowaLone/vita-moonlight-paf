@@ -29,6 +29,8 @@ The PAF layer is responsible for UI and navigation. Streaming protocol, GameStre
 The current application supports:
 
 - Native PAF main screen and page navigation.
+- Inline manual PC address input with the native Vita IME.
+- System connection progress notification.
 - System-style title bars and list views based on the patterns used by Vita system applications and `GrapheneCt/NetStream`.
 - LAN/mDNS PC discovery.
 - Saved PC list.
@@ -75,7 +77,7 @@ The current list/title resources intentionally follow the real patterns used by 
 - `style_list_view_generic`
 - `style_image_button_list_button`
 
-The main page contains a saved-PC list, Search PCs, Add Manually, and access to the system AppSettings UI.
+The main page contains a saved-PC list, an inline PC address input using the native Vita IME, Search PCs, and access to the system AppSettings UI.
 
 PAF uses a **center-origin 960×544 coordinate system**:
 
@@ -136,7 +138,7 @@ prefer_external
 
 `host_id` is the GameStream/Sunshine server UUID obtained from `/serverinfo`. It is the persistent PC identity; the display name and IP address are discovery/connection data, not client-identity storage keys.
 
-Discovery results are temporary. Selecting a discovered PC creates or updates its persistent host record before connection/pairing. Pairing updates that host record with its paired state and MAC.
+Discovery results are temporary. Selecting a discovered PC creates or updates its persistent host record before connection/pairing. The inline manual address input is persisted only after a successful GameStream connection. Pairing updates that host record with its paired state and MAC.
 
 The project does not provide compatibility or migration for the original Vita Moonlight per-host credential layout. Existing per-host `uniqueid.dat`, `client.pem`, `key.pem`, and `client.p12` files are not used by the new global client-identity implementation.
 
