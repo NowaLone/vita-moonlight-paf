@@ -138,6 +138,53 @@ The settings definition lives in `cxml/moonlight_settings.xml`; `src/moonlight/s
 
 Do not introduce a new custom settings file or resurrect the old `moonlight.conf` settings model without an explicit architectural decision.
 
+### Native System / VSH Integration
+
+The project intentionally targets a more native PS Vita application experience. The preferred direction is to use Sony system UI/services where they provide real functionality instead of reimplementing the equivalent UI or behavior in PAF.
+
+The project is intended to remain an **UNSAFE** application when using privileged Sony/VSH-facing functionality. SAFE-vs-UNSAFE AppSettings research was completed and should not be repeated: the real `sce::AppSettings` integration loads `vs0:vsh/common/app_settings.suprx` / `app_settings_plugin.rco` through PAF. On hardware, the application works through this path when built UNSAFE; the corresponding direct system-plugin load crashes in SAFE. SAFE `SceAppUtil` / `SaveSafeMemory` experiments were useful only to establish the SAFE boundary and are not an alternative architecture for the target Settings UI.
+
+The long-term native-integration shortlist below was researched specifically for this project. An agent should consult this section before starting a new investigation so the same module survey is not repeated from scratch.
+
+#### Highest-priority system integration
+
+- **`sce::AppSettings` / `SceAppSettings`** — real Sony Settings UI and application settings storage. This is the required Settings implementation, not a custom replacement. Current adapter: `src/moonlight/settings.cpp`; XML definition: `cxml/moonlight_settings.xml`.
+- **`SceIme` / `SceImeDialog`** — native Vita on-screen keyboard. Preferred for Add PC / hostname / text-entry flows instead of implementing a custom keyboard.
+- **`SceMessageDialog` / internal message-dialog support** — native confirmation, error and progress dialogs. Preferred for pairing failures, delete-PC confirmation, and similar modal flows where a system dialog is appropriate.
+- **`SceNotificationUtil`** — system notifications and progress-style notifications. Useful for non-blocking events such as PC added, pairing completed, connection lost, or long-running operations.
+- **`SceNetCtl`** — system network state information and callbacks. Useful for Wi-Fi/network status, reconnect handling, diagnostics, and exposing network information in UI.
+- **`ScePower`** — power/idle management. Relevant to preventing unwanted suspend during streaming and integrating the existing `disable_power_save` setting. Manual clock/frequency manipulation is not planned unless profiling demonstrates a need.
+- **`SceClipboard`** — system clipboard. Useful for copying/pasting PC addresses, hostnames, or other connection data.
+
+#### Secondary system integration worth testing
+
+- **`SceAppMgr`** — application lifecycle, system events, application launching and related app-management APIs. Particularly interesting are system-event handling, `sceAppMgrSetInfobarState`, and app launching by URI. Do not introduce AppMgr calls merely because they exist; use them for a concrete lifecycle/shell integration need.
+- **`SceNetCheckDialog`** — native network-check/diagnostic dialog. Worth testing for a user-invoked network diagnostic path, but not required for the core LAN streaming flow.
+- **`SceLiveArea`** — possible LiveArea integration and app launch/context information. Could be used later for richer shell-facing presentation, but is not currently part of core architecture.
+- **`SceBGAppUtil`** — background-application utility. Potentially relevant to background discovery/update work, but no current feature depends on it.
+- **`SceAppMgr` BGM/audio-port facilities** — potentially useful if Moonlight audio conflicts with system/background audio are observed.
+- **`SceIncomingDialog`** — native incoming-event overlay. Interesting for future shell-like notifications, but there is no current Moonlight event that requires it.
+- **`SceShutterSound`** — system shutter sound, only relevant if a future screenshot/capture feature needs a native sound effect.
+
+#### Internal / reverse-engineered APIs
+
+These are deliberately lower priority because they are more firmware-sensitive and are not equivalent to stable application APIs:
+
+- **`SceShellUtil`** — Shell-facing integration such as shell event handlers, shell event locking, and requests to launch applications. This is one of the most interesting UNSAFE integrations for making Moonlight behave more like a first-party/system application.
+- **`SceVshBridge`** — deeper VSH bridge. Potentially powerful but firmware/internal behavior makes it a last-resort integration point.
+- **`SceSystemGesture`** — system touch/gesture recognition. Interesting for native edge/system gestures, but public SDK coverage is insufficient and reverse engineering is required.
+- **`SceSharedFb`** — shell framebuffer access. Do not use for the normal Moonlight renderer/UI; our PAF application already owns the normal display path, and introducing SharedFb would complicate the video/UI compositing problem.
+- **`SceRegistryMgr`** — system registry access. Interesting for investigating system preferences, but not a substitute for `SceAppSettings` and not currently required.
+
+#### Native-integration design rules
+
+- Prefer the real Sony/system component when it provides the UX or behavior we need; do not build a PAF imitation first and only investigate the system API later.
+- Keep PAF pages responsible for navigation/presentation and wrap system services through the application/service layer where practical.
+- System/VSH APIs that are firmware-sensitive must be isolated behind small adapters and should not leak into general business logic.
+- Do not switch the project back to SAFE merely to gain compatibility; the target architecture explicitly allows UNSAFE because genuine `SceAppSettings` and selected VSH-facing integrations are desired.
+- A module appearing in `SceSysmoduleModuleId` does not by itself make it a good candidate. Evaluate whether it gives Moonlight a concrete user-facing or lifecycle benefit before adding it.
+- The native-integration shortlist is already researched. New investigations should focus on a concrete use case or on a specific API behavior that remains unknown, rather than repeating a broad module survey.
+
 ### Host Persistence
 
 Host persistence is intentionally separate from AppSettings and is owned by the host-store layer.
