@@ -86,30 +86,6 @@ void ConnectionService::StartConnectionDialog()
     m_progress_dialog_open = true;
 }
 
-void ConnectionService::CloseDialog()
-{
-    if (m_error_dialog_open) {
-        sceMsgDialogAbort();
-        m_error_dialog_open = false;
-        sceMsgDialogTerm();
-    }
-
-    if (m_progress_dialog_open && !m_progress_dialog_closing) {
-        sceMsgDialogAbort();
-        m_progress_dialog_closing = true;
-    }
-
-    m_error_pending = false;
-    m_success_event_pending = false;
-    m_success_event_ready = false;
-    m_error_message[0] = '\0';
-
-    if (!m_dialog_task_registered && m_progress_dialog_closing) {
-        paf::common::MainThreadCallList::Register(DialogPollTask, this);
-        m_dialog_task_registered = true;
-    }
-}
-
 void ConnectionService::ShowConnectionError(const char *address)
 {
     (void)address;
