@@ -3,14 +3,13 @@
   <string src="Moonlight" id="msg_moonlight_title" />
   <string src="No PCs yet" id="msg_no_pcs" />
   <string src="Search PCs" id="msg_search_pcs" />
-  <string src="Add Manually" id="msg_add_manually" />
+  <string src="Enter PC hostname or IP address" id="msg_add_pc_placeholder" />
   <string src="Settings" id="msg_settings" />
   <string src="Search for available PCs on your network." id="msg_search_pcs_description" />
   <string src="Searching for PCs..." id="msg_searching_pcs" />
   <string src="Apps" id="msg_apps" />
   <string src="Loading apps..." id="msg_loading_apps" />
   <string src="Enter this PIN on the PC." id="msg_pairing_enter_pin" />
-  <string src="Enter a PC hostname or IP address." id="msg_add_manually_description" />
 
   <string src="Stream" id="msg_stream_settings" />
   <string src="Resolution" id="msg_resolution" />
