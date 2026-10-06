@@ -115,32 +115,6 @@ static bool ParseHostPort(
 
     *port = (uint16_t)kGameStreamPort;
 
-    if (input[0] == '[') {
-        closing_bracket = strchr(input + 1, ']');
-        if (!closing_bracket || closing_bracket == input + 1) {
-            return false;
-        }
-
-        host_length = (size_t)(closing_bracket - (input + 1));
-        if (host_length >= host_size) {
-            return false;
-        }
-
-        memcpy(host, input + 1, host_length);
-        host[host_length] = '\0';
-
-        if (closing_bracket[1] == '\0') {
-            return true;
-        }
-
-        if (closing_bracket[1] != ':') {
-            return false;
-        }
-
-        port_text = closing_bracket + 2;
-        return ParsePort(port_text, port);
-    }
-
     first_colon = strchr(input, ':');
     last_colon = strrchr(input, ':');
 
@@ -155,15 +129,11 @@ static bool ParseHostPort(
 
     if (first_colon != last_colon) {
         /*
-         * Unbracketed IPv6 is accepted, but a custom port must use
-         * [IPv6]:port so the port separator remains unambiguous.
+         * The current legacy GameStream URL builder does not support raw IPv6
+         * literals. Keep this input format unambiguous instead of accepting
+         * an address that will fail later in URL construction.
          */
-        host_length = strlen(input);
-        if (host_length >= host_size) {
-            return false;
-        }
-        memcpy(host, input, host_length + 1);
-        return true;
+        return false;
     }
 
     host_length = (size_t)(last_colon - input);
