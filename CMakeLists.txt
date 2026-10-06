@@ -187,6 +187,7 @@ target_link_libraries(${PROJECT_NAME}
   ScePaf_stub_weak
   SceAppSettings_stub
   SceAppUtil_stub
+  SceCommonDialog_stub
   SceCommonGuiDialog_stub
   -Wl,--end-group
 )
