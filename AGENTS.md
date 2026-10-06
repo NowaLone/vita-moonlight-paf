@@ -119,6 +119,8 @@ CXML changes require rebuilding the RCO before the application build.
 - `page::Base` owns the page stack and generic back-button behavior.
 - New pages should follow the existing `Base` pattern instead of implementing a second page stack.
 - Every CXML `<style_text>` must explicitly bind its `textobj` attribute to the corresponding inner `<textobj id="...">`; do not create unbound text styles.
+- Add PC uses the native `SceImeDialog` with URL input mode; do not replace this with a custom PAF keyboard.
+- `SceImeDialog` is owned by the Add PC page: load `SCE_SYSMODULE_IME` before opening it, terminate the dialog before unloading the module, and poll completion from the PAF main-thread call list. The IME input buffer must outlive the dialog.
 - Current UI uses PAF CXML resources and NetStream-style generic list/title templates.
 - The PAF coordinate system is center-origin on a 960×544 screen: `(0,0)` is screen center and positive Y points upward.
 - Do not move streaming implementation into PAF pages.
