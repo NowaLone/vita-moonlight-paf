@@ -33,7 +33,9 @@ The current application supports:
 - Native system connection loading and error dialogs.
 - System-style title bars and list views based on the patterns used by Vita system applications and `GrapheneCt/NetStream`.
 - LAN/mDNS PC discovery.
-- Saved PC list.
+- Saved PC list with native-style Copy/Delete multi-selection actions and native checkboxes.
+- Native system clipboard integration for copying selected PC addresses.
+- Native delete confirmation and persistent host removal.
 - Moonlight PIN pairing.
 - Retrieving the application list from a paired PC.
 - H.264 video streaming and Vita AVC presentation.
@@ -78,6 +80,8 @@ The current list/title resources intentionally follow the real patterns used by 
 - `style_image_button_list_button`
 
 The main page contains a saved-PC list, an inline PC address input using the native Vita IME, Search PCs, and access to the system AppSettings UI.
+
+Saved hosts use the Vita system-app selection/action pattern. The standard bottom-right corner button opens a native-style action menu with **Copy** and **Delete**; choosing an action turns the saved-PC list into multi-selection mode with PAF checkboxes and a bottom action bar. Delete asks for confirmation through the native `SceMessageDialog`; Copy writes the selected PC addresses to `SceClipboard`.
 
 PAF uses a **center-origin 960×544 coordinate system**:
 
@@ -210,6 +214,8 @@ For streaming-related changes, verify at least connection setup, video/audio, in
 - Route application behavior through `MoonlightApp`, services, backend interfaces, and the legacy adapter.
 - Deliver asynchronous backend events to PAF on the main thread.
 - Prefer small, verifiable commits.
+- Prefer real Vita system interaction patterns over invented PAF-only UX when a system-app equivalent is known.
+- Do not replace the saved-host selection/action mode with long-press/context menus.
 - Do not casually change persistent storage formats or paths without considering compatibility and migration.
 
 ## Status
