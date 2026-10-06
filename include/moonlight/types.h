@@ -71,6 +71,7 @@ typedef struct MoonlightSettings {
 
 typedef struct MoonlightHost {
     int id;
+    char host_id[33];
     char name[256];
     char internal[256];
     char external[256];
