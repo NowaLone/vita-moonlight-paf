@@ -136,7 +136,6 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_pairing.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_apps.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_stream.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/pages/page_add_host.cpp
   ${MOONLIGHT_COMMON_SOURCES}
   ${ENET_SOURCES}
 )
