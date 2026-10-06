@@ -18,10 +18,10 @@
         <layout_hint anchor="0, 1" align="0, 1" size="960, 72" pos="0, 0" />
         <box style="_common_default_style_box" id="box_main_actions">
           <layout_box layout_type="2" bottom_margin="0" top_margin="0" right_margin="40" left_margin="40" />
-          <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_search_pcs" id="btn_search_pcs">
-            <layout_hint size="202, 60" />
+          <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_add_pc_placeholder" id="btn_add_pc">
+            <layout_hint size="500, 60" />
           </button>
-          <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_add_manually" id="btn_add_manually">
+          <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_search_pcs" id="btn_search_pcs">
             <layout_hint size="202, 60" />
           </button>
         </box>
@@ -90,22 +90,6 @@
       </text>
 
       <corner_button style="_common_style_corner_bottom_left" id="btn_close_apps" />
-    </page>
-
-    <page id="page_add_manually">
-      <plane style="style_plane_fill" id="plane_add_manual_fill">
-        <layout_hint size="960, 544" />
-        <text style="style_text_title" label="msg_add_manually" id="text_add_manual_title">
-          <layout_hint adjust="2, 2" pos="0, 80" />
-        </text>
-        <text style="style_text_body" label="msg_add_manually_description" id="text_add_manual_description">
-          <layout_hint adjust="2, 2" pos="0, 10" />
-        </text>
-        <text style="style_text_main_status" id="text_add_manual_status">
-          <layout_hint size="760, 0" anchor="0, 2" align="0, 2" adjust="0, 2" pos="0, -70" />
-        </text>
-        <corner_button style="_common_style_corner_bottom_left" id="btn_close_add_manual" />
-      </plane>
     </page>
 
     <page id="page_settings_bubble">
