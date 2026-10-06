@@ -11,6 +11,7 @@
 #include "option_menu.h"
 #include "common.h"
 #include "app/moonlight_app.h"
+#include "debug.h"
 
 namespace page {
 
