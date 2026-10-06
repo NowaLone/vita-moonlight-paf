@@ -1554,11 +1554,26 @@ static int init_worker(void *argument)
     OpenSSL_add_all_algorithms();
     ERR_load_crypto_strings();
 
-    if (make_directory_tree(key_directory) < 0 ||
-        load_unique_id(key_directory) != LEGACY_GAMESTREAM_OK ||
-        load_certificate(key_directory) != LEGACY_GAMESTREAM_OK) {
+    vita_debug_log("[GameStream] preparing client credentials dir=%s", key_directory);
+
+    if (make_directory_tree(key_directory) < 0) {
+        vita_debug_log("[GameStream] make_directory_tree failed");
         return LEGACY_GAMESTREAM_FAILED;
     }
+
+    vita_debug_log("[GameStream] loading unique client id");
+    if (load_unique_id(key_directory) != LEGACY_GAMESTREAM_OK) {
+        vita_debug_log("[GameStream] load_unique_id failed: %s", s_error);
+        return LEGACY_GAMESTREAM_FAILED;
+    }
+
+    vita_debug_log("[GameStream] loading client certificate");
+    if (load_certificate(key_directory) != LEGACY_GAMESTREAM_OK) {
+        vita_debug_log("[GameStream] load_certificate failed: %s", s_error);
+        return LEGACY_GAMESTREAM_FAILED;
+    }
+
+    vita_debug_log("[GameStream] client credentials ready");
 
     if (!s_curl_initialized) {
         if (curl_global_init(CURL_GLOBAL_ALL) != CURLE_OK) {
@@ -1597,6 +1612,8 @@ static int init_worker(void *argument)
     curl_easy_setopt(curl, CURLOPT_SSLKEYTYPE, "PEM");
     curl_easy_setopt(curl, CURLOPT_SSLKEY, key_path);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, http_write_callback);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
     curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
     curl_easy_setopt(curl, CURLOPT_SSL_SESSIONID_CACHE, 0L);
 
