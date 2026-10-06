@@ -255,7 +255,10 @@ void Search::OnConnectionReady() {
     memcpy(m_pairing_pin, pin, sizeof(m_pairing_pin));
     m_pairing_pending = true;
 
-    SetStatus("Enter this PIN on the PC, then press X.");
+    paf::string pairing_status = paf::common::FormatString(
+        "PIN: %s\nEnter it on the PC, then press X.",
+        m_pairing_pin);
+    SetStatus(pairing_status.c_str());
 }
 
 void Search::ContinuePairing() {
@@ -351,7 +354,10 @@ void Search::OnMoonlightEvent(
                 event->pairing_pin,
                 sizeof(search->m_pairing_pin));
             search->m_pairing_pending = true;
-            search->SetStatus("Enter this PIN on the PC, then press X.");
+            paf::string pairing_status = paf::common::FormatString(
+                "PIN: %s\nEnter it on the PC, then press X.",
+                search->m_pairing_pin);
+            search->SetStatus(pairing_status.c_str());
         }
         break;
 
