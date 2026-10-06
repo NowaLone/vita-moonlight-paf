@@ -8,6 +8,8 @@
 #include "pages/page_main.h"
 #include "app/moonlight_app.h"
 
+#include "debug.h"
+
 namespace page {
 
 namespace {
@@ -170,16 +172,42 @@ void Search::SelectHost(int index) {
     int saved_count = app->Hosts().GetHosts(saved_hosts, kMaxHosts);
 
     if (saved_count > 0) {
-        for (int i = 0; i < saved_count && i < kMaxHosts; ++i) {
-            if ((host.internal[0] &&
-                 strcmp(saved_hosts[i].internal, host.internal) == 0) ||
-                (host.name[0] &&
-                 strcmp(saved_hosts[i].name, host.name) == 0)) {
-                canonical_host = saved_hosts[i];
-                break;
+        /*
+         * Address is the authoritative match for a freshly discovered host.
+         * Name is only a fallback because multiple PCs may share one name.
+         */
+        int canonical_index = -1;
+
+        if (host.internal[0]) {
+            for (int i = 0; i < saved_count && i < kMaxHosts; ++i) {
+                if (strcmp(saved_hosts[i].internal, host.internal) == 0) {
+                    canonical_index = i;
+                    break;
+                }
             }
         }
+
+        if (canonical_index < 0 && host.name[0]) {
+            for (int i = 0; i < saved_count && i < kMaxHosts; ++i) {
+                if (strcmp(saved_hosts[i].name, host.name) == 0) {
+                    canonical_index = i;
+                    break;
+                }
+            }
+        }
+
+        if (canonical_index >= 0) {
+            canonical_host = saved_hosts[canonical_index];
+        }
     }
+
+    vita_debug_log(
+        "[Search] selected host name=%s ip=%s id=%s saved_count=%d canonical_id=%s",
+        host.name,
+        host.internal,
+        host.host_id,
+        saved_count,
+        canonical_host.host_id);
 
     SetStatus("Connecting to PC...");
 
