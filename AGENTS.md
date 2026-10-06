@@ -155,8 +155,8 @@ The long-term native-integration shortlist below was researched specifically for
 
 - **`sce::AppSettings` / `SceAppSettings`** — real Sony Settings UI and application settings storage. This is the required Settings implementation, not a custom replacement. Current adapter: `src/moonlight/settings.cpp`; XML definition: `cxml/moonlight_settings.xml`.
 - **`SceIme` / `SceImeDialog`** — native Vita on-screen keyboard. The current Add PC control uses it directly from Main instead of implementing a custom keyboard.
-- **`SceMessageDialog` / internal message-dialog support** — native confirmation, error and progress dialogs. Preferred for pairing failures, delete-PC confirmation, and similar modal flows where a system dialog is appropriate.
-- **`SceNotificationUtil`** — system notifications and progress-style notifications. The current connection flow uses a native progress notification for connection attempts; keep it in the notification service rather than in PAF pages.
+- **`SceMessageDialog` / internal message-dialog support** — native confirmation, error, progress, and wait/loading dialogs. The connection flow currently uses its native WAIT dialog while connecting and an OK error dialog on failure; pairing failures use the same common-dialog family.
+- **`SceNotificationUtil`** — system notifications and progress-style notifications. It is not used by the current connection flow; do not reintroduce it for connection progress unless a concrete non-modal notification use case appears.
 - **`SceNetCtl`** — system network state information and callbacks. Useful for Wi-Fi/network status, reconnect handling, diagnostics, and exposing network information in UI.
 - **`ScePower`** — power/idle management. Relevant to preventing unwanted suspend during streaming and integrating the existing `disable_power_save` setting. Manual clock/frequency manipulation is not planned unless profiling demonstrates a need.
 - **`SceClipboard`** — system clipboard. Useful for copying/pasting PC addresses, hostnames, or other connection data.
