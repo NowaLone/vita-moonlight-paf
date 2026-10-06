@@ -41,11 +41,14 @@ static bool generate_host_id(device_info_t *info) {
 
 static void ensure_host_identity(device_info_t *info) {
   if (!info) return;
+
   if (info->host_id[0] == '\0') {
     (void)generate_host_id(info);
   }
+
   if (info->storage_name[0] == '\0') {
-    strncpy(info->storage_name, info->name, sizeof(info->storage_name) - 1);
+    const char *storage_name = info->host_id[0] ? info->host_id : info->name;
+    strncpy(info->storage_name, storage_name, sizeof(info->storage_name) - 1);
     info->storage_name[sizeof(info->storage_name) - 1] = '\0';
   }
 }
@@ -63,6 +66,16 @@ bool remove_device(const char *name) {
     vita_debug_log("remove_device: device %s not found\n", name);
     return false;
   }
+  // Capture the persistent storage location before compacting the array.
+  char storage_name[256];
+  strncpy(
+      storage_name,
+      known_devices.devices[idx].storage_name[0]
+          ? known_devices.devices[idx].storage_name
+          : known_devices.devices[idx].name,
+      sizeof(storage_name) - 1);
+  storage_name[sizeof(storage_name) - 1] = '\0';
+
   // Eliminar del arreglo
   for (int i = idx; i < known_devices.count - 1; i++) {
     known_devices.devices[i] = known_devices.devices[i + 1];
@@ -71,12 +84,9 @@ bool remove_device(const char *name) {
 
   // Eliminar del disco
   char dir_path[512];
-  const char *storage_name = known_devices.devices[idx].storage_name[0]
-      ? known_devices.devices[idx].storage_name
-      : known_devices.devices[idx].name;
   snprintf(dir_path, sizeof(dir_path), "%s%s", config.key_dir, storage_name);
   char file_path[512];
-  device_file_path(file_path, name);
+  device_file_path(file_path, storage_name);
   sceIoRemove(file_path); // Elimina device.ini
   // Elimina todos los archivos dentro de la carpeta antes de borrar la carpeta
   SceIoDirent dirent;
@@ -135,9 +145,22 @@ static device_info_t* find_device_by_identity(const device_info_t *info) {
   if (!info)
     return NULL;
 
-  device_info_t *device = find_device(info->name);
-  if (device)
-    return device;
+  device_info_t *device = NULL;
+
+  if (info->host_id[0]) {
+    device = find_device_by_host_id(info->host_id);
+    if (device)
+      return device;
+  }
+
+  if (info->mac[0]) {
+    for (int i = 0; i < known_devices.count; ++i) {
+      if (known_devices.devices[i].mac[0] &&
+          strcmp(known_devices.devices[i].mac, info->mac) == 0) {
+        return &known_devices.devices[i];
+      }
+    }
+  }
 
   if (info->internal[0]) {
     device = find_device_by_address(info->internal);
@@ -151,13 +174,12 @@ static device_info_t* find_device_by_identity(const device_info_t *info) {
       return device;
   }
 
-  if (info->mac[0]) {
-    for (int i = 0; i < known_devices.count; ++i) {
-      if (known_devices.devices[i].mac[0] &&
-          strcmp(known_devices.devices[i].mac, info->mac) == 0) {
-        return &known_devices.devices[i];
-      }
-    }
+  // Name is only a last-resort compatibility identity. Different PCs may
+  // legitimately advertise the same display name.
+  if (info->name[0]) {
+    device = find_device(info->name);
+    if (device)
+      return device;
   }
 
   return NULL;
@@ -200,6 +222,10 @@ device_info_t* append_device(device_info_t *info) {
   if (existing) {
     if (info->paired) {
       existing->paired = true;
+    }
+    if (info->name[0] && strcmp(existing->name, info->name) != 0) {
+      strncpy(existing->name, info->name, sizeof(existing->name) - 1);
+      existing->name[sizeof(existing->name) - 1] = '\0';
     }
     if (info->internal[0]) {
       strncpy(existing->internal, info->internal, 255);
