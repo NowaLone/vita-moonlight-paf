@@ -161,7 +161,6 @@ Main::Main()
 
     bind_decide(root, "btn_search_pcs", onSearch, this);
     bind_decide(root, "btn_add_pc", onAdd, this);
-    SetAddPcLabel("Enter PC hostname or IP address");
     bind_decide(root, "settings_button", onSettingsButton, this);
 
     MoonlightApp::Instance()->SetEventCallback(OnMoonlightEvent, this);
@@ -351,21 +350,6 @@ void Main::OpenSearch()
     if (!search->IsValid()) delete search;
 }
 
-void Main::SetAddPcLabel(const char *text)
-{
-    if (!root || !text) {
-        return;
-    }
-
-    paf::ui::Widget *widget = root->FindChild("btn_add_pc");
-    if (!widget) {
-        return;
-    }
-
-    ((paf::ui::ButtonBase *)widget)->SetString(
-        paf::common::string_util::ToWString(text));
-}
-
 void Main::OpenAddPc()
 {
     if (m_connecting || m_ime_open || m_ime_retry_pending) {
@@ -483,7 +467,6 @@ void Main::HandleAddPcImeResult()
 
     strncpy(m_add_pc_address, address, sizeof(m_add_pc_address) - 1);
     m_add_pc_address[sizeof(m_add_pc_address) - 1] = '\0';
-    SetAddPcLabel(m_add_pc_address);
     StartManualConnection(m_add_pc_address);
 }
 
