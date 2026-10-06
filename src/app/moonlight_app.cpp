@@ -292,6 +292,8 @@ void MoonlightApp::ProcessEventTask(void *userdata)
     while (true) {
         MoonlightEvent event;
         char address[256];
+        MoonlightAppEventCallback callback;
+        void *callback_userdata;
 
         paf::thread::RMutex::main_thread_mutex.Lock();
 
@@ -316,11 +318,8 @@ void MoonlightApp::ProcessEventTask(void *userdata)
             event.address = NULL;
         }
 
-        app->m_event_head = (app->m_event_head + 1) % kEventQueueCapacity;
-        app->m_event_count--;
-
-        MoonlightAppEventCallback callback = app->m_event_callback;
-        void *callback_userdata = app->m_event_userdata;
+        callback = app->m_event_callback;
+        callback_userdata = app->m_event_userdata;
 
         paf::thread::RMutex::main_thread_mutex.Unlock();
 
@@ -332,6 +331,11 @@ void MoonlightApp::ProcessEventTask(void *userdata)
         } else if (event.type == MOONLIGHT_EVENT_CONNECTION_FAILED) {
             app->m_connection.FinishConnection(false, event.address);
         }
+
+        paf::thread::RMutex::main_thread_mutex.Lock();
+        app->m_event_head = (app->m_event_head + 1) % kEventQueueCapacity;
+        app->m_event_count--;
+        paf::thread::RMutex::main_thread_mutex.Unlock();
 
         if (callback) {
             callback(&event, callback_userdata);
