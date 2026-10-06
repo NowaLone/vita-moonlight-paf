@@ -325,42 +325,38 @@ int legacy_device_store_set_host_id(
     return 0;
 }
 
-int legacy_device_store_get_key_directory(
-    const MoonlightHost *host,
+int legacy_device_store_get_client_directory(
     char *out,
     size_t size)
 {
-    if (!s_initialized || !host || !out || size == 0) {
+    static const char *client_directory_name = "client";
+
+    if (!s_initialized || !out || size == 0) {
         return -1;
     }
 
-    device_info_t *stored = find_stored_host(host);
-    if (!stored) {
-        return -1;
-    }
-
-    const char *storage_name = stored->storage_name[0]
-        ? stored->storage_name
-        : stored->name;
-
-    int length = snprintf(out, size, "%s%s", config.key_dir, storage_name);
+    int length = snprintf(
+        out,
+        size,
+        "%s%s",
+        config.key_dir,
+        client_directory_name);
     if (length < 0 || (size_t)length >= size) {
         return -1;
     }
 
-    return ensure_device_directory(storage_name) ? 0 : -1;
+    return ensure_device_directory(client_directory_name) ? 0 : -1;
 }
 
-int legacy_device_store_get_unique_id_path(
-    const MoonlightHost *host,
+int legacy_device_store_get_client_unique_id_path(
     char *out,
     size_t size)
 {
     char directory[512];
-    int result = legacy_device_store_get_key_directory(
-        host, directory, sizeof(directory));
 
-    if (result != 0 || !out || size == 0) {
+    if (legacy_device_store_get_client_directory(
+            directory, sizeof(directory)) != 0 ||
+        !out || size == 0) {
         return -1;
     }
 

@@ -239,14 +239,14 @@ int moonlight_api_add_host(const char *address, uint16_t port, const char *name)
 
 int moonlight_api_connect_host(const MoonlightHost *host)
 {
-    char key_directory[512];
+    char client_directory[512];
 
     if (!host || !host->internal[0]) {
         return -1;
     }
 
-    if (legacy_device_store_get_key_directory(
-            host, key_directory, sizeof(key_directory)) != 0) {
+    if (legacy_device_store_get_client_directory(
+            client_directory, sizeof(client_directory)) != 0) {
         emit(
             MOONLIGHT_EVENT_CONNECTION_FAILED,
             -1,
@@ -265,7 +265,7 @@ int moonlight_api_connect_host(const MoonlightHost *host)
         &s_server,
         host->internal,
         host->port,
-        key_directory,
+        client_directory,
         0,
         true);
 
@@ -422,8 +422,7 @@ int moonlight_api_get_applications(MoonlightApplication *out, int capacity)
     char unique_path[512];
 
     unique_id[0] = '\0';
-    if (legacy_device_store_get_unique_id_path(
-            &s_current_host,
+    if (legacy_device_store_get_client_unique_id_path(
             unique_path,
             sizeof(unique_path)) != 0) {
         emit(MOONLIGHT_EVENT_APPLICATIONS_FAILED, -2, s_current_host.id, -1, s_current_host.internal);
@@ -583,8 +582,7 @@ int moonlight_api_start_application(int application_id)
         return -2;
     }
 
-    if (legacy_device_store_get_unique_id_path(
-            &s_current_host,
+    if (legacy_device_store_get_client_unique_id_path(
             unique_path,
             sizeof(unique_path)) != 0) {
         return -1;

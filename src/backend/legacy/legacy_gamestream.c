@@ -220,13 +220,13 @@ static int make_directory_tree(const char *directory)
     return 0;
 }
 
-static int load_unique_id(const char *key_directory)
+static int load_unique_id(const char *client_directory)
 {
     char path[PATH_MAX_LOCAL];
     FILE *file;
     size_t read_count;
 
-    snprintf(path, sizeof(path), "%s/%s", key_directory, UNIQUE_FILE_NAME);
+    snprintf(path, sizeof(path), "%s/%s", client_directory, UNIQUE_FILE_NAME);
 
     file = fopen(path, "rb");
     if (file) {
@@ -417,7 +417,7 @@ cleanup:
     return result;
 }
 
-static int load_certificate(const char *key_directory)
+static int load_certificate(const char *client_directory)
 {
     char *certificate_path;
     char *key_path;
@@ -439,9 +439,9 @@ static int load_certificate(const char *key_directory)
         return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
     }
 
-    snprintf(certificate_path, PATH_MAX_LOCAL, "%s/%s", key_directory, CERTIFICATE_FILE_NAME);
-    snprintf(key_path, PATH_MAX_LOCAL, "%s/%s", key_directory, KEY_FILE_NAME);
-    snprintf(p12_path, PATH_MAX_LOCAL, "%s/%s", key_directory, P12_FILE_NAME);
+    snprintf(certificate_path, PATH_MAX_LOCAL, "%s/%s", client_directory, CERTIFICATE_FILE_NAME);
+    snprintf(key_path, PATH_MAX_LOCAL, "%s/%s", client_directory, KEY_FILE_NAME);
+    snprintf(p12_path, PATH_MAX_LOCAL, "%s/%s", client_directory, P12_FILE_NAME);
 
     file = fopen(certificate_path, "rb");
     if (!file) {
@@ -1524,7 +1524,7 @@ typedef struct InitArgs {
     LegacyGameStreamServer *server;
     const char *address;
     unsigned short http_port;
-    const char *key_directory;
+    const char *client_directory;
     int log_level;
     bool unsupported;
 } InitArgs;
@@ -1535,7 +1535,7 @@ int legacy_gamestream_init(
     LegacyGameStreamServer *server,
     const char *address,
     unsigned short http_port,
-    const char *key_directory,
+    const char *client_directory,
     int log_level,
     bool unsupported)
 {
@@ -1544,7 +1544,7 @@ int legacy_gamestream_init(
     args.server = server;
     args.address = address;
     args.http_port = http_port;
-    args.key_directory = key_directory;
+    args.client_directory = client_directory;
     args.log_level = log_level;
     args.unsupported = unsupported;
     return run_on_worker(init_worker, &args);
@@ -1556,7 +1556,7 @@ static int init_worker(void *argument)
     LegacyGameStreamServer *server = args->server;
     const char *address = args->address;
     unsigned short http_port = args->http_port;
-    const char *key_directory = args->key_directory;
+    const char *client_directory = args->client_directory;
     int log_level = args->log_level;
     bool unsupported = args->unsupported;
     CURL *curl;
@@ -1565,7 +1565,7 @@ static int init_worker(void *argument)
     char *key_path;
     (void)log_level;
 
-    if (!server || !address || !address[0] || !key_directory || !key_directory[0]) {
+    if (!server || !address || !address[0] || !client_directory || !client_directory[0]) {
         set_error("Invalid GameStream initialization arguments");
         return LEGACY_GAMESTREAM_INVALID;
     }
@@ -1583,21 +1583,21 @@ static int init_worker(void *argument)
     OpenSSL_add_all_algorithms();
     ERR_load_crypto_strings();
 
-    vita_debug_log("[GameStream] preparing client credentials dir=%s", key_directory);
+    vita_debug_log("[GameStream] preparing client credentials dir=%s", client_directory);
 
-    if (make_directory_tree(key_directory) < 0) {
+    if (make_directory_tree(client_directory) < 0) {
         vita_debug_log("[GameStream] make_directory_tree failed");
         return LEGACY_GAMESTREAM_FAILED;
     }
 
     vita_debug_log("[GameStream] loading unique client id");
-    if (load_unique_id(key_directory) != LEGACY_GAMESTREAM_OK) {
+    if (load_unique_id(client_directory) != LEGACY_GAMESTREAM_OK) {
         vita_debug_log("[GameStream] load_unique_id failed: %s", s_error);
         return LEGACY_GAMESTREAM_FAILED;
     }
 
     vita_debug_log("[GameStream] loading client certificate");
-    if (load_certificate(key_directory) != LEGACY_GAMESTREAM_OK) {
+    if (load_certificate(client_directory) != LEGACY_GAMESTREAM_OK) {
         vita_debug_log("[GameStream] load_certificate failed: %s", s_error);
         return LEGACY_GAMESTREAM_FAILED;
     }
@@ -1618,7 +1618,7 @@ static int init_worker(void *argument)
         return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
     }
 
-    vita_debug_log("[GameStream] init %s:%u dir=%s", address, http_port, key_directory);
+    vita_debug_log("[GameStream] init %s:%u dir=%s", address, http_port, client_directory);
 
     certificate_path = (char *)malloc(PATH_MAX_LOCAL);
     key_path = (char *)malloc(PATH_MAX_LOCAL);
@@ -1631,8 +1631,8 @@ static int init_worker(void *argument)
         return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
     }
 
-    snprintf(certificate_path, PATH_MAX_LOCAL, "%s/%s", key_directory, CERTIFICATE_FILE_NAME);
-    snprintf(key_path, PATH_MAX_LOCAL, "%s/%s", key_directory, KEY_FILE_NAME);
+    snprintf(certificate_path, PATH_MAX_LOCAL, "%s/%s", client_directory, CERTIFICATE_FILE_NAME);
+    snprintf(key_path, PATH_MAX_LOCAL, "%s/%s", client_directory, KEY_FILE_NAME);
 
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);

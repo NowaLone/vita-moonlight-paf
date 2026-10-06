@@ -8,7 +8,6 @@
 #include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
 #include <psp2/io/dirent.h>
-#include <psp2/kernel/rng.h>
 #include "wake_on_lan.h"
 
 #include "device.h"
@@ -39,33 +38,6 @@ static void ensure_host_identity(device_info_t *info) {
 }
 
 // Elimina la carpeta y el archivo del dispositivo
-static bool device_has_credentials(const device_info_t *info) {
-  char path[512];
-  FILE *file;
-
-  if (!info || !info->storage_name[0]) {
-    return false;
-  }
-
-  snprintf(path, sizeof(path), "%s%s/client.pem",
-      config.key_dir, info->storage_name);
-  file = fopen(path, "rb");
-  if (!file) {
-    return false;
-  }
-  fclose(file);
-
-  snprintf(path, sizeof(path), "%s%s/key.pem",
-      config.key_dir, info->storage_name);
-  file = fopen(path, "rb");
-  if (!file) {
-    return false;
-  }
-  fclose(file);
-
-  return true;
-}
-
 static bool devices_same_identity(
     const device_info_t *left,
     const device_info_t *right) {
@@ -106,22 +78,12 @@ static bool devices_same_identity(
 static bool should_keep_device(
     const device_info_t *candidate,
     const device_info_t *current) {
-  bool candidate_credentials;
-  bool current_credentials;
-
   if (!candidate || !current) {
     return false;
   }
 
   if (candidate->paired != current->paired) {
     return candidate->paired;
-  }
-
-  candidate_credentials = device_has_credentials(candidate);
-  current_credentials = device_has_credentials(current);
-
-  if (candidate_credentials != current_credentials) {
-    return candidate_credentials;
   }
 
   if (candidate->host_id[0] != current->host_id[0]) {

@@ -37,7 +37,7 @@ int legacy_gamestream_init(
     LegacyGameStreamServer *server,
     const char *address,
     unsigned short http_port,
-    const char *key_directory,
+    const char *client_directory,
     int log_level,
     bool unsupported);
 
