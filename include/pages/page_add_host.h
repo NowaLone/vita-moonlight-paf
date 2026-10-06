@@ -3,6 +3,8 @@
 
 #include <psp2/ime_dialog.h>
 
+#include "moonlight/types.h"
+
 #include "pages/page.h"
 
 namespace page {
