@@ -24,8 +24,8 @@ private:
     static void DialogPollTask(void *userdata);
 
     void StartConnectionDialog();
-    void CloseDialog();
     void ShowConnectionError(const char *address);
+    void TryShowConnectionError();
 
     MoonlightBackend &m_backend;
     bool m_progress_dialog_open;
