@@ -139,25 +139,29 @@ Do not introduce a new custom settings file or resurrect the old `moonlight.conf
 
 ### Host Persistence
 
-Host persistence is intentionally separate from AppSettings.
+Host persistence is intentionally separate from AppSettings and is owned by the host-store layer.
 
-The current compatible model is based on the original Vita Moonlight implementation:
+The compatible per-host model is:
 
 ```
 ux0:data/moonlight/
-    <PC name>/
+    <storage name>/
         device.ini
         uniqueid.dat
         pairing/key material
 ```
 
-The host metadata includes name, internal/external addresses, port, MAC, paired state, and endpoint preference.
+Each host has a persistent `host_id`. Display name and IP address are not the primary identity. Existing Vita Moonlight directories keep their current storage names; hosts without `host_id` are assigned one on first load and the field is written to `device.ini`. New host records use their generated `host_id` as the storage directory name.
+
+Host identity resolution is ordered as `host_id`, MAC, internal/external address, then display name as a legacy fallback. This permits renamed hosts and IP changes without changing their credential directory.
+
+Discovery results are temporary. When the user selects a discovered PC, the host store creates or updates its persistent record before connection. Successful pairing updates the same record with paired state and MAC.
+
+Only the host store resolves a `MoonlightHost` to its credential directory. GameStream must receive the resolved directory from the store rather than constructing a path from the host display name.
 
 Important: persistence is compatibility-sensitive. Do not casually change storage paths, file format, or host identity rules without considering existing Vita Moonlight data and migration.
 
-The current host-store code additionally deduplicates loaded hosts by name, internal/external address, or MAC to avoid multiple in-memory entries for the same PC. Existing duplicate directories on disk are not automatically removed.
-
-The current UI flow still saves a discovered host before pairing completes. Changing that lifecycle to save only after successful pairing is a possible future cleanup, but requires deliberate changes to pairing/error handling and persistence semantics.
+The current store may still leave obsolete duplicate directories on disk when multiple legacy records describe the same PC; this is intentionally deferred until credential merging can be handled safely.
 
 ### Streaming
 
