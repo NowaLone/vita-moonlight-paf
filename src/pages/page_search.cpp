@@ -160,9 +160,30 @@ void Search::SelectHost(int index) {
         return;
     }
 
+    /*
+     * Add() resolves the discovered entry to the persistent host record and
+     * assigns the stable host_id/storage identity. Connect using that
+     * canonical record instead of the transient discovery object.
+     */
+    MoonlightHost canonical_host = host;
+    MoonlightHost saved_hosts[kMaxHosts];
+    int saved_count = app->Hosts().GetHosts(saved_hosts, kMaxHosts);
+
+    if (saved_count > 0) {
+        for (int i = 0; i < saved_count && i < kMaxHosts; ++i) {
+            if ((host.internal[0] &&
+                 strcmp(saved_hosts[i].internal, host.internal) == 0) ||
+                (host.name[0] &&
+                 strcmp(saved_hosts[i].name, host.name) == 0)) {
+                canonical_host = saved_hosts[i];
+                break;
+            }
+        }
+    }
+
     SetStatus("Connecting to PC...");
 
-    int connect_result = app->Connection().Connect(host);
+    int connect_result = app->Connection().Connect(canonical_host);
     if (connect_result != 0) {
         paf::string status = paf::common::FormatString(
             "Unable to start connection: 0x%08X",
