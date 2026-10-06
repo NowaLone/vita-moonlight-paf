@@ -772,6 +772,7 @@ static int load_server_info(LegacyGameStreamServer *server, bool https)
     char state[256];
     char https_port[16];
     char mac[64];
+    char unique_id[64];
     HttpBuffer response;
     int result;
 
@@ -811,6 +812,13 @@ static int load_server_info(LegacyGameStreamServer *server, bool https)
         http_buffer_free(&response);
         set_error("Incomplete serverinfo response");
         return LEGACY_GAMESTREAM_INVALID;
+    }
+
+    if (xml_find_value(response.memory, response.size, "uniqueid",
+                       unique_id, sizeof(unique_id)) == LEGACY_GAMESTREAM_OK) {
+        strncpy(server->unique_id, unique_id, sizeof(server->unique_id) - 1);
+        server->unique_id[sizeof(server->unique_id) - 1] = '\0';
+        vita_debug_log("[GameStream] server uniqueid=%s", server->unique_id);
     }
 
     if (xml_find_value(response.memory, response.size, "HttpsPort", https_port, sizeof(https_port)) == LEGACY_GAMESTREAM_OK) {

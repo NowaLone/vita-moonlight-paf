@@ -260,6 +260,71 @@ int legacy_device_store_mark_paired(const MoonlightHost *host)
     return 0;
 }
 
+
+int legacy_device_store_set_host_id(
+    const MoonlightHost *host,
+    const char *host_id)
+{
+    if (!s_initialized || !host || !host_id || !host_id[0]) {
+        return -1;
+    }
+
+    device_info_t *stored = find_stored_host(host);
+
+    if (!stored) {
+        device_info_t info;
+        memset(&info, 0, sizeof(info));
+
+        copy_string(
+            info.name,
+            sizeof(info.name),
+            host->name[0] ? host->name : host->internal);
+        copy_string(info.internal, sizeof(info.internal), host->internal);
+        copy_string(info.external, sizeof(info.external), host->external);
+        copy_string(info.mac, sizeof(info.mac), host->mac);
+        copy_string(info.host_id, sizeof(info.host_id), host_id);
+        info.port = host->port != 0 ? host->port : 47989;
+        info.prefer_external = host->prefer_external != 0;
+
+        stored = append_device(&info);
+        if (!stored) {
+            return -1;
+        }
+    } else {
+        copy_string(stored->host_id, sizeof(stored->host_id), host_id);
+        if (host->name[0]) {
+            copy_string(stored->name, sizeof(stored->name), host->name);
+        }
+        if (host->internal[0]) {
+            copy_string(stored->internal, sizeof(stored->internal), host->internal);
+        }
+        if (host->external[0]) {
+            copy_string(stored->external, sizeof(stored->external), host->external);
+        }
+        if (host->mac[0]) {
+            copy_string(stored->mac, sizeof(stored->mac), host->mac);
+        }
+        stored->port = host->port != 0 ? host->port : stored->port;
+    }
+
+    ensure_host_identity(stored);
+
+    if (!ensure_device_directory(
+            stored->storage_name[0] ? stored->storage_name : stored->name)) {
+        return -1;
+    }
+
+    save_device_info(stored);
+
+    vita_debug_log(
+        "legacy_device_store_set_host_id: host %s uuid=%s storage=%s",
+        stored->name,
+        stored->host_id,
+        stored->storage_name);
+
+    return 0;
+}
+
 int legacy_device_store_get_key_directory(
     const MoonlightHost *host,
     char *out,

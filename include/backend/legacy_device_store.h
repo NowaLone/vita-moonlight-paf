@@ -15,3 +15,7 @@ int legacy_device_store_get_unique_id_path(
     const MoonlightHost *host,
     char *out,
     size_t size);
+
+int legacy_device_store_set_host_id(
+    const MoonlightHost *host,
+    const char *host_id);

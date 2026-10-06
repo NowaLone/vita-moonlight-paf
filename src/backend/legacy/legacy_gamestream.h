@@ -18,6 +18,7 @@ extern "C" {
 
 typedef struct LegacyGameStreamServer {
     char address[256];
+    char unique_id[64];
     unsigned short http_port;
     unsigned short https_port;
     int server_major_version;

@@ -269,6 +269,14 @@ int moonlight_api_connect_host(const MoonlightHost *host)
         0,
         true);
 
+    if (result == LEGACY_GAMESTREAM_OK && s_server.unique_id[0]) {
+        if (legacy_device_store_set_host_id(host, s_server.unique_id) != 0) {
+            vita_debug_log(
+                "[GameStream] failed to persist server uniqueid=%s",
+                s_server.unique_id);
+        }
+    }
+
     if (result != LEGACY_GAMESTREAM_OK) {
         vita_debug_log(
             "[GameStream] init failed for %s: %d (%s)",

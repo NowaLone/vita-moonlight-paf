@@ -24,30 +24,15 @@
 #define write_bool(fd, key, value) fprintf(fd, "%s = %s\n", key, value ? "true" : "false");
 #define write_string(fd, key, value) fprintf(fd, "%s = %s\n", key, value)
 
-static bool generate_host_id(device_info_t *info) {
-  unsigned char random_bytes[16];
-  static const char hex[] = "0123456789abcdef";
-
-  if (!info) return false;
-  if (sceKernelGetRandomNumber(random_bytes, sizeof(random_bytes)) < 0) return false;
-
-  for (int i = 0; i < (int)sizeof(random_bytes); ++i) {
-    info->host_id[i * 2] = hex[random_bytes[i] >> 4];
-    info->host_id[i * 2 + 1] = hex[random_bytes[i] & 0x0f];
-  }
-  info->host_id[32] = '\0';
-  return true;
-}
-
 static void ensure_host_identity(device_info_t *info) {
   if (!info) return;
 
-  if (info->host_id[0] == '\0') {
-    (void)generate_host_id(info);
-  }
-
+  /*
+   * host_id is the GameStream server UUID and is assigned only after
+   * /serverinfo has been queried. It must never be generated on the client.
+   */
   if (info->storage_name[0] == '\0') {
-    const char *storage_name = info->host_id[0] ? info->host_id : info->name;
+    const char *storage_name = info->name[0] ? info->name : info->host_id;
     strncpy(info->storage_name, storage_name, sizeof(info->storage_name) - 1);
     info->storage_name[sizeof(info->storage_name) - 1] = '\0';
   }
@@ -527,10 +512,7 @@ void load_all_known_devices() {
     if (!load_device_info(&info)) {
       continue;
     }
-    if (!info.host_id[0]) {
-      ensure_host_identity(&info);
-      save_device_info(&info);
-    }
+    ensure_host_identity(&info);
     append_device(&info);
   } while(true);
 
