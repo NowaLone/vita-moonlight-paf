@@ -35,7 +35,7 @@ The long-term goal is to keep the frontend architecture native to PAF while cont
 The application currently provides:
 
 - Main PC screen with native PAF title bar, saved host list, inline Add PC address input, Search PCs, and system-settings entry.
-- Saved-host action mode opened by the standard bottom-right PAF corner button (`...` / Triangle): Copy and Delete actions switch the host list into multi-selection mode with native PAF checkboxes and a bottom action bar.
+- Saved-host deletion backend is implemented through HostService → MoonlightBackend → LegacyMoonlightAdapter → legacy device store. The PAF action-mode UI for Copy/Delete is not implemented yet.
 - mDNS/LAN host discovery.
 - Persistent saved hosts.
 - Pairing with a PC using the Moonlight PIN flow.
@@ -124,9 +124,9 @@ CXML changes require rebuilding the RCO before the application build.
 - `SceImeDialog` is owned by the Main page: load `SCE_SYSMODULE_IME` when Add PC is invoked, terminate the dialog before unloading the module, and poll completion from the PAF main-thread call list. The IME input buffers must outlive the dialog.
 - Add PC is an inline Main-page control; there is no dedicated Add PC page.
 - Current UI uses PAF CXML resources and NetStream-style generic list/title templates.
-- Saved-host management must follow the Vita system-app selection/action pattern: the standard bottom-right `corner_button` opens actions; Copy/Delete enter multi-selection mode; each list item exposes a native `paf::ui::CheckBox`; the selected action is presented in the bottom action bar. Do not replace this with long-press/context menus or custom per-item popups.
-- `SceClipboard` is used for the host Copy action. Since current VitaSDK installations do not expose a dedicated public `clipboard.h`, keep the small `sceClipboardSetText` ABI declaration local and link `SceClipboard_stub`.
-- Saved-host Delete uses `SceMessageDialog` for confirmation and removes the selected persistent records through the HostService → backend → legacy device store path.
+- Saved-host management is planned to follow the Vita system-app selection/action pattern: the standard bottom-right `corner_button` opens actions; Copy/Delete enter multi-selection mode; each list item exposes a native `paf::ui::CheckBox`; the selected action is presented in the bottom action bar. Do not replace this with long-press/context menus or custom per-item popups.
+- `SceClipboard` is the intended system API for the host Copy action. Current VitaSDK installations do not expose a dedicated public `clipboard.h`; the implementation should keep a small local ABI declaration for `sceClipboardSetText` and link `SceClipboard_stub`.
+- Saved-host Delete uses `SceMessageDialog` for confirmation and removes the selected persistent records through the HostService → backend → legacy device store path. The backend/storage part is already implemented; the PAF confirmation/action UI remains to be added.
 - The PAF coordinate system is center-origin on a 960×544 screen: `(0,0)` is screen center and positive Y points upward.
 - Do not move streaming implementation into PAF pages.
 
@@ -227,7 +227,7 @@ The project does not provide storage compatibility or migration for the original
 
 GameStream receives the global client-identity directory from the host store and does not construct credential paths from the selected PC.
 
-Saved-host deletion resolves the selected `MoonlightHost` back to the exact stored device identity (`host_id`, MAC, address, or the existing name-only fallback) before removing its `device.ini` and host directory. Do not delete saved hosts by display name alone because duplicate display names are possible.
+Saved-host deletion resolves the selected `MoonlightHost` back to the exact stored device identity (`host_id`, MAC, address, or the existing name-only fallback) before removing its `device.ini` and host directory. Do not delete saved hosts by display name alone because duplicate display names are possible. The backend entry point is `DeleteHost`; the legacy store uses the matched device object to remove the exact record.
 
 ### Streaming
 
@@ -279,6 +279,9 @@ Do not replace working protocol logic with hand-written protocol shortcuts witho
 - Document exact supported VITASDK revision.
 - Document exact vitasdk-paf-component and psp2cxml-tool revisions.
 - Add a reproducible dependency/setup procedure.
+- Complete the saved-host PAF action mode: bottom-right `corner_button` → Copy/Delete actions → native per-row checkboxes → bottom action bar.
+- Add native `SceMessageDialog` confirmation for Delete and refresh/focus the host list after deletion.
+- Add host Copy/Paste through `SceClipboard`, including validation/fallback when clipboard data is unavailable.
 - Add automated tests when the project architecture is stable enough to support them.
 - Document preferred formatter/static-analysis tooling if one is adopted.
 - Define a release procedure, including adding/maintaining the appropriate LICENSE before a release.
