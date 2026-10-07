@@ -271,6 +271,7 @@ Main::Main()
     bind_decide(root, "settings_button", onSettingsButton, this);
     bind_decide(root, "btn_selection_cancel", OnSelectionCancel, this);
     bind_decide(root, "btn_selection_action", OnSelectionAction, this);
+    bind_decide(root, "btn_selection_select_all", OnSelectionSelectAll, this);
 
     root->FindChild("plane_main_selection_actions")->Hide(
         paf::common::transition::Type_Reset);
@@ -547,6 +548,23 @@ void Main::ToggleHostSelection(int index)
     UpdateSelectionCount();
 }
 
+void Main::ToggleSelectAll()
+{
+    if (!m_selection_mode || m_host_count <= 0) {
+        return;
+    }
+
+    const bool select = m_selected_count < m_host_count;
+    for (int i = 0; i < m_host_count; ++i) {
+        m_selected_hosts[i] = select;
+    }
+
+    UpdateSelectionCount();
+
+    /* Rebuild the cells so every checkbox picks up the new state. */
+    RefreshHosts();
+}
+
 void Main::UpdateSelectionCount()
 {
     m_selected_count = 0;
@@ -570,6 +588,14 @@ void Main::UpdateSelectionActionBar()
         action->SetString(paf::common::string_util::ToWString(
             m_selection_action == SelectionAction_Copy ? "Copy" : "Delete"));
         action->SetActivate(m_selected_count > 0);
+    }
+
+    paf::ui::Widget *select_all = root->FindChild("btn_selection_select_all");
+    if (select_all) {
+        select_all->SetString(paf::common::string_util::ToWString(
+            m_host_count > 0 && m_selected_count >= m_host_count
+                ? "Deselect All"
+                : "Select All"));
     }
 }
 
@@ -851,6 +877,22 @@ void Main::OnSelectionAction(
     } else if (main->m_selection_action == SelectionAction_Delete) {
         main->StartDeleteConfirmation();
     }
+}
+
+void Main::OnSelectionSelectAll(
+    int32_t type,
+    paf::ui::Handler *self,
+    paf::ui::Event *event,
+    void *userdata)
+{
+    (void)type;
+    (void)self;
+    (void)event;
+
+    Main *main = (Main *)userdata;
+    if (!main || main->m_delete_dialog_open) return;
+
+    main->ToggleSelectAll();
 }
 
 void Main::SetStatus(const char *text)

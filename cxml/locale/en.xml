@@ -8,6 +8,7 @@
   <string src="Copy" id="msg_copy" />
   <string src="Delete" id="msg_delete" />
   <string src="Cancel" id="msg_cancel" />
+  <string src="Select All" id="msg_select_all" />
   <string src="Search for available PCs on your network." id="msg_search_pcs_description" />
   <string src="Searching for PCs..." id="msg_searching_pcs" />
   <string src="Apps" id="msg_apps" />

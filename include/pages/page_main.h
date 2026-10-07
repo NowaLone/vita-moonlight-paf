@@ -52,6 +52,7 @@ private:
     static void OnHostSelection(int32_t type, paf::ui::Handler *self, paf::ui::Event *event, void *userdata);
     static void OnSelectionCancel(int32_t type, paf::ui::Handler *self, paf::ui::Event *event, void *userdata);
     static void OnSelectionAction(int32_t type, paf::ui::Handler *self, paf::ui::Event *event, void *userdata);
+    static void OnSelectionSelectAll(int32_t type, paf::ui::Handler *self, paf::ui::Event *event, void *userdata);
     static void SelectionDialogPollTask(void *userdata);
 
     paf::ui::ListItem *CreateListItem(paf::ui::listview::ItemFactory::CreateParam &param);
@@ -63,6 +64,7 @@ private:
     void StartManualConnection(const char *address);
     void ExitSelectionMode();
     void ToggleHostSelection(int index);
+    void ToggleSelectAll();
     void UpdateSelectionActionBar();
     void UpdateSelectionCount();
     void StartDeleteConfirmation();

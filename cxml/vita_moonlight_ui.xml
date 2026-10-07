@@ -29,15 +29,15 @@
 
       <plane style="_common_style_plane_transparent" id="plane_main_selection_actions">
         <layout_hint anchor="0, 1" align="0, 1" size="960, 72" pos="0, 0" />
-        <box style="_common_default_style_box" id="box_main_selection_actions">
-          <layout_box layout_type="2" bottom_margin="0" top_margin="0" right_margin="40" left_margin="40" />
-          <button sound="_common_sound_button_back" style="_common_default_style_button" label="msg_cancel" id="btn_selection_cancel">
-            <layout_hint size="202, 60" />
-          </button>
-          <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_delete" id="btn_selection_action">
-            <layout_hint size="202, 60" />
-          </button>
-        </box>
+        <button sound="_common_sound_button_back" style="_common_default_style_button" label="msg_cancel" id="btn_selection_cancel">
+          <layout_hint anchor="1, 1" align="1, 1" size="146, 48" pos="10, 8" />
+        </button>
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_select_all" id="btn_selection_select_all">
+          <layout_hint anchor="2, 1" align="2, 1" size="200, 48" pos="-169, 8" />
+        </button>
+        <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_delete" id="btn_selection_action">
+          <layout_hint anchor="2, 1" align="2, 1" size="146, 48" pos="-10, 8" />
+        </button>
       </plane>
 
       <corner_button style="_common_style_corner_bottom_right" id="settings_button" />
