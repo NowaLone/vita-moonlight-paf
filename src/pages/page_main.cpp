@@ -723,37 +723,6 @@ void Main::CopySelectedHosts()
         }
     }
 
-    /* Rebuild the clipboard text with the unambiguous host[:port] syntax. */
-    length = 0;
-    text[0] = '\0';
-    for (int i = 0; i < m_host_count; ++i) {
-        if (!m_selected_hosts[i]) continue;
-        const char *address = m_hosts[i].internal[0]
-            ? m_hosts[i].internal
-            : m_hosts[i].external;
-        if (!address || !address[0]) continue;
-
-        int written = snprintf(
-            text + length,
-            sizeof(text) - length,
-            "%s%s%s",
-            length > 0 ? "\n" : "",
-            address,
-            "");
-        if (written < 0 || (size_t)written >= sizeof(text) - length) break;
-        length += (size_t)written;
-
-        if (m_hosts[i].port != 0 && m_hosts[i].port != kGameStreamPort) {
-            int port_written = snprintf(
-                text + length,
-                sizeof(text) - length,
-                ":%u",
-                (unsigned int)m_hosts[i].port);
-            if (port_written < 0 || (size_t)port_written >= sizeof(text) - length) break;
-            length += (size_t)port_written;
-        }
-    }
-
     if (length == 0 || length > (size_t)kMaxClipboardTextLength) {
         ExitSelectionMode();
         SetStatus("Nothing to copy.");
