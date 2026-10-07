@@ -94,7 +94,7 @@ paf::ui::ListItem *Search::CreateListItem(
 
     const MoonlightHost &host = m_hosts[param.cell_index];
     paf::string label = paf::common::FormatString(
-        "%s\\n%s",
+        "%s\n%s",
         host.name[0] ? host.name : "PC",
         host.internal[0] ? host.internal : "Unknown address");
 
