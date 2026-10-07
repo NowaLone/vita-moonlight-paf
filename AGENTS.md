@@ -35,7 +35,7 @@ The long-term goal is to keep the frontend architecture native to PAF while cont
 The application currently provides:
 
 - Main PC screen with native PAF title bar, saved host list, inline Add PC address input, Search PCs, and system-settings entry.
-- Saved-host deletion backend is implemented through HostService → MoonlightBackend → LegacyMoonlightAdapter → legacy device store. The PAF action-mode UI for Copy/Delete is not implemented yet.
+- Saved-host management is implemented in the PAF UI with Copy/Delete multi-selection: the corner button opens the current `OptionMenu`, actions enter selection mode, saved-PC rows use `template_host_list_item_select` with native PAF `paf::ui::CheckBox` controls, and a bottom action bar provides Cancel, Select All/Deselect All, and the selected action.
 - mDNS/LAN host discovery.
 - Persistent saved hosts.
 - Pairing with a PC using the Moonlight PIN flow.
@@ -123,10 +123,10 @@ CXML changes require rebuilding the RCO before the application build.
 - Add PC uses the native `SceImeDialog` with URL input mode; do not replace this with a custom PAF keyboard. Manual connection input accepts `host`/IP with optional `:port`. The default GameStream port is 47989; IPv6 parsing is intentionally not added until the legacy GameStream URL builder supports IPv6 literals.
 - `SceImeDialog` is owned by the Main page: load `SCE_SYSMODULE_IME` when Add PC is invoked, terminate the dialog before unloading the module, and poll completion from the PAF main-thread call list. The IME input buffers must outlive the dialog.
 - Add PC is an inline Main-page control; there is no dedicated Add PC page.
-- Current UI uses PAF CXML resources and NetStream-style generic list/title templates.
-- Saved-host management is planned to follow the Vita system-app selection/action pattern: the standard bottom-right `corner_button` opens actions; Copy/Delete enter multi-selection mode; selection-mode rows come from `template_host_list_item_select` and expose a native `paf::ui::CheckBox`, and activating a row toggles it (the checkbox itself is not focusable); the selected action is presented in the bottom action bar. Do not replace this with long-press/context menus or custom per-item popups.
-- `SceClipboard` is the intended system API for the host Copy action. Current VitaSDK installations do not expose a dedicated public `clipboard.h`; the implementation should keep a small local ABI declaration for `sceClipboardSetText` and link `SceClipboard_stub`.
-- Saved-host Delete uses `SceMessageDialog` for confirmation and removes the selected persistent records through the HostService → backend → legacy device store path. The backend/storage part is already implemented; the PAF confirmation/action UI remains to be added.
+- Current UI uses PAF CXML resources and NetStream-style generic list/title templates. The saved-host action popup is currently implemented by the project-owned `OptionMenu` / `page_settings_bubble`; it is a PAF implementation styled and positioned from observed system-app behavior, not a claim that a Sony system action-menu API has been discovered.
+- Saved-host management currently follows the observed Vita system-app selection/action pattern: the standard bottom-right `corner_button` opens the current `OptionMenu`; Copy/Delete enter multi-selection mode; selection-mode rows come from `template_host_list_item_select` and expose a native `paf::ui::CheckBox`; activating a row toggles its selection while the checkbox mirrors the state; the bottom action bar provides Cancel, Select All/Deselect All, and the selected action. Do not replace this with long-press/context menus or custom per-item popups.
+- `SceClipboard` is the system API used for the host Copy action. Current VitaSDK installations do not expose a dedicated public `clipboard.h`; the implementation keeps a small local ABI declaration for `sceClipboardSetText` and links `SceClipboard_stub`.
+- Saved-host Delete uses `SceMessageDialog` for confirmation and removes the selected persistent records through the HostService → backend → legacy device store path.
 - The PAF coordinate system is center-origin on a 960×544 screen: `(0,0)` is screen center and positive Y points upward.
 - Do not move streaming implementation into PAF pages.
 
@@ -279,9 +279,9 @@ Do not replace working protocol logic with hand-written protocol shortcuts witho
 - Document exact supported VITASDK revision.
 - Document exact vitasdk-paf-component and psp2cxml-tool revisions.
 - Add a reproducible dependency/setup procedure.
-- Complete the saved-host PAF action mode: bottom-right `corner_button` → Copy/Delete actions → native per-row checkboxes → bottom action bar.
-- Add native `SceMessageDialog` confirmation for Delete and refresh/focus the host list after deletion.
-- Add host Copy/Paste through `SceClipboard`, including validation/fallback when clipboard data is unavailable.
+- Hardware-verify the saved-host selection UI: row/checkbox positioning, bottom action-bar anchors, list height in selection mode, Select All/Deselect All focus behavior, and disabled Copy/Delete state when the list is empty.
+- Verify Delete confirmation and post-delete list refresh/focus on real Vita hardware.
+- Verify host Copy through `SceClipboard`; add paste/input support only after confirming a concrete UI path that uses the same system clipboard.
 - Add automated tests when the project architecture is stable enough to support them.
 - Document preferred formatter/static-analysis tooling if one is adopted.
 - Define a release procedure, including adding/maintaining the appropriate LICENSE before a release.
