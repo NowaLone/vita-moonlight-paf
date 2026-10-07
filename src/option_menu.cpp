@@ -3,6 +3,24 @@
 
 static OptionMenu *s_instance = NULL;
 
+namespace {
+
+/*
+ * Every balloon button takes a 72 px slot (60 px button + 6 px margins), which
+ * gives the 72 px balloon used for Settings alone and 216 px for three buttons.
+ */
+static const float kBalloonButtonSlot = 72.0f;
+static const int kBalloonButtonCount = 3;
+
+/*
+ * Distance from the screen's bottom edge to the balloon's bottom edge. The
+ * system Photos balloon ends about 56 px above the screen bottom, just over
+ * the "..." corner button.
+ */
+static const float kBalloonBottomOffset = 56.0f;
+
+}
+
 OptionMenu *OptionMenu::Instance()
 {
     return s_instance;
@@ -97,7 +115,7 @@ void OptionMenu::OnDelete(int32_t type, paf::ui::Handler *self,
 }
 
 OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
-                       EventCb cb, void *userdata)
+                       EventCb cb, void *userdata, bool host_actions_enabled)
     : page::Base("page_settings_bubble", NULL,
                  paf::Plugin::TransitionType_None,
                  paf::Plugin::TransitionType_None),
@@ -115,12 +133,12 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
     if (bubble) {
         const float width = 202.0f;
         const float parent_width = width + 12.0f;
-        const float parent_height = 216.0f;
+        const float parent_height = kBalloonButtonSlot * kBalloonButtonCount;
 
         bubble->SetSize({parent_width, parent_height, 0, 0}, NULL);
         bubble->SetPos(
             264.0f + ((width - parent_width) / 2.0f),
-            43.0f,
+            kBalloonBottomOffset,
             0,
             NULL
         );
@@ -131,6 +149,13 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
     bind_decide(root, "btn_copy_balloon", OnCopy, this);
     bind_decide(root, "btn_delete_balloon", OnDelete, this);
     bind_decide(root, "btn_dismiss_balloon", OnDismiss, this);
+
+    if (!host_actions_enabled) {
+        paf::ui::Widget *copy_button = root->FindChild("btn_copy_balloon");
+        paf::ui::Widget *delete_button = root->FindChild("btn_delete_balloon");
+        if (copy_button) copy_button->SetActivate(false);
+        if (delete_button) delete_button->SetActivate(false);
+    }
 
     set_widget_focusable(
         root->FindChild("btn_dismiss_balloon"),

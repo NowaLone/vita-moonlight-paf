@@ -43,6 +43,7 @@ public:
     };
 
     void EnterSelectionMode(int action);
+    bool HasHosts() const { return m_host_count > 0; }
 
 private:
     static void OnHostButton(int32_t type, paf::ui::Handler *self, paf::ui::Event *event, void *userdata);

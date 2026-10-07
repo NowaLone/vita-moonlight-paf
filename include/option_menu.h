@@ -18,7 +18,9 @@ public:
 
     typedef void (*EventCb)(EventType, int, void*);
 
-    OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent, EventCb cb, void *userdata);
+    /* Copy/Delete need at least one saved PC; they are disabled otherwise. */
+    OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent, EventCb cb, void *userdata,
+               bool host_actions_enabled = true);
     virtual ~OptionMenu();
     virtual page::Type GetType() { return page::Type_OptionMenu; }
 
