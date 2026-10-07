@@ -75,13 +75,14 @@ The current list/title resources intentionally follow the real patterns used by 
 - `template_top_title_bar`
 - `template_list_view_generic`
 - `template_list_item_generic`
+- `template_host_list_item_select` (saved-PC row with a checkbox, used only in selection mode)
 - `style_text_top_title_bar`
 - `style_list_view_generic`
 - `style_image_button_list_button`
 
 The main page contains a saved-PC list, an inline PC address input using the native Vita IME, Search PCs, and access to the system AppSettings UI.
 
-Saved hosts use the Vita system-app selection/action pattern. The standard bottom-right corner button opens a native-style action menu with **Copy** and **Delete**; choosing an action turns the saved-PC list into multi-selection mode with PAF checkboxes and a bottom action bar. Delete asks for confirmation through the native `SceMessageDialog`; Copy writes the selected PC addresses to `SceClipboard`.
+Saved hosts use the Vita system-app selection/action pattern. The standard bottom-right corner button opens a native-style action menu with **Copy** and **Delete**; choosing an action turns the saved-PC list into multi-selection mode with PAF checkboxes (tapping or activating a row toggles it) and a bottom action bar with Cancel, Select All and the chosen action. Delete asks for confirmation through the native `SceMessageDialog`; Copy writes the selected PC addresses to `SceClipboard`.
 
 PAF uses a **center-origin 960×544 coordinate system**:
 
