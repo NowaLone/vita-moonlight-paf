@@ -599,6 +599,24 @@ void Main::UpdateSelectionActionBar()
     }
 }
 
+void Main::SetSelectionListLayout(bool selecting)
+{
+    if (!root) return;
+
+    paf::ui::Widget *list = root->FindChild("list_view_generic");
+    if (!list) return;
+
+    /*
+     * The list template is bottom-aligned (align "0, 1") with pos y = -272
+     * and height 448. While the selection action bar is up, take one bar
+     * (64 px; keeps the height a multiple of 32) off the bottom. Shrinking a
+     * bottom-aligned widget moves its top edge, so lift the bottom edge by
+     * the same amount to keep the first row where it was.
+     */
+    list->SetSize({960.0f, selecting ? 384.0f : 448.0f, 0, 0}, NULL);
+    list->SetPos(0.0f, selecting ? -208.0f : -272.0f, 0, NULL);
+}
+
 void Main::EnterSelectionMode(int action)
 {
     if (m_connecting || m_ime_open || m_ime_retry_pending ||
@@ -622,6 +640,7 @@ void Main::EnterSelectionMode(int action)
     if (settings) settings->Hide(paf::common::transition::Type_Reset);
     if (selection_actions) selection_actions->Show(paf::common::transition::Type_Reset);
 
+    SetSelectionListLayout(true);
     RefreshHosts();
     UpdateSelectionActionBar();
 }
@@ -647,6 +666,7 @@ void Main::ExitSelectionMode()
     if (status) status->Show(paf::common::transition::Type_Reset);
     if (settings) settings->Show(paf::common::transition::Type_Reset);
 
+    SetSelectionListLayout(false);
     RefreshHosts();
 }
 
