@@ -185,9 +185,6 @@
             <focus_hint focus_shape="3" />
             <layout_hint size="840, 80" />
           </image_button>
-          <check_box style="_common_default_style_check_box" id="checkbox_list_item">
-            <layout_hint anchor="1, 1" align="1, 1" size="58, 58" pos="-42, 0" />
-          </check_box>
         </list_item>
       </template>
 
@@ -206,16 +203,16 @@
         </plane>
       </template>
 
-<template fast_open="1" id="template_host_list_item">
-        <list_item style="style_list_view_item_generic" id="list_item_host">
+      <template fast_open="1" id="template_host_list_item_select">
+        <list_item style="style_list_view_item_generic" id="list_item_host_select">
           <layout_hint size="960, 80" />
-          <image_button sound="_common_sound_image_button"
-            enable_long_press_text_auto_scroll="1"
-            style="style_image_button_list_button"
-            id="image_button_host">
+          <image_button sound="_common_sound_image_button" enable_long_press_text_auto_scroll="1" style="style_image_button_list_button" id="image_button_host_select">
             <focus_hint focus_shape="3" />
             <layout_hint size="840, 80" />
           </image_button>
+          <check_box style="_common_default_style_check_box" id="checkbox_host_select">
+            <layout_hint anchor="1, 0" align="1, 0" size="58, 58" pos="92, 0" />
+          </check_box>
         </list_item>
       </template>
     </templatetable>

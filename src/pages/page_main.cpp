@@ -244,6 +244,7 @@ Main::Main()
     memset(m_ime_initial_text, 0, sizeof(m_ime_initial_text));
     memset(m_add_pc_address, 0, sizeof(m_add_pc_address));
     memset(m_selected_hosts, 0, sizeof(m_selected_hosts));
+    memset(m_checkboxes, 0, sizeof(m_checkboxes));
     memset(m_delete_message, 0, sizeof(m_delete_message));
 
     s_main = this;
@@ -359,13 +360,28 @@ paf::ui::ListItem *Main::CreateListItem(
         return new paf::ui::ListItem(param.parent, NULL);
     }
 
+    /*
+     * Checkboxes live in a dedicated template instead of being shown/hidden
+     * on the shared one: RefreshHosts() rebuilds every cell when the mode
+     * changes, so the right template is simply picked here.
+     */
+    m_checkboxes[param.cell_index] = NULL;
+
     paf::Plugin::TemplateOpenParam tmp;
-    g_plugin->TemplateOpen(param.parent, "template_list_item_generic", tmp);
+    g_plugin->TemplateOpen(
+        param.parent,
+        m_selection_mode
+            ? "template_host_list_item_select"
+            : "template_list_item_generic",
+        tmp);
 
     paf::ui::Widget *item = param.parent->GetChild(
         param.parent->GetChildrenNum() - 1);
 
-    paf::ui::Widget *button = item->FindChild("image_button_list_item");
+    paf::ui::Widget *button = item->FindChild(
+        m_selection_mode
+            ? "image_button_host_select"
+            : "image_button_list_item");
     if (!button) {
         return static_cast<paf::ui::ListItem *>(item);
     }
@@ -375,27 +391,24 @@ paf::ui::ListItem *Main::CreateListItem(
         paf::ui::ButtonBase::CB_BTN_DECIDE,
         OnHostButton,
         &m_button_contexts[param.cell_index]);
-    button->SetActivate(!m_selection_mode);
 
-    paf::ui::Widget *checkbox_widget = item->FindChild("checkbox_list_item");
-    if (checkbox_widget) {
-        paf::ui::CheckBox *checkbox = (paf::ui::CheckBox *)checkbox_widget;
-        checkbox->SetName((uint32_t)param.cell_index);
-        checkbox->SetCheck(
-            m_selection_mode ? m_selected_hosts[param.cell_index] : false,
-            0.0f,
-            false);
-        checkbox->AddEventCallback(
-            paf::ui::CheckBox::CB_BTN_DECIDE,
-            OnHostSelection,
-            &m_button_contexts[param.cell_index]);
+    if (m_selection_mode) {
+        paf::ui::Widget *checkbox_widget = item->FindChild("checkbox_host_select");
+        if (checkbox_widget) {
+            paf::ui::CheckBox *checkbox = (paf::ui::CheckBox *)checkbox_widget;
+            checkbox->SetName((uint32_t)param.cell_index);
+            checkbox->SetCheck(
+                m_selected_hosts[param.cell_index],
+                0.0f,
+                false);
+            checkbox->AddEventCallback(
+                paf::ui::CheckBox::CB_BTN_DECIDE,
+                OnHostSelection,
+                &m_button_contexts[param.cell_index]);
 
-        if (m_selection_mode) {
-            checkbox->Show(paf::common::transition::Type_Reset);
-            checkbox->SetActivate(true);
-        } else {
-            checkbox->Hide(paf::common::transition::Type_Reset);
-            checkbox->SetActivate(false);
+            /* Focus stays on the row; the checkbox mirrors its state. */
+            set_widget_focusable(checkbox, false);
+            m_checkboxes[param.cell_index] = checkbox;
         }
     }
 
@@ -426,6 +439,7 @@ void Main::OnHostButton(
     if (!context || !context->page) return;
 
     if (context->page->m_selection_mode) {
+        context->page->ToggleHostSelection(context->index);
         return;
     }
 
@@ -472,6 +486,9 @@ void Main::RefreshHosts()
 
     if (!list) return;
 
+    /* The cells are about to be destroyed; do not keep dangling widgets. */
+    memset(m_checkboxes, 0, sizeof(m_checkboxes));
+
     int existing = list->GetCellNum(0);
     if (existing > 0) {
         list->DeleteCell(0, 0, existing - 1);
@@ -509,6 +526,25 @@ void Main::SelectHost(int index)
         SetStatus("Unable to start connection.");
         if (list) list->SetActivate(true);
     }
+}
+
+void Main::ToggleHostSelection(int index)
+{
+    if (!m_selection_mode || index < 0 || index >= m_host_count) {
+        return;
+    }
+
+    /*
+     * Update the flag first: if SetCheck() notifies OnHostSelection(), that
+     * handler sees the checkbox already matches and changes nothing.
+     */
+    m_selected_hosts[index] = !m_selected_hosts[index];
+
+    if (m_checkboxes[index]) {
+        m_checkboxes[index]->SetCheck(m_selected_hosts[index], 0.0f, false);
+    }
+
+    UpdateSelectionCount();
 }
 
 void Main::UpdateSelectionCount()

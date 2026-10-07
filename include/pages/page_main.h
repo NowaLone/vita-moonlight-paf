@@ -62,6 +62,7 @@ private:
     void HandleAddPcImeResult();
     void StartManualConnection(const char *address);
     void ExitSelectionMode();
+    void ToggleHostSelection(int index);
     void UpdateSelectionActionBar();
     void UpdateSelectionCount();
     void StartDeleteConfirmation();
@@ -87,6 +88,7 @@ private:
     bool m_selection_mode;
     SelectionAction m_selection_action;
     bool m_selected_hosts[8];
+    paf::ui::CheckBox *m_checkboxes[8];
     int m_selected_count;
     bool m_delete_dialog_open;
     bool m_delete_dialog_task_registered;
