@@ -5,10 +5,6 @@ static OptionMenu *s_instance = NULL;
 
 namespace {
 
-/*
- * Every balloon button takes a 72 px slot (60 px button + 6 px margins), which
- * gives the 72 px balloon used for Settings alone and 216 px for three buttons.
- */
 static const float kMinButtonWidth = 202.0f;
 static const int kButtonCount = 3;
 
@@ -29,7 +25,7 @@ void OptionMenu::OnSizeAdjust(int32_t type, paf::ui::Handler *self,
     OptionMenu *menu = (OptionMenu *)userdata;
     if (!ruler || !menu || !menu->root) return;
 
-    paf::ui::Widget *draw_obj = ruler->GetDrawObj(paf::ui::Text::OBJ_ROOT);
+    paf::graph::DrawObj *draw_obj = ruler->GetDrawObj(paf::ui::Text::OBJ_ROOT);
     if (!draw_obj) return;
 
     float width = draw_obj->GetSize().extract_x() + 40.0f;
@@ -122,10 +118,6 @@ void OptionMenu::OnCopy(int32_t type, paf::ui::Handler *self,
 
     if (!menu) return;
 
-    if (menu->root) {
-        menu->root->Hide(paf::common::transition::Type_Reset);
-    }
-
     EventCb callback = menu->m_cb;
     void *data = menu->m_userdata;
     delete menu;
@@ -144,10 +136,6 @@ void OptionMenu::OnDelete(int32_t type, paf::ui::Handler *self,
     (void)event;
 
     if (!menu) return;
-
-    if (menu->root) {
-        menu->root->Hide(paf::common::transition::Type_Reset);
-    }
 
     EventCb callback = menu->m_cb;
     void *data = menu->m_userdata;
@@ -234,7 +222,6 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
         false
     );
 
-    paf::ui::Widget *settings_button = root->FindChild("btn_settings_balloon");
     if (settings_button) {
         settings_button->SetFocusedState(true);
     }
