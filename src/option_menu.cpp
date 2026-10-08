@@ -6,6 +6,7 @@ static OptionMenu *s_instance = NULL;
 namespace {
 
 static const float kMinButtonWidth = 202.0f;
+static const float kMaxButtonWidth = 920.0f;
 static const int kButtonCount = 5;
 
 class SpeechBalloonTestPage : public page::Base
@@ -51,6 +52,9 @@ void OptionMenu::OnSizeAdjust(int32_t type, paf::ui::Handler *self,
     float width = draw_obj->GetSize().extract_x() + 40.0f;
     if (width < kMinButtonWidth) {
         width = kMinButtonWidth;
+    }
+    if (width > kMaxButtonWidth) {
+        width = kMaxButtonWidth;
     }
 
     const float parent_width = width + 12.0f;
