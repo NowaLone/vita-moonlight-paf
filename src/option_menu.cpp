@@ -6,8 +6,7 @@ static OptionMenu *s_instance = NULL;
 namespace {
 
 static const float kMinButtonWidth = 202.0f;
-static const float kMaxButtonWidth = 700.0f;
-static const int kButtonCount = 5;
+static const int kButtonCount = 4;
 
 class SpeechBalloonTestPage : public page::Base
 {
@@ -66,7 +65,6 @@ void OptionMenu::OnSizeAdjust(int32_t type, paf::ui::Handler *self,
         "btn_settings_balloon",
         "btn_copy_balloon",
         "btn_delete_balloon",
-        "btn_test_long_balloon",
         "btn_test_speech_balloon"
     };
 
@@ -229,7 +227,6 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
     paf::ui::Widget *settings_button = root->FindChild("btn_settings_balloon");
     paf::ui::Widget *copy_button = root->FindChild("btn_copy_balloon");
     paf::ui::Widget *delete_button = root->FindChild("btn_delete_balloon");
-    paf::ui::Widget *test_long_button = root->FindChild("btn_test_long_balloon");
     paf::ui::Widget *test_speech_button = root->FindChild("btn_test_speech_balloon");
     paf::ui::Widget *dismiss_button = root->FindChild("btn_dismiss_balloon");
     paf::ui::Text *ruler = static_cast<paf::ui::Text *>(
@@ -241,7 +238,6 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
         settings_button,
         copy_button,
         delete_button,
-        test_long_button,
         test_speech_button
     };
 
