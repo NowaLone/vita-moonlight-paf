@@ -123,7 +123,10 @@
               <layout_hint size="202, 60" />
               <focus_hint focus_shape="2" />
             </button>
-            <button sound="_common_sound_button_enter" style="style_button_option_bottom" label="msg_delete" id="btn_delete_balloon">
+            <button sound="_common_sound_button_enter" style="style_button_option_middle" label="msg_delete" id="btn_delete_balloon">
+              <layout_hint size="202, 60" />
+            </button>
+            <button sound="_common_sound_button_enter" style="style_button_option_bottom" label="TEST: This is an intentionally very long option menu label used only to verify automatic popup width adjustment" id="btn_test_long_balloon">
               <layout_hint size="202, 60" />
             </button>
           </box>
