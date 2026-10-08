@@ -91,4 +91,6 @@
   <string src="Enables the custom controller mapping configuration used by Moonlight." id="msg_mapping_enabled_hint" />
   <string src="Sets how much of this back-touchscreen edge is reserved as a deadzone. Higher values move the active area farther inward." id="msg_back_deadzone_hint" />
   <string src="This is an intentionally very long option menu label used only to verify automatic popup width adjustment" id="msg_test_option_menu_long" />
+  <string src="Test speech balloon" id="msg_test_speech_balloon" />
+  <string src="This is a native PAF speech balloon experiment. The surrounding shape is provided by the system speech_balloon widget rather than the option-menu texture." id="msg_test_speech_balloon_text" />
 </stringset>
