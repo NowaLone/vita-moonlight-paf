@@ -88,6 +88,11 @@ void OptionMenu::OnSizeAdjust(int32_t type, paf::ui::Handler *self,
 
     paf::ui::Widget *bubble = menu->root->FindChild("settings_speech_balloon");
     if (bubble) {
+        bubble->SetAdjust(
+            paf::ui::Widget::ADJUST_NONE,
+            paf::ui::Widget::ADJUST_NONE,
+            paf::ui::Widget::ADJUST_NONE
+        );
         bubble->SetSize({parent_width, parent_height, 0, 0}, NULL);
         bubble->SetPos(parent_x, parent_y, 0, NULL);
         bubble->Show(paf::common::transition::Type_Popup4, 0.0f);
@@ -214,6 +219,11 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
     paf::ui::Widget *bubble = root->FindChild("settings_speech_balloon");
     if (bubble) {
         const float width = kMinButtonWidth;
+        bubble->SetAdjust(
+            paf::ui::Widget::ADJUST_NONE,
+            paf::ui::Widget::ADJUST_NONE,
+            paf::ui::Widget::ADJUST_NONE
+        );
         const float parent_width = width + 12.0f;
         const float parent_height = 12.0f + 60.0f * kButtonCount;
 
