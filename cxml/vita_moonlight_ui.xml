@@ -109,7 +109,7 @@
       <button sound="_common_sound_button_back" style="_common_default_style_button_transparent" id="btn_dismiss_balloon">
         <layout_hint size="960, 544" />
         <focus_hint enable="0" />
-        <plane style="_common_default_style_plane" id="settings_speech_balloon_host">
+        <plane style="_common_style_plane_transparent" id="settings_speech_balloon_host">
           <layout_hint size="960, 544" />
           <speech_balloon texture="_common_texture_option_menu_base_side" id="settings_speech_balloon">
             <layout_hint adjust="2, 2, 0" pos="0, 0" />
