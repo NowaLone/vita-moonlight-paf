@@ -130,9 +130,6 @@
               </button>
             </box>
           </speech_balloon>
-          <text style="style_text_option_menu_ruler" id="text_option_menu_ruler">
-            <layout_hint size="0, 0" adjust="2, 2" pos="1920, 1080" />
-          </text>
         </plane>
       </button>
     </page>
