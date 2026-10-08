@@ -51,7 +51,7 @@ Streaming is kept outside the PAF plugin layer. Pages call service/backend APIs;
 
 ## Experimental PAF UI Work
 
-The branch `experiment/speech-balloon` contains a deliberately isolated experiment with the real PAF CXML `<speech_balloon>` primitive. This is not part of the working option menu implementation yet. The test is reached from the temporary OptionMenu test entry and opens a dedicated `page_speech_balloon_test` containing `<speech_balloon style="_common_default_style_speech_balloon">`. Keep this experiment separate from the production menu until it has been verified on real Vita hardware.
+The branch `experiment/speech-balloon` contains a deliberately isolated experiment with Sony's real PAF speech-balloon menu resources. The test is reached from the temporary OptionMenu entry and opens `page_speech_balloon_test`, where C++ calls `TemplateOpen` with Sony common-resource template hash `0x4a34c804` (`_common_template_speech_balloon_menu_3`). That system template contains the real `<speech_balloon>`, auto-sized box, and Sony 3-button styles. Keep this experiment separate from the production menu until it has been verified on real Vita hardware.
 
 ## Build & Development
 
