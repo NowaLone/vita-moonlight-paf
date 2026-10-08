@@ -113,9 +113,6 @@
           <layout_hint size="960, 544" />
           <speech_balloon texture="_common_texture_option_menu_base_side" id="settings_speech_balloon">
             <layout_hint adjust="2, 2, 0" pos="0, 0" />
-            <text style="style_text_option_menu_ruler" id="text_option_menu_ruler">
-              <layout_hint size="0, 0" adjust="2, 2" pos="1920, 1080" />
-            </text>
             <box id="settings_balloon_box">
               <layout_box layout_type="1" bottom_margin="6" top_margin="6" right_margin="6" left_margin="6" />
               <button sound="_common_sound_button_enter" style="style_button_option_top" label="msg_settings" id="btn_settings_balloon">
@@ -133,6 +130,9 @@
               </button>
             </box>
           </speech_balloon>
+          <text style="style_text_option_menu_ruler" id="text_option_menu_ruler">
+            <layout_hint size="0, 0" adjust="2, 2" pos="1920, 1080" />
+          </text>
         </plane>
       </button>
     </page>
