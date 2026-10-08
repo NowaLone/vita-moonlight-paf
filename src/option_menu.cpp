@@ -1,8 +1,6 @@
 #include "option_menu.h"
 #include "common.h"
 
-#include <string.h>
-
 static OptionMenu *s_instance = NULL;
 
 namespace {
@@ -21,40 +19,8 @@ public:
     {
         if (!IsValid()) return;
 
-        /* Sony common_resource: _common_template_speech_balloon_menu_3. */
-        paf::Plugin::TemplateOpenParam tmp_param;
-        g_plugin->TemplateOpen(root, 0x4a34c804, tmp_param);
-
-        paf::ui::Widget *button1 = root->FindChild(0x1bf75844);
-        paf::ui::Widget *button2 = root->FindChild(0x6bbaa322);
-        paf::ui::Widget *button3 = root->FindChild(0x21ca021a);
-
-        if (button1) button1->SetString(g_plugin->GetString("msg_settings"));
-        if (button2) button2->SetString(g_plugin->GetString("msg_copy"));
-        if (button3) button3->SetString(g_plugin->GetString("msg_delete"));
-
-        paf::ui::Widget *balloon = root->FindChild(0x2627246e);
+        paf::ui::Widget *balloon = root->FindChild("test_speech_balloon");
         if (balloon) {
-            /*
-             * The Sony template has layout_hint adjust="2, 2, 0", so its
-             * own layout would overwrite an explicit position. Disable the
-             * adjustment first and then place the generated balloon.
-             */
-            balloon->SetAdjust(0, 0, 0);
-
-            const paf::math::v4 *size = balloon->GetSize(0);
-            if (size) {
-                float size_values[4];
-                memcpy(size_values, size, sizeof(size_values));
-
-                const float x = 480.0f - (size_values[0] / 2.0f) - 16.0f;
-                const float y = -272.0f + (size_values[1] / 2.0f) + 16.0f;
-                balloon->SetPosCenter(paf::math::v4(x, y, 0.0f));
-            } else {
-                /* Fallback for an unlaid-out template. */
-                balloon->SetPosCenter(paf::math::v4(350.0f, -180.0f, 0.0f));
-            }
-
             balloon->Show(paf::common::transition::Type_Popup4, 0.0f);
         }
 
