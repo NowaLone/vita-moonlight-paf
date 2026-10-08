@@ -66,7 +66,6 @@ private:
     void ExitSelectionMode();
     void ToggleHostSelection(int index);
     void ToggleSelectAll();
-    void SetSelectionListLayout(bool selecting);
     void UpdateSelectionActionBar();
     void UpdateSelectionCount();
     void StartDeleteConfirmation();
