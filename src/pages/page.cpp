@@ -55,6 +55,10 @@ Base::Base(const char *id, const char *back_id,
         open_param.fade = false;
     }
 
+    if (sce_paf_strcmp(id, "page_settings_bubble") == 0) {
+        open_param.option = paf::Plugin::PageOption_Create;
+    }
+
     root = g_plugin->PageOpen(id, open_param);
     if (root == NULL) {
         return;
