@@ -111,7 +111,7 @@
         <focus_hint enable="0" />
         <plane style="_common_style_plane_transparent" id="settings_speech_balloon_host">
           <layout_hint size="960, 544" />
-          <speech_balloon texture="_common_texture_option_menu_base_side" id="settings_speech_balloon">
+          <speech_balloon texture="_common_texture_option_menu_base_down" id="settings_speech_balloon">
             <layout_hint adjust="2, 2, 0" pos="0, 0" />
             <box id="settings_balloon_box">
               <layout_box layout_type="1" bottom_margin="6" top_margin="6" right_margin="6" left_margin="6" />
