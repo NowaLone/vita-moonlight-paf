@@ -26,9 +26,9 @@ public:
         paf::ui::Widget *button2 = root->FindChild(0x6bbaa322);
         paf::ui::Widget *button3 = root->FindChild(0x21ca021a);
 
-        if (button1) button1->SetString(L"Settings");
-        if (button2) button2->SetString(L"Copy");
-        if (button3) button3->SetString(L"Delete");
+        if (button1) button1->SetString(g_plugin->GetString("msg_settings"));
+        if (button2) button2->SetString(g_plugin->GetString("msg_copy"));
+        if (button3) button3->SetString(g_plugin->GetString("msg_delete"));
 
         paf::ui::Widget *balloon = root->FindChild(0x2627246e);
         if (balloon) {
