@@ -48,15 +48,10 @@ Base::Base(const char *id, const char *back_id,
      * exist in the page stack without participating in the intended render
      * layer.
      */
-    if (sce_paf_strcmp(id, "page_stream") == 0 ||
-        sce_paf_strcmp(id, "page_settings_bubble") == 0) {
+    if (sce_paf_strcmp(id, "page_stream") == 0) {
         open_param.graphics_flag = 0x80;
         open_param.overwrite_draw_priority = 8;
         open_param.fade = false;
-    }
-
-    if (sce_paf_strcmp(id, "page_settings_bubble") == 0) {
-        open_param.option = paf::Plugin::PageOption_Create;
     }
 
     root = g_plugin->PageOpen(id, open_param);
