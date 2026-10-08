@@ -139,18 +139,9 @@
         <layout_hint size="960, 544" />
       </plane>
 
-      <speech_balloon style="_common_default_style_speech_balloon" id="test_speech_balloon">
-        <layout_hint anchor="1, 2" align="1, 2" size="760, 220" pos="0, -20" />
-        <box>
-          <layout_box right_margin="24" bottom_margin="20" top_margin="20" left_margin="24" />
-          <text style="style_text_body" label="msg_test_speech_balloon_text" id="text_speech_balloon_test">
-            <layout_hint adjust="2, 2" />
-          </text>
-        </box>
-      </speech_balloon>
-
       <corner_button style="_common_style_corner_bottom_left" id="btn_close_speech_balloon_test" />
     </page>
+ge>
   </pagetable>
 
   <styletable>
