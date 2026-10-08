@@ -5,6 +5,49 @@ static OptionMenu *s_instance = NULL;
 
 namespace {
 
+/*
+ * Placement of the generated speech_balloon. SetPos() on this widget takes the
+ * balloon's centre in PAF centre-origin coordinates (+Y up): the previous
+ * SetPos(420, -140) left the balloon's left edge at screen x ~795 and its top
+ * at y ~287, i.e. a ~214x252 box (4 buttons) centred on that point.
+ */
+
+/* Every button is 60 px high; the box adds 6 px margin above and below. */
+static const float kBalloonButtonHeight = 60.0f;
+static const float kBalloonPadding = 12.0f;
+
+/*
+ * Horizontal centre. The balloon is 214 px wide (202 px buttons + 6 px margins
+ * on both sides), so x = 258 spans screen x 631..845, left of the "..." corner
+ * button, like the system Photos popup.
+ */
+static const float kBalloonCenterX = 258.0f;
+
+/*
+ * Like the system Photos popup, the balloon's bottom edge sits 50 px above the
+ * screen bottom, directly over the "..." corner button.
+ */
+static const float kBalloonBottomMargin = 50.0f;
+static const float kScreenHalfHeight = 272.0f;
+
+static int count_balloon_buttons(paf::ui::Scene *scene)
+{
+    static const char *const ids[] = {
+        "btn_settings_balloon",
+        "btn_copy_balloon",
+        "btn_delete_balloon",
+        "btn_test_speech_balloon"
+    };
+
+    int count = 0;
+    for (unsigned int i = 0; i < sizeof(ids) / sizeof(ids[0]); ++i) {
+        if (scene->FindChild(ids[i]) != NULL) {
+            ++count;
+        }
+    }
+    return count;
+}
+
 class SpeechBalloonTestPage : public page::Base
 {
 public:
@@ -143,13 +186,18 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
     s_instance = this;
 
     /*
-     * Let the speech_balloon and its vertical Box determine their own size.
-     * Keep positioning as a separate concern; (0,0) is the verified PAF
-     * center-origin position for this widget.
+     * The speech_balloon and its vertical Box determine their own size, so
+     * derive the height from the buttons that are actually present and pin the
+     * balloon's bottom edge instead of hard-coding its centre.
      */
     paf::ui::Widget *bubble = root->FindChild("settings_speech_balloon");
     if (bubble) {
-        bubble->SetPos(paf::math::v4(420.0f, -140.0f, 0.0f));
+        const float height =
+            kBalloonButtonHeight * count_balloon_buttons(root) + kBalloonPadding;
+        const float center_y =
+            kBalloonBottomMargin + height / 2.0f - kScreenHalfHeight;
+
+        bubble->SetPos(paf::math::v4(kBalloonCenterX, center_y, 0.0f));
         bubble->Show(paf::common::transition::Type_Popup4, 0.0f);
     }
 
@@ -175,10 +223,8 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
     bind_decide(root, "btn_dismiss_balloon", OnDismiss, this);
 
     if (!host_actions_enabled) {
-        paf::ui::Widget *copy_button = root->FindChild("btn_copy_balloon");
-        paf::ui::Widget *delete_button = root->FindChild("btn_delete_balloon");
-        if (copy_button) copy_button->SetActivate(false);
-        if (delete_button) delete_button->SetActivate(false);
+        set_button_enabled(copy_button, false);
+        set_button_enabled(delete_button, false);
     }
 
     set_widget_focusable(
