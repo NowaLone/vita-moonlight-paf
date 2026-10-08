@@ -161,6 +161,28 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
 
     s_instance = this;
 
+    /*
+     * Static CXML nodes can already be in the READY state when this
+     * constructor runs, so CB_STATE_READY on the ruler is not guaranteed to
+     * fire again. Show the NetStream-sized fallback immediately; the ruler
+     * callback may refine the width later when it is delivered.
+     */
+    paf::ui::Widget *bubble = root->FindChild("settings_speech_balloon");
+    if (bubble) {
+        const float width = kMinButtonWidth;
+        const float parent_width = width + 12.0f;
+        const float parent_height = 12.0f + 60.0f * kButtonCount;
+
+        bubble->SetSize({parent_width, parent_height, 0, 0}, NULL);
+        bubble->SetPos(
+            264.0f + ((kMinButtonWidth - parent_width) / 2.0f),
+            43.0f,
+            0,
+            NULL
+        );
+        bubble->Show(paf::common::transition::Type_Popup4, 0.0f);
+    }
+
     m_close_param.fade = true;
     m_close_param.fade_time_ms = 1000.0f;
 
