@@ -39,7 +39,17 @@ public:
              * adjustment first and then place the generated balloon.
              */
             balloon->SetAdjust(0, 0, 0);
-            balloon->SetPosCenter(paf::math::v4(0.0f, 0.0f, 0.0f));
+
+            const paf::math::v4 *size = balloon->GetSize(0);
+            if (size) {
+                const float x = 480.0f - (size->extract_x() / 2.0f) - 16.0f;
+                const float y = -272.0f + (size->extract_y() / 2.0f) + 16.0f;
+                balloon->SetPosCenter(paf::math::v4(x, y, 0.0f));
+            } else {
+                /* Fallback for an unlaid-out template. */
+                balloon->SetPosCenter(paf::math::v4(350.0f, -180.0f, 0.0f));
+            }
+
             balloon->Show(paf::common::transition::Type_Popup4, 0.0f);
         }
 
