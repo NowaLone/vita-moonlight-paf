@@ -34,9 +34,11 @@ public:
         paf::ui::Widget *balloon = root->FindChild(0x2627246e);
         if (balloon) {
             /*
-             * Keep the Sony template's own size/layout. Only move the
-             * generated speech-balloon to the lower-right test position.
+             * The Sony template has layout_hint adjust="2, 2, 0", so its
+             * own layout would overwrite an explicit position. Disable the
+             * adjustment first and then place the generated balloon.
              */
+            balloon->SetAdjust(0, 0, 0);
             balloon->SetPos(520.0f, 270.0f, 0.0f, NULL);
             balloon->Show(paf::common::transition::Type_Popup4, 0.0f);
         }
