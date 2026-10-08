@@ -132,6 +132,7 @@ CXML changes require rebuilding the RCO before the application build.
 - `SceClipboard` is the system API used for the host Copy action. Current VitaSDK installations do not expose a dedicated public `clipboard.h`; the implementation keeps a small local ABI declaration for `sceClipboardSetText` and links `SceClipboard_stub`.
 - Saved-host Delete uses `SceMessageDialog` for confirmation and removes the selected persistent records through the HostService → backend → legacy device store path.
 - The PAF coordinate system is center-origin on a 960×544 screen: `(0,0)` is screen center and positive Y points upward.
+- **Verified on hardware in `experiment/speech-balloon`**: Sony `_common_template_speech_balloon_menu_3` (`0x4a34c804`) produces a centered menu when the generated `speech_balloon` is given `SetAdjust(0, 0, 0)` and `SetPosCenter(paf::math::v4(0.0f, 0.0f, 0.0f))`. Using `(480,272)` moved the same balloon toward the upper-right, confirming that `SetPosCenter()` uses the PAF center-origin coordinate space here. Keep this empirical result when positioning generated speech-balloon widgets; do not reinterpret `(480,272)` as the screen center.
 - Do not move streaming implementation into PAF pages.
 
 ### Application / Services / Backend
