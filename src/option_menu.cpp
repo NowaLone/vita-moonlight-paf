@@ -1,6 +1,8 @@
 #include "option_menu.h"
 #include "common.h"
 
+#include <string.h>
+
 static OptionMenu *s_instance = NULL;
 
 namespace {
@@ -42,8 +44,11 @@ public:
 
             const paf::math::v4 *size = balloon->GetSize(0);
             if (size) {
-                const float x = 480.0f - (size->extract_x() / 2.0f) - 16.0f;
-                const float y = -272.0f + (size->extract_y() / 2.0f) + 16.0f;
+                float size_values[4];
+                memcpy(size_values, size, sizeof(size_values));
+
+                const float x = 480.0f - (size_values[0] / 2.0f) - 16.0f;
+                const float y = -272.0f + (size_values[1] / 2.0f) + 16.0f;
                 balloon->SetPosCenter(paf::math::v4(x, y, 0.0f));
             } else {
                 /* Fallback for an unlaid-out template. */
