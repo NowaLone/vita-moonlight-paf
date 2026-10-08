@@ -90,4 +90,5 @@
   <string src="Selects how the Vita front touchscreen is presented to the host: off, DS4-style touchpad, absolute mouse, or Sunshine tablet mode." id="msg_touchscreen_mode_hint" />
   <string src="Enables the custom controller mapping configuration used by Moonlight." id="msg_mapping_enabled_hint" />
   <string src="Sets how much of this back-touchscreen edge is reserved as a deadzone. Higher values move the active area farther inward." id="msg_back_deadzone_hint" />
+  <string src="This is an intentionally very long option menu label used only to verify automatic popup width adjustment" id="msg_test_option_menu_long" />
 </stringset>
