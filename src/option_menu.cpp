@@ -39,7 +39,7 @@ public:
              * adjustment first and then place the generated balloon.
              */
             balloon->SetAdjust(0, 0, 0);
-            balloon->SetPosCenter(paf::math::v4(480.0f, 272.0f, 0.0f));
+            balloon->SetPosCenter(paf::math::v4(0.0f, 0.0f, 0.0f));
             balloon->Show(paf::common::transition::Type_Popup4, 0.0f);
         }
 
