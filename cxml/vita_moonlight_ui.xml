@@ -126,9 +126,6 @@
             <button sound="_common_sound_button_enter" style="style_button_option_middle" label="msg_delete" id="btn_delete_balloon">
               <layout_hint size="202, 60" />
             </button>
-            <button sound="_common_sound_button_enter" style="style_button_option_middle" label="msg_test_option_menu_long" id="btn_test_long_balloon">
-              <layout_hint size="202, 60" />
-            </button>
             <button sound="_common_sound_button_enter" style="style_button_option_bottom" label="msg_test_speech_balloon" id="btn_test_speech_balloon">
               <layout_hint size="202, 60" />
             </button>
