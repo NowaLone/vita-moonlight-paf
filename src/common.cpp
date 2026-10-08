@@ -47,3 +47,11 @@ void set_widget_focusable(paf::ui::Widget *widget, bool on) {
         widget->ReleaseFocus();
     }
 }
+
+void set_button_enabled(paf::ui::Widget *button, bool enabled) {
+    if (button == NULL) {
+        return;
+    }
+    button->SetActivate(enabled);
+    button->SetColor(1.0f, 1.0f, 1.0f, enabled ? 1.0f : 0.4f);
+}

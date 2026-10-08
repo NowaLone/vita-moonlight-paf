@@ -13,4 +13,10 @@ paf::Plugin::PageCloseParam make_close_param(paf::Plugin::TransitionType transit
 void bind_decide(paf::ui::Widget *root, const char *child_id, DecideCb cb, void *userdata = NULL);
 void set_widget_focusable(paf::ui::Widget *widget, bool on);
 
+/*
+ * Enables or disables a button. SetActivate() alone only stops events, so the
+ * button is also faded the way system apps show disabled bottom-bar buttons.
+ */
+void set_button_enabled(paf::ui::Widget *button, bool enabled);
+
 #endif

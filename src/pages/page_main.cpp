@@ -592,7 +592,7 @@ void Main::UpdateSelectionActionBar()
     if (action) {
         action->SetString(paf::common::string_util::ToWString(
             m_selection_action == SelectionAction_Copy ? "Copy" : "Delete"));
-        action->SetActivate(m_selected_count > 0);
+        set_button_enabled(action, m_selected_count > 0);
     }
 
     paf::ui::Widget *select_all = root->FindChild("btn_selection_select_all");
