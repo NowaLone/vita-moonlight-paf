@@ -5,10 +5,6 @@ static OptionMenu *s_instance = NULL;
 
 namespace {
 
-static const float kMinButtonWidth = 202.0f;
-static const float kMaxButtonWidth = 700.0f;
-static const int kButtonCount = 4;
-
 class SpeechBalloonTestPage : public page::Base
 {
 public:
@@ -39,70 +35,6 @@ public:
 OptionMenu *OptionMenu::Instance()
 {
     return s_instance;
-}
-
-void OptionMenu::OnSizeAdjust(int32_t type, paf::ui::Handler *self,
-                              paf::ui::Event *event, void *userdata)
-{
-    (void)type;
-    (void)event;
-
-    paf::ui::Text *ruler = static_cast<paf::ui::Text *>(self);
-    OptionMenu *menu = (OptionMenu *)userdata;
-    if (!ruler || !menu || !menu->root) return;
-
-    paf::graph::DrawObj *draw_obj = ruler->GetDrawObj(paf::ui::Text::OBJ_ROOT);
-    if (!draw_obj) return;
-
-    float width = draw_obj->GetSize().extract_x() + 40.0f;
-    if (width < kMinButtonWidth) {
-        width = kMinButtonWidth;
-    }
-    if (width > kMaxButtonWidth) {
-        width = kMaxButtonWidth;
-    }
-
-    const float parent_width = width + 12.0f;
-    const float parent_height = 12.0f + 60.0f * kButtonCount;
-    const float parent_x = 264.0f + ((kMinButtonWidth - parent_width) / 2.0f);
-    const float parent_y = 43.0f;
-
-    const char *button_ids[kButtonCount] = {
-        "btn_settings_balloon",
-        "btn_copy_balloon",
-        "btn_delete_balloon",
-        "btn_test_speech_balloon"
-    };
-
-    for (int i = 0; i < kButtonCount; ++i) {
-        paf::ui::Widget *button = menu->root->FindChild(button_ids[i]);
-        if (!button) continue;
-
-        button->SetAdjust(
-            paf::ui::Widget::ADJUST_NONE,
-            paf::ui::Widget::ADJUST_NONE,
-            paf::ui::Widget::ADJUST_NONE
-        );
-        button->SetSize({width, 60.0f}, NULL);
-    }
-
-    paf::ui::Widget *bubble = menu->root->FindChild("settings_speech_balloon");
-    if (bubble) {
-        bubble->SetAdjust(
-            paf::ui::Widget::ADJUST_NONE,
-            paf::ui::Widget::ADJUST_NONE,
-            paf::ui::Widget::ADJUST_NONE
-        );
-        bubble->SetSize({parent_width, parent_height, 0, 0}, NULL);
-        bubble->SetPos(parent_x, parent_y, 0, NULL);
-        bubble->Show(paf::common::transition::Type_Popup4, 0.0f);
-    }
-
-    ruler->DeleteEventCallback(
-        paf::ui::Handler::CB_STATE_READY,
-        OnSizeAdjust,
-        userdata
-    );
 }
 
 void OptionMenu::OnDismiss(int32_t type, paf::ui::Handler *self,
@@ -211,29 +143,13 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
     s_instance = this;
 
     /*
-     * Static CXML nodes can already be in the READY state when this
-     * constructor runs, so CB_STATE_READY on the ruler is not guaranteed to
-     * fire again. Show the NetStream-sized fallback immediately; the ruler
-     * callback may refine the width later when it is delivered.
+     * Let the speech_balloon and its vertical Box determine their own size.
+     * Keep positioning as a separate concern; (0,0) is the verified PAF
+     * center-origin position for this widget.
      */
     paf::ui::Widget *bubble = root->FindChild("settings_speech_balloon");
     if (bubble) {
-        const float width = kMinButtonWidth;
-        bubble->SetAdjust(
-            paf::ui::Widget::ADJUST_NONE,
-            paf::ui::Widget::ADJUST_NONE,
-            paf::ui::Widget::ADJUST_NONE
-        );
-        const float parent_width = width + 12.0f;
-        const float parent_height = 12.0f + 60.0f * kButtonCount;
-
-        bubble->SetSize({parent_width, parent_height, 0, 0}, NULL);
-        bubble->SetPos(
-            264.0f + ((kMinButtonWidth - parent_width) / 2.0f),
-            43.0f,
-            0,
-            NULL
-        );
+        bubble->SetPosCenter(paf::math::v4(0.0f, 0.0f, 0.0f));
         bubble->Show(paf::common::transition::Type_Popup4, 0.0f);
     }
 
@@ -245,37 +161,6 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
     paf::ui::Widget *delete_button = root->FindChild("btn_delete_balloon");
     paf::ui::Widget *test_speech_button = root->FindChild("btn_test_speech_balloon");
     paf::ui::Widget *dismiss_button = root->FindChild("btn_dismiss_balloon");
-    paf::ui::Text *ruler = static_cast<paf::ui::Text *>(
-        root->FindChild("text_option_menu_ruler")
-    );
-
-    paf::wstring longest_label;
-    paf::ui::Widget *buttons[kButtonCount] = {
-        settings_button,
-        copy_button,
-        delete_button,
-        test_speech_button
-    };
-
-    for (int i = 0; i < kButtonCount; ++i) {
-        if (!buttons[i]) continue;
-
-        paf::wstring label;
-        if (buttons[i]->GetString(label) >= 0 &&
-            label.length() > longest_label.length()) {
-            longest_label = label;
-        }
-    }
-
-    if (ruler && !longest_label.empty()) {
-        ruler->SetString(longest_label);
-        ruler->AddEventCallback(
-            paf::ui::Handler::CB_STATE_READY,
-            OnSizeAdjust,
-            this
-        );
-    }
-
     if (dismiss_button) {
         dismiss_button->SetKeycode(
             paf::inputdevice::pad::Data::PAD_ESCAPE |
