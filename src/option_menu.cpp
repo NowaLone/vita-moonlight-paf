@@ -6,6 +6,8 @@ static OptionMenu *s_instance = NULL;
 namespace {
 
 static const float kMinButtonWidth = 202.0f;
+static const int kButtonCount = 5;
+
 class SpeechBalloonTestPage : public page::Base
 {
 public:
