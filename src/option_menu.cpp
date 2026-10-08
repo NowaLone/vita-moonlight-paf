@@ -149,7 +149,7 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
      */
     paf::ui::Widget *bubble = root->FindChild("settings_speech_balloon");
     if (bubble) {
-        bubble->SetPosCenter(paf::math::v4(264.0f, 43.0f, 0.0f));
+        bubble->SetPos(paf::math::v4(264.0f, 43.0f, 0.0f));
         bubble->Show(paf::common::transition::Type_Popup4, 0.0f);
     }
 
