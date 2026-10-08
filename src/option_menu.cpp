@@ -6,7 +6,7 @@ static OptionMenu *s_instance = NULL;
 namespace {
 
 static const float kMinButtonWidth = 202.0f;
-static const int kButtonCount = 3;
+static const int kButtonCount = 4;
 
 }
 
@@ -41,7 +41,8 @@ void OptionMenu::OnSizeAdjust(int32_t type, paf::ui::Handler *self,
     const char *button_ids[kButtonCount] = {
         "btn_settings_balloon",
         "btn_copy_balloon",
-        "btn_delete_balloon"
+        "btn_delete_balloon",
+        "btn_test_long_balloon"
     };
 
     for (int i = 0; i < kButtonCount; ++i) {
@@ -189,6 +190,7 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
     paf::ui::Widget *settings_button = root->FindChild("btn_settings_balloon");
     paf::ui::Widget *copy_button = root->FindChild("btn_copy_balloon");
     paf::ui::Widget *delete_button = root->FindChild("btn_delete_balloon");
+    paf::ui::Widget *test_long_button = root->FindChild("btn_test_long_balloon");
     paf::ui::Widget *dismiss_button = root->FindChild("btn_dismiss_balloon");
     paf::ui::Text *ruler = static_cast<paf::ui::Text *>(
         root->FindChild("text_option_menu_ruler")
@@ -198,7 +200,8 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
     paf::ui::Widget *buttons[kButtonCount] = {
         settings_button,
         copy_button,
-        delete_button
+        delete_button,
+        test_long_button
     };
 
     for (int i = 0; i < kButtonCount; ++i) {
