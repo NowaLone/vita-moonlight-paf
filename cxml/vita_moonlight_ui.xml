@@ -137,6 +137,7 @@
     <page id="page_speech_balloon_test">
       <plane texture="_bg_texture" id="plane_speech_balloon_test_bg">
         <layout_hint size="960, 544" />
+        <speech_balloon id="test_speech_balloon" />
       </plane>
 
       <corner_button style="_common_style_corner_bottom_left" id="btn_close_speech_balloon_test" />
