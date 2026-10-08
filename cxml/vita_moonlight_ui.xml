@@ -109,27 +109,30 @@
       <button sound="_common_sound_button_back" style="_common_default_style_button_transparent" id="btn_dismiss_balloon">
         <layout_hint size="960, 544" />
         <focus_hint enable="0" />
-        <plane style="_common_default_style_plane" texture="_common_texture_option_menu_base_down" id="settings_speech_balloon">
-          <layout_hint anchor="0, 1" align="0, 1" size="214, 12" pos="1920, 1080" />
-          <text style="style_text_option_menu_ruler" id="text_option_menu_ruler">
-            <layout_hint size="0, 0" adjust="2, 2" pos="1920, 1080" />
-          </text>
-          <box id="settings_balloon_box">
-            <layout_box anchor="1, 2" align="1, 2" layout_type="1" bottom_margin="6" top_margin="6" right_margin="6" left_margin="6" />
-            <button sound="_common_sound_button_enter" style="style_button_option_top" label="msg_settings" id="btn_settings_balloon">
-              <layout_hint size="202, 60" />
-            </button>
-            <button sound="_common_sound_button_enter" style="style_button_option_middle" label="msg_copy" id="btn_copy_balloon">
-              <layout_hint size="202, 60" />
-              <focus_hint focus_shape="2" />
-            </button>
-            <button sound="_common_sound_button_enter" style="style_button_option_middle" label="msg_delete" id="btn_delete_balloon">
-              <layout_hint size="202, 60" />
-            </button>
-            <button sound="_common_sound_button_enter" style="style_button_option_bottom" label="msg_test_speech_balloon" id="btn_test_speech_balloon">
-              <layout_hint size="202, 60" />
-            </button>
-          </box>
+        <plane style="_common_default_style_plane" id="settings_speech_balloon_host">
+          <layout_hint size="960, 544" />
+          <speech_balloon texture="_common_texture_option_menu_base_side" id="settings_speech_balloon">
+            <layout_hint adjust="2, 2, 0" pos="0, 0" />
+            <text style="style_text_option_menu_ruler" id="text_option_menu_ruler">
+              <layout_hint size="0, 0" adjust="2, 2" pos="1920, 1080" />
+            </text>
+            <box id="settings_balloon_box">
+              <layout_box layout_type="1" bottom_margin="6" top_margin="6" right_margin="6" left_margin="6" />
+              <button sound="_common_sound_button_enter" style="style_button_option_top" label="msg_settings" id="btn_settings_balloon">
+                <layout_hint size="202, 60" />
+              </button>
+              <button sound="_common_sound_button_enter" style="style_button_option_middle" label="msg_copy" id="btn_copy_balloon">
+                <layout_hint size="202, 60" />
+                <focus_hint focus_shape="2" />
+              </button>
+              <button sound="_common_sound_button_enter" style="style_button_option_middle" label="msg_delete" id="btn_delete_balloon">
+                <layout_hint size="202, 60" />
+              </button>
+              <button sound="_common_sound_button_enter" style="style_button_option_bottom" label="msg_test_speech_balloon" id="btn_test_speech_balloon">
+                <layout_hint size="202, 60" />
+              </button>
+            </box>
+          </speech_balloon>
         </plane>
       </button>
     </page>
