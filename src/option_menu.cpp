@@ -6,7 +6,25 @@ static OptionMenu *s_instance = NULL;
 namespace {
 
 static const float kMinButtonWidth = 202.0f;
-static const int kButtonCount = 4;
+class SpeechBalloonTestPage : public page::Base
+{
+public:
+    SpeechBalloonTestPage()
+        : page::Base("page_speech_balloon_test", NULL,
+                     paf::Plugin::TransitionType_None,
+                     paf::Plugin::TransitionType_None)
+    {
+        if (!IsValid()) return;
+
+        bind_decide(root, "btn_close_speech_balloon_test",
+                    page::Base::DefaultBackButtonCB, this);
+    }
+
+    virtual page::Type GetType()
+    {
+        return page::Type_SpeechBalloonTest;
+    }
+};
 
 }
 
@@ -42,7 +60,8 @@ void OptionMenu::OnSizeAdjust(int32_t type, paf::ui::Handler *self,
         "btn_settings_balloon",
         "btn_copy_balloon",
         "btn_delete_balloon",
-        "btn_test_long_balloon"
+        "btn_test_long_balloon",
+        "btn_test_speech_balloon"
     };
 
     for (int i = 0; i < kButtonCount; ++i) {
@@ -128,6 +147,20 @@ void OptionMenu::OnCopy(int32_t type, paf::ui::Handler *self,
     }
 }
 
+void OptionMenu::OnSpeechBalloonTest(int32_t type, paf::ui::Handler *self,
+                                     paf::ui::Event *event, void *userdata)
+{
+    (void)type;
+    (void)self;
+    (void)event;
+
+    OptionMenu *menu = (OptionMenu *)userdata;
+    if (!menu) return;
+
+    delete menu;
+    new SpeechBalloonTestPage();
+}
+
 void OptionMenu::OnDelete(int32_t type, paf::ui::Handler *self,
                           paf::ui::Event *event, void *userdata)
 {
@@ -191,6 +224,7 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
     paf::ui::Widget *copy_button = root->FindChild("btn_copy_balloon");
     paf::ui::Widget *delete_button = root->FindChild("btn_delete_balloon");
     paf::ui::Widget *test_long_button = root->FindChild("btn_test_long_balloon");
+    paf::ui::Widget *test_speech_button = root->FindChild("btn_test_speech_balloon");
     paf::ui::Widget *dismiss_button = root->FindChild("btn_dismiss_balloon");
     paf::ui::Text *ruler = static_cast<paf::ui::Text *>(
         root->FindChild("text_option_menu_ruler")
@@ -201,7 +235,8 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
         settings_button,
         copy_button,
         delete_button,
-        test_long_button
+        test_long_button,
+        test_speech_button
     };
 
     for (int i = 0; i < kButtonCount; ++i) {
@@ -233,6 +268,7 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
     bind_decide(root, "btn_settings_balloon", OnSettings, this);
     bind_decide(root, "btn_copy_balloon", OnCopy, this);
     bind_decide(root, "btn_delete_balloon", OnDelete, this);
+    bind_decide(root, "btn_test_speech_balloon", OnSpeechBalloonTest, this);
     bind_decide(root, "btn_dismiss_balloon", OnDismiss, this);
 
     if (!host_actions_enabled) {
