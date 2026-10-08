@@ -18,6 +18,23 @@ public:
     {
         if (!IsValid()) return;
 
+        /* Sony common_resource: _common_template_speech_balloon_menu_3. */
+        paf::Plugin::TemplateOpenParam tmp_param;
+        g_plugin->TemplateOpen(root, 0x4a34c804, tmp_param);
+
+        paf::ui::Widget *button1 = root->FindChild(0x1bf75844);
+        paf::ui::Widget *button2 = root->FindChild(0x6bbaa322);
+        paf::ui::Widget *button3 = root->FindChild(0x21ca021a);
+
+        if (button1) button1->SetString(L"Settings");
+        if (button2) button2->SetString(L"Copy");
+        if (button3) button3->SetString(L"Delete");
+
+        paf::ui::Widget *balloon = root->FindChild(0x2627246e);
+        if (balloon) {
+            balloon->Show(paf::common::transition::Type_Popup4, 0.0f);
+        }
+
         bind_decide(root, "btn_close_speech_balloon_test",
                     page::Base::DefaultBackButtonCB, this);
     }
