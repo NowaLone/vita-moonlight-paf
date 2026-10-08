@@ -164,6 +164,10 @@
       <textobj font_size="22" bold="0" color="1, 1, 1, 0.85" align_x="1" align_y="1" word_wrap="1" ellipsis="0" emboss="0" id="body_obj" />
     </style_text>
 
+    <style_text textobj="option_menu_ruler_obj" id="style_text_option_menu_ruler">
+      <textobj font_size="28" bold="1" align_y="1" align_x="3" id="option_menu_ruler_obj" />
+    </style_text>
+
     <style_button sound="_common_sound_button_enter" bottom_margin="12" right_margin="20" top_margin="12" left_margin="20" label_obj="label_obj" bg_obj="bg_obj" glow_obj="glow_obj" id="style_button_option_single">
       <planeobj texture0="_common_texture_option_menu_button_single" id="bg_obj" />
       <textobj font_size="28" bold="1" align_y="1" align_x="3" id="label_obj" />
