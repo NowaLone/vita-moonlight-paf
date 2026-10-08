@@ -49,6 +49,10 @@ The application currently provides:
 
 Streaming is kept outside the PAF plugin layer. Pages call service/backend APIs; protocol, networking, decode and device I/O live below that boundary.
 
+## Experimental PAF UI Work
+
+The branch `experiment/speech-balloon` contains a deliberately isolated experiment with the real PAF CXML `<speech_balloon>` primitive. This is not part of the working option menu implementation yet. The test is reached from the temporary OptionMenu test entry and opens a dedicated `page_speech_balloon_test` containing `<speech_balloon style="_common_default_style_speech_balloon">`. Keep this experiment separate from the production menu until it has been verified on real Vita hardware.
+
 ## Build & Development
 
 ### Requirements
