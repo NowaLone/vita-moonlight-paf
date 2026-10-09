@@ -30,11 +30,10 @@ static const float kBalloonBottomMargin = 50.0f;
 static const float kScreenHalfHeight = 272.0f;
 
 /*
- * Messages disabled option-menu row: the plate is lifted off the balloon black,
- * and the label is a lighter gray than the shared 0.55 helper. SetColor
- * modulates the button texture; SetDisableColor is the label color.
+ * Messages uses a lighter disabled label than the shared 0.55 helper.
+ * Widget::SetColor does not lift the plate: it multiplies the already black
+ * option-menu button texture, so the row stays black and the label gets darker.
  */
-static const float kMessagesDisabledPlate = 0.42f;
 static const float kMessagesDisabledLabel = 0.72f;
 
 static int count_balloon_buttons(paf::ui::Scene *scene)
@@ -69,12 +68,6 @@ static void style_balloon_delete_disabled(paf::ui::Widget *button)
         kMessagesDisabledLabel,
         1.0f
     );
-    button->SetColor(paf::math::v4(
-        kMessagesDisabledPlate,
-        kMessagesDisabledPlate,
-        kMessagesDisabledPlate,
-        1.0f
-    ));
 }
 
 }
