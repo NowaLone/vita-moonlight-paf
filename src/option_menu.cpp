@@ -6,10 +6,9 @@ static OptionMenu *s_instance = NULL;
 namespace {
 
 /*
- * Placement of the generated speech_balloon. SetPos() on this widget takes the
- * balloon's centre in PAF centre-origin coordinates (+Y up): the previous
- * SetPos(420, -140) left the balloon's left edge at screen x ~795 and its top
- * at y ~287, i.e. a ~214x252 box (4 buttons) centred on that point.
+ * The popup uses PAF centre-origin coordinates (+Y up). Its auto-sized
+ * vertical Box determines the balloon height; keep the bottom edge above the
+ * bottom-right corner button and derive Y from the buttons currently present.
  */
 
 /* Every button is 60 px high; the box adds 6 px margin above and below. */
@@ -35,8 +34,7 @@ static int count_balloon_buttons(paf::ui::Scene *scene)
     static const char *const ids[] = {
         "btn_settings_balloon",
         "btn_copy_balloon",
-        "btn_delete_balloon",
-        "btn_test_speech_balloon"
+        "btn_delete_balloon"
     };
 
     int count = 0;
@@ -48,30 +46,6 @@ static int count_balloon_buttons(paf::ui::Scene *scene)
     return count;
 }
 
-class SpeechBalloonTestPage : public page::Base
-{
-public:
-    SpeechBalloonTestPage()
-        : page::Base("page_speech_balloon_test", NULL,
-                     paf::Plugin::TransitionType_None,
-                     paf::Plugin::TransitionType_None)
-    {
-        if (!IsValid()) return;
-
-        paf::ui::Widget *balloon = root->FindChild("test_speech_balloon");
-        if (balloon) {
-            balloon->Show(paf::common::transition::Type_Popup4, 0.0f);
-        }
-
-        bind_decide(root, "btn_close_speech_balloon_test",
-                    page::Base::DefaultBackButtonCB, this);
-    }
-
-    virtual page::Type GetType()
-    {
-        return page::Type_SpeechBalloonTest;
-    }
-};
 
 }
 
@@ -137,20 +111,6 @@ void OptionMenu::OnCopy(int32_t type, paf::ui::Handler *self,
     }
 }
 
-void OptionMenu::OnSpeechBalloonTest(int32_t type, paf::ui::Handler *self,
-                                     paf::ui::Event *event, void *userdata)
-{
-    (void)type;
-    (void)self;
-    (void)event;
-
-    OptionMenu *menu = (OptionMenu *)userdata;
-    if (!menu) return;
-
-    delete menu;
-    new SpeechBalloonTestPage();
-}
-
 void OptionMenu::OnDelete(int32_t type, paf::ui::Handler *self,
                           paf::ui::Event *event, void *userdata)
 {
@@ -207,7 +167,6 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
     paf::ui::Widget *settings_button = root->FindChild("btn_settings_balloon");
     paf::ui::Widget *copy_button = root->FindChild("btn_copy_balloon");
     paf::ui::Widget *delete_button = root->FindChild("btn_delete_balloon");
-    paf::ui::Widget *test_speech_button = root->FindChild("btn_test_speech_balloon");
     paf::ui::Widget *dismiss_button = root->FindChild("btn_dismiss_balloon");
     if (dismiss_button) {
         dismiss_button->SetKeycode(
@@ -219,7 +178,6 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
     bind_decide(root, "btn_settings_balloon", OnSettings, this);
     bind_decide(root, "btn_copy_balloon", OnCopy, this);
     bind_decide(root, "btn_delete_balloon", OnDelete, this);
-    bind_decide(root, "btn_test_speech_balloon", OnSpeechBalloonTest, this);
     bind_decide(root, "btn_dismiss_balloon", OnDismiss, this);
 
     if (!host_actions_enabled) {
