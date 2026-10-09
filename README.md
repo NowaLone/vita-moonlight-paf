@@ -219,6 +219,10 @@ For streaming-related changes, verify at least connection setup, video/audio, in
 - Do not replace the saved-host selection/action mode with long-press/context menus.
 - Do not casually change persistent storage formats or paths without considering compatibility and migration.
 
+## Development Roadmap
+
+The next priorities are to validate the full streaming lifecycle and motion input on real Vita hardware, make the toolchain/build reproducible, close known technical risks and add focused tests, then prepare a release. The prioritized tasks and completion criteria are maintained in [`ROADMAP.md`](ROADMAP.md).
+
 ## Status
 
 The project is an actively developed working Vita Moonlight frontend. Streaming is functional, but the UI, host-management behavior, lifecycle edge cases, and some device/input paths are still under active development.
