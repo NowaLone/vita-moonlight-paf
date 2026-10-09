@@ -5,7 +5,7 @@
 #endif
 
 #include "common.h"
-#include <paf/widget/w_button.h>
+#include <paf/widget/w_button_base.h>
 
 paf::Plugin *g_plugin = NULL;
 
@@ -54,16 +54,17 @@ void set_button_enabled(paf::ui::Widget *button, bool enabled) {
         return;
     }
 
-    /* Set interaction state without fading the button's background texture. */
-    button->SetActivate(enabled);
-    paf::graph::DrawObj *label = button->GetDrawObj(paf::ui::Button::OBJ_LABEL);
-    if (label != NULL) {
-        const float text_color = enabled ? 1.0f : 0.55f;
-        label->SetColor(paf::math::v4(
-            text_color,
-            text_color,
-            text_color,
-            1.0f
-        ));
+    /*
+     * Use PAF's native ButtonBase disabled state and its disabled text color;
+     * SetActivate is kept in sync because it controls widget interaction.
+     */
+    paf::ui::ButtonBase *button_base =
+        static_cast<paf::ui::ButtonBase *>(button);
+    button_base->SetDisableColor(0.55f, 0.55f, 0.55f, 1.0f);
+    if (enabled) {
+        button_base->Enable();
+    } else {
+        button_base->Disable();
     }
+    button->SetActivate(enabled);
 }
