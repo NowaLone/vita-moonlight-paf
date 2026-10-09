@@ -5,7 +5,6 @@
   <string src="Search PCs" id="msg_search_pcs" />
   <string src="Enter PC hostname or IP address" id="msg_add_pc_placeholder" />
   <string src="Settings" id="msg_settings" />
-  <string src="Copy" id="msg_copy" />
   <string src="Delete" id="msg_delete" />
   <string src="Cancel" id="msg_cancel" />
   <string src="Select All" id="msg_select_all" />
