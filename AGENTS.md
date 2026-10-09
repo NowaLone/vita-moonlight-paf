@@ -269,6 +269,8 @@ Do not replace working protocol logic with hand-written protocol shortcuts witho
 
 ## Agent Guardrails
 
+For repository-specific task workflow and implementation guidance, load [`.agents/skills/vita-moonlight-paf/SKILL.md`](.agents/skills/vita-moonlight-paf/SKILL.md) when working on this project. This skill supplements these instructions; the current source files, this document, and `ROADMAP.md` remain the source of truth.
+
 - Do not commit generated `build/` output or generated `*.vpk`, `*.self`, `*.velf`, `*.rco`, object files, or static libraries.
 - Do not bypass the PAF architecture by making UI pages depend directly on legacy globals.
 - Do not bypass `MoonlightApp` main-thread event dispatch.
