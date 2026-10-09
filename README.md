@@ -33,8 +33,7 @@ The current application supports:
 - Native system connection loading and error dialogs.
 - System-style title bars and list views based on the patterns used by Vita system applications and `GrapheneCt/NetStream`.
 - LAN/mDNS PC discovery.
-- Saved PC list with native-style Copy/Delete multi-selection actions and native checkboxes.
-- Native system clipboard integration for copying selected PC addresses.
+- Saved PC list with native-style Delete multi-selection and native checkboxes.
 - Native delete confirmation and persistent host removal.
 - Moonlight PIN pairing.
 - Retrieving the application list from a paired PC.
@@ -83,7 +82,7 @@ The current list/title resources intentionally follow the real patterns used by 
 
 The main page contains a saved-PC list, an inline PC address input using the native Vita IME, Search PCs, and access to the system AppSettings UI.
 
-Saved hosts use the Vita system-app selection/action pattern. The standard bottom-right corner button opens a native-style action menu with **Copy** and **Delete**; choosing an action turns the saved-PC list into multi-selection mode with PAF checkboxes (tapping or activating a row toggles it) and a bottom action bar with Cancel, Select All and the chosen action. Delete asks for confirmation through the native `SceMessageDialog`; Copy writes the selected PC addresses to `SceClipboard`.
+Saved hosts use the Vita system-app selection/action pattern. The standard bottom-right corner button opens a PAF `speech_balloon` action menu with **Delete** at the top and **Settings** at the bottom. Choosing Delete turns the saved-PC list into multi-selection mode with PAF checkboxes (tapping or activating a row toggles it) and a bottom action bar with Cancel, Select All/Deselect All, and Delete. Delete asks for confirmation through the native `SceMessageDialog`; no host-copy/clipboard action is provided.
 
 PAF uses a **center-origin 960×544 coordinate system**:
 
