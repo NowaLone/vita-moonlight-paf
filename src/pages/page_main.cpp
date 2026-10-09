@@ -502,7 +502,13 @@ void Main::RefreshHosts()
 
     if (m_host_count > 0) {
         list->InsertCell(0, 0, m_host_count);
-        SetStatus("Select a PC to connect.");
+
+        /*
+         * The status text is centred on the list, so the idle hint would be
+         * drawn over the second row. Rows are the hint; keep the text for the
+         * empty state and for transient messages (connecting, errors, ...).
+         */
+        HideStatus();
     } else {
         SetStatus("No PCs registered.");
     }
@@ -909,6 +915,21 @@ void Main::SetStatus(const char *text)
 
     ((paf::ui::Text *)widget)->SetString(
         paf::common::string_util::ToWString(text));
+
+    /* Selection mode keeps the status hidden behind the action bar. */
+    if (!m_selection_mode) {
+        widget->Show(paf::common::transition::Type_Reset);
+    }
+}
+
+void Main::HideStatus()
+{
+    if (!root) return;
+
+    paf::ui::Widget *widget = root->FindChild("text_main_status");
+    if (widget) {
+        widget->Hide(paf::common::transition::Type_Reset);
+    }
 }
 
 void Main::OpenSearch()
