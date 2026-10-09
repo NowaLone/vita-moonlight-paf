@@ -14,8 +14,8 @@ void bind_decide(paf::ui::Widget *root, const char *child_id, DecideCb cb, void 
 void set_widget_focusable(paf::ui::Widget *widget, bool on);
 
 /*
- * Enables or disables a button. SetActivate() alone only stops events, so the
- * button is also faded the way system apps show disabled bottom-bar buttons.
+ * Enables/disables a button while preserving its background opacity. Disabled
+ * labels are tinted gray; the button texture remains unchanged.
  */
 void set_button_enabled(paf::ui::Widget *button, bool enabled);
 
