@@ -82,7 +82,7 @@ The current list/title resources intentionally follow the real patterns used by 
 
 The main page contains a saved-PC list, an inline PC address input using the native Vita IME, Search PCs, and access to the system AppSettings UI.
 
-Saved hosts use the Vita system-app selection/action pattern. The standard bottom-right corner button opens a PAF `speech_balloon` action menu with **Delete** at the top and **Settings** at the bottom. Choosing Delete turns the saved-PC list into multi-selection mode with PAF checkboxes (tapping or activating a row toggles it) and a bottom action bar with Cancel, Select All/Deselect All, and Delete. Delete asks for confirmation through the native `SceMessageDialog`; no host-copy/clipboard action is provided.
+Saved hosts use the Vita system-app selection/action pattern. The standard bottom-right corner button opens a project-owned PAF `speech_balloon` action menu (not a discovered Sony system action-menu API) with **Delete** at the top and **Settings** at the bottom. Choosing Delete turns the saved-PC list into multi-selection mode with PAF checkboxes (tapping or activating a row toggles it) and a bottom action bar with Cancel, Select All/Deselect All, and Delete. Delete asks for confirmation through the native `SceMessageDialog`; no host-copy/clipboard action is provided. Delete is disabled when there are no saved PCs or nothing is selected; its disabled appearance uses PAF `ButtonBase` state and a gray disabled color, which still needs visual confirmation on hardware.
 
 PAF uses a **center-origin 960×544 coordinate system**:
 
