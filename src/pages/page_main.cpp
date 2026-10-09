@@ -649,7 +649,6 @@ void Main::EnterSelectionMode()
      */
     paf::ui::Widget *cancel = root->FindChild("btn_selection_cancel");
     if (cancel) {
-        cancel->Enable();
         cancel->SetKeycode(paf::inputdevice::pad::Data::PAD_ESCAPE);
     }
 
