@@ -51,7 +51,7 @@ Streaming is kept outside the PAF plugin layer. Pages call service/backend APIs;
 
 ## Current PAF UI Implementation
 
-The current `master` implementation uses a real vertical PAF `<speech_balloon>` as the saved-host OptionMenu container. `_common_texture_option_menu_base_down` points its tail down toward the bottom-right corner button. The two actions are Delete at the top and Settings at the bottom; a vertical `box` handles content layout, and the popup Y position is derived from the active button count and a 50 px bottom margin. The popup is a project-owned PAF composition styled from observed system-app behavior, not a discovered Sony system action-menu API. The temporary test page/styles and host-copy/clipboard feature have been removed. Hardware verification is still required for popup placement, focus behavior, and the disabled-button appearance.
+The current `master` implementation uses a real vertical PAF `<speech_balloon>` as the saved-host OptionMenu container. `_common_texture_option_menu_base_down` points its tail down toward the bottom-right corner button. The two actions are Delete at the top and Settings at the bottom; a vertical `box` handles content layout, and the popup Y position is derived from the active button count and a 50 px bottom margin. The popup is a project-owned PAF composition styled from observed system-app behavior, not a discovered Sony system action-menu API. The temporary test page/styles and host-copy/clipboard feature have been removed. Hardware-verified: popup placement, Delete/Settings focus behavior, and disabled Delete appearance (black button background with gray label).
 
 ## Build & Development
 
@@ -292,7 +292,7 @@ Do not replace working protocol logic with hand-written protocol shortcuts witho
 - Document exact supported VITASDK revision.
 - Document exact vitasdk-paf-component and psp2cxml-tool revisions.
 - Add a reproducible dependency/setup procedure.
-- Hardware-verify the saved-host selection UI: row/checkbox positioning, bottom action-bar anchors, main list height (`template_list_view_main`) with six or more saved PCs, speech-balloon position, the bar's top border and darkening, whether the Delete button remains black while its text is gray when no rows are selected, Select All/Deselect All focus behavior, and Delete disabled state when the saved-host list is empty.
+- Hardware-verify the remaining saved-host selection UI details: row/checkbox positioning, bottom action-bar anchors, main list height (`template_list_view_main`) with six or more saved PCs, the bar's top border and darkening, Select All/Deselect All focus behavior, and Delete disabled state when the saved-host list is empty. Popup placement, Delete/Settings focus behavior, and the disabled Delete's black background/gray label are already verified.
 - Verify Delete confirmation and post-delete list refresh/focus on real Vita hardware.
 - Check the `[Main] RefreshHosts ... after_insert=` log line: it must equal `hosts=`. If it is larger, `ListView::DeleteCell()` is leaving cells behind, which would explain a second saved-PC row without a checkbox.
 - Add automated tests when the project architecture is stable enough to support them.
