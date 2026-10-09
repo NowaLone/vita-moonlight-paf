@@ -27,16 +27,19 @@
         </box>
       </plane>
 
-      <plane style="_common_style_plane_transparent" id="plane_main_selection_actions">
-        <layout_hint anchor="0, 1" align="0, 1" size="960, 72" pos="0, 0" />
+      <plane style="style_plane_selection_bar" id="plane_main_selection_actions">
+        <layout_hint anchor="0, 1" align="0, 1" size="960, 64" pos="0, 0" />
+        <plane texture="_common_texture_ruled_line" id="plane_selection_bar_separator">
+          <layout_hint anchor="0, 2" align="0, 2" size="960, 2" pos="0, 0" />
+        </plane>
         <button sound="_common_sound_button_back" style="_common_default_style_button" label="msg_cancel" id="btn_selection_cancel">
-          <layout_hint anchor="1, 1" align="1, 1" size="146, 48" pos="10, 8" />
+          <layout_hint anchor="1, 1" align="1, 1" size="146, 46" pos="10, 8" />
         </button>
         <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_select_all" id="btn_selection_select_all">
-          <layout_hint anchor="2, 1" align="2, 1" size="200, 48" pos="-169, 8" />
+          <layout_hint anchor="2, 1" align="2, 1" size="200, 46" pos="-169, 8" />
         </button>
         <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_delete" id="btn_selection_action">
-          <layout_hint anchor="2, 1" align="2, 1" size="146, 48" pos="-10, 8" />
+          <layout_hint anchor="2, 1" align="2, 1" size="146, 46" pos="-10, 8" />
         </button>
       </plane>
 
@@ -162,6 +165,10 @@ ge>
   <styletable>
     <style_plane color="0.063, 0.294, 0.655, 1" planeobj="plane_obj_fill" id="style_plane_fill">
       <planeobj color="0.063, 0.294, 0.655, 1" id="plane_obj_fill" />
+    </style_plane>
+
+    <style_plane color="0, 0, 0, 0.06" planeobj="plane_obj_selection_bar" id="style_plane_selection_bar">
+      <planeobj color="0, 0, 0, 0.06" id="plane_obj_selection_bar" />
     </style_plane>
 
     <style_text textobj="title_obj" id="style_text_title">
