@@ -292,8 +292,7 @@ Do not replace working protocol logic with hand-written protocol shortcuts witho
 - Document exact supported VITASDK revision.
 - Document exact vitasdk-paf-component and psp2cxml-tool revisions.
 - Add a reproducible dependency/setup procedure.
-- Hardware-verify the remaining saved-host selection UI details: row/checkbox positioning, bottom action-bar anchors, main list height (`template_list_view_main`) with six or more saved PCs, the bar's top border and darkening, Select All/Deselect All focus behavior, and Delete disabled state when the saved-host list is empty. Popup placement, Delete/Settings focus behavior, and the disabled Delete's black background/gray label are already verified.
-- Verify Delete confirmation and post-delete list refresh/focus on real Vita hardware.
+- Hardware-verified on Vita: saved-host selection row/checkbox positioning, bottom action-bar anchors, `template_list_view_main` height with six or more saved PCs, the action bar's top border/darkening, Select All/Deselect All focus behavior, disabled Delete with an empty saved-host list, Delete confirmation, and post-delete list refresh/focus.
 - Check the `[Main] RefreshHosts ... after_insert=` log line: it must equal `hosts=`. If it is larger, `ListView::DeleteCell()` is leaving cells behind, which would explain a second saved-PC row without a checkbox.
 - Add automated tests when the project architecture is stable enough to support them.
 - Document preferred formatter/static-analysis tooling if one is adopted.
