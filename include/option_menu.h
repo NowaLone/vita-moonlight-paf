@@ -31,7 +31,6 @@ private:
     static void OnSettings(int32_t, paf::ui::Handler *, paf::ui::Event *, void *);
     static void OnCopy(int32_t, paf::ui::Handler *, paf::ui::Event *, void *);
     static void OnDelete(int32_t, paf::ui::Handler *, paf::ui::Event *, void *);
-    static void OnSpeechBalloonTest(int32_t, paf::ui::Handler *, paf::ui::Event *, void *);
 
     EventCb m_cb;
     void *m_userdata;
