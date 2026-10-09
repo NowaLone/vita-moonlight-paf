@@ -33,7 +33,6 @@ static int count_balloon_buttons(paf::ui::Scene *scene)
 {
     static const char *const ids[] = {
         "btn_settings_balloon",
-        "btn_copy_balloon",
         "btn_delete_balloon"
     };
 
@@ -92,25 +91,6 @@ void OptionMenu::OnSettings(int32_t type, paf::ui::Handler *self,
     }
 }
 
-void OptionMenu::OnCopy(int32_t type, paf::ui::Handler *self,
-                        paf::ui::Event *event, void *userdata)
-{
-    OptionMenu *menu = (OptionMenu *)userdata;
-    (void)type;
-    (void)self;
-    (void)event;
-
-    if (!menu) return;
-
-    EventCb callback = menu->m_cb;
-    void *data = menu->m_userdata;
-    delete menu;
-
-    if (callback) {
-        callback(Event_Button, Button_Copy, data);
-    }
-}
-
 void OptionMenu::OnDelete(int32_t type, paf::ui::Handler *self,
                           paf::ui::Event *event, void *userdata)
 {
@@ -165,7 +145,6 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
     m_close_param.fade_time_ms = 1000.0f;
 
     paf::ui::Widget *settings_button = root->FindChild("btn_settings_balloon");
-    paf::ui::Widget *copy_button = root->FindChild("btn_copy_balloon");
     paf::ui::Widget *delete_button = root->FindChild("btn_delete_balloon");
     paf::ui::Widget *dismiss_button = root->FindChild("btn_dismiss_balloon");
     if (dismiss_button) {
@@ -176,12 +155,10 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
     }
 
     bind_decide(root, "btn_settings_balloon", OnSettings, this);
-    bind_decide(root, "btn_copy_balloon", OnCopy, this);
     bind_decide(root, "btn_delete_balloon", OnDelete, this);
     bind_decide(root, "btn_dismiss_balloon", OnDismiss, this);
 
     if (!host_actions_enabled) {
-        set_button_enabled(copy_button, false);
         set_button_enabled(delete_button, false);
     }
 
