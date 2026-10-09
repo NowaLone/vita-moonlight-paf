@@ -289,10 +289,11 @@ Do not replace working protocol logic with hand-written protocol shortcuts witho
 
 ## TODO / Missing Information
 
+The agreed, prioritized development plan lives in [`ROADMAP.md`](ROADMAP.md). Keep that file as the canonical plan; update its checkboxes only when work has actually been verified.
+
 - Document exact supported VITASDK revision.
 - Document exact vitasdk-paf-component and psp2cxml-tool revisions.
 - Add a reproducible dependency/setup procedure.
-- Hardware-verified on Vita: saved-host selection row/checkbox positioning, bottom action-bar anchors, `template_list_view_main` height with six or more saved PCs, the action bar's top border/darkening, Select All/Deselect All focus behavior, disabled Delete with an empty saved-host list, Delete confirmation, and post-delete list refresh/focus.
 - Check the `[Main] RefreshHosts ... after_insert=` log line: it must equal `hosts=`. If it is larger, `ListView::DeleteCell()` is leaving cells behind, which would explain a second saved-PC row without a checkbox.
 - Add automated tests when the project architecture is stable enough to support them.
 - Document preferred formatter/static-analysis tooling if one is adopted.
