@@ -20,19 +20,16 @@ namespace page {
 
 static Main *s_main = NULL;
 
-extern "C" int sceClipboardSetText(const SceWChar16 *text);
-
 namespace {
 
 static const int kGameStreamPort = 47989;
 static const int kMaxHostAddressLength = 255;
-static const int kMaxClipboardTextLength = 2047;
 
 static const SceWChar16 kImeTitle[] = {
     'P', 'C', ' ', 'a', 'd', 'd', 'r', 'e', 's', 's', 0
 };
 
-static void CopyImeText(
+static void ConvertAsciiToImeText(
     const char *input,
     SceWChar16 *output,
     size_t capacity)
@@ -54,7 +51,7 @@ static void CopyImeText(
     output[i] = 0;
 }
 
-static bool CopyImeAddress(
+static bool ConvertImeTextToAddress(
     const SceWChar16 *input,
     char *output,
     size_t output_size)
@@ -187,12 +184,8 @@ static void onOptionMenu(OptionMenu::EventType type, int button_index, void *use
         }
         break;
 
-    case OptionMenu::Button_Copy:
-        main->EnterSelectionMode(Main::SelectionAction_Copy);
-        break;
-
     case OptionMenu::Button_Delete:
-        main->EnterSelectionMode(Main::SelectionAction_Delete);
+        main->EnterSelectionMode();
         break;
 
     default:
@@ -238,11 +231,9 @@ Main::Main()
       m_ime_retry_pending(false),
       m_ime_module_loaded(false),
       m_selection_mode(false),
-      m_selection_action(SelectionAction_None),
       m_selected_count(0),
       m_delete_dialog_open(false),
-      m_delete_dialog_task_registered(false),
-      m_clipboard_module_loaded(false)
+      m_delete_dialog_task_registered(false)
 {
     memset(&m_ime_param, 0, sizeof(m_ime_param));
     memset(m_ime_input, 0, sizeof(m_ime_input));
@@ -342,11 +333,6 @@ Main::~Main()
     if (m_ime_module_loaded) {
         sceSysmoduleUnloadModule(SCE_SYSMODULE_IME);
         m_ime_module_loaded = false;
-    }
-
-    if (m_clipboard_module_loaded) {
-        sceSysmoduleUnloadModule(SCE_SYSMODULE_CLIPBOARD);
-        m_clipboard_module_loaded = false;
     }
 
     if (MoonlightApp::Instance()->IsInitialized()) {
@@ -622,8 +608,6 @@ void Main::UpdateSelectionActionBar()
 
     paf::ui::Widget *action = root->FindChild("btn_selection_action");
     if (action) {
-        action->SetString(paf::common::string_util::ToWString(
-            m_selection_action == SelectionAction_Copy ? "Copy" : "Delete"));
         set_button_enabled(action, m_selected_count > 0);
     }
 
@@ -638,16 +622,14 @@ void Main::UpdateSelectionActionBar()
     }
 }
 
-void Main::EnterSelectionMode(int action)
+void Main::EnterSelectionMode()
 {
     if (m_connecting || m_ime_open || m_ime_retry_pending ||
-        m_host_count <= 0 ||
-        (action != SelectionAction_Copy && action != SelectionAction_Delete)) {
+        m_host_count <= 0) {
         return;
     }
 
     m_selection_mode = true;
-    m_selection_action = (SelectionAction)action;
     m_selected_count = 0;
     memset(m_selected_hosts, 0, sizeof(m_selected_hosts));
 
@@ -672,7 +654,6 @@ void Main::ExitSelectionMode()
     }
 
     m_selection_mode = false;
-    m_selection_action = SelectionAction_None;
     m_selected_count = 0;
     memset(m_selected_hosts, 0, sizeof(m_selected_hosts));
 
@@ -691,8 +672,7 @@ void Main::ExitSelectionMode()
 
 void Main::StartDeleteConfirmation()
 {
-    if (!m_selection_mode || m_selection_action != SelectionAction_Delete ||
-        m_selected_count <= 0 || m_delete_dialog_open) {
+    if (!m_selection_mode || m_selected_count <= 0 || m_delete_dialog_open) {
         return;
     }
 
@@ -764,88 +744,6 @@ void Main::DeleteSelectedHosts()
     }
 }
 
-void Main::CopySelectedHosts()
-{
-    if (m_selected_count <= 0) {
-        return;
-    }
-
-    if (!m_clipboard_module_loaded) {
-        int result = sceSysmoduleLoadModule(SCE_SYSMODULE_CLIPBOARD);
-        if (result < 0) {
-            vita_debug_log(
-                "[Main] failed to load SceClipboard: 0x%08X",
-                (unsigned int)result);
-            ExitSelectionMode();
-            SetStatus("Unable to open the system clipboard.");
-            return;
-        }
-
-        m_clipboard_module_loaded = true;
-    }
-
-    char text[2048];
-    size_t length = 0;
-    text[0] = '\0';
-
-    for (int i = 0; i < m_host_count; ++i) {
-        if (!m_selected_hosts[i]) {
-            continue;
-        }
-
-        const char *address = m_hosts[i].internal[0]
-            ? m_hosts[i].internal
-            : m_hosts[i].external;
-        if (!address || !address[0]) {
-            continue;
-        }
-
-        int written = snprintf(
-            text + length,
-            sizeof(text) - length,
-            "%s%s",
-            length > 0 ? "\n" : "",
-            address);
-        if (written < 0 || (size_t)written >= sizeof(text) - length) {
-            break;
-        }
-        length += (size_t)written;
-
-        if (m_hosts[i].port != 0 && m_hosts[i].port != kGameStreamPort) {
-            int port_written = snprintf(
-                text + length,
-                sizeof(text) - length,
-                ":%u",
-                (unsigned int)m_hosts[i].port);
-            if (port_written < 0 || (size_t)port_written >= sizeof(text) - length) {
-                break;
-            }
-            length += (size_t)port_written;
-        }
-    }
-
-    if (length == 0 || length > (size_t)kMaxClipboardTextLength) {
-        ExitSelectionMode();
-        SetStatus("Nothing to copy.");
-        return;
-    }
-
-    SceWChar16 wide_text[2048];
-    CopyImeText(text, wide_text, sizeof(wide_text) / sizeof(wide_text[0]));
-    int result = sceClipboardSetText(wide_text);
-    ExitSelectionMode();
-
-    if (result < 0) {
-        vita_debug_log(
-            "[Main] sceClipboardSetText failed: 0x%08X",
-            (unsigned int)result);
-        SetStatus("Unable to copy selected PCs.");
-        return;
-    }
-
-    SetStatus("Copied selected PC addresses.");
-}
-
 void Main::SelectionDialogPollTask(void *userdata)
 {
     Main *main = (Main *)userdata;
@@ -911,11 +809,7 @@ void Main::OnSelectionAction(
     Main *main = (Main *)userdata;
     if (!main || main->m_delete_dialog_open || main->m_selected_count <= 0) return;
 
-    if (main->m_selection_action == SelectionAction_Copy) {
-        main->CopySelectedHosts();
-    } else if (main->m_selection_action == SelectionAction_Delete) {
-        main->StartDeleteConfirmation();
-    }
+    main->StartDeleteConfirmation();
 }
 
 void Main::OnSelectionSelectAll(
@@ -997,7 +891,7 @@ void Main::StartAddPcIme()
     }
 
     memset(m_ime_input, 0, sizeof(m_ime_input));
-    CopyImeText(
+    ConvertAsciiToImeText(
         m_add_pc_address[0] ? m_add_pc_address : "",
         m_ime_initial_text,
         sizeof(m_ime_initial_text) / sizeof(m_ime_initial_text[0]));
@@ -1077,7 +971,7 @@ void Main::HandleAddPcImeResult()
     }
 
     char address[kMaxHostAddressLength + 1];
-    if (!CopyImeAddress(m_ime_input, address, sizeof(address))) {
+    if (!ConvertImeTextToAddress(m_ime_input, address, sizeof(address))) {
         SetStatus("Enter a valid PC address or host:port.");
         StartAddPcIme();
         return;
