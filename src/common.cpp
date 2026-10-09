@@ -5,6 +5,7 @@
 #endif
 
 #include "common.h"
+#include <paf/widget/w_button.h>
 
 paf::Plugin *g_plugin = NULL;
 
@@ -52,6 +53,17 @@ void set_button_enabled(paf::ui::Widget *button, bool enabled) {
     if (button == NULL) {
         return;
     }
+
+    /* Set interaction state without fading the button's background texture. */
     button->SetActivate(enabled);
-    button->SetColor(1.0f, 1.0f, 1.0f, enabled ? 1.0f : 0.4f);
+    paf::graph::DrawObj *label = button->GetDrawObj(paf::ui::Button::OBJ_LABEL);
+    if (label != NULL) {
+        const float text_color = enabled ? 1.0f : 0.55f;
+        label->SetColor(paf::math::v4(
+            text_color,
+            text_color,
+            text_color,
+            1.0f
+        ));
+    }
 }
