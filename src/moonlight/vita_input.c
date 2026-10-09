@@ -7,7 +7,14 @@
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/power.h>
 #include <psp2/io/fcntl.h>
+#include <psp2/io/stat.h>
 #include <stdio.h>
+
+#ifndef SCE_POWER_TICK_DISABLE_AUTO_SUSPEND
+#define SCE_POWER_TICK_DISABLE_AUTO_SUSPEND 1
+#endif
+
+extern int scePowerTick(int type);
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
