@@ -579,13 +579,19 @@ void Main::ToggleHostSelection(int index)
     UpdateSelectionCount();
 }
 
+bool Main::AllHostsSelected() const
+{
+    return m_host_count > 0 && m_selected_count >= m_host_count;
+}
+
 void Main::ToggleSelectAll()
 {
     if (!m_selection_mode || m_host_count <= 0) {
         return;
     }
 
-    const bool select = m_selected_count < m_host_count;
+    /* Same condition as the button label: "Clear all" only when everything is selected. */
+    const bool select = !AllHostsSelected();
     for (int i = 0; i < m_host_count; ++i) {
         m_selected_hosts[i] = select;
     }
@@ -623,10 +629,12 @@ void Main::UpdateSelectionActionBar()
 
     paf::ui::Widget *select_all = root->FindChild("btn_selection_select_all");
     if (select_all) {
+        /*
+         * The button is auto-sized from its label (adjust "2, 0, 0" in the XML),
+         * so no width is set here.
+         */
         select_all->SetString(paf::common::string_util::ToWString(
-            m_host_count > 0 && m_selected_count >= m_host_count
-                ? "Deselect All"
-                : "Select All"));
+            AllHostsSelected() ? "Clear All" : "Select All"));
     }
 }
 

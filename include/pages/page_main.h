@@ -67,6 +67,7 @@ private:
     void ExitSelectionMode();
     void ToggleHostSelection(int index);
     void ToggleSelectAll();
+    bool AllHostsSelected() const;
     void UpdateSelectionActionBar();
     void UpdateSelectionCount();
     void StartDeleteConfirmation();
