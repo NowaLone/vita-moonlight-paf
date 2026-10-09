@@ -74,6 +74,7 @@ The current list/title resources intentionally follow the real patterns used by 
 
 - `template_top_title_bar`
 - `template_list_view_generic`
+- `template_list_view_main` (main-page host list, shorter so it clears the bottom bar)
 - `template_list_item_generic`
 - `template_host_list_item_select` (saved-PC row with a checkbox, used only in selection mode)
 - `style_text_top_title_bar`
