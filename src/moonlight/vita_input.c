@@ -5,6 +5,9 @@
 #include <psp2/touch.h>
 #include <psp2/shellutil.h>
 #include <psp2/kernel/threadmgr.h>
+#include <psp2/power.h>
+#include <psp2/io/fcntl.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -27,6 +30,21 @@ static int s_back_deadzone_top = 0;
 static int s_back_deadzone_right = 0;
 static int s_back_deadzone_bottom = 0;
 static int s_back_deadzone_left = 0;
+static int s_swap_xo = 0;
+static int s_front_touchzones = 0;
+static int s_double_tap_sprint = 0;
+static int s_double_tap_ms = 200;
+static int s_keyboard_layout = 0;
+static int s_mapping_enabled = 0;
+static int s_disable_powersave = 1;
+static int s_keyboard_request = 0;
+static int s_zone_latched = 0;
+static uint64_t s_last_sprint_tap = 0;
+static int s_sprint_was_forward = 0;
+static int s_face_cross = A_FLAG;
+static int s_face_circle = B_FLAG;
+static int s_face_square = X_FLAG;
+static int s_face_triangle = Y_FLAG;
 
 static SceCtrlData s_pad;
 static SceCtrlData s_pad_old;
@@ -135,16 +153,16 @@ static void vita_input_send(uint32_t back_buttons)
     }
 
     if (s_pad.buttons & SCE_CTRL_TRIANGLE) {
-        button_flags |= Y_FLAG;
+        button_flags |= s_face_triangle;
     }
     if (s_pad.buttons & SCE_CTRL_CIRCLE) {
-        button_flags |= B_FLAG;
+        button_flags |= s_face_circle;
     }
     if (s_pad.buttons & SCE_CTRL_CROSS) {
-        button_flags |= A_FLAG;
+        button_flags |= s_face_cross;
     }
     if (s_pad.buttons & SCE_CTRL_SQUARE) {
-        button_flags |= X_FLAG;
+        button_flags |= s_face_square;
     }
 
     if (s_swap_shoulder_buttons) {
@@ -182,6 +200,22 @@ static void vita_input_send(uint32_t back_buttons)
         button_flags |= RS_CLK_FLAG;
     }
 
+    if (s_double_tap_sprint) {
+        int forward = s_pad.ly > 200;
+        uint64_t now = sceKernelGetSystemTimeWide();
+        if (forward && !s_sprint_was_forward) {
+            if (s_last_sprint_tap != 0 &&
+                now - s_last_sprint_tap <=
+                    (uint64_t)s_double_tap_ms * 1000ull) {
+                button_flags |= LS_CLK_FLAG;
+                s_last_sprint_tap = 0;
+            } else {
+                s_last_sprint_tap = now;
+            }
+        }
+        s_sprint_was_forward = forward;
+    }
+
     LiSendMultiControllerEvent(
         0,
         1,
@@ -203,6 +237,42 @@ static void vita_input_process(void)
     sceCtrlSetSamplingModeExt(SCE_CTRL_MODE_ANALOG_WIDE);
     sceCtrlPeekBufferPositiveExt2(0, &s_pad, 1);
     sceTouchPeek(SCE_TOUCH_PORT_BACK, &s_back, 1);
+
+    if (s_disable_powersave) {
+        scePowerTick(SCE_POWER_TICK_DISABLE_AUTO_SUSPEND);
+    }
+
+    if (s_front_touchzones && s_touchscreen_mode == 0) {
+        SceTouchData front;
+        memset(&front, 0, sizeof(front));
+        if (sceTouchPeek(SCE_TOUCH_PORT_FRONT, &front, 1) >= 0 &&
+            front.reportNum > 0) {
+            int x;
+            int y;
+            if (s_zone_latched) {
+                goto front_done;
+            }
+            s_zone_latched = 1;
+            x = (int)front.report[0].x * 960 / 1920;
+            y = (int)front.report[0].y * 544 / 1088;
+            if (x < 140 && y < 100) {
+                s_keyboard_request = 1;
+            } else if (x > 820 && y < 100) {
+                LiSendMouseButtonEvent(BUTTON_ACTION_PRESS, BUTTON_RIGHT);
+                LiSendMouseButtonEvent(BUTTON_ACTION_RELEASE, BUTTON_RIGHT);
+            } else if (x < 140 && y > 444) {
+                LiSendMultiControllerEvent(
+                    0, 1, LS_CLK_FLAG, 0, 0, 0, 0, 0, 0);
+            } else if (x > 820 && y > 444) {
+                LiSendMultiControllerEvent(
+                    0, 1, RS_CLK_FLAG, 0, 0, 0, 0, 0, 0);
+            }
+        } else {
+            s_zone_latched = 0;
+        }
+front_done:
+        ;
+    }
 
     ps_pressed = (s_pad.buttons & SCE_CTRL_PSBUTTON) != 0;
     ps_pressed_old = (s_pad_old.buttons & SCE_CTRL_PSBUTTON) != 0;
@@ -425,4 +495,126 @@ void vita_input_set_motion_state(
         controller,
         motion_type,
         report_rate_hz);
+}
+
+static void vita_input_load_mapping(void)
+{
+    SceUID fd;
+    char buffer[1024];
+    int length;
+    char *line;
+
+    s_face_cross = A_FLAG;
+    s_face_circle = B_FLAG;
+    s_face_square = X_FLAG;
+    s_face_triangle = Y_FLAG;
+    if (!s_mapping_enabled) {
+        return;
+    }
+    if (s_swap_xo) {
+        s_face_cross = B_FLAG;
+        s_face_circle = A_FLAG;
+    }
+
+    fd = sceIoOpen("ux0:data/moonlight/vita.conf", SCE_O_RDONLY, 0);
+    if (fd < 0) {
+        sceIoMkdir("ux0:data/moonlight", 0777);
+        fd = sceIoOpen(
+            "ux0:data/moonlight/vita.conf",
+            SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC,
+            0666);
+        if (fd >= 0) {
+            const char *defaults =
+                "# physical=moonlight face button (a b x y)\n"
+                "cross=a\n"
+                "circle=b\n"
+                "square=x\n"
+                "triangle=y\n";
+            sceIoWrite(fd, defaults, strlen(defaults));
+            sceIoClose(fd);
+        }
+        vita_debug_log("[Input] wrote default mapping ux0:data/moonlight/vita.conf");
+        return;
+    }
+
+    length = sceIoRead(fd, buffer, sizeof(buffer) - 1);
+    sceIoClose(fd);
+    if (length <= 0) {
+        return;
+    }
+    buffer[length] = '\0';
+    line = buffer;
+    while (line && *line) {
+        char *next = strchr(line, '\n');
+        char *eq;
+        int flag = 0;
+        if (next) {
+            *next = '\0';
+            ++next;
+        }
+        eq = strchr(line, '=');
+        if (eq && line[0] != '#') {
+            *eq = '\0';
+            if (strcmp(eq + 1, "a") == 0) flag = A_FLAG;
+            else if (strcmp(eq + 1, "b") == 0) flag = B_FLAG;
+            else if (strcmp(eq + 1, "x") == 0) flag = X_FLAG;
+            else if (strcmp(eq + 1, "y") == 0) flag = Y_FLAG;
+            if (flag != 0) {
+                if (strcmp(line, "cross") == 0) s_face_cross = flag;
+                else if (strcmp(line, "circle") == 0) s_face_circle = flag;
+                else if (strcmp(line, "square") == 0) s_face_square = flag;
+                else if (strcmp(line, "triangle") == 0) s_face_triangle = flag;
+            }
+        }
+        line = next;
+    }
+    vita_debug_log("[Input] loaded mapping ux0:data/moonlight/vita.conf");
+}
+
+void vita_input_set_runtime(
+    int swap_xo,
+    int front_touchzones,
+    int double_tap_sprint,
+    int double_tap_ms,
+    int keyboard_layout,
+    int mapping_enabled,
+    int disable_powersave)
+{
+    s_swap_xo = swap_xo ? 1 : 0;
+    s_front_touchzones = front_touchzones ? 1 : 0;
+    s_double_tap_sprint = double_tap_sprint ? 1 : 0;
+    s_double_tap_ms = double_tap_ms > 0 ? double_tap_ms : 200;
+    s_keyboard_layout = keyboard_layout;
+    s_mapping_enabled = mapping_enabled ? 1 : 0;
+    s_disable_powersave = disable_powersave ? 1 : 0;
+    if (!s_mapping_enabled && s_swap_xo) {
+        s_face_cross = B_FLAG;
+        s_face_circle = A_FLAG;
+        s_face_square = X_FLAG;
+        s_face_triangle = Y_FLAG;
+    } else if (!s_mapping_enabled) {
+        s_face_cross = A_FLAG;
+        s_face_circle = B_FLAG;
+        s_face_square = X_FLAG;
+        s_face_triangle = Y_FLAG;
+    }
+    vita_input_load_mapping();
+    if (s_disable_powersave) {
+        scePowerSetArmClockFrequency(444);
+        scePowerSetBusClockFrequency(222);
+        scePowerSetGpuClockFrequency(166);
+        scePowerTick(SCE_POWER_TICK_DISABLE_AUTO_SUSPEND);
+    }
+}
+
+int vita_input_consume_keyboard_request(void)
+{
+    int requested = s_keyboard_request;
+    s_keyboard_request = 0;
+    return requested;
+}
+
+int vita_input_keyboard_layout(void)
+{
+    return s_keyboard_layout;
 }

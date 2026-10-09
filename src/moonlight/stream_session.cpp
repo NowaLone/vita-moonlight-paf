@@ -529,6 +529,22 @@ extern "C" int moonlight_stream_start(
         settings->back_deadzone_right,
         settings->back_deadzone_bottom,
         settings->back_deadzone_left);
+    vita_input_set_runtime(
+        settings->jp_layout,
+        settings->enable_front_touchzones,
+        settings->enable_double_tap_sprint,
+        settings->double_tap_sprint_step_time,
+        settings->keyboard_layout,
+        settings->mapping_enabled,
+        settings->disable_powersave);
+    moonlight_video_set_stream_options(
+        settings->fps,
+        settings->enable_frame_pacer,
+        settings->enable_vita_vblank_wait,
+        settings->center_region_only,
+        settings->show_fps,
+        settings->enable_ref_frame_invalidation);
+    vita_debug_set_file_logging(settings->save_debug_log);
 
     s_stream_context.callback = callback;
     s_stream_context.userdata = userdata;

@@ -1,3 +1,4 @@
+#include <psp2/display.h>
 #include <psp2/kernel/sysmem.h>
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/videodec.h>
@@ -33,6 +34,110 @@ static const unsigned int s_output_width = 960;
 static const unsigned int s_output_height = 544;
 static volatile int s_active;
 static unsigned int s_decoded_frames;
+static int s_target_fps = 60;
+static int s_frame_pacer = 1;
+static int s_vblank_wait = 0;
+static int s_center_region = 0;
+static int s_show_fps = 0;
+static int s_ref_frame_invalidation = 0;
+static unsigned int s_requested_width = 960;
+static unsigned int s_requested_height = 544;
+static unsigned int s_presented_frames;
+static unsigned int s_presented_fps;
+static uint64_t s_fps_window_start;
+static uint64_t s_last_present_time;
+static unsigned int s_fps_window_count;
+
+void moonlight_video_set_stream_options(
+    int fps,
+    int frame_pacer,
+    int vblank_wait,
+    int center_region,
+    int show_fps,
+    int ref_frame_invalidation)
+{
+    if (fps < 1) {
+        fps = 60;
+    }
+    s_target_fps = fps;
+    s_frame_pacer = frame_pacer ? 1 : 0;
+    s_vblank_wait = vblank_wait ? 1 : 0;
+    s_center_region = center_region ? 1 : 0;
+    s_show_fps = show_fps ? 1 : 0;
+    s_ref_frame_invalidation = ref_frame_invalidation ? 1 : 0;
+}
+
+int moonlight_video_show_fps(void)
+{
+    return s_show_fps;
+}
+
+int moonlight_video_center_region(void)
+{
+    return s_center_region;
+}
+
+int moonlight_video_ref_frame_invalidation(void)
+{
+    return s_ref_frame_invalidation;
+}
+
+unsigned int moonlight_video_presented_fps(void)
+{
+    return s_presented_fps;
+}
+
+unsigned int moonlight_video_target_fps(void)
+{
+    return (unsigned int)s_target_fps;
+}
+
+void moonlight_video_get_requested_size(
+    unsigned int *width,
+    unsigned int *height)
+{
+    if (width) {
+        *width = s_requested_width;
+    }
+    if (height) {
+        *height = s_requested_height;
+    }
+}
+
+static int vita_video_pacer_should_drop(void)
+{
+    uint64_t now;
+    uint64_t min_interval;
+
+    if (!s_frame_pacer || s_target_fps <= 0) {
+        return 0;
+    }
+
+    now = sceKernelGetSystemTimeWide();
+    min_interval = 1000000ull / (uint64_t)s_target_fps;
+    if (s_last_present_time != 0 &&
+        now - s_last_present_time < min_interval) {
+        return 1;
+    }
+    return 0;
+}
+
+static void vita_video_note_presented(void)
+{
+    uint64_t now = sceKernelGetSystemTimeWide();
+
+    if (s_fps_window_start == 0) {
+        s_fps_window_start = now;
+    }
+    ++s_presented_frames;
+    ++s_fps_window_count;
+    s_last_present_time = now;
+    if (now - s_fps_window_start >= 1000000ull) {
+        s_presented_fps = s_fps_window_count;
+        s_fps_window_count = 0;
+        s_fps_window_start = now;
+    }
+}
 
 static int vita_video_setup(
     int video_format,
@@ -56,6 +161,8 @@ static int vita_video_setup(
         return -1;
     }
 
+    s_requested_width = (unsigned int)width;
+    s_requested_height = (unsigned int)height;
     s_frame_width = s_output_width;
     s_frame_height = s_output_height;
 
@@ -235,6 +342,14 @@ static int vita_video_setup(
 
     s_active = 1;
     s_decoded_frames = 0;
+#ifdef CAPABILITY_REFERENCE_FRAME_INVALIDATION_AVC
+    decoder_callbacks_vita.capabilities =
+        CAPABILITY_DIRECT_SUBMIT |
+        CAPABILITY_SLICES_PER_FRAME(2) |
+        (s_ref_frame_invalidation
+            ? CAPABILITY_REFERENCE_FRAME_INVALIDATION_AVC
+            : 0);
+#endif
 
     vita_debug_log(
         "[Video] decoder ready %ux%u",
@@ -455,6 +570,14 @@ static int vita_video_submit(PDECODE_UNIT decode_unit)
     }
 
     if (array_picture.numOfOutput > 0 && s_active) {
+        if (vita_video_pacer_should_drop()) {
+            ++s_decoded_frames;
+            return DR_OK;
+        }
+        if (s_vblank_wait) {
+            sceDisplayWaitVblankStart();
+        }
+        vita_video_note_presented();
         vita_debug_log(
             "[Video] present frame=%u buffer=%p slot=%u",
             s_decoded_frames + 1,

@@ -94,6 +94,9 @@
       <plane texture="_bg_texture" id="plane_stream_video">
         <layout_hint anchor="1, 2" align="1, 2" size="960, 544" />
       </plane>
+      <text style="style_text_main_status" id="text_stream_fps">
+        <layout_hint anchor="1, 2" align="1, 2" size="220, 28" pos="16, -8" />
+      </text>
     </page>
 
     <page id="page_apps">

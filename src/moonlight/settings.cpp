@@ -4,7 +4,10 @@
 #include <paf.h>
 
 #include "common.h"
+#include "debug.h"
 #include "moonlight/settings.h"
+#include "vita_input.h"
+#include "vita_video_renderer.h"
 
 namespace {
 
@@ -113,6 +116,7 @@ static int32_t on_post_create(const char *, paf::ui::Widget *)
 
 static int32_t on_press(const char *, const char *)
 {
+    moonlight_settings_apply_runtime();
     emit(MOONLIGHT_EVENT_SETTINGS_CHANGED, 0);
     return SCE_OK;
 }
@@ -205,6 +209,7 @@ int moonlight_settings_init(void)
     }
 
     s_initialized = 1;
+    moonlight_settings_apply_runtime();
     return 0;
 }
 
@@ -316,4 +321,30 @@ int moonlight_settings_get_all(MoonlightSettings *out)
     moonlight_settings_get_value(MOONLIGHT_SETTING_BACK_DEADZONE_BOTTOM, &out->back_deadzone_bottom);
     moonlight_settings_get_value(MOONLIGHT_SETTING_BACK_DEADZONE_LEFT, &out->back_deadzone_left);
     return 0;
+}
+
+void moonlight_settings_apply_runtime(void)
+{
+    MoonlightSettings settings;
+
+    if (moonlight_settings_get_all(&settings) != 0) {
+        return;
+    }
+
+    vita_debug_set_file_logging(settings.save_debug_log);
+    vita_input_set_runtime(
+        settings.jp_layout,
+        settings.enable_front_touchzones,
+        settings.enable_double_tap_sprint,
+        settings.double_tap_sprint_step_time,
+        settings.keyboard_layout,
+        settings.mapping_enabled,
+        settings.disable_powersave);
+    moonlight_video_set_stream_options(
+        settings.fps,
+        settings.enable_frame_pacer,
+        settings.enable_vita_vblank_wait,
+        settings.center_region_only,
+        settings.show_fps,
+        settings.enable_ref_frame_invalidation);
 }

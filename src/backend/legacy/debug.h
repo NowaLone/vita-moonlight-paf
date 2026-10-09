@@ -2,4 +2,5 @@
 
 #include <psp2/kernel/clib.h>
 
-#define vita_debug_log(...) do { sceClibPrintf(__VA_ARGS__); sceClibPrintf("\n"); } while (0)
+void vita_debug_set_file_logging(int enabled);
+void vita_debug_log(const char *fmt, ...);

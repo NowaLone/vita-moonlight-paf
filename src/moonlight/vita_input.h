@@ -19,6 +19,17 @@ int vita_input_configure(
     int back_deadzone_bottom,
     int back_deadzone_left);
 
+void vita_input_set_runtime(
+    int swap_xo,
+    int front_touchzones,
+    int double_tap_sprint,
+    int double_tap_ms,
+    int keyboard_layout,
+    int mapping_enabled,
+    int disable_powersave);
+int vita_input_consume_keyboard_request(void);
+int vita_input_keyboard_layout(void);
+
 void vita_input_set_motion_state(
     uint16_t controller,
     uint8_t motion_type,

@@ -1,8 +1,24 @@
 #include <paf.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+
+#include <psp2/common_dialog.h>
+#include <psp2/ime_dialog.h>
+#include <psp2/sysmodule.h>
+
+#include <Limelight.h>
+
+#ifndef KEY_ACTION_DOWN
+#define KEY_ACTION_DOWN 0x03
+#endif
+#ifndef KEY_ACTION_UP
+#define KEY_ACTION_UP 0x04
+#endif
 
 #include "debug.h"
 #include "pages/page_stream.h"
+#include "../moonlight/vita_input.h"
 #include "../moonlight/vita_video_renderer.h"
 
 using namespace paf;
@@ -13,6 +29,79 @@ Stream *Stream::s_instance = NULL;
 Stream::Frame Stream::s_pending_frame = { NULL, 0, 0, 0, false };
 bool Stream::s_task_registered = false;
 unsigned int Stream::s_release_delay = 0;
+
+static void send_keyboard_text(const SceWChar16 *text)
+{
+    unsigned int i;
+
+    if (!text) {
+        return;
+    }
+    for (i = 0; text[i] != 0 && i < 128; ++i) {
+        if (text[i] >= 0x20 && text[i] <= 0x7e) {
+            LiSendKeyboardEvent((short)text[i], KEY_ACTION_DOWN, 0);
+            LiSendKeyboardEvent((short)text[i], KEY_ACTION_UP, 0);
+        }
+    }
+}
+
+static int ime_language(int layout)
+{
+    switch (layout) {
+    case 1: return SCE_IME_LANGUAGE_GERMAN;
+    case 2: return SCE_IME_LANGUAGE_SPANISH;
+    case 3: return SCE_IME_LANGUAGE_FRENCH;
+    case 4: return SCE_IME_LANGUAGE_RUSSIAN;
+    default: return SCE_IME_LANGUAGE_ENGLISH;
+    }
+}
+
+void Stream::OpenKeyboardIfRequested()
+{
+    static int module_loaded = 0;
+    static int dialog_open = 0;
+    static SceImeDialogParam param;
+    static SceWChar16 buffer[128];
+    static SceWChar16 title[] = { 'K', 'e', 'y', 'b', 'o', 'a', 'r', 'd', 0 };
+
+    if (!dialog_open && vita_input_consume_keyboard_request()) {
+        if (!module_loaded) {
+            if (sceSysmoduleLoadModule(SCE_SYSMODULE_IME) < 0) {
+                return;
+            }
+            module_loaded = 1;
+        }
+        memset(buffer, 0, sizeof(buffer));
+        sceImeDialogParamInit(&param);
+        param.supportedLanguages = ime_language(vita_input_keyboard_layout());
+        param.languagesForced = SCE_TRUE;
+        param.type = SCE_IME_TYPE_DEFAULT;
+        param.option = SCE_IME_OPTION_NO_AUTO_CAPITALIZATION;
+        param.dialogMode = SCE_IME_DIALOG_DIALOG_MODE_WITH_CANCEL;
+        param.textBoxMode = SCE_IME_DIALOG_TEXTBOX_MODE_DEFAULT;
+        param.title = title;
+        param.maxTextLength = 120;
+        param.inputTextBuffer = buffer;
+        param.enterLabel = SCE_IME_ENTER_LABEL_GO;
+        if (sceImeDialogInit(&param) >= 0) {
+            dialog_open = 1;
+        }
+    }
+
+    if (!dialog_open ||
+        sceImeDialogGetStatus() != SCE_COMMON_DIALOG_STATUS_FINISHED) {
+        return;
+    }
+
+    SceImeDialogResult result;
+    memset(&result, 0, sizeof(result));
+    sceImeDialogGetResult(&result);
+    sceImeDialogTerm();
+    dialog_open = 0;
+    if (result.button == SCE_IME_DIALOG_BUTTON_ENTER) {
+        send_keyboard_text(buffer);
+    }
+}
 
 Stream::Stream()
     : Base("page_stream", NULL,
@@ -115,7 +204,10 @@ void Stream::PresentTask(void *)
 
     Stream *stream = s_instance;
     if (stream) {
-        stream->PresentFrame(frame);
+        stream->OpenKeyboardIfRequested();
+        if (frame.valid) {
+            stream->PresentFrame(frame);
+        }
     }
 
     /*
@@ -238,11 +330,36 @@ void Stream::PresentFrame(const Frame &frame)
             static_cast<paf::graph::PlaneObj *>(
                 m_video_plane->GetDrawObj(paf::ui::Plane::OBJ_PLANE));
         if (plane_obj) {
-            plane_obj->SetScaleMode(
-                paf::graph::PlaneObj::SCALE_ASPECT_SIZE,
-                paf::graph::PlaneObj::SCALE_ASPECT_SIZE);
+            if (moonlight_video_center_region()) {
+                plane_obj->SetScaleMode(
+                    paf::graph::PlaneObj::SCALE_SIZE,
+                    paf::graph::PlaneObj::SCALE_SIZE);
+            } else {
+                plane_obj->SetScaleMode(
+                    paf::graph::PlaneObj::SCALE_ASPECT_SIZE,
+                    paf::graph::PlaneObj::SCALE_ASPECT_SIZE);
+            }
         }
     }
+
+    paf::ui::Widget *fps = root ? root->FindChild("text_stream_fps") : NULL;
+    if (fps) {
+        if (moonlight_video_show_fps()) {
+            char label[32];
+            snprintf(
+                label,
+                sizeof(label),
+                "fps: %u / %u",
+                moonlight_video_presented_fps(),
+                moonlight_video_target_fps());
+            ((paf::ui::Text *)fps)->SetString(
+                paf::common::string_util::ToWString(label));
+            fps->Show(paf::common::transition::Type_Reset);
+        } else {
+            fps->Hide(paf::common::transition::Type_Reset);
+        }
+    }
+    OpenKeyboardIfRequested();
 }
 
 void Stream::QueueFrame(

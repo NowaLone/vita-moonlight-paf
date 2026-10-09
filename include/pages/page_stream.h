@@ -42,6 +42,7 @@ private:
     };
 
     void PresentFrame(const Frame &frame);
+    void OpenKeyboardIfRequested();
     SurfaceSlot *FindSurfaceSlot(void *buffer);
 
     paf::ui::Plane *m_video_plane;
