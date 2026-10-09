@@ -402,7 +402,6 @@ paf::ui::ListItem *Main::CreateListItem(
         paf::ui::Widget *checkbox_widget = item->FindChild("checkbox_host_select");
         if (checkbox_widget) {
             paf::ui::CheckBox *checkbox = (paf::ui::CheckBox *)checkbox_widget;
-            checkbox->SetName((uint32_t)param.cell_index);
             checkbox->SetCheck(
                 m_selected_hosts[param.cell_index],
                 0.0f,
@@ -417,6 +416,14 @@ paf::ui::ListItem *Main::CreateListItem(
             m_checkboxes[param.cell_index] = checkbox;
         }
     }
+
+    vita_debug_log(
+        "[Main] cell %d/%d selection=%d button=%p checkbox=%p",
+        param.cell_index,
+        m_host_count,
+        m_selection_mode ? 1 : 0,
+        button,
+        m_checkboxes[param.cell_index]);
 
     const MoonlightHost &host = m_hosts[param.cell_index];
 
@@ -499,6 +506,7 @@ void Main::RefreshHosts()
     if (existing > 0) {
         list->DeleteCell(0, 0, existing - 1);
     }
+    const int cells_after_delete = list->GetCellNum(0);
 
     if (m_host_count > 0) {
         list->InsertCell(0, 0, m_host_count);
@@ -512,6 +520,18 @@ void Main::RefreshHosts()
     } else {
         SetStatus("No PCs registered.");
     }
+
+    /*
+     * If after_insert is larger than hosts, DeleteCell() left cells behind and
+     * the extra rows were built from a stale template.
+     */
+    vita_debug_log(
+        "[Main] RefreshHosts hosts=%d cells before=%d after_delete=%d after_insert=%d selection=%d",
+        m_host_count,
+        existing,
+        cells_after_delete,
+        list->GetCellNum(0),
+        m_selection_mode ? 1 : 0);
 }
 
 void Main::SelectHost(int index)
