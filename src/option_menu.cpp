@@ -29,6 +29,14 @@ static const float kBalloonCenterX = 258.0f;
 static const float kBalloonBottomMargin = 50.0f;
 static const float kScreenHalfHeight = 272.0f;
 
+/*
+ * Messages disabled option-menu row: the plate is lifted off the balloon black,
+ * and the label is a lighter gray than the shared 0.55 helper. SetColor
+ * modulates the button texture; SetDisableColor is the label color.
+ */
+static const float kMessagesDisabledPlate = 0.42f;
+static const float kMessagesDisabledLabel = 0.72f;
+
 static int count_balloon_buttons(paf::ui::Scene *scene)
 {
     static const char *const ids[] = {
@@ -45,6 +53,29 @@ static int count_balloon_buttons(paf::ui::Scene *scene)
     return count;
 }
 
+static void style_balloon_delete_disabled(paf::ui::Widget *button)
+{
+    if (button == NULL) {
+        return;
+    }
+
+    set_button_enabled(button, false);
+
+    paf::ui::ButtonBase *button_base =
+        static_cast<paf::ui::ButtonBase *>(button);
+    button_base->SetDisableColor(
+        kMessagesDisabledLabel,
+        kMessagesDisabledLabel,
+        kMessagesDisabledLabel,
+        1.0f
+    );
+    button->SetColor(paf::math::v4(
+        kMessagesDisabledPlate,
+        kMessagesDisabledPlate,
+        kMessagesDisabledPlate,
+        1.0f
+    ));
+}
 
 }
 
@@ -159,7 +190,7 @@ OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
     bind_decide(root, "btn_dismiss_balloon", OnDismiss, this);
 
     if (!host_actions_enabled) {
-        set_button_enabled(delete_button, false);
+        style_balloon_delete_disabled(delete_button);
     }
 
     set_widget_focusable(
