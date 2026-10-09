@@ -128,10 +128,7 @@
                 <layout_hint size="202, 60" />
                 <focus_hint focus_shape="2" />
               </button>
-              <button sound="_common_sound_button_enter" style="style_button_option_middle" label="msg_delete" id="btn_delete_balloon">
-                <layout_hint size="202, 60" />
-              </button>
-              <button sound="_common_sound_button_enter" style="style_button_option_bottom" label="msg_test_speech_balloon" id="btn_test_speech_balloon">
+              <button sound="_common_sound_button_enter" style="style_button_option_bottom" label="msg_delete" id="btn_delete_balloon">
                 <layout_hint size="202, 60" />
               </button>
             </box>
@@ -140,28 +137,7 @@
       </button>
     </page>
 
-    <page id="page_speech_balloon_test">
-      <plane texture="_bg_texture" id="plane_speech_balloon_test_bg">
-        <layout_hint size="960, 544" />
-        <speech_balloon texture="_common_texture_option_menu_base_side" id="test_speech_balloon">
-          <layout_hint adjust="2, 2, 0" pos="0, -90" />
-          <box id="test_speech_balloon_box">
-            <layout_box layout_type="1" bottom_margin="7" top_margin="7" right_margin="7" left_margin="7" />
-            <button sound="_common_sound_button_enter" style="style_speech_balloon_option_top" label="msg_settings" id="btn_speech_balloon_settings">
-              <layout_hint adjust="2, 0, 0" size="0, 46, 0" />
-            </button>
-            <button sound="_common_sound_button_enter" style="style_speech_balloon_option_middle" label="msg_copy" id="btn_speech_balloon_copy">
-              <layout_hint adjust="2, 0, 0" size="0, 46, 0" />
-            </button>
-            <button sound="_common_sound_button_enter" style="style_speech_balloon_option_bottom" label="msg_delete" id="btn_speech_balloon_delete">
-              <layout_hint adjust="2, 0, 0" size="0, 46, 0" />
-            </button>
-          </box>
-        </speech_balloon>
-      </plane>
 
-      <corner_button style="_common_style_corner_bottom_left" id="btn_close_speech_balloon_test" />
-    </page>
 ge>
   </pagetable>
 
@@ -221,21 +197,7 @@ ge>
       <textobj font_size="28" bold="1" align_y="1" align_x="3" id="label_obj" />
       <planeobj texture0="_common_texture_option_menu_button_bottom_glow" blend="2" id="glow_obj" />
     </style_button>
-    <style_button sound="_common_sound_button_enter" bottom_margin="12" right_margin="20" top_margin="12" left_margin="20" label_obj="label_obj" bg_obj="bg_obj" glow_obj="glow_obj" adjust_min_size="146, 54" id="style_speech_balloon_option_top">
-      <planeobj texture0="_common_texture_option_menu_button_top" id="bg_obj" />
-      <textobj font_size="28" bold="1" align_y="1" align_x="1" adjust_x="1" adjust_y="1" id="label_obj" />
-      <planeobj texture0="_common_texture_option_menu_button_top_glow" blend="2" id="glow_obj" />
-    </style_button>
-    <style_button sound="_common_sound_button_enter" bottom_margin="12" right_margin="20" top_margin="12" left_margin="20" label_obj="label_obj" bg_obj="bg_obj" glow_obj="glow_obj" adjust_min_size="146, 54" id="style_speech_balloon_option_middle">
-      <planeobj texture0="_common_texture_option_menu_button_middle" id="bg_obj" />
-      <textobj font_size="28" bold="1" align_y="1" align_x="1" adjust_x="1" adjust_y="1" id="label_obj" />
-      <planeobj texture0="_common_texture_option_menu_button_middle_glow" blend="2" id="glow_obj" />
-    </style_button>
-    <style_button sound="_common_sound_button_enter" bottom_margin="12" right_margin="20" top_margin="12" left_margin="20" label_obj="label_obj" bg_obj="bg_obj" glow_obj="glow_obj" adjust_min_size="146, 54" id="style_speech_balloon_option_bottom">
-      <planeobj texture0="_common_texture_option_menu_button_bottom" id="bg_obj" />
-      <textobj font_size="28" bold="1" align_y="1" align_x="1" adjust_x="1" adjust_y="1" id="label_obj" />
-      <planeobj texture0="_common_texture_option_menu_button_bottom_glow" blend="2" id="glow_obj" />
-    </style_button>
+    
   </styletable>
 
   <texturetable>
