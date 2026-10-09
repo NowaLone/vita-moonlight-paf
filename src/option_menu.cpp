@@ -30,13 +30,13 @@ static const float kBalloonBottomMargin = 50.0f;
 static const float kScreenHalfHeight = 272.0f;
 
 /*
- * Browser option menu, disabled "Share on Twitter": readable gray on the dark
- * plate, lighter than the shared 0.55 helper. 0.72 still read too dark on the
- * black option-menu texture. Set the color before Disable(); the shared helper
- * writes 0.55 and then disables, and a later write does not replace that.
- * Do not Widget::SetColor the plate: it multiplies the black texture.
+ * Disabled option-menu label. 0.55/0.72/0.86 still read too dark on the black
+ * button texture, so the label is full white. Set the color before Disable();
+ * the shared helper writes 0.55 and then disables, and a later write does not
+ * replace that. Do not Widget::SetColor the plate: it multiplies the black
+ * texture.
  */
-static const float kBrowserDisabledLabel = 0.86f;
+static const float kBrowserDisabledLabel = 1.0f;
 
 static int count_balloon_buttons(paf::ui::Scene *scene)
 {
