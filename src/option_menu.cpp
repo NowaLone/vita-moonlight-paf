@@ -30,11 +30,13 @@ static const float kBalloonBottomMargin = 50.0f;
 static const float kScreenHalfHeight = 272.0f;
 
 /*
- * Messages uses a lighter disabled label than the shared 0.55 helper.
- * Widget::SetColor does not lift the plate: it multiplies the already black
- * option-menu button texture, so the row stays black and the label gets darker.
+ * Browser option menu, disabled "Share on Twitter": readable gray on the dark
+ * plate, lighter than the shared 0.55 helper. 0.72 still read too dark on the
+ * black option-menu texture. Set the color before Disable(); the shared helper
+ * writes 0.55 and then disables, and a later write does not replace that.
+ * Do not Widget::SetColor the plate: it multiplies the black texture.
  */
-static const float kMessagesDisabledLabel = 0.72f;
+static const float kBrowserDisabledLabel = 0.86f;
 
 static int count_balloon_buttons(paf::ui::Scene *scene)
 {
@@ -58,16 +60,16 @@ static void style_balloon_delete_disabled(paf::ui::Widget *button)
         return;
     }
 
-    set_button_enabled(button, false);
-
     paf::ui::ButtonBase *button_base =
         static_cast<paf::ui::ButtonBase *>(button);
     button_base->SetDisableColor(
-        kMessagesDisabledLabel,
-        kMessagesDisabledLabel,
-        kMessagesDisabledLabel,
+        kBrowserDisabledLabel,
+        kBrowserDisabledLabel,
+        kBrowserDisabledLabel,
         1.0f
     );
+    button_base->Disable();
+    button->SetActivate(false);
 }
 
 }
