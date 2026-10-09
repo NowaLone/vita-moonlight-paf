@@ -17,7 +17,7 @@ paf::Plugin *g_plugin = NULL;
 
 static int s_file_logging = 0;
 
-void vita_debug_set_file_logging(int enabled)
+extern "C" void vita_debug_set_file_logging(int enabled)
 {
     s_file_logging = enabled ? 1 : 0;
     if (s_file_logging) {
@@ -25,7 +25,7 @@ void vita_debug_set_file_logging(int enabled)
     }
 }
 
-void vita_debug_log(const char *fmt, ...)
+extern "C" void vita_debug_log(const char *fmt, ...)
 {
     char line[512];
     va_list args;

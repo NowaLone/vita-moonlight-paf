@@ -5,16 +5,14 @@
 #include <psp2/touch.h>
 #include <psp2/shellutil.h>
 #include <psp2/kernel/threadmgr.h>
-#include <psp2/power.h>
+#include <psp2/kernel/processmgr.h>
 #include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
 #include <stdio.h>
 
-#ifndef SCE_POWER_TICK_DISABLE_AUTO_SUSPEND
-#define SCE_POWER_TICK_DISABLE_AUTO_SUSPEND 1
+#ifndef SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND
+#define SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND 1
 #endif
-
-extern int scePowerTick(int type);
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -246,7 +244,7 @@ static void vita_input_process(void)
     sceTouchPeek(SCE_TOUCH_PORT_BACK, &s_back, 1);
 
     if (s_disable_powersave) {
-        scePowerTick(SCE_POWER_TICK_DISABLE_AUTO_SUSPEND);
+        sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
     }
 
     if (s_front_touchzones && s_touchscreen_mode == 0) {
@@ -607,10 +605,7 @@ void vita_input_set_runtime(
     }
     vita_input_load_mapping();
     if (s_disable_powersave) {
-        scePowerSetArmClockFrequency(444);
-        scePowerSetBusClockFrequency(222);
-        scePowerSetGpuClockFrequency(166);
-        scePowerTick(SCE_POWER_TICK_DISABLE_AUTO_SUSPEND);
+        sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
     }
 }
 
