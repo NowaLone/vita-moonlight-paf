@@ -35,7 +35,7 @@ The long-term goal is to keep the frontend architecture native to PAF while cont
 The application currently provides:
 
 - Main PC screen with native PAF title bar, saved host list, inline Add PC address input, Search PCs, and system-settings entry.
-- Saved-host management is implemented in the PAF UI with Copy/Delete multi-selection: the corner button opens the current `OptionMenu`, actions enter selection mode, saved-PC rows use `template_host_list_item_select` with native PAF `paf::ui::CheckBox` controls, and a bottom action bar provides Cancel, Select All/Deselect All, and the selected action.
+- Saved-host management is implemented in the PAF UI with Delete-only multi-selection: the corner button opens the current `OptionMenu`, Delete enters selection mode, saved-PC rows use `template_host_list_item_select` with native PAF `paf::ui::CheckBox` controls, and a bottom action bar provides Cancel, Select All/Deselect All, and Delete.
 - mDNS/LAN host discovery.
 - Persistent saved hosts.
 - Pairing with a PC using the Moonlight PIN flow.
@@ -51,7 +51,7 @@ Streaming is kept outside the PAF plugin layer. Pages call service/backend APIs;
 
 ## Experimental PAF UI Work
 
-The branch `experiment/speech-balloon` now uses a real vertical PAF `<speech_balloon>` directly as the saved-host OptionMenu container. It uses `_common_texture_option_menu_base_down` so its tail points down toward the bottom-right corner button, retains the existing Settings/Copy/Delete button styles and actions, relies on the vertical `box` for content layout, and derives the popup Y position from the active button count and a 50 px bottom margin. The temporary test entry/page, test-only styles, and test-only localized strings have been removed after moving the experiment into the actual popup. Keep the branch separate until the final popup placement and action behavior are verified on Vita hardware.
+The branch `experiment/speech-balloon` uses a real vertical PAF `<speech_balloon>` as the saved-host OptionMenu container. `_common_texture_option_menu_base_down` points its tail down toward the bottom-right corner button. The two actions are Delete at the top and Settings at the bottom; a vertical `box` handles content layout, and the popup Y position is derived from the active button count and a 50 px bottom margin. Temporary test UI and host-copy/clipboard logic have been removed. Verify popup placement and Delete/Settings focus behavior on Vita hardware before merging.
 
 ## Build & Development
 
@@ -128,13 +128,13 @@ CXML changes require rebuilding the RCO before the application build.
 - `SceImeDialog` is owned by the Main page: load `SCE_SYSMODULE_IME` when Add PC is invoked, terminate the dialog before unloading the module, and poll completion from the PAF main-thread call list. The IME input buffers must outlive the dialog.
 - Add PC is an inline Main-page control; there is no dedicated Add PC page.
 - Current UI uses PAF CXML resources and NetStream-style generic list/title templates. The saved-host action popup is currently implemented by the project-owned `OptionMenu` / `page_settings_bubble`; it is a PAF implementation styled and positioned from observed system-app behavior, not a claim that a Sony system action-menu API has been discovered.
-- Saved-host management currently follows the observed Vita system-app selection/action pattern: the standard bottom-right `corner_button` opens the current `OptionMenu`; Copy/Delete enter multi-selection mode; selection-mode rows come from `template_host_list_item_select` and expose a native `paf::ui::CheckBox`; activating a row toggles its selection while the checkbox mirrors the state; the bottom action bar provides Cancel, Select All/Deselect All, and the selected action. Do not replace this with long-press/context menus or custom per-item popups.
-- `SceClipboard` is the system API used for the host Copy action. Current VitaSDK installations do not expose a dedicated public `clipboard.h`; the implementation keeps a small local ABI declaration for `sceClipboardSetText` and links `SceClipboard_stub`.
+- Saved-host management follows the observed Vita system-app selection/action pattern: the standard bottom-right `corner_button` opens the `OptionMenu`; Delete enters multi-selection mode; selection-mode rows come from `template_host_list_item_select` and expose a native `paf::ui::CheckBox`; activating a row toggles its selection while the checkbox mirrors the state; the bottom action bar provides Cancel, Select All/Deselect All, and Delete. Do not replace this with long-press/context menus or custom per-item popups.
+- The app deliberately has no saved-host Copy/clipboard action and no `SceClipboard` dependency. Do not restore clipboard-based host-selection logic unless explicitly requested.
 - Selection mode rebuilds the list cells (`Main::RefreshHosts()`) and picks the row template by mode. Do not show/hide a checkbox on the shared `template_list_item_generic`: Search and Apps use it too.
 - The main page uses its own `template_list_view_main` (384 px tall, same top edge as the generic list) so rows never run under the 72 px bottom bar. Search and Apps keep `template_list_view_generic`.
-- Disabled buttons (the action button with nothing selected, Copy/Delete in the popup with no saved PCs) go through `set_button_enabled()`: `SetActivate()` alone changes nothing visible, so it also fades the widget with `SetColor()`, like the system apps.
+- Disabled buttons (the bottom Delete action with no hosts selected, or Delete in the popup when there are no saved PCs) go through `set_button_enabled()`. `SetActivate()` controls interaction; `GetDrawObj(Button::OBJ_LABEL)->SetColor()` tints only the label gray at full opacity, leaving the button's background texture unchanged. PAF `ButtonBase` exposes `Enable()`/`Disable()` and `SetDisableColor()`, but that button-level color is not a documented label-only control, so don't use it when the black background must remain unchanged.
 - The selection action bar copies the system Photos bar: a 64 px plane with a slightly darker body (`style_plane_selection_bar`, about 6% black) and a 2 px `_common_texture_ruled_line` separator on its top edge, the same asset the title bar uses. No standard bar style is known among the project's `_common_*` resources, so it is repeated here. The bar starts at y = 480, exactly where the main host list ends.
-- The bar buttons are sized by their labels (`adjust="2, 0, 0"`, height 46 px), not by pre-fitted widths: Select All and the Copy/Delete button live in a horizontal `box` anchored to the right edge so they move together when a label changes. The Select All label switches to "Clear all" only when every saved PC is selected (`Main::AllHostsSelected()`, also used by the toggle itself).
+- The bar buttons are sized by their labels (`adjust="2, 0, 0"`, height 46 px), not by pre-fitted widths: Select All and Delete live in a horizontal `box` anchored to the right edge so they move together when the label changes. The Select All label switches to "Clear all" only when every saved PC is selected (`Main::AllHostsSelected()`, also used by the toggle itself).
 - The generated `speech_balloon` is placed with `SetPos()`, which on this widget takes the balloon's centre in PAF centre-origin coordinates (+Y up); `SetPos(420, -140)` measurably put its left edge at screen x ~795 and pushed the last button off screen. `option_menu.cpp` centres it at x = 258 (it then spans 631..845 px, like the system Photos popup) and derives the height from the buttons present (60 px each + 12 px margins) so the bottom edge stays 50 px above the screen bottom.
 - The main page status text is centred on the list, so the idle hint is hidden while saved PCs are listed; it is shown for the empty state and for transient messages.
 - Saved-host Delete uses `SceMessageDialog` for confirmation and removes the selected persistent records through the HostService → backend → legacy device store path.
@@ -176,7 +176,7 @@ The long-term native-integration shortlist below was researched specifically for
 - **`SceNotificationUtil`** — system notifications and progress-style notifications. It is not used by the current connection flow; do not reintroduce it for connection progress unless a concrete non-modal notification use case appears.
 - **`SceNetCtl`** — system network state information and callbacks. Useful for Wi-Fi/network status, reconnect handling, diagnostics, and exposing network information in UI.
 - **`ScePower`** — power/idle management. Relevant to preventing unwanted suspend during streaming and integrating the existing `disable_power_save` setting. Manual clock/frequency manipulation is not planned unless profiling demonstrates a need.
-- **`SceClipboard`** — system clipboard. Useful for copying/pasting PC addresses, hostnames, or other connection data.
+- **`SceClipboard`** — researched but intentionally unused; the current app has no clipboard UX. Revisit only for a concrete, requested user-facing feature.
 
 #### Secondary system integration worth testing
 
@@ -292,9 +292,8 @@ Do not replace working protocol logic with hand-written protocol shortcuts witho
 - Document exact supported VITASDK revision.
 - Document exact vitasdk-paf-component and psp2cxml-tool revisions.
 - Add a reproducible dependency/setup procedure.
-- Hardware-verify the saved-host selection UI: row/checkbox positioning, bottom action-bar anchors, main list height (`template_list_view_main`) with six or more saved PCs, speech-balloon position, the bar's top border and darkening, and whether the bar buttons resize when the Select All / Clear all label changes, Select All/Deselect All focus behavior, and disabled Copy/Delete state when the list is empty.
+- Hardware-verify the saved-host selection UI: row/checkbox positioning, bottom action-bar anchors, main list height (`template_list_view_main`) with six or more saved PCs, speech-balloon position, the bar's top border and darkening, whether the Delete button remains black while its text is gray when no rows are selected, Select All/Deselect All focus behavior, and Delete disabled state when the saved-host list is empty.
 - Verify Delete confirmation and post-delete list refresh/focus on real Vita hardware.
-- Verify host Copy through `SceClipboard`; add paste/input support only after confirming a concrete UI path that uses the same system clipboard.
 - Check the `[Main] RefreshHosts ... after_insert=` log line: it must equal `hosts=`. If it is larger, `ListView::DeleteCell()` is leaving cells behind, which would explain a second saved-PC row without a checkbox.
 - Add automated tests when the project architecture is stable enough to support them.
 - Document preferred formatter/static-analysis tooling if one is adopted.
