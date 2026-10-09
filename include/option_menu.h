@@ -12,13 +12,12 @@ public:
 
     enum ButtonType {
         Button_Settings = 0,
-        Button_Copy = 1,
-        Button_Delete = 2
+        Button_Delete = 1
     };
 
     typedef void (*EventCb)(EventType, int, void*);
 
-    /* Copy/Delete need at least one saved PC; they are disabled otherwise. */
+    /* Delete is disabled when there are no saved PCs. */
     OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent, EventCb cb, void *userdata,
                bool host_actions_enabled = true);
     virtual ~OptionMenu();
@@ -29,7 +28,6 @@ public:
 private:
     static void OnDismiss(int32_t, paf::ui::Handler *, paf::ui::Event *, void *);
     static void OnSettings(int32_t, paf::ui::Handler *, paf::ui::Event *, void *);
-    static void OnCopy(int32_t, paf::ui::Handler *, paf::ui::Event *, void *);
     static void OnDelete(int32_t, paf::ui::Handler *, paf::ui::Event *, void *);
 
     EventCb m_cb;
