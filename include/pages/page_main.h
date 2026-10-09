@@ -36,13 +36,7 @@ public:
     void OpenAddPc();
     void RestoreEventCallback();
 
-    enum SelectionAction {
-        SelectionAction_None = 0,
-        SelectionAction_Copy = 1,
-        SelectionAction_Delete = 2
-    };
-
-    void EnterSelectionMode(int action);
+    void EnterSelectionMode();
     bool HasHosts() const { return m_host_count > 0; }
 
 private:
@@ -72,7 +66,6 @@ private:
     void UpdateSelectionCount();
     void StartDeleteConfirmation();
     void DeleteSelectedHosts();
-    void CopySelectedHosts();
 
     MoonlightHost m_hosts[8];
     int m_host_count;
@@ -91,14 +84,12 @@ private:
     bool m_ime_module_loaded;
 
     bool m_selection_mode;
-    SelectionAction m_selection_action;
     bool m_selected_hosts[8];
     paf::ui::CheckBox *m_checkboxes[8];
     int m_selected_count;
     bool m_delete_dialog_open;
     bool m_delete_dialog_task_registered;
     char m_delete_message[512];
-    bool m_clipboard_module_loaded;
 };
 
 }
