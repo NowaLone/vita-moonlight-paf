@@ -641,6 +641,18 @@ void Main::EnterSelectionMode()
     if (normal_actions) normal_actions->Hide(paf::common::transition::Type_Reset);
     if (status) status->Hide(paf::common::transition::Type_Reset);
     if (settings) settings->Hide(paf::common::transition::Type_Reset);
+
+    /*
+     * Circle is PAD_ESCAPE (0x20). Bind it before the bar is shown so the
+     * direct key is live on the first back press, including while a list row
+     * has focus. Photos uses the same mapping for the selection-bar Cancel.
+     */
+    paf::ui::Widget *cancel = root->FindChild("btn_selection_cancel");
+    if (cancel) {
+        cancel->Enable();
+        cancel->SetKeycode(paf::inputdevice::pad::Data::PAD_ESCAPE);
+    }
+
     if (selection_actions) selection_actions->Show(paf::common::transition::Type_Reset);
 
     RefreshHosts();
@@ -661,6 +673,11 @@ void Main::ExitSelectionMode()
     paf::ui::Widget *status = root->FindChild("text_main_status");
     paf::ui::Widget *settings = root->FindChild("settings_button");
     paf::ui::Widget *selection_actions = root->FindChild("plane_main_selection_actions");
+
+    paf::ui::Widget *cancel = root->FindChild("btn_selection_cancel");
+    if (cancel) {
+        cancel->SetKeycode(0);
+    }
 
     if (selection_actions) selection_actions->Hide(paf::common::transition::Type_Reset);
     if (normal_actions) normal_actions->Show(paf::common::transition::Type_Reset);
