@@ -6,6 +6,7 @@
 #include <psp2/common_dialog.h>
 #include <psp2/ime_dialog.h>
 #include <psp2/sysmodule.h>
+#include <psp2/kernel/threadmgr.h>
 
 #include <Limelight.h>
 
@@ -29,6 +30,23 @@ Stream *Stream::s_instance = NULL;
 Stream::Frame Stream::s_pending_frame = { NULL, 0, 0, 0, false };
 bool Stream::s_task_registered = false;
 unsigned int Stream::s_release_delay = 0;
+
+static void stream_power_tick_task(void *)
+{
+    /*
+     * Match NetStream's PowerTick_All behavior while the stream page is active:
+     * reset standby, display-off and dimming idle timers during video playback.
+     */
+    sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DEFAULT);
+}
+
+static void set_stream_power_tick(bool enabled)
+{
+    common::MainThreadCallList::Unregister(stream_power_tick_task, NULL);
+    if (enabled) {
+        common::MainThreadCallList::Register(stream_power_tick_task, NULL);
+    }
+}
 
 static void send_keyboard_text(const SceWChar16 *text)
 {
@@ -142,11 +160,15 @@ Stream::Stream()
         vita_debug_log(
             "[StreamPage] video plane obj=%p",
             plane_obj);
+
+        /* Keep the Vita awake only while the streaming page is active. */
+        set_stream_power_tick(true);
     }
 }
 
 Stream::~Stream()
 {
+    set_stream_power_tick(false);
     if (s_instance == this) {
         s_instance = NULL;
     }
@@ -326,18 +348,29 @@ void Stream::PresentFrame(const Frame &frame)
     if (slot->surface.get()) {
         m_video_plane->SetTexture(slot->surface);
 
-        paf::graph::PlaneObj *plane_obj =
-            static_cast<paf::graph::PlaneObj *>(
-                m_video_plane->GetDrawObj(paf::ui::Plane::OBJ_PLANE));
-        if (plane_obj) {
-            if (moonlight_video_center_region()) {
+        if (m_video_plane_width != frame.width ||
+            m_video_plane_height != frame.height) {
+            /*
+             * Keep the decoded image at its aspect-correct size. In
+             * center-region mode the surface is intentionally larger than
+             * the screen, so the page viewport clips its outer edges.
+             */
+            m_video_plane->SetSize(paf::math::v4(
+                (float)frame.width,
+                (float)frame.height,
+                0.0f,
+                0.0f));
+            m_video_plane->SetPos(paf::math::v4(0.0f, 0.0f, 0.0f));
+            m_video_plane_width = frame.width;
+            m_video_plane_height = frame.height;
+
+            paf::graph::PlaneObj *plane_obj =
+                static_cast<paf::graph::PlaneObj *>(
+                    m_video_plane->GetDrawObj(paf::ui::Plane::OBJ_PLANE));
+            if (plane_obj) {
                 plane_obj->SetScaleMode(
                     paf::graph::PlaneObj::SCALE_SIZE,
                     paf::graph::PlaneObj::SCALE_SIZE);
-            } else {
-                plane_obj->SetScaleMode(
-                    paf::graph::PlaneObj::SCALE_ASPECT_SIZE,
-                    paf::graph::PlaneObj::SCALE_ASPECT_SIZE);
             }
         }
     }
