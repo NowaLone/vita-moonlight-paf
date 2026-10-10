@@ -10,9 +10,6 @@
 #include <psp2/io/stat.h>
 #include <stdio.h>
 
-#ifndef SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND
-#define SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND 1
-#endif
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
