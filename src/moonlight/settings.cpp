@@ -56,8 +56,6 @@ static const char *key_name(MoonlightSettingKey key)
     case MOONLIGHT_SETTING_VITA_VBLANK: return "vita_vblank";
     case MOONLIGHT_SETTING_FRAME_PACER: return "frame_pacer";
     case MOONLIGHT_SETTING_LOCAL_AUDIO: return "local_audio";
-    case MOONLIGHT_SETTING_DEBUG_LOG: return "debug_log";
-    case MOONLIGHT_SETTING_DISABLE_POWER_SAVE: return "disable_power_save";
     case MOONLIGHT_SETTING_SWAP_XO: return "swap_xo";
     case MOONLIGHT_SETTING_SHOW_FPS: return "show_fps";
     case MOONLIGHT_SETTING_GYRO: return "gyro";
@@ -298,10 +296,8 @@ int moonlight_settings_get_all(MoonlightSettings *out)
     moonlight_settings_get_value(MOONLIGHT_SETTING_LOCAL_AUDIO, &out->localaudio);
     moonlight_settings_get_value(MOONLIGHT_SETTING_FRAME_PACER, &out->enable_frame_pacer);
     moonlight_settings_get_value(MOONLIGHT_SETTING_CENTER_REGION_ONLY, &out->center_region_only);
-    moonlight_settings_get_value(MOONLIGHT_SETTING_DISABLE_POWER_SAVE, &out->disable_powersave);
     moonlight_settings_get_value(MOONLIGHT_SETTING_SWAP_XO, &out->jp_layout);
     moonlight_settings_get_value(MOONLIGHT_SETTING_SHOW_FPS, &out->show_fps);
-    moonlight_settings_get_value(MOONLIGHT_SETTING_DEBUG_LOG, &out->save_debug_log);
     moonlight_settings_get_value(MOONLIGHT_SETTING_FRONT_TOUCHZONES, &out->enable_front_touchzones);
     moonlight_settings_get_value(MOONLIGHT_SETTING_MAPPING_ENABLED, &out->mapping_enabled);
     moonlight_settings_get_value(MOONLIGHT_SETTING_MOUSE_ACCELERATION, &out->mouse_acceleration);
@@ -331,15 +327,13 @@ void moonlight_settings_apply_runtime(void)
         return;
     }
 
-    vita_debug_set_file_logging(settings.save_debug_log);
     vita_input_set_runtime(
         settings.jp_layout,
         settings.enable_front_touchzones,
         settings.enable_double_tap_sprint,
         settings.double_tap_sprint_step_time,
         settings.keyboard_layout,
-        settings.mapping_enabled,
-        settings.disable_powersave);
+        settings.mapping_enabled);
     moonlight_video_set_stream_options(
         settings.fps,
         settings.enable_frame_pacer,
