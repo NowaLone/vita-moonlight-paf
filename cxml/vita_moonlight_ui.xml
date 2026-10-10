@@ -28,9 +28,12 @@
       </plane>
 
       <plane style="style_plane_selection_bar" id="plane_main_selection_actions">
-        <layout_hint anchor="0, 1" align="0, 1" size="960, 72" pos="0, 0" />
-        <plane style="style_plane_selection_bar_edge" id="plane_selection_bar_separator">
-          <layout_hint anchor="0, 2" align="0, 2" size="960, 2" pos="0, 0" />
+        <layout_hint anchor="0, 1" align="0, 1" size="960, 64" pos="0, 0" />
+        <plane style="style_plane_selection_bar_edge_dark" id="plane_selection_bar_separator">
+          <layout_hint anchor="0, 2" align="0, 2" size="960, 1" pos="0, 0" />
+        </plane>
+        <plane style="style_plane_selection_bar_edge_light" id="plane_selection_bar_separator_light">
+          <layout_hint anchor="0, 2" align="0, 2" size="960, 1" pos="0, -1" />
         </plane>
         <button sound="_common_sound_button_back" style="_common_default_style_button" label="msg_cancel" id="btn_selection_cancel">
           <layout_hint anchor="1, 1" align="1, 1" adjust="2, 0, 0" size="0, 46, 0" pos="12, 10" />
@@ -145,12 +148,16 @@ ge>
       <planeobj color="0.063, 0.294, 0.655, 1" id="plane_obj_fill" />
     </style_plane>
 
-    <style_plane color="0.012, 0.086, 0.204, 0.55" planeobj="plane_obj_selection_bar" id="style_plane_selection_bar">
-      <planeobj color="0.012, 0.086, 0.204, 0.55" id="plane_obj_selection_bar" />
+    <style_plane color="1, 1, 1, 1" planeobj="plane_obj_selection_bar" id="style_plane_selection_bar">
+      <planeobj color="0, 0, 0, 0.05" id="plane_obj_selection_bar" />
     </style_plane>
 
-    <style_plane color="1, 1, 1, 0.34" planeobj="plane_obj_selection_bar_edge" id="style_plane_selection_bar_edge">
-      <planeobj color="1, 1, 1, 0.34" id="plane_obj_selection_bar_edge" />
+    <style_plane color="1, 1, 1, 1" planeobj="plane_obj_selection_bar_edge_dark" id="style_plane_selection_bar_edge_dark">
+      <planeobj color="0, 0, 0, 0.05" id="plane_obj_selection_bar_edge_dark" />
+    </style_plane>
+
+    <style_plane color="1, 1, 1, 1" planeobj="plane_obj_selection_bar_edge_light" id="style_plane_selection_bar_edge_light">
+      <planeobj color="1, 1, 1, 0.18" id="plane_obj_selection_bar_edge_light" />
     </style_plane>
 
     <style_text textobj="title_obj" id="style_text_title">
