@@ -177,7 +177,7 @@ The long-term native-integration shortlist below was researched specifically for
 - **`SceMessageDialog` / internal message-dialog support** — native confirmation, error, progress, and wait/loading dialogs. The connection flow currently uses its native WAIT dialog while connecting and an OK error dialog on failure; pairing failures use the same common-dialog family.
 - **`SceNotificationUtil`** — system notifications and progress-style notifications. It is not used by the current connection flow; do not reintroduce it for connection progress unless a concrete non-modal notification use case appears.
 - **`SceNetCtl`** — system network state information and callbacks. Useful for Wi-Fi/network status, reconnect handling, diagnostics, and exposing network information in UI.
-- **`ScePower`** — power/idle management. Relevant to preventing unwanted suspend during streaming and integrating the existing `disable_power_save` setting. Manual clock/frequency manipulation is not planned unless profiling demonstrates a need.
+- **Power/idle management** — follow NetStream's lifecycle pattern: schedule `sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DEFAULT)` on the PAF main-thread call list only while the streaming page is active, and unregister it when the page is destroyed. Do not expose a permanent `Disable Power Save` setting or tick continuously while browsing. Manual clock/frequency manipulation is not planned unless profiling demonstrates a need.
 - **`SceClipboard`** — researched but intentionally unused; the current app has no clipboard UX. Revisit only for a concrete, requested user-facing feature.
 
 #### Secondary system integration worth testing
