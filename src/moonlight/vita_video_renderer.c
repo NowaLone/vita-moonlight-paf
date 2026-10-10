@@ -30,8 +30,10 @@ static char *s_decoder_buffer;
 static size_t s_decoder_buffer_size;
 static unsigned int s_frame_width;
 static unsigned int s_frame_height;
-static const unsigned int s_output_width = 960;
-static const unsigned int s_output_height = 544;
+enum {
+    VITA_SCREEN_WIDTH = 960,
+    VITA_SCREEN_HEIGHT = 544
+};
 static volatile int s_active;
 static unsigned int s_decoded_frames;
 static int s_target_fps = 60;
@@ -47,6 +49,82 @@ static unsigned int s_presented_fps;
 static uint64_t s_fps_window_start;
 static uint64_t s_last_present_time;
 static unsigned int s_fps_window_count;
+
+static unsigned int align_decoder_resolution(uint64_t value)
+{
+    return (unsigned int)((value + 15u) & ~((uint64_t)15u));
+}
+
+static uint64_t divide_round_up(uint64_t numerator, uint64_t denominator)
+{
+    return denominator == 0 ? 0 : (numerator + denominator - 1u) / denominator;
+}
+
+/*
+ * Match the original Vita Moonlight scaling model:
+ * - fit mode: contain the whole image inside 960x544;
+ * - center-region mode: scale to cover the screen and let the screen/page
+ *   viewport crop the extra edges.
+ *
+ * SceAvcdec's destination surface dimensions are also the PAF surface
+ * dimensions, so the frame pool must be sized for the larger crop surfaces.
+ */
+static void vita_video_calculate_output_size(
+    unsigned int source_width,
+    unsigned int source_height)
+{
+    uint64_t source_is_narrower;
+    uint64_t screen_is_narrower;
+
+    if (source_width == 0 || source_height == 0) {
+        s_frame_width = VITA_SCREEN_WIDTH;
+        s_frame_height = VITA_SCREEN_HEIGHT;
+        return;
+    }
+
+    source_is_narrower =
+        (uint64_t)VITA_SCREEN_WIDTH * source_height;
+    screen_is_narrower =
+        (uint64_t)VITA_SCREEN_HEIGHT * source_width;
+
+    if (source_is_narrower == screen_is_narrower) {
+        s_frame_width = VITA_SCREEN_WIDTH;
+        s_frame_height = VITA_SCREEN_HEIGHT;
+        return;
+    }
+
+    if (source_is_narrower > screen_is_narrower) {
+        /* The source is narrower than the Vita screen. */
+        if (s_center_region) {
+            s_frame_width = VITA_SCREEN_WIDTH;
+            s_frame_height = align_decoder_resolution(
+                divide_round_up(
+                    (uint64_t)VITA_SCREEN_WIDTH * source_height,
+                    source_width));
+        } else {
+            s_frame_width = align_decoder_resolution(
+                divide_round_up(
+                    (uint64_t)VITA_SCREEN_HEIGHT * source_width,
+                    source_height));
+            s_frame_height = VITA_SCREEN_HEIGHT;
+        }
+    } else {
+        /* The source is wider than the Vita screen. */
+        if (s_center_region) {
+            s_frame_width = align_decoder_resolution(
+                divide_round_up(
+                    (uint64_t)VITA_SCREEN_HEIGHT * source_width,
+                    source_height));
+            s_frame_height = VITA_SCREEN_HEIGHT;
+        } else {
+            s_frame_width = VITA_SCREEN_WIDTH;
+            s_frame_height = align_decoder_resolution(
+                divide_round_up(
+                    (uint64_t)VITA_SCREEN_WIDTH * source_height,
+                    source_width));
+        }
+    }
+}
 
 void moonlight_video_set_stream_options(
     int fps,
@@ -163,8 +241,9 @@ static int vita_video_setup(
 
     s_requested_width = (unsigned int)width;
     s_requested_height = (unsigned int)height;
-    s_frame_width = s_output_width;
-    s_frame_height = s_output_height;
+    vita_video_calculate_output_size(
+        s_requested_width,
+        s_requested_height);
 
     s_decoder_buffer_size = 128 * 1024 + 64;
     s_decoder_buffer = (char *)malloc(s_decoder_buffer_size);
@@ -264,7 +343,9 @@ static int vita_video_setup(
      * (2 MiB CDRAM) even when the stream itself is 1280x720. The decoder
      * writes its output directly into that display-sized buffer.
      */
-    frame_size = 2 * 1024 * 1024;
+    frame_size =
+        (size_t)s_frame_width * (size_t)s_frame_height * 4u;
+    frame_size = (frame_size + 0xFFFFFu) & ~((size_t)0xFFFFFu);
 
     /*
      * A new decoder session invalidates every previously queued deferred
