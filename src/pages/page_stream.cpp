@@ -354,29 +354,36 @@ void Stream::PresentFrame(const Frame &frame)
     if (slot->surface.get()) {
         m_video_plane->SetTexture(slot->surface);
 
-        if (m_video_plane_width != frame.width ||
-            m_video_plane_height != frame.height) {
+        const bool center_region = moonlight_video_center_region() != 0;
+        const unsigned int plane_width = center_region ? frame.width : 960;
+        const unsigned int plane_height = center_region ? frame.height : 544;
+
+        if (m_video_plane_width != plane_width ||
+            m_video_plane_height != plane_height) {
             /*
-             * Keep the decoded image at its aspect-correct size. In
-             * center-region mode the surface is intentionally larger than
-             * the screen, so the page viewport clips its outer edges.
+             * Fit mode keeps a full-screen plane so its background fills the
+             * letterbox area. Center-region mode scales a larger aspect-correct
+             * surface beyond the screen and relies on the page viewport to
+             * clip the outer edges.
              */
             m_video_plane->SetSize(paf::math::v4(
-                (float)frame.width,
-                (float)frame.height,
+                (float)plane_width,
+                (float)plane_height,
                 0.0f,
                 0.0f));
             m_video_plane->SetPos(paf::math::v4(0.0f, 0.0f, 0.0f));
-            m_video_plane_width = frame.width;
-            m_video_plane_height = frame.height;
+            m_video_plane_width = plane_width;
+            m_video_plane_height = plane_height;
 
             paf::graph::PlaneObj *plane_obj =
                 static_cast<paf::graph::PlaneObj *>(
                     m_video_plane->GetDrawObj(paf::ui::Plane::OBJ_PLANE));
             if (plane_obj) {
-                plane_obj->SetScaleMode(
-                    paf::graph::PlaneObj::SCALE_SIZE,
-                    paf::graph::PlaneObj::SCALE_SIZE);
+                const paf::graph::PlaneObj::ScaleMode scale_mode =
+                    center_region
+                        ? paf::graph::PlaneObj::SCALE_SIZE
+                        : paf::graph::PlaneObj::SCALE_ASPECT_SIZE;
+                plane_obj->SetScaleMode(scale_mode, scale_mode);
             }
         }
     }
