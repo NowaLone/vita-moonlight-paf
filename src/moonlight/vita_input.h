@@ -25,8 +25,7 @@ void vita_input_set_runtime(
     int double_tap_sprint,
     int double_tap_ms,
     int keyboard_layout,
-    int mapping_enabled,
-    int disable_powersave);
+    int mapping_enabled);
 int vita_input_consume_keyboard_request(void);
 int vita_input_keyboard_layout(void);
 
