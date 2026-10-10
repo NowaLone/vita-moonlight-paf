@@ -13,8 +13,6 @@ typedef enum MoonlightSettingKey {
     MOONLIGHT_SETTING_VITA_VBLANK,
     MOONLIGHT_SETTING_FRAME_PACER,
     MOONLIGHT_SETTING_LOCAL_AUDIO,
-    MOONLIGHT_SETTING_DEBUG_LOG,
-    MOONLIGHT_SETTING_DISABLE_POWER_SAVE,
     MOONLIGHT_SETTING_SWAP_XO,
     MOONLIGHT_SETTING_SHOW_FPS,
     MOONLIGHT_SETTING_GYRO,
@@ -45,10 +43,8 @@ typedef struct MoonlightSettings {
     int localaudio;
     int enable_frame_pacer;
     int center_region_only;
-    int disable_powersave;
     int jp_layout;
     int show_fps;
-    int save_debug_log;
     int enable_front_touchzones;
     int mapping_enabled;
     int mouse_acceleration;
