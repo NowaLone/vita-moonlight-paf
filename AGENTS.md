@@ -248,6 +248,8 @@ Saved-host deletion resolves the selected `MoonlightHost` back to the exact stor
 
 Keep the streaming stack below the PAF boundary.
 
+- Diagnostics go through `vita_debug_log()` to `psp2shell` only. Do not reintroduce file-based streaming logs or a Debug Log toggle: synchronous file I/O caused severe streaming degradation on Vita.
+
 Current streaming sources include:
 
 - Moonlight common C streaming transport/protocol;
