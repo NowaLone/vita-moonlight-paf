@@ -129,7 +129,9 @@ Stream::Stream()
     : Base("page_stream", NULL,
            Plugin::TransitionType_None,
            Plugin::TransitionType_None),
-      m_video_plane(NULL)
+      m_video_plane(NULL),
+      m_video_plane_width(0),
+      m_video_plane_height(0)
 {
     unsigned int i;
 
