@@ -46,6 +46,8 @@ private:
     SurfaceSlot *FindSurfaceSlot(void *buffer);
 
     paf::ui::Plane *m_video_plane;
+    unsigned int m_video_plane_width;
+    unsigned int m_video_plane_height;
     SurfaceSlot m_surface_slots[kSurfaceSlotCount];
 
     static Stream *s_instance;
