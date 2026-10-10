@@ -379,11 +379,15 @@ void Stream::PresentFrame(const Frame &frame)
                 static_cast<paf::graph::PlaneObj *>(
                     m_video_plane->GetDrawObj(paf::ui::Plane::OBJ_PLANE));
             if (plane_obj) {
-                const paf::graph::PlaneObj::ScaleMode scale_mode =
-                    center_region
-                        ? paf::graph::PlaneObj::SCALE_SIZE
-                        : paf::graph::PlaneObj::SCALE_ASPECT_SIZE;
-                plane_obj->SetScaleMode(scale_mode, scale_mode);
+                if (center_region) {
+                    plane_obj->SetScaleMode(
+                        paf::graph::PlaneObj::SCALE_SIZE,
+                        paf::graph::PlaneObj::SCALE_SIZE);
+                } else {
+                    plane_obj->SetScaleMode(
+                        paf::graph::PlaneObj::SCALE_ASPECT_SIZE,
+                        paf::graph::PlaneObj::SCALE_ASPECT_SIZE);
+                }
             }
         }
     }
