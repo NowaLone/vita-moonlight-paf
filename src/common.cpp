@@ -31,7 +31,7 @@ extern "C" void vita_debug_log(const char *fmt, ...)
     va_list args;
     int length;
 
-    if (!fmt) {
+    if (!fmt || !s_file_logging) {
         return;
     }
 
@@ -46,10 +46,6 @@ extern "C" void vita_debug_log(const char *fmt, ...)
     }
 
     sceClibPrintf("%s\n", line);
-
-    if (!s_file_logging) {
-        return;
-    }
 
     SceUID fd = sceIoOpen(
         "ux0:data/moonlight/moonlight.log",
