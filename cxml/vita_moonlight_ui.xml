@@ -149,15 +149,15 @@ ge>
     </style_plane>
 
     <style_plane color="1, 1, 1, 1" planeobj="plane_obj_selection_bar" id="style_plane_selection_bar">
-      <planeobj color="0, 0, 0, 0.12" id="plane_obj_selection_bar" />
+      <planeobj color="0, 0, 0, 0.05" id="plane_obj_selection_bar" />
     </style_plane>
 
     <style_plane color="1, 1, 1, 1" planeobj="plane_obj_selection_bar_edge_dark" id="style_plane_selection_bar_edge_dark">
-      <planeobj color="0, 0, 0, 0.10" id="plane_obj_selection_bar_edge_dark" />
+      <planeobj color="0, 0, 0, 0.05" id="plane_obj_selection_bar_edge_dark" />
     </style_plane>
 
     <style_plane color="1, 1, 1, 1" planeobj="plane_obj_selection_bar_edge_light" id="style_plane_selection_bar_edge_light">
-      <planeobj color="1, 1, 1, 0.30" id="plane_obj_selection_bar_edge_light" />
+      <planeobj color="1, 1, 1, 0.18" id="plane_obj_selection_bar_edge_light" />
     </style_plane>
 
     <style_text textobj="title_obj" id="style_text_title">
