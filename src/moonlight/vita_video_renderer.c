@@ -339,9 +339,9 @@ static int vita_video_setup(
     }
 
     /*
-     * The original vita-moonlight renderer uses a 960x544 framebuffer
-     * (2 MiB CDRAM) even when the stream itself is 1280x720. The decoder
-     * writes its output directly into that display-sized buffer.
+     * The output dimensions follow the selected fit/crop mode rather than the
+     * source stream dimensions. Reserve enough memory for each RGBA surface,
+     * rounded up to a MiB so CDRAM/GXM mappings stay aligned.
      */
     frame_size =
         (size_t)s_frame_width * (size_t)s_frame_height * 4u;
