@@ -32,7 +32,8 @@ static unsigned int s_frame_width;
 static unsigned int s_frame_height;
 enum {
     VITA_SCREEN_WIDTH = 960,
-    VITA_SCREEN_HEIGHT = 544
+    VITA_SCREEN_HEIGHT = 544,
+    FRAMEBUFFER_ALIGNMENT = 256 * 1024
 };
 static volatile int s_active;
 static unsigned int s_decoded_frames;
@@ -341,11 +342,12 @@ static int vita_video_setup(
     /*
      * The output dimensions follow the selected fit/crop mode rather than the
      * source stream dimensions. Reserve enough memory for each RGBA surface,
-     * rounded up to a MiB so CDRAM/GXM mappings stay aligned.
+     * rounded up to the Vita framebuffer alignment.
      */
     frame_size =
         (size_t)s_frame_width * (size_t)s_frame_height * 4u;
-    frame_size = (frame_size + 0xFFFFFu) & ~((size_t)0xFFFFFu);
+    frame_size = (frame_size + FRAMEBUFFER_ALIGNMENT - 1u) &
+        ~((size_t)FRAMEBUFFER_ALIGNMENT - 1u);
 
     /*
      * A new decoder session invalidates every previously queued deferred
