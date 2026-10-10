@@ -36,10 +36,10 @@
           <layout_hint anchor="0, 2" align="0, 2" size="960, 1" pos="0, -1" />
         </plane>
         <button sound="_common_sound_button_back" style="_common_default_style_button" label="msg_cancel" id="btn_selection_cancel">
-          <layout_hint anchor="1, 1" align="1, 1" adjust="2, 0, 0" size="0, 46, 0" pos="12, 10" />
+          <layout_hint anchor="1, 1" align="1, 1" adjust="2, 0, 0" size="0, 46, 0" pos="9, 10" />
         </button>
         <box style="_common_default_style_box" id="box_selection_actions">
-          <layout_box anchor="2, 1" align="2, 1" pos="-108, 10" space="12" adjust="2, 2" layout_type="2" size="0, 0" />
+          <layout_box anchor="2, 1" align="2, 1" pos="-8, 10" space="9" adjust="2, 2" layout_type="2" size="0, 0" />
           <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_select_all" id="btn_selection_select_all">
             <layout_hint adjust="2, 0, 0" size="0, 46, 0" />
           </button>
