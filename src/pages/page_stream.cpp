@@ -8,6 +8,10 @@
 #include <psp2/sysmodule.h>
 #include <psp2/kernel/threadmgr.h>
 
+#ifndef SCE_KERNEL_POWER_TICK_DEFAULT
+#define SCE_KERNEL_POWER_TICK_DEFAULT 0
+#endif
+
 #include <Limelight.h>
 
 #ifndef KEY_ACTION_DOWN
