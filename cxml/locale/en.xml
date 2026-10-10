@@ -26,8 +26,6 @@
   <string src="Enable local audio" id="msg_local_audio" />
 
   <string src="System" id="msg_system_settings" />
-  <string src="Enable debug log" id="msg_debug_log" />
-  <string src="Disable power save" id="msg_disable_power_save" />
   <string src="Swap X & O for Moonlight" id="msg_swap_xo" />
   <string src="Display streaming FPS" id="msg_show_fps" />
   <string src="Use center region only" id="msg_center_region_only" />
@@ -76,8 +74,6 @@
   <string src="Waits for the Vita display VBlank when presenting video frames. This can reduce tearing, but may affect latency and frame pacing." id="msg_vita_vblank_hint" />
   <string src="Limits presentation to the selected FPS by dropping excess decoded frames when they arrive too quickly." id="msg_frame_pacer_hint" />
   <string src="Keeps game audio on the PC instead of streaming audio to the Vita." id="msg_local_audio_hint" />
-  <string src="Enables diagnostic logging for troubleshooting. Logging may add some storage and performance overhead." id="msg_debug_log_hint" />
-  <string src="Prevents Vita power-saving behavior while streaming." id="msg_disable_power_save_hint" />
   <string src="When the video aspect ratio does not match the Vita screen, shows the center portion instead of fitting the entire image. Edges may be cropped." id="msg_center_region_only_hint" />
   <string src="Sends the Vita gyroscope and accelerometer data to the PC as motion input." id="msg_gyro_hint" />
   <string src="Enables sprinting by quickly double-tapping the forward movement control." id="msg_double_tap_sprint_hint" />
