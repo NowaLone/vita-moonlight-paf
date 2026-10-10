@@ -578,6 +578,11 @@ static int vita_video_submit(PDECODE_UNIT decode_unit)
             sceDisplayWaitVblankStart();
         }
         vita_video_note_presented();
+        vita_debug_log(
+            "[Video] present frame=%u buffer=%p slot=%u",
+            s_decoded_frames + 1,
+            s_frame_buffers[s_frame_index],
+            s_frame_index);
         moonlight_video_present(
             s_frame_buffers[s_frame_index],
             s_frame_width,
