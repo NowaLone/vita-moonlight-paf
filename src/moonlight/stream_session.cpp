@@ -535,8 +535,7 @@ extern "C" int moonlight_stream_start(
         settings->enable_double_tap_sprint,
         settings->double_tap_sprint_step_time,
         settings->keyboard_layout,
-        settings->mapping_enabled,
-        settings->disable_powersave);
+        settings->mapping_enabled);
     moonlight_video_set_stream_options(
         settings->fps,
         settings->enable_frame_pacer,
@@ -544,7 +543,6 @@ extern "C" int moonlight_stream_start(
         settings->center_region_only,
         settings->show_fps,
         settings->enable_ref_frame_invalidation);
-    vita_debug_set_file_logging(settings->save_debug_log);
 
     s_stream_context.callback = callback;
     s_stream_context.userdata = userdata;
