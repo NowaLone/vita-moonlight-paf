@@ -6,11 +6,7 @@
 #include <psp2/common_dialog.h>
 #include <psp2/ime_dialog.h>
 #include <psp2/sysmodule.h>
-#include <psp2/kernel/threadmgr.h>
-
-#ifndef SCE_KERNEL_POWER_TICK_DEFAULT
-#define SCE_KERNEL_POWER_TICK_DEFAULT 0
-#endif
+#include <psp2/kernel/processmgr.h>
 
 #include <Limelight.h>
 
