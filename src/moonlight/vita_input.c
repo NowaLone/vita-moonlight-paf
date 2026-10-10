@@ -41,7 +41,6 @@ static int s_double_tap_sprint = 0;
 static int s_double_tap_ms = 200;
 static int s_keyboard_layout = 0;
 static int s_mapping_enabled = 0;
-static int s_disable_powersave = 1;
 static int s_keyboard_request = 0;
 static int s_zone_latched = 0;
 static uint64_t s_last_sprint_tap = 0;
@@ -242,10 +241,6 @@ static void vita_input_process(void)
     sceCtrlSetSamplingModeExt(SCE_CTRL_MODE_ANALOG_WIDE);
     sceCtrlPeekBufferPositiveExt2(0, &s_pad, 1);
     sceTouchPeek(SCE_TOUCH_PORT_BACK, &s_back, 1);
-
-    if (s_disable_powersave) {
-        sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
-    }
 
     if (s_front_touchzones && s_touchscreen_mode == 0) {
         SceTouchData front;
@@ -514,11 +509,11 @@ static void vita_input_load_mapping(void)
     s_face_square = X_FLAG;
     s_face_triangle = Y_FLAG;
     if (!s_mapping_enabled) {
+        if (s_swap_xo) {
+            s_face_cross = B_FLAG;
+            s_face_circle = A_FLAG;
+        }
         return;
-    }
-    if (s_swap_xo) {
-        s_face_cross = B_FLAG;
-        s_face_circle = A_FLAG;
     }
 
     fd = sceIoOpen("ux0:data/moonlight/vita.conf", SCE_O_RDONLY, 0);
@@ -582,8 +577,7 @@ void vita_input_set_runtime(
     int double_tap_sprint,
     int double_tap_ms,
     int keyboard_layout,
-    int mapping_enabled,
-    int disable_powersave)
+    int mapping_enabled)
 {
     s_swap_xo = swap_xo ? 1 : 0;
     s_front_touchzones = front_touchzones ? 1 : 0;
@@ -591,22 +585,7 @@ void vita_input_set_runtime(
     s_double_tap_ms = double_tap_ms > 0 ? double_tap_ms : 200;
     s_keyboard_layout = keyboard_layout;
     s_mapping_enabled = mapping_enabled ? 1 : 0;
-    s_disable_powersave = disable_powersave ? 1 : 0;
-    if (!s_mapping_enabled && s_swap_xo) {
-        s_face_cross = B_FLAG;
-        s_face_circle = A_FLAG;
-        s_face_square = X_FLAG;
-        s_face_triangle = Y_FLAG;
-    } else if (!s_mapping_enabled) {
-        s_face_cross = A_FLAG;
-        s_face_circle = B_FLAG;
-        s_face_square = X_FLAG;
-        s_face_triangle = Y_FLAG;
-    }
     vita_input_load_mapping();
-    if (s_disable_powersave) {
-        sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
-    }
 }
 
 int vita_input_consume_keyboard_request(void)
