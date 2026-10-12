@@ -10,7 +10,7 @@ The source-level changes for the following items are present in `master`; this i
 - File-based debug logging remains removed. The `Debug log` setting has been restored as a console-only `psp2shell` toggle, default off.
 - The stream page owns the periodic `sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DEFAULT)` task.
 - `Swap X/O` applies only when custom mapping is disabled; custom mapping takes precedence.
-- Video output dimensions are calculated for fit and center-crop modes. The stream plane is centered within the 960×544 viewport when its surface exceeds the screen.
+- Video output dimensions are calculated for fit and center-crop modes. Center Region Only now copies the centered 960×544 crop in-place before queueing the frame to PAF; the decoder keeps its larger cover-sized pitch.
 - Per-frame console logging was removed from the video presentation hot path.
 
 **Still required:** build with the documented Vita toolchain and test on real hardware. Verify Fit and Center Region Only with multiple aspect ratios, stream start/stop/reconnect and failed startup, standby/display dimming behavior, and video smoothness with diagnostics enabled. Do not mark these items fully verified until those checks have actually run.
@@ -87,11 +87,11 @@ User-reported Vita test results:
 
 Follow-up source changes:
 - Restored the `Debug log` setting as a console-only toggle (default off); it gates `vita_debug_log()` and never writes a file.
-- Corrected center-crop plane positioning to use PAF's center-origin coordinates: `SetPos(0, 0)` centers the oversized surface. This still needs hardware retesting.
+- Replaced oversized-plane clipping with an in-place centered framebuffer crop matching the original Vita Moonlight texture-region logic. This avoids an extra framebuffer allocation but adds a per-frame memory copy; it needs a clean build and hardware/performance retest.
 - Added a diagnostic line before stream startup reporting the selected width, height, FPS, bitrate, and graphics-optimization flag. With Debug log enabled, use this to determine whether the chosen resolution is read from AppSettings before the host launch request.
 
 Still unresolved / required:
-- Retest Center Region Only with 16:9, 16:10, 4:3 and ultrawide host modes; compare against the original `xyzz/vita-moonlight` crop-region logic.
+- Build and retest the in-place Center Region Only crop with 16:9, 16:10, 4:3 and ultrawide host modes. Verify the image is centered, has no letterbox/side bars, and that the copy does not regress frame pacing; compare against the original `xyzz/vita-moonlight` crop-region logic.
 - Confirm stream resolution selection for host-supported and host-unsupported modes; compare `[GameStream] selected stream mode=...` with the host's actual negotiated/display mode. If the diagnostic values are correct but the host ignores a supported mode, investigate Sunshine's launch/resolution policy rather than changing the Vita decoder size.
 - Research a supported shell/app event or status signal for Quick Actions. Do not claim the overlay is detectable until an API is verified. Avoid a timer-only input suppression workaround that could resume forwarding while the overlay remains open.
 - Rebuild CXML and the app, then retest on real hardware; these latest source changes have not been built or device-verified by the current agent.
