@@ -33,13 +33,15 @@ Run the full user journey on a real Vita and record reproducible failures with r
 - [ ] Exercise connection failure, host/network loss, recovery, and relevant PS Button/application lifecycle behavior.
 - [ ] Verify gyroscope and accelerometer reporting on hardware; the input path exists but is not yet fully hardware-verified.
 
+Capture the Vita runtime log (`vita_debug_log`) for every step and attach the relevant prefixes to the result: `[Search]` and `[Main]` for the host lists, `[Pairing]`, `[GameStream]`, `[ConnectionService]` and `[LegacyAdapter]` for connect/pair/launch, and `[Stream]`, `[StreamPage]`, `[Video]`, `[Audio]`, `[Input]`, `[Touch]` and `[Motion]` for the stream itself.
+
 **Done when:** the main journey and important failure/recovery paths have been exercised on Vita, observed problems are either fixed or documented with reproduction steps, and stream shutdown/reconnect does not leave the app in a broken state.
 
 ## 2. Make development builds reproducible
 
 **Priority: next, and can be worked on alongside device validation**
 
-- [ ] Record the exact supported VITASDK revision.
+- [ ] Record the exact supported VITASDK revision (it cannot be derived from the repository; it has to come from the maintainer's working environment).
 - [ ] Record the exact revisions of `vitasdk-paf-component` and `psp2cxml-tool`.
 - [ ] Document dependency setup and environment variables in a clean, repeatable setup procedure.
 - [ ] Validate a clean build with `bash build.sh`, including CXML-to-RCO compilation and VPK/SELF generation.
@@ -50,7 +52,7 @@ Run the full user journey on a real Vita and record reproducible failures with r
 ## 3. Close technical risks and improve testability
 
 - [x] Verify the `RefreshHosts` cell-count fix on Vita: user confirmed the host list behaves correctly. Reported logs show `after_delete=0` and `after_insert=hosts` across repeated refreshes, selection-mode toggles, and removing one of two hosts. The user reports the remaining list behavior is OK. A clean build was not separately verified. Source review found that `DeleteCell` was passed `existing - 1` even though BetterHomebrewBrowser passes the full `GetCellNum(0)` count.
-- [ ] Identify small, hardware-independent logic suitable for tests, starting with host identity resolution, pairing-result classification, and host persistence decisions.
+- [ ] Identify small, hardware-independent logic suitable for tests, starting with host identity resolution, pairing-result classification, and host persistence decisions. Separate each decision from the `sceIo*`/PAF calls around it first, so it can be built and run with a desktop compiler.
 - [ ] Add focused automated tests for that logic where it can be isolated without mocking the whole PAF runtime.
 - [ ] Select and document formatter/static-analysis tooling only if it fits the existing codebase and toolchain.
 
