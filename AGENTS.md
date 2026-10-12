@@ -248,7 +248,7 @@ Saved-host deletion resolves the selected `MoonlightHost` back to the exact stor
 
 Keep the streaming stack below the PAF boundary.
 
-- Diagnostics go through `vita_debug_log()` to `psp2shell` only. Do not reintroduce file-based streaming logs or a Debug Log toggle: synchronous file I/O caused severe streaming degradation on Vita. Avoid per-frame `vita_debug_log()` calls in the decode/present hot path; keep frame diagnostics sampled or explicitly enabled only for targeted debugging.
+- Diagnostics go through `vita_debug_log()` to `psp2shell` only. The `Debug log` AppSettings toggle controls console output and defaults to off; never add file-based streaming logs, because synchronous file I/O caused severe streaming degradation on Vita. Avoid per-frame `vita_debug_log()` calls in the decode/present hot path; keep frame diagnostics sampled or explicitly enabled only for targeted debugging.
 
 Current streaming sources include:
 
