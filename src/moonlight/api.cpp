@@ -644,6 +644,14 @@ int moonlight_api_start_application(int application_id)
         return -1;
     }
 
+    vita_debug_log(
+        "[GameStream] selected stream mode=%dx%dx%d bitrate=%d sops=%d",
+        settings.width,
+        settings.height,
+        settings.fps,
+        settings.bitrate,
+        settings.sops);
+
     s_stream_application_id = application_id;
     s_stream_pending = true;
 
