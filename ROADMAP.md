@@ -7,7 +7,7 @@ This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordere
 
 The source-level changes for the following items are present in `master`; this is not a claim that they have passed a clean build or real-device testing:
 
-- File-based debug logging and its UI setting were removed; diagnostics remain on `psp2shell`.
+- File-based debug logging remains removed. The `Debug log` setting has been restored as a console-only `psp2shell` toggle, default off.
 - The stream page owns the periodic `sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DEFAULT)` task.
 - `Swap X/O` applies only when custom mapping is disabled; custom mapping takes precedence.
 - Video output dimensions are calculated for fit and center-crop modes. The stream plane is centered within the 960×544 viewport when its surface exceeds the screen.
