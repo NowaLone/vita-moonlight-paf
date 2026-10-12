@@ -12,6 +12,12 @@
 #include <paf/widget/w_button_base.h>
 
 paf::Plugin *g_plugin = NULL;
+static int s_debug_log_enabled = 0;
+
+extern "C" void vita_debug_log_set_enabled(int enabled)
+{
+    s_debug_log_enabled = enabled ? 1 : 0;
+}
 
 extern "C" void vita_debug_log(const char *fmt, ...)
 {
@@ -19,7 +25,7 @@ extern "C" void vita_debug_log(const char *fmt, ...)
     va_list args;
     int length;
 
-    if (!fmt) {
+    if (!s_debug_log_enabled || !fmt) {
         return;
     }
 
