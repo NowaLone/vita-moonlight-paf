@@ -216,10 +216,6 @@ ge>
       <textobj font_size="36" bold="1" color="1, 1, 1, 1" align_x="1" align_y="1" ellipsis="0" emboss="0" id="title_obj" />
     </style_text>
 
-    <style_text textobj="text_obj1" id="style_text_top_title_bar">
-      <textobj font_size="32" bold="1" align_y="1" align_x="1" ellipsis="1" id="text_obj1" />
-    </style_text>
-
     <style_text textobj="main_status_obj" id="style_text_main_status">
       <textobj font_size="22" bold="0" color="1, 1, 1, 0.90" align_x="1" align_y="1" word_wrap="1" ellipsis="1" id="main_status_obj" />
     </style_text>
@@ -303,12 +299,9 @@ ge>
       <template fast_open="1" id="template_top_title_bar">
         <plane style="_common_style_plane_transparent" id="plane_top">
           <layout_hint align="0, 2" size="960, 64" pos="0, 240" />
-          <box style="_common_default_style_box" id="box_top">
-            <layout_box space="0" align="0, 0" pos="0, 0" adjust="2, 2" layout_type="2" size="0, 0" />
-            <text style="style_text_top_title_bar" auto_scroll="1" id="text_top">
-              <layout_hint size="760, 0" align="0, 4" adjust="0, 2" pos="0, 0" />
-            </text>
-          </box>
+          <text style="style_text_header" auto_scroll="1" id="text_top">
+            <layout_hint anchor="1, 2" align="1, 2" size="780, 0" pos="80, -15" adjust="0, 2" />
+          </text>
           <plane texture="_common_texture_ruled_line" id="plane_top_separator">
             <layout_hint size="960, 2" pos="0, 0" anchor="0, 1" />
           </plane>
