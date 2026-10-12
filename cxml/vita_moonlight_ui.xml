@@ -167,6 +167,38 @@ ge>
       <planeobj color="1, 1, 1, 0.18" id="plane_obj_selection_bar_edge_light" />
     </style_plane>
 
+    <style_plane color="1, 1, 1, 1" planeobj="plane_obj_flow_bar" id="style_plane_flow_bar">
+      <planeobj color="0.055, 0.106, 0.467, 1" id="plane_obj_flow_bar" />
+    </style_plane>
+
+    <style_plane color="1, 1, 1, 1" planeobj="plane_obj_flow_bar_edge1" id="style_plane_flow_bar_edge1">
+      <planeobj color="0.024, 0.082, 0.424, 1" id="plane_obj_flow_bar_edge1" />
+    </style_plane>
+
+    <style_plane color="1, 1, 1, 1" planeobj="plane_obj_flow_bar_edge2" id="style_plane_flow_bar_edge2">
+      <planeobj color="0.325, 0.369, 0.678, 1" id="plane_obj_flow_bar_edge2" />
+    </style_plane>
+
+    <style_plane color="1, 1, 1, 1" planeobj="plane_obj_flow_bar_edge3" id="style_plane_flow_bar_edge3">
+      <planeobj color="0.165, 0.208, 0.529, 1" id="plane_obj_flow_bar_edge3" />
+    </style_plane>
+
+    <style_text textobj="header_obj" id="style_text_header">
+      <textobj font_size="26" bold="0" color="1, 1, 1, 1" align_y="1" ellipsis="1" id="header_obj" />
+    </style_text>
+
+    <style_text textobj="paragraph_obj" id="style_text_paragraph">
+      <textobj font_size="26" bold="0" color="1, 1, 1, 1" align_y="1" word_wrap="1" ellipsis="0" enlarge_line_pitch="1" line_pitch="40" id="paragraph_obj" />
+    </style_text>
+
+    <style_text textobj="row_title_obj" id="style_text_row_title">
+      <textobj font_size="28" bold="0" color="1, 1, 1, 1" align_y="1" ellipsis="1" id="row_title_obj" />
+    </style_text>
+
+    <style_text textobj="row_desc_obj" id="style_text_row_desc">
+      <textobj font_size="22" bold="0" color="1, 1, 1, 0.85" align_y="1" ellipsis="1" id="row_desc_obj" />
+    </style_text>
+
     <style_text textobj="title_obj" id="style_text_title">
       <textobj font_size="36" bold="1" color="1, 1, 1, 1" align_x="1" align_y="1" ellipsis="0" emboss="0" id="title_obj" />
     </style_text>
@@ -214,6 +246,7 @@ ge>
 
   <texturetable>
     <texture src="texture/bg.png" id="_bg_texture" type="texture/png" />
+    <texture src="texture/header_line.png" id="_header_line_texture" type="texture/png" />
   </texturetable>
 
     <templatetable>
@@ -221,6 +254,21 @@ ge>
         <list_view style="style_list_view_generic" id="list_view_generic">
           <layout_hint align="0, 1" size="960, 448" pos="0, -272" />
         </list_view>
+      </template>
+
+      <template fast_open="1" id="template_flow_bar">
+        <plane style="style_plane_flow_bar" id="plane_flow_bar">
+          <layout_hint anchor="0, 1" align="0, 1" size="960, 64" pos="0, 0" />
+          <plane style="style_plane_flow_bar_edge1" id="plane_flow_bar_edge1">
+            <layout_hint anchor="0, 2" align="0, 2" size="960, 1" pos="0, 0" />
+          </plane>
+          <plane style="style_plane_flow_bar_edge2" id="plane_flow_bar_edge2">
+            <layout_hint anchor="0, 2" align="0, 2" size="960, 1" pos="0, -1" />
+          </plane>
+          <plane style="style_plane_flow_bar_edge3" id="plane_flow_bar_edge3">
+            <layout_hint anchor="0, 2" align="0, 2" size="960, 1" pos="0, -2" />
+          </plane>
+        </plane>
       </template>
 
       <template fast_open="1" id="template_list_view_main">
