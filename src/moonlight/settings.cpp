@@ -74,6 +74,7 @@ static const char *key_name(MoonlightSettingKey key)
     case MOONLIGHT_SETTING_BACK_DEADZONE_BOTTOM: return "back_deadzone_bottom";
     case MOONLIGHT_SETTING_BACK_DEADZONE_LEFT: return "back_deadzone_left";
     case MOONLIGHT_SETTING_CENTER_REGION_ONLY: return "center_region_only";
+    case MOONLIGHT_SETTING_DEBUG_LOG: return "debug_log";
     default: return NULL;
     }
 }
@@ -322,10 +323,14 @@ int moonlight_settings_get_all(MoonlightSettings *out)
 void moonlight_settings_apply_runtime(void)
 {
     MoonlightSettings settings;
+    int debug_log = 0;
 
     if (moonlight_settings_get_all(&settings) != 0) {
         return;
     }
+
+    moonlight_settings_get_value(MOONLIGHT_SETTING_DEBUG_LOG, &debug_log);
+    vita_debug_log_set_enabled(debug_log);
 
     vita_input_set_runtime(
         settings.jp_layout,
