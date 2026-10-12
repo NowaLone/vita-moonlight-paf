@@ -64,11 +64,13 @@ static uint64_t divide_round_up(uint64_t numerator, uint64_t denominator)
 /*
  * Match the original Vita Moonlight scaling model:
  * - fit mode: contain the whole image inside 960x544;
- * - center-region mode: scale to cover the screen and let the screen/page
- *   viewport crop the extra edges.
+ * - center-region mode: decode to a cover-sized surface, then copy the
+ *   centered 960x544 crop into the start of that same buffer before handing
+ *   it to PAF. PAF surfaces do not expose the original renderer's texture
+ *   source rectangle, so merely enlarging the plane leaves padding visible.
  *
- * SceAvcdec's destination surface dimensions are also the PAF surface
- * dimensions, so the frame pool must be sized for the larger crop surfaces.
+ * The decoder's frame dimensions and pitch remain the cover-sized values;
+ * only the presentation metadata describes the cropped 960x544 image.
  */
 static void vita_video_calculate_output_size(
     unsigned int source_width,
@@ -661,11 +663,47 @@ static int vita_video_submit(PDECODE_UNIT decode_unit)
             sceDisplayWaitVblankStart();
         }
         vita_video_note_presented();
-        moonlight_video_present(
-            s_frame_buffers[s_frame_index],
-            s_frame_width,
-            s_frame_height,
-            s_frame_width);
+        if (s_center_region) {
+            unsigned int crop_x =
+                (s_frame_width - VITA_SCREEN_WIDTH) / 2u;
+            unsigned int crop_y =
+                (s_frame_height - VITA_SCREEN_HEIGHT) / 2u;
+            unsigned int row;
+            unsigned char *buffer =
+                (unsigned char *)s_frame_buffers[s_frame_index];
+
+            /*
+             * The decoder buffer is larger than the visible crop in at most
+             * one dimension. Move the central rectangle to the start of the
+             * same buffer, top-to-bottom; destinations are always before
+             * their sources, so no additional framebuffer allocation is
+             * required. Triple buffering keeps this buffer out of PAF's
+             * current presentation while the decoder reuses it.
+             */
+            for (row = 0; row < VITA_SCREEN_HEIGHT; ++row) {
+                unsigned char *destination =
+                    buffer + (size_t)row * VITA_SCREEN_WIDTH * 4u;
+                const unsigned char *source =
+                    buffer +
+                    ((size_t)(row + crop_y) * s_frame_width + crop_x) * 4u;
+                memmove(
+                    destination,
+                    source,
+                    (size_t)VITA_SCREEN_WIDTH * 4u);
+            }
+
+            moonlight_video_present(
+                s_frame_buffers[s_frame_index],
+                VITA_SCREEN_WIDTH,
+                VITA_SCREEN_HEIGHT,
+                VITA_SCREEN_WIDTH);
+        } else {
+            moonlight_video_present(
+                s_frame_buffers[s_frame_index],
+                s_frame_width,
+                s_frame_height,
+                s_frame_width);
+        }
 
         s_frame_index =
             (s_frame_index + 1) % VITA_VIDEO_FRAME_COUNT;
