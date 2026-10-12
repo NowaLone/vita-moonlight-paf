@@ -2,6 +2,20 @@
 
 This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordered by risk reduction and release readiness, not by a promise that every item must be completed before development continues. Keep individual changes small and verify device-specific behavior on real PS Vita hardware.
 
+
+## Recent streaming implementation review
+
+The source-level changes for the following items are present in `master`; this is not a claim that they have passed a clean build or real-device testing:
+
+- File-based debug logging and its UI setting were removed; diagnostics remain on `psp2shell`.
+- The stream page owns the periodic `sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DEFAULT)` task.
+- `Swap X/O` applies only when custom mapping is disabled; custom mapping takes precedence.
+- Video output dimensions are calculated for fit and center-crop modes. The stream plane is centered within the 960×544 viewport when its surface exceeds the screen.
+- Per-frame console logging was removed from the video presentation hot path.
+
+**Still required:** build with the documented Vita toolchain and test on real hardware. Verify Fit and Center Region Only with multiple aspect ratios, stream start/stop/reconnect and failed startup, standby/display dimming behavior, and video smoothness with diagnostics enabled. Do not mark these items fully verified until those checks have actually run.
+
+
 ## 1. Stabilize the core streaming lifecycle
 
 **Priority: first**
