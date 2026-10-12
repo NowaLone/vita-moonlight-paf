@@ -368,17 +368,11 @@ void Stream::PresentFrame(const Frame &frame)
                 0.0f,
                 0.0f));
             /*
-             * Center the oversized surface inside the 960x544 viewport.
-             * A zero origin would clip only the right/bottom edges instead
-             * of showing the center region.
+             * PAF uses a center-origin coordinate system: (0, 0) centers
+             * the plane on the screen. Keep oversized crop surfaces at the
+             * origin so the viewport clips equally on both sides.
              */
-            const float plane_x = center_region
-                ? ((960.0f - (float)plane_width) * 0.5f)
-                : 0.0f;
-            const float plane_y = center_region
-                ? ((544.0f - (float)plane_height) * 0.5f)
-                : 0.0f;
-            m_video_plane->SetPos(paf::math::v4(plane_x, plane_y, 0.0f));
+            m_video_plane->SetPos(paf::math::v4(0.0f, 0.0f, 0.0f));
             m_video_plane_width = plane_width;
             m_video_plane_height = plane_height;
 
