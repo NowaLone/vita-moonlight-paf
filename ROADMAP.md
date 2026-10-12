@@ -73,3 +73,26 @@ Start with **streaming lifecycle validation and motion-input verification**. Wor
 - Do not change the persistent host/settings formats or locations as incidental cleanup.
 - Do not repeat broad native-system API surveys already recorded in `AGENTS.md`; investigate a system API only for a concrete use case.
 - Treat hardware observations, build results, and test results as complete only after they have actually been verified.
+
+## Follow-up hardware test results (2026-10-12)
+
+User-reported Vita test results:
+- Clean build and startup succeeded.
+- No log file is created; periodic `[Video] decoded frame=...` messages still appeared in `psp2shell`.
+- X/O Swap behaves correctly.
+- Power Tick runs only during streaming.
+- Center Region Only is still visually incorrect: blank/letterboxed areas remain above and below, with black side bars.
+- The selected stream resolution does not appear to reach the host, while FPS and bitrate do.
+- Holding PS to open Quick Actions does not suspend controller forwarding to the host.
+
+Follow-up source changes:
+- Restored the `Debug log` setting as a console-only toggle (default off); it gates `vita_debug_log()` and never writes a file.
+- Corrected center-crop plane positioning to use PAF's center-origin coordinates: `SetPos(0, 0)` centers the oversized surface. This still needs hardware retesting.
+- Added a diagnostic line before stream startup reporting the selected width, height, FPS, bitrate, and graphics-optimization flag. With Debug log enabled, use this to determine whether the chosen resolution is read from AppSettings before the host launch request.
+
+Still unresolved / required:
+- Retest Center Region Only with 16:9, 16:10, 4:3 and ultrawide host modes; compare against the original `xyzz/vita-moonlight` crop-region logic.
+- With Debug log enabled, verify `[GameStream] selected stream mode=...` matches the selected AppSettings value and inspect the host's actual negotiated/display mode. The source already puts width/height in both the GameStream `mode=WxHxFPS` launch query and `STREAM_CONFIGURATION`; if the diagnostic values are correct but the host ignores them, investigate Sunshine's launch/resolution policy rather than changing the Vita decoder size.
+- Research a supported shell/app event or status signal for Quick Actions. Do not claim the overlay is detectable until an API is verified. Avoid a timer-only input suppression workaround that could resume forwarding while the overlay remains open.
+- Rebuild CXML and the app, then retest on real hardware; these latest source changes have not been built or device-verified by the current agent.
+
