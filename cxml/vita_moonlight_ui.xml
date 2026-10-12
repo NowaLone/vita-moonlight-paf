@@ -57,11 +57,14 @@
         <layout_hint size="960, 544" />
       </plane>
 
-      <template_ref id="search_title_ref" template="template_top_title_bar" />
       <template_ref id="search_list_ref" template="template_list_view_generic" />
 
-      <text style="style_text_main_status" label="msg_searching_pcs" id="text_search_status">
-        <layout_hint anchor="0, 2" align="0, 2" size="760, 0" pos="0, -220" adjust="0, 2" />
+      <plane texture="_header_line_texture" id="plane_search_header_line">
+        <layout_hint anchor="0, 2" align="0, 2" size="960, 2" pos="0, -95" />
+      </plane>
+
+      <text style="style_text_header" label="msg_searching_pcs" id="text_search_status">
+        <layout_hint anchor="1, 2" align="1, 2" size="780, 0" pos="64, -47" adjust="0, 2" />
       </text>
 
       <corner_button style="_common_style_corner_bottom_left" id="btn_close_search" />

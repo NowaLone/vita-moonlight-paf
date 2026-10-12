@@ -46,12 +46,6 @@ Search::Search()
 
     MoonlightApp::Instance()->SetEventCallback(OnMoonlightEvent, this);
 
-    paf::ui::Widget *title = root->FindChild("text_top");
-    if (title) {
-        ((paf::ui::Text *)title)->SetString(
-            paf::common::string_util::ToWString("Search PCs"));
-    }
-
     SetStatus("Searching for PCs...");
     MoonlightApp::Instance()->Discovery().Start();
 }
