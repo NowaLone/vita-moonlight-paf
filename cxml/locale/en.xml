@@ -29,6 +29,7 @@
   <string src="Swap X & O for Moonlight" id="msg_swap_xo" />
   <string src="Display streaming FPS" id="msg_show_fps" />
   <string src="Use center region only" id="msg_center_region_only" />
+  <string src="Debug log" id="msg_debug_log" />
 
   <string src="Input" id="msg_input_settings" />
   <string src="Enable gyroscope reporting" id="msg_gyro" />
@@ -75,6 +76,7 @@
   <string src="Limits presentation to the selected FPS by dropping excess decoded frames when they arrive too quickly." id="msg_frame_pacer_hint" />
   <string src="Keeps game audio on the PC instead of streaming audio to the Vita." id="msg_local_audio_hint" />
   <string src="When the video aspect ratio does not match the Vita screen, shows the center portion instead of fitting the entire image. Edges may be cropped." id="msg_center_region_only_hint" />
+  <string src="Enables diagnostic messages in psp2shell. No log file is written." id="msg_debug_log_hint" />
   <string src="Sends the Vita gyroscope and accelerometer data to the PC as motion input." id="msg_gyro_hint" />
   <string src="Enables sprinting by quickly double-tapping the forward movement control." id="msg_double_tap_sprint_hint" />
   <string src="Maximum time between the two taps for double-tap sprint, in milliseconds." id="msg_sprint_double_tap_time_hint" />
