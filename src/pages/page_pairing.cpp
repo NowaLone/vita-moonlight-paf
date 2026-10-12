@@ -41,13 +41,6 @@ Pairing::Pairing(const char pin[5])
 
     MoonlightApp::Instance()->SetEventCallback(OnMoonlightEvent, this);
 
-    paf::ui::Widget *title = root->FindChild("text_top");
-    vita_debug_log("[Pairing] text_top=%p", title);
-    if (title) {
-        ((paf::ui::Text *)title)->SetString(
-            paf::common::string_util::ToWString("Pair with PC"));
-    }
-
     SetStatus("Enter this PIN in the Sunshine Web UI.");
     StartPairing();
 }

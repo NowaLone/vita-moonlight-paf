@@ -79,21 +79,23 @@
         <layout_hint size="960, 544" />
       </plane>
 
-      <text style="style_text_body" label="msg_pairing_enter_pin" id="text_pairing_instruction">
-        <layout_hint size="760, 0" anchor="0, 2" align="0, 2" adjust="0, 2" pos="0, 80" />
+      <text style="style_text_paragraph" label="msg_pairing_enter_pin" id="text_pairing_instruction">
+        <layout_hint anchor="1, 2" align="1, 2" size="790, 0" pos="64, -88" adjust="0, 2" />
       </text>
 
-      <text style="style_text_title" id="text_pairing_pin">
-        <layout_hint size="760, 90" anchor="0, 2" align="0, 2" adjust="0, 2" pos="0, 0" />
+      <text style="style_text_pin" id="text_pairing_pin">
+        <layout_hint anchor="1, 2" align="1, 2" size="490, 52" pos="64, -168" />
       </text>
 
-      <text style="style_text_main_status" id="text_pairing_status">
-        <layout_hint size="760, 0" anchor="0, 2" align="0, 2" adjust="0, 2" pos="0, -80" />
+      <text style="style_text_flow_note" id="text_pairing_status">
+        <layout_hint anchor="1, 2" align="1, 2" size="790, 0" pos="64, -240" adjust="0, 2" />
       </text>
 
-      <template_ref id="pairing_title_ref" template="template_top_title_bar" />
+      <template_ref id="pairing_bar_ref" template="template_flow_bar" />
 
-      <corner_button style="_common_style_corner_bottom_left" id="btn_close_pairing" />
+      <button sound="_common_sound_button_back" style="_common_default_style_button" label="msg_back" id="btn_close_pairing">
+        <layout_hint anchor="1, 1" align="1, 1" adjust="2, 0, 0" size="0, 46, 0" pos="9, 9" />
+      </button>
     </page>
 
     <page id="page_stream">
@@ -200,6 +202,14 @@ ge>
 
     <style_text textobj="row_desc_obj" id="style_text_row_desc">
       <textobj font_size="22" bold="0" color="1, 1, 1, 0.85" align_y="1" ellipsis="1" id="row_desc_obj" />
+    </style_text>
+
+    <style_text textobj="pin_obj" id="style_text_pin">
+      <textobj font_size="48" bold="1" color="1, 1, 1, 1" align_y="1" ellipsis="0" id="pin_obj" />
+    </style_text>
+
+    <style_text textobj="flow_note_obj" id="style_text_flow_note">
+      <textobj font_size="22" bold="0" color="1, 1, 1, 0.85" align_y="1" word_wrap="1" ellipsis="0" enlarge_line_pitch="1" line_pitch="30" id="flow_note_obj" />
     </style_text>
 
     <style_text textobj="title_obj" id="style_text_title">
