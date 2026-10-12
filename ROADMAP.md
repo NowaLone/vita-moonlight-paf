@@ -82,7 +82,7 @@ User-reported Vita test results:
 - X/O Swap behaves correctly.
 - Power Tick runs only during streaming.
 - Center Region Only is still visually incorrect: blank/letterboxed areas remain above and below, with black side bars.
-- The selected stream resolution does not appear to reach the host, while FPS and bitrate do.
+- Initially, the selected stream resolution appeared not to reach the host. Follow-up testing suggests the selected resolution was unavailable on the PC; choosing a resolution supported by the host resolved the issue.
 - Holding PS to open Quick Actions does not suspend controller forwarding to the host.
 
 Follow-up source changes:
@@ -92,7 +92,6 @@ Follow-up source changes:
 
 Still unresolved / required:
 - Retest Center Region Only with 16:9, 16:10, 4:3 and ultrawide host modes; compare against the original `xyzz/vita-moonlight` crop-region logic.
-- With Debug log enabled, verify `[GameStream] selected stream mode=...` matches the selected AppSettings value and inspect the host's actual negotiated/display mode. The source already puts width/height in both the GameStream `mode=WxHxFPS` launch query and `STREAM_CONFIGURATION`; if the diagnostic values are correct but the host ignores them, investigate Sunshine's launch/resolution policy rather than changing the Vita decoder size.
+- Confirm stream resolution selection for host-supported and host-unsupported modes; compare `[GameStream] selected stream mode=...` with the host's actual negotiated/display mode. If the diagnostic values are correct but the host ignores a supported mode, investigate Sunshine's launch/resolution policy rather than changing the Vita decoder size.
 - Research a supported shell/app event or status signal for Quick Actions. Do not claim the overlay is detectable until an API is verified. Avoid a timer-only input suppression workaround that could resume forwarding while the overlay remains open.
 - Rebuild CXML and the app, then retest on real hardware; these latest source changes have not been built or device-verified by the current agent.
-
