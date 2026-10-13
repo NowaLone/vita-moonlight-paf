@@ -198,3 +198,15 @@ Source change committed on `feat/quick-actions-lifecycle-review`:
 **Verification status:** source change only. No build or Vita hardware test has been run for this commit. Verify on device that a single press reaches the PC as the special/home button and leaves the stream running; a double press stops the stream; a slow second press does not stop it; and capture-disabled PS still invokes native Vita behavior.
 
 **Still unresolved:** this change does not implement Quick Actions overlay detection or pause/resume gating for other controller inputs. Do not consider the lifecycle requirement complete until a reliable system/app signal is verified on the target firmware and input forwarding resumes only after confirmed return to the app.
+
+### Follow-up device log (2026-10-14)
+
+The new startup excerpt resolves the missing diagnostic:
+
+- `[Input] start ... ps_capture=1` confirms the setting is enabled in the running input loop.
+- `[Input] PS Button lock result=0x80101801` is **not success**; VitaSDK documents `sceShellUtilLock()` as returning 0 on success and a negative error on failure. The PS capture path therefore has not established a successful system-level lock. Do not interpret the later `PS Button pressed, forwarding to host` log as proof that the button reached the host or that native Shell handling was suppressed.
+- The current `CMakeLists.txt` sets SELF auth ID `0x2F00000000000101`. Upstream `xyzz/vita-moonlight` documents its PS capture requirement as removing the safe `-s` flag and adding SceShell permission/auth ID `0x2800000000000001`. This makes SELF authorization/packaging the leading hypothesis for the lock failure, but the exact meaning of `0x80101801` and the correct authorization combination for this PAF/system-UI app are **not yet verified**.
+- Do not blindly replace the PAF app's auth ID with upstream's ID. Inspect the generated SELF/VPK metadata and determine whether the required SceShell permission can be granted while preserving the app's PAF/system-UI requirements. Only then change packaging and test on hardware.
+- Stream startup and initial video decode occurred in this excerpt. It contains no evidence sufficient to diagnose the separate video packet-loss reports.
+
+Next step: verify the SELF auth ID/attributes and compare the generated package against a known working upstream PS-capture package; retain the exact lock result in logs. After any packaging change, test PS capture both enabled and disabled on hardware.
