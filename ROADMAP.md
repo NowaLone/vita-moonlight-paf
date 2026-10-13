@@ -57,6 +57,14 @@ Run the full user journey on a real Vita and record reproducible failures with r
 **Done when:** the known host-list diagnostic has an evidence-based conclusion and the highest-value non-PAF logic has repeatable checks where practical.
 
 ## PS Button capture and Quick Actions lifecycle
+### Log observations (2026-10-14)
+
+- Device log confirms the input loop logs PS rising edges and does not stop the stream on the observed presses.
+- The supplied excerpt does **not** include `[Input] PS Button lock result=...`; therefore it does not establish whether `sceShellUtilLock(PS_BTN | PS_BTN_2)` succeeded.
+- The excerpt also contains Limelight video recovery messages: unrecoverable frames, missing IDR frames, and a 16-frame network-drop report. These indicate loss of enough frame data to decode/recover and recovery waiting; they do not alone prove whether the root cause is network loss, application suspension, or decoder scheduling.
+- Next diagnostic: capture the startup lines including `[Input] start ... ps_capture=...` and `[Input] PS Button lock result=...`, plus timestamped logs immediately before/after PS press and Quick Actions return. Compare the same stream without pressing PS. Keep input/lifecycle diagnosis separate from video packet-loss diagnosis until there is correlated evidence.
+
+
 
 **Status: blocked on SELF authorization verification and real-device lifecycle testing.**
 
