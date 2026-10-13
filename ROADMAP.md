@@ -49,7 +49,7 @@ Run the full user journey on a real Vita and record reproducible failures with r
 
 ## 3. Close technical risks and improve testability
 
-- [x] Verify the `RefreshHosts` cell-count fix on Vita for repeated refreshes, selection-mode toggles, and removal from two hosts to one: reported logs consistently show `after_delete=0` and `after_insert=hosts`. Still test the empty-host state explicitly. Source review found that `DeleteCell` was passed `existing - 1` even though BetterHomebrewBrowser passes the full `GetCellNum(0)` count.
+- [x] Verify the `RefreshHosts` cell-count fix on Vita: user confirmed the host list behaves correctly. Reported logs show `after_delete=0` and `after_insert=hosts` across repeated refreshes, selection-mode toggles, and removing one of two hosts. The user reports the remaining list behavior is OK. A clean build was not separately verified. Source review found that `DeleteCell` was passed `existing - 1` even though BetterHomebrewBrowser passes the full `GetCellNum(0)` count.
 - [ ] Identify small, hardware-independent logic suitable for tests, starting with host identity resolution, pairing-result classification, and host persistence decisions.
 - [ ] Add focused automated tests for that logic where it can be isolated without mocking the whole PAF runtime.
 - [ ] Select and document formatter/static-analysis tooling only if it fits the existing codebase and toolchain.
@@ -123,4 +123,4 @@ User-reported `psp2shell` logs from Vita after applying the `DeleteCell(0, 0, ex
 - After removing `fedora43-1-common.local`, refresh reports `hosts=1 cells before=2 after_delete=0 after_insert=1`; a subsequent refresh remains at one cell.
 - These observations support the fix for stale/duplicate ListView cells and the selection-template rebuild path.
 
-**Not yet covered by this report:** the empty-host list state, and explicit visual verification that row labels and row actions still map to the correct host after refresh. The logs establish cell counts and checkbox presence, not full visual/data correctness. No clean build was performed as part of this log review; the user tested a running Vita build.
+**Follow-up:** user confirmed that the list behavior is OK. The clean build remains unverified separately; the runtime logs came from a running Vita build.
