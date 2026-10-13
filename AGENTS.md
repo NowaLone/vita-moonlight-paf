@@ -300,7 +300,7 @@ The agreed, prioritized development plan lives in [`ROADMAP.md`](ROADMAP.md). Ke
 - Document exact supported VITASDK revision.
 - Document exact vitasdk-paf-component and psp2cxml-tool revisions.
 - Add a reproducible dependency/setup procedure.
-- Check the `[Main] RefreshHosts ... after_insert=` log line: it must equal `hosts=`. If it is larger, `ListView::DeleteCell()` is leaving cells behind, which would explain a second saved-PC row without a checkbox.
+- `Main::RefreshHosts()` must pass the full existing cell count to `ListView::DeleteCell(0, 0, existing)`: the third argument is a deletion count, not the last index. This follows BetterHomebrewBrowser's `AppBrowser::ClearList()` pattern. Keep the `[Main] RefreshHosts ... after_insert=` diagnostic; on Vita, verify `after_delete=0` and `after_insert=hosts` for empty, one-host, and multiple-host lists. A source-level fix is not considered hardware-verified until these cases pass.
 - Add automated tests when the project architecture is stable enough to support them.
 - Document preferred formatter/static-analysis tooling if one is adopted.
 - Define a release procedure, including adding/maintaining the appropriate LICENSE before a release.
