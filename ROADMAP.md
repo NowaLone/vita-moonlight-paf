@@ -13,6 +13,8 @@ The source-level changes for the following items are present in `master`; this i
 - Video output dimensions are calculated for fit and center-crop modes. Center Region Only now copies the centered 960×544 crop in-place before queueing the frame to PAF; the decoder keeps its larger cover-sized pitch.
 - Per-frame console logging was removed from the video presentation hot path.
 
+**Important test interpretation:** Center Region Only is a crop-to-fill mode, not a zoom control for desktop UI elements. Vita's 960×544 aspect ratio (about 1.765:1) is very close to 1920×1080 (1.778:1), so that stream mode produces only a tiny crop and can look identical to Fit. For a visibly different test, use a host-supported stream mode with a substantially different aspect ratio (the Vita resolution list includes 1280×540, if the host accepts it), then compare Fit and Center Region Only. The PC desktop resolution alone is not the reference; use the actual negotiated stream dimensions.
+
 **Still required:** build with the documented Vita toolchain and test on real hardware. Verify Fit and Center Region Only with multiple aspect ratios, stream start/stop/reconnect and failed startup, standby/display dimming behavior, and video smoothness with diagnostics enabled. Do not mark these items fully verified until those checks have actually run.
 
 
@@ -81,7 +83,8 @@ User-reported Vita test results:
 - No log file is created; periodic `[Video] decoded frame=...` messages still appeared in `psp2shell`.
 - X/O Swap behaves correctly.
 - Power Tick runs only during streaming.
-- Center Region Only is still visually incorrect: blank/letterboxed areas remain above and below, with black side bars.
+- Center Region Only was initially reported visually incorrect: blank/letterboxed areas remained above and below, with black side bars.
+- In a later test with 1920×1080, toggling Center Region Only did not visibly change the picture. The full desktop fits on Vita and UI elements look small; given the near-identical stream and Vita aspect ratios, this is expected to produce only a very small crop. Test with a substantially different negotiated stream aspect ratio before treating this as an implementation failure.
 - Initially, the selected stream resolution appeared not to reach the host. Follow-up testing suggests the selected resolution was unavailable on the PC; choosing a resolution supported by the host resolved the issue.
 - Holding PS to open Quick Actions does not suspend controller forwarding to the host.
 
