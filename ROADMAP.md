@@ -56,6 +56,17 @@ Run the full user journey on a real Vita and record reproducible failures with r
 
 **Done when:** the known host-list diagnostic has an evidence-based conclusion and the highest-value non-PAF logic has repeatable checks where practical.
 
+## PS Button capture and Quick Actions lifecycle
+
+**Status: blocked on SELF authorization verification and real-device lifecycle testing.**
+
+- The current input code calls `sceShellUtilLock(PS_BTN | PS_BTN_2)` when the existing `ps_button_capture` setting is enabled, and logs the return code. The user observed that pressing PS still minimizes/suspends the app; therefore the input-side double-press logic alone does not satisfy capture.
+- Upstream `xyzz/vita-moonlight` packages its SELF with `vita-make-fself -a 0x2800000000000001 -at 0x0E -c` and documents the SceShell permission as a prerequisite for PS capture. The current PAF project uses auth ID `0x2F00000000000101`, `vita_create_self(... UNSAFE)`, and SFO attributes `ATTRIBUTE=33472` / `ATTRIBUTE_MINOR=16`. In VitaSDK, `UNSAFE` omits the default safe flag; it does not replace the SELF authorization ID.
+- Do **not** replace the current authorization ID or add SELF attributes solely by analogy with upstream: this project is a PAF/system-UI application, and the compatibility of those upstream SELF parameters with its system-UI launch/permissions has not been established. Resolve the required authorization/attribute combination before changing packaging.
+- Keep the existing `ps_button_capture` setting as the sole toggle. When enabled, a single PS press should be sent to the host and only a confirmed double press should stop the stream. When disabled, do not intercept PS or stop the stream.
+- Quick Actions input suspension still needs a verified system-state signal. `SceAppMgrAppState.isSystemUiOverlaid` is a candidate for investigation, not yet hardware-verified. Do not substitute a timer-only suppression window or lock Quick Menu unconditionally, since that can break native behavior when capture is disabled.
+- Next verification: inspect the generated SELF metadata/permissions from a real build; test lock return codes and PS behavior on Vita with capture enabled and disabled; then validate the chosen AppMgr overlay signal through Quick Actions open/close and confirm controller forwarding resumes only after returning to the app. Record firmware and logs. Do not mark this complete before device testing.
+
 ## 4. Prepare a release
 
 - [ ] Review licensing and attribution obligations for this project, Moonlight code, and vendored dependencies before choosing or adding a project license.
