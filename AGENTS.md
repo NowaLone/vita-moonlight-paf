@@ -190,6 +190,15 @@ The long-term native-integration shortlist below was researched specifically for
 - **`SceIncomingDialog`** — native incoming-event overlay. Interesting for future shell-like notifications, but there is no current Moonlight event that requires it.
 - **`SceShutterSound`** — system shutter sound, only relevant if a future screenshot/capture feature needs a native sound effect.
 
+#### PS Button and Quick Actions: current source facts
+
+- The existing setting is `ps_button_capture` in `cxml/moonlight_settings.xml`, under Input Settings, with default value `1`. Preserve this setting; do not add a second toggle or change its storage key.
+- `src/moonlight/vita_input.c` currently locks `SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN | SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN_2` when capture is enabled. On a detected PS-button rising edge, it calls `moonlight_stream_stop()` and clears the bit; it does **not** currently forward PS to the PC. `vita_input_send()` does not map `SCE_CTRL_PSBUTTON` to a Moonlight button flag.
+- When capture is disabled, the lock is not acquired, so the intended behavior is to leave PS to Vita's shell. Keep this path free of interception and do not stop the stream because of PS.
+- The upstream `xyzz/vita-moonlight` 0.13.2 README documents optional PS capture with a single press forwarded as a PS/Xbox button mapping and a double press opening the menu. `moonlight-common-c` exposes `SPECIAL_FLAG` for the controller's special/home button; it does not define a separate `PS_FLAG`. Use the upstream input implementation as the primary behavioral reference before changing the port.
+- `sceShellUtilLock()` is a shell-event lock, not proof that Quick Actions is hidden or detectable. `SCE_SHELL_UTIL_LOCK_TYPE_QUICK_MENU` is a separate lock type. Do not lock Quick Menu unconditionally: that would conflict with the required native PS behavior when capture is disabled. Verify the supported event/state mechanism and hardware behavior before relying on it.
+- The PAF plugin's `stop_func` and `exit_func` are currently `NULL` in `src/app/paf_runtime.cpp`. `MoonlightApp::Shutdown()` is called after `paf::Framework::Run()` returns. Do not assume this alone covers shell overlay, suspend, or foreground/resume transitions.
+
 #### Internal / reverse-engineered APIs
 
 These are deliberately lower priority because they are more firmware-sensitive and are not equivalent to stable application APIs:
