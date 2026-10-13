@@ -94,6 +94,9 @@
     </page>
 
     <page id="page_stream">
+      <plane style="style_plane_stream_black" id="plane_stream_background">
+        <layout_hint anchor="1, 2" align="1, 2" size="960, 544" />
+      </plane>
       <plane texture="_bg_texture" id="plane_stream_video">
         <layout_hint anchor="1, 2" align="1, 2" size="960, 544" />
       </plane>
@@ -146,6 +149,10 @@ ge>
   <styletable>
     <style_plane color="0.063, 0.294, 0.655, 1" planeobj="plane_obj_fill" id="style_plane_fill">
       <planeobj color="0.063, 0.294, 0.655, 1" id="plane_obj_fill" />
+    </style_plane>
+
+    <style_plane color="0, 0, 0, 1" planeobj="plane_obj_stream_black" id="style_plane_stream_black">
+      <planeobj color="0, 0, 0, 1" id="plane_obj_stream_black" />
     </style_plane>
 
     <style_plane color="1, 1, 1, 1" planeobj="plane_obj_selection_bar" id="style_plane_selection_bar">
