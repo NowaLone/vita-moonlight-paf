@@ -364,7 +364,7 @@ paf::ui::ListItem *Main::CreateListItem(
         param.parent,
         m_selection_mode
             ? "template_host_list_item_select"
-            : "template_list_item_generic",
+            : "template_host_list_item",
         tmp);
 
     paf::ui::Widget *item = param.parent->GetChild(
@@ -373,7 +373,7 @@ paf::ui::ListItem *Main::CreateListItem(
     paf::ui::Widget *button = item->FindChild(
         m_selection_mode
             ? "image_button_host_select"
-            : "image_button_list_item");
+            : "image_button_host");
     if (!button) {
         return static_cast<paf::ui::ListItem *>(item);
     }
@@ -413,13 +413,15 @@ paf::ui::ListItem *Main::CreateListItem(
 
     const MoonlightHost &host = m_hosts[param.cell_index];
 
-    paf::string label = paf::common::FormatString(
-        "%s\n%s",
-        host.name[0] ? host.name : "PC",
+    /* Name as the title, address as the lighter description, like PS4 Link. */
+    set_child_text(
+        item,
+        m_selection_mode ? "text_host_select_title" : "text_host_title",
+        host.name[0] ? host.name : "PC");
+    set_child_text(
+        item,
+        m_selection_mode ? "text_host_select_desc" : "text_host_desc",
         host.internal[0] ? host.internal : "Unknown host");
-
-    button->SetString(
-        paf::common::string_util::ToWString(label));
 
     return static_cast<paf::ui::ListItem *>(item);
 }

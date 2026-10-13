@@ -102,3 +102,14 @@ void set_button_enabled(paf::ui::Widget *button, bool enabled) {
     }
     button->SetActivate(enabled);
 }
+
+void set_child_text(paf::ui::Widget *parent, const char *id, const char *text) {
+    if (parent == NULL || id == NULL || text == NULL) {
+        return;
+    }
+    paf::ui::Widget *widget = parent->FindChild(id);
+    if (widget != NULL) {
+        ((paf::ui::Text *)widget)->SetString(
+            paf::common::string_util::ToWString(text));
+    }
+}

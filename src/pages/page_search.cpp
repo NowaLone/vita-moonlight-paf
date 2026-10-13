@@ -70,12 +70,12 @@ void Search::RestoreEventCallback() {
 paf::ui::ListItem *Search::CreateListItem(
     paf::ui::listview::ItemFactory::CreateParam &param) {
     paf::Plugin::TemplateOpenParam tmp;
-    g_plugin->TemplateOpen(param.parent, "template_list_item_generic", tmp);
+    g_plugin->TemplateOpen(param.parent, "template_host_list_item", tmp);
 
     paf::ui::ListItem *item = static_cast<paf::ui::ListItem *>(
         param.parent->GetChild(param.parent->GetChildrenNum() - 1));
 
-    paf::ui::Widget *button = item->FindChild("image_button_list_item");
+    paf::ui::Widget *button = item->FindChild("image_button_host");
     if (!button || param.cell_index < 0 || param.cell_index >= m_host_count) {
         return item;
     }
@@ -87,13 +87,11 @@ paf::ui::ListItem *Search::CreateListItem(
         &m_button_contexts[param.cell_index]);
 
     const MoonlightHost &host = m_hosts[param.cell_index];
-    paf::string label = paf::common::FormatString(
-        "%s\n%s",
-        host.name[0] ? host.name : "PC",
+    set_child_text(item, "text_host_title", host.name[0] ? host.name : "PC");
+    set_child_text(
+        item,
+        "text_host_desc",
         host.internal[0] ? host.internal : "Unknown address");
-
-    button->SetString(
-        paf::common::string_util::ToWString(label));
 
     return item;
 }

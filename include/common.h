@@ -19,4 +19,7 @@ void set_widget_focusable(paf::ui::Widget *widget, bool on);
  */
 void set_button_enabled(paf::ui::Widget *button, bool enabled);
 
+/* Sets the string of the Text widget with the given id below parent, if there is one. */
+void set_child_text(paf::ui::Widget *parent, const char *id, const char *text);
+
 #endif

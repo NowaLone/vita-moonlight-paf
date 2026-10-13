@@ -308,6 +308,22 @@ ge>
         </plane>
       </template>
 
+      <template fast_open="1" id="template_host_list_item">
+        <list_item style="style_list_view_item_generic" id="list_item_host">
+          <layout_hint size="960, 80" />
+          <image_button sound="_common_sound_image_button" enable_long_press_text_auto_scroll="1" style="style_image_button_list_button" id="image_button_host">
+            <focus_hint focus_shape="3" />
+            <layout_hint size="840, 80" />
+          </image_button>
+          <text style="style_text_row_title" id="text_host_title">
+            <layout_hint anchor="1, 2" align="1, 2" size="700, 0" pos="175, -8" adjust="0, 2" />
+          </text>
+          <text style="style_text_row_desc" id="text_host_desc">
+            <layout_hint anchor="1, 2" align="1, 2" size="700, 0" pos="175, -45" adjust="0, 2" />
+          </text>
+        </list_item>
+      </template>
+
       <template fast_open="1" id="template_host_list_item_select">
         <list_item style="style_list_view_item_generic" id="list_item_host_select">
           <layout_hint size="960, 80" />
@@ -315,6 +331,12 @@ ge>
             <focus_hint focus_shape="3" />
             <layout_hint size="840, 80" />
           </image_button>
+          <text style="style_text_row_title" id="text_host_select_title">
+            <layout_hint anchor="1, 2" align="1, 2" size="700, 0" pos="175, -8" adjust="0, 2" />
+          </text>
+          <text style="style_text_row_desc" id="text_host_select_desc">
+            <layout_hint anchor="1, 2" align="1, 2" size="700, 0" pos="175, -45" adjust="0, 2" />
+          </text>
           <check_box style="_common_default_style_check_box" id="checkbox_host_select">
             <layout_hint anchor="1, 0" align="1, 0" size="58, 58" pos="92, 0" />
           </check_box>
