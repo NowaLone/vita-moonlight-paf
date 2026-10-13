@@ -26,6 +26,7 @@ The source-level changes for the following items are present in `master`; this i
 Run the full user journey on a real Vita and record reproducible failures with runtime logs before changing implementation.
 
 - [ ] Discover a PC on the LAN and save/select it.
+- [ ] Check the PS4 Link style Search PCs and Pairing pages on hardware against the PS4 Link screens: header position and the fading line, the pairing page's flow bar and Back button position, the saved-PC row title and description positions, and that touching the row text still activates the row.
 - [ ] Add a PC manually, including a custom port; verify unsuccessful attempts do not create an incorrect saved-host record.
 - [ ] Pair successfully and verify incorrect-PIN errors are distinguished from transport/protocol failures.
 - [ ] Retrieve the app list, start a stream, and check video, audio, controller input, and touchscreen input.
@@ -36,6 +37,8 @@ Run the full user journey on a real Vita and record reproducible failures with r
 Capture the Vita runtime log (`vita_debug_log`) for every step and attach the relevant prefixes to the result: `[Search]` and `[Main]` for the host lists, `[Pairing]`, `[GameStream]`, `[ConnectionService]` and `[LegacyAdapter]` for connect/pair/launch, and `[Stream]`, `[StreamPage]`, `[Video]`, `[Audio]`, `[Input]`, `[Touch]` and `[Motion]` for the stream itself.
 
 **Done when:** the main journey and important failure/recovery paths have been exercised on Vita, observed problems are either fixed or documented with reproduction steps, and stream shutdown/reconnect does not leave the app in a broken state.
+
+Not part of the PS4 Link parity pass because the needed pieces do not exist in this app: the animated sync icon on the search page, the "Searching via Internet" illustration page and its Skip button (discovery is LAN only), the monitor illustration and Register button on the pairing page (the Vita shows the PIN and pairs immediately), and the PS4 Link number field style. The Search PCs page keeps its corner back button instead of PS4 Link's Cancel button in a bar, since it has no second button to justify a bar. The Apps page still uses the generic row and the corner back button.
 
 ## 2. Make development builds reproducible
 
