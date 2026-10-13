@@ -130,15 +130,21 @@ User-reported `psp2shell` logs from Vita after applying the `DeleteCell(0, 0, ex
 
 **Priority: next, beginning with investigation rather than speculative API changes.**
 
-Known issue from Vita testing: holding PS to open Quick Actions does not currently suspend controller forwarding to the streaming host. This must be addressed without breaking normal PS Button/LiveArea behavior or leaving the stream in an inconsistent state.
+Known issue from Vita testing: holding PS to open Quick Actions does not currently suspend controller forwarding to the streaming host. PS Button handling must respect the existing setting that controls forwarding PS to the PC; do not replace this setting with unconditional interception or unconditional system-button locking.
+
+Required behavior:
+- **PS forwarding setting enabled:** intercept PS and send its corresponding button event to the PC. Coordinate this with Quick Actions and lifecycle handling so controller forwarding is paused while the system UI is active, then resumes only after a verified return to the app.
+- **PS forwarding setting disabled:** do not intercept or consume PS and do not lock out the system action. Preserve Vita's native PS behavior, including suspending/minimizing the app to LiveArea.
+- In both modes, stream stop, failed startup, app suspension/resume, and exit must not leave controller input forwarding stuck or stream resources in an inconsistent state.
 
 Investigation checklist:
-- [ ] Trace controller input from the Vita input reader through the Moonlight input sender and identify the exact point where forwarding can be safely paused/resumed.
+- [ ] Find the existing PS forwarding setting, confirm its persisted/default value, and trace how it currently affects controller input.
+- [ ] Trace controller input from the Vita input reader through the Moonlight input sender and identify where conditional PS interception and safe pause/resume belong.
 - [ ] Trace application and stream lifecycle entry points, including PAF runtime startup/shutdown, stream start/stop, page transitions, suspend/resume, and cleanup of worker threads/resources.
 - [ ] Compare concrete lifecycle and PS Button handling in NetStream and BetterHomebrewBrowser; record which mechanisms are directly applicable to this PAF app and which are app-specific.
 - [ ] Verify whether a supported shell/app event or status API signals Quick Actions visibility or foreground/background transitions. Document the API and evidence before relying on it.
-- [ ] Define expected behavior for opening Quick Actions, returning to the app, entering LiveArea, resuming, stopping a stream, and exiting the app.
+- [ ] Define and test the enabled/disabled setting behavior for opening Quick Actions, returning to the app, entering LiveArea, resuming, stopping a stream, and exiting the app.
 - [ ] Implement only after the event/ownership model is established; avoid timer-only suppression because it can resume forwarding while Quick Actions is still open.
 - [ ] Build and verify on real Vita hardware with `psp2shell` logs. Record results and any firmware-dependent behavior here.
 
-**Acceptance criteria:** controller input is not forwarded to the host while the system UI requires it to be suspended; forwarding resumes only after a verified return-to-app transition; stream and app resources remain valid through suspend/resume and are released safely on stop/exit. No unverified system API or hardware behavior is marked complete.
+**Acceptance criteria:** when the setting is enabled, PS is forwarded to the PC and system-UI transitions do not leak unintended controller input; when disabled, PS retains native Vita behavior and is not intercepted. Input forwarding resumes only after a verified return-to-app transition; stream and app resources remain valid through suspend/resume and are released safely on stop/exit. No unverified system API or hardware behavior is marked complete.
