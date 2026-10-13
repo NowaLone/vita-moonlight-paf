@@ -166,3 +166,16 @@ Investigation checklist:
 - Make lock acquisition/release idempotent and cover stream startup failure, normal stop, page teardown, app exit, and any confirmed suspend/resume callbacks.
 - Verify with logs and real hardware in both setting states: single press, double press, hold for Quick Actions, return to app, PS-disabled LiveArea behavior, stream stop/reconnect, and repeated transitions. Build and hardware verification remain outstanding.
 
+### PS single/double press implementation update (2026-10-13)
+
+Source change committed on `feat/quick-actions-lifecycle-review`:
+
+- `src/moonlight/vita_input.c` now adds `SPECIAL_FLAG` to the host controller report while PS is held and capture is enabled.
+- A single PS press no longer calls `moonlight_stream_stop()`; the log message now states that the button is being forwarded to the host.
+- The input path records the PS release timestamp. A subsequent press within 250,000 µs (250 ms) is treated as a double press and requests stream stop. The second PS bit is cleared before the changed controller state is sent.
+- The release timestamp is reset when input starts and stops.
+- The existing setting and its default/storage were not changed. The existing ShellUtil PS locks remain conditional on capture being enabled, and disabled capture does not enter the PS interception branch.
+
+**Verification status:** source change only. No build or Vita hardware test has been run for this commit. Verify on device that a single press reaches the PC as the special/home button and leaves the stream running; a double press stops the stream; a slow second press does not stop it; and capture-disabled PS still invokes native Vita behavior.
+
+**Still unresolved:** this change does not implement Quick Actions overlay detection or pause/resume gating for other controller inputs. Do not consider the lifecycle requirement complete until a reliable system/app signal is verified on the target firmware and input forwarding resumes only after confirmed return to the app.
