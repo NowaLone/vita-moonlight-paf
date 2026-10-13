@@ -49,7 +49,7 @@ Run the full user journey on a real Vita and record reproducible failures with r
 
 ## 3. Close technical risks and improve testability
 
-- [ ] Investigate the `[Main] RefreshHosts ... after_insert=` log when reproducing host-list duplication; `after_insert` should equal `hosts`. Determine whether any mismatch comes from persistent records or stale PAF ListView cells before changing code.
+- [ ] Verify the `RefreshHosts` cell-count fix on Vita: after clearing and reinserting, `after_insert` must equal `hosts`; test empty, one-host, and multiple-host lists, and switching selection mode repeatedly. Source review found that `DeleteCell` was passed `existing - 1` even though BetterHomebrewBrowser passes the full `GetCellNum(0)` count.
 - [ ] Identify small, hardware-independent logic suitable for tests, starting with host identity resolution, pairing-result classification, and host persistence decisions.
 - [ ] Add focused automated tests for that logic where it can be isolated without mocking the whole PAF runtime.
 - [ ] Select and document formatter/static-analysis tooling only if it fits the existing codebase and toolchain.
@@ -100,3 +100,15 @@ Still unresolved / required:
 - Confirm stream resolution selection for host-supported and host-unsupported modes; compare `[GameStream] selected stream mode=...` with the host's actual negotiated/display mode. If the diagnostic values are correct but the host ignores a supported mode, investigate Sunshine's launch/resolution policy rather than changing the Vita decoder size.
 - Research a supported shell/app event or status signal for Quick Actions. Do not claim the overlay is detectable until an API is verified. Avoid a timer-only input suppression workaround that could resume forwarding while the overlay remains open.
 - Rebuild CXML and the app, then retest on real hardware; these latest source changes have not been built or device-verified by the current agent.
+
+
+## Host ListView diagnosis (2026-10-13)
+
+Source review identified a likely off-by-one bug in `Main::RefreshHosts()`:
+
+- The old code called `DeleteCell(0, 0, existing - 1)`. PAF's third argument is used as a deletion count in the project's reference implementation, so this can leave one old cell behind. Re-inserting `m_host_count` cells can then produce `after_insert = hosts + 1`, matching the duplicate-row symptom.
+- BetterHomebrewBrowser's `AppBrowser::ClearList()` uses `DeleteCell(0, 0, listView->GetCellNum(0))`, passing the full cell count. The fix branch now follows that pattern and adds a comment documenting the count semantics.
+- NetStream's server browser creates its ListView segment and item factory once, then inserts cells for the loaded entries. It does not provide evidence for deleting a range with an inclusive final index.
+- The diagnostic `cells_after_delete` and `after_insert` log remains in place to validate the behavior on-device.
+
+**Verification status:** source comparison only. No Vita toolchain build or hardware test has been run for this change. Before marking the item complete, verify empty → one host → multiple hosts, repeated refresh, and entry/exit from selection mode; require `after_delete=0` and `after_insert=hosts` in each refresh.
