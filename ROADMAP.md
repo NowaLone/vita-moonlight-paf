@@ -124,3 +124,21 @@ User-reported `psp2shell` logs from Vita after applying the `DeleteCell(0, 0, ex
 - These observations support the fix for stale/duplicate ListView cells and the selection-template rebuild path.
 
 **Follow-up:** user confirmed that the list behavior is OK. The clean build remains unverified separately; the runtime logs came from a running Vita build.
+
+
+## Next task: Quick Actions, PS Button, and application lifecycle
+
+**Priority: next, beginning with investigation rather than speculative API changes.**
+
+Known issue from Vita testing: holding PS to open Quick Actions does not currently suspend controller forwarding to the streaming host. This must be addressed without breaking normal PS Button/LiveArea behavior or leaving the stream in an inconsistent state.
+
+Investigation checklist:
+- [ ] Trace controller input from the Vita input reader through the Moonlight input sender and identify the exact point where forwarding can be safely paused/resumed.
+- [ ] Trace application and stream lifecycle entry points, including PAF runtime startup/shutdown, stream start/stop, page transitions, suspend/resume, and cleanup of worker threads/resources.
+- [ ] Compare concrete lifecycle and PS Button handling in NetStream and BetterHomebrewBrowser; record which mechanisms are directly applicable to this PAF app and which are app-specific.
+- [ ] Verify whether a supported shell/app event or status API signals Quick Actions visibility or foreground/background transitions. Document the API and evidence before relying on it.
+- [ ] Define expected behavior for opening Quick Actions, returning to the app, entering LiveArea, resuming, stopping a stream, and exiting the app.
+- [ ] Implement only after the event/ownership model is established; avoid timer-only suppression because it can resume forwarding while Quick Actions is still open.
+- [ ] Build and verify on real Vita hardware with `psp2shell` logs. Record results and any firmware-dependent behavior here.
+
+**Acceptance criteria:** controller input is not forwarded to the host while the system UI requires it to be suspended; forwarding resumes only after a verified return-to-app transition; stream and app resources remain valid through suspend/resume and are released safely on stop/exit. No unverified system API or hardware behavior is marked complete.
