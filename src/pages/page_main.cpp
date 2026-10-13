@@ -490,7 +490,8 @@ void Main::RefreshHosts()
 
     int existing = list->GetCellNum(0);
     if (existing > 0) {
-        list->DeleteCell(0, 0, existing - 1);
+        /* DeleteCell's third argument is a cell count, not the last index. */
+        list->DeleteCell(0, 0, existing);
     }
     const int cells_after_delete = list->GetCellNum(0);
 
