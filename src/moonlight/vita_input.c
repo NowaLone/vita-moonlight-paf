@@ -28,6 +28,7 @@ static bool s_ps_button_locked = false;
 static bool s_shell_events_initialized = false;
 static uint64_t s_ps_button_release_time = 0;
 static bool s_ps_single_pending = false;
+static bool s_ps_physical_old = false;
 static int s_ps_host_pulse_state = 0;
 static int s_touchscreen_mode = 0;
 static int s_mouse_acceleration = 0;
@@ -284,7 +285,7 @@ front_done:
     }
 
     ps_pressed = (s_pad.buttons & SCE_CTRL_PSBUTTON) != 0;
-    ps_pressed_old = (s_pad_old.buttons & SCE_CTRL_PSBUTTON) != 0;
+    ps_pressed_old = s_ps_physical_old;
 
     if (s_ps_button_capture) {
         uint64_t now = sceKernelGetSystemTimeWide();
@@ -305,6 +306,7 @@ front_done:
                 s_ps_single_pending = false;
                 s_ps_button_release_time = 0;
                 s_ps_host_pulse_state = 0;
+                s_ps_physical_old = ps_pressed;
                 moonlight_stream_stop();
                 return;
             }
@@ -329,6 +331,7 @@ front_done:
         }
     }
 
+    s_ps_physical_old = ps_pressed;
     back_buttons = vita_read_back_touch(&s_back);
 
     if (memcmp(&s_pad, &s_pad_old, sizeof(SceCtrlData)) != 0 ||
@@ -446,6 +449,7 @@ void vita_input_start(void)
     s_back_buttons_old = 0;
     s_ps_button_release_time = 0;
     s_ps_single_pending = false;
+    s_ps_physical_old = false;
     s_ps_host_pulse_state = 0;
 
     /*
@@ -544,6 +548,7 @@ void vita_input_stop(void)
     memset(&s_pad_old, 0, sizeof(s_pad_old));
     s_ps_button_release_time = 0;
     s_ps_single_pending = false;
+    s_ps_physical_old = false;
     s_ps_host_pulse_state = 0;
 
     if (s_ps_button_locked) {
