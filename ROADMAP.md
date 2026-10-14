@@ -377,3 +377,14 @@ User supplied a new log from the build containing the Ext2-vs-Ext probe:
 **Next diagnostic:** do one deliberately brief tap while keeping the stream active, release well before 500 ms, then wait at least 350 ms. Confirm that the log shows a press edge, release edge with duration_us clearly below 500000, and “PS Button single press, forwarding after timeout”; verify whether the PC receives the expected special/home event. Then separately test PS+Select forced close and note whether the host receives PS before, during, or after app termination. Do not change the polling API or timing thresholds based on this excerpt alone.
 
 The repeated “Waiting for IDR frame” messages and later decoded-frame counters are a separate video recovery/performance concern; this log does not correlate them to the PS state machine. No build or hardware test was performed by the agent.
+
+
+### Short PS tap not handled: combine polling samples (2026-10-14)
+
+User reports that short PS taps are not handled. The current state machine already supports a short-tap path, but its edge detection used only the PS bit in the Ext2 sample even though the loop also polls Ext into a separate buffer.
+
+**Source change committed:** [f82f3a6](https://github.com/NowaLone/vita-moonlight-paf/commit/f82f3a6e9ccd27ff0c9b9ab30786a554915f66ea) updates PS detection to use the OR of the PS bit from Ext2 and Ext. Ext2 remains the source of all normal controller buttons; only PS edge detection combines the samples. The heartbeat's `effective_pressed` field now shows the combined state, while the raw button masks remain available for comparison.
+
+This is a targeted attempt to avoid missing a brief PS state visible in only one polling sample; it is not yet proven to be the root cause. It does not change the 500 ms hold threshold or the 250 ms double-tap window.
+
+**Device verification needed:** build/install this exact commit with the known-working SELF auth ID `0x2F00000000000101`. Test one brief PS tap, wait at least 350 ms, then test a hold separately. Expected short-tap sequence: `press pending` → `release detected duration_us<500000` → `single press, forwarding after timeout`. If that sequence appears but the host does not react, investigate the `SPECIAL_FLAG` send path; if it does not, capture the new `effective_pressed` and both raw API masks. No build or Vita hardware test has been run by the agent.
