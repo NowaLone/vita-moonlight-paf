@@ -301,3 +301,18 @@ User supplied logs from the diagnostic build:
 **Diagnostic follow-up committed** in `src/moonlight/vita_input.c` (commit `fa1725ef3df560349fafe5ae6a814388ee344b01`): retain the original press timestamp after hold classification until the release edge, so the release log can report the actual sampled hold duration. This does not change the 500 ms threshold or host-event behavior.
 
 **Next device test:** rebuild/install this commit and repeat a deliberate quick tap, releasing well before 500 ms. Check `duration_us` and whether `PS Button single press, forwarding after timeout` appears. If the measured duration is at least 500,000 µs, the input loop is genuinely observing a hold (or the app is not processing the release while the system overlay is active); then correlate the physical press/release with Quick Actions open/return before adjusting thresholds. If duration is clearly below 500,000 µs but the hold message still appears, capture the full ordered log and investigate timestamp/state transitions. Agent has not built or tested this change on hardware.
+
+### Repeated PS taps test: timestamp discrepancy (2026-10-14)
+
+User tested several press intervals and also a hold. The log shows only one recognized rising edge and one release edge:
+
+- `[Input] PS Button press pending tap/hold detection`
+- `[Input] PS Button hold detected; suppressing host event`
+- heartbeat: `raw_buttons=0x00010000 pressed=1 old=1 pending=0 press_time=0 release_time=0`
+- `[Input] PS Button release detected duration_us=0 pending=0`
+
+The PS bit is definitely observed, but this excerpt does not demonstrate that the deliberate short taps were individually sampled: only one press/release pair appears. The recognized press was classified as a hold and the pending host event was cancelled, so no single-tap forwarding is expected from that state.
+
+**Important source/build inconsistency:** current branch source after commit `fa1725ef3df560349fafe5ae6a814388ee344b01` explicitly retains `s_ps_press_time` after hold classification so the release diagnostic can calculate duration. In that source, the shown sequence should not produce `press_time=0` in the heartbeat while the button is still pressed, nor `duration_us=0` at release (assuming the timestamp was recorded normally). The log therefore appears to come from a build older than that fix, or from a package that does not match the current branch source. Do not tune thresholds from this duration value.
+
+**Next test:** build/install the branch containing `fa1725ef3df560349fafe5ae6a814388ee344b01` with SELF auth ID `0x2F00000000000101`; capture the package's source commit if possible. Perform one clearly brief tap (press and release quickly), wait at least 350 ms, then do a separate deliberate hold and return from Quick Actions. For each gesture, record the ordered `press pending`, `hold detected`, `release detected duration_us=...`, and `single press, forwarding after timeout` messages. Do not change the 500 ms threshold until the measured duration and exact build are confirmed. No build or Vita test was performed by the agent.
