@@ -333,3 +333,13 @@ Sources reviewed:
 - Upstream Moonlight build: https://github.com/xyzz/vita-moonlight/blob/vita/CMakeLists.txt
 - Upstream Moonlight 0.13.2 notes: https://github.com/xyzz/vita-moonlight/blob/vita/README.md
 - PSDevWiki Program Authority ID: https://www.psdevwiki.com/ps3/Program_Authority_ID
+
+### Restore the PAF-compatible SELF authority ID for continued PS tests (2026-10-14)
+
+**Change committed:** `CMakeLists.txt` now uses `-a 0x2F00000000000101` again while retaining `UNSAFE ATTRIBUTE 0x0E`. Commit: [7eb5086](https://github.com/NowaLone/vita-moonlight-paf/commit/7eb5086a5c2dc087029d328db03ce00875c40e3a).
+
+Reason: the user-reported device test found AppSettings persistence working with this authority ID and reported successful `sceShellUtilInitEvents` / `sceShellUtilLock` return codes in the same configuration. The upstream `0x2800000000000001` experiment coincided with settings persistence failing, so it is not a suitable default for further input testing without resolving that regression. This is a controlled project decision based on reported device results, not proof that the authority ID alone caused the persistence difference.
+
+**Next device verification:** build and install this exact branch revision; verify settings survive app restart, record the source commit shown by About if available, and test one brief PS tap (release well before 500 ms, then wait at least 350 ms) separately from a deliberate hold that opens Quick Actions. Capture ordered press/release/timeout logs and confirm whether the PC receives the short-tap special/home event. Do not tune the 250 ms double-tap window or 500 ms hold threshold until the installed revision and measured press duration are known.
+
+**Not verified by the agent:** no build or Vita hardware test was run for this commit.
