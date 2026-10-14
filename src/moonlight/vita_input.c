@@ -33,6 +33,8 @@ static bool s_ps_single_pending = false;
 static bool s_ps_physical_old = false;
 static bool s_ps_probe_ext_old = false;
 static int s_ps_host_pulse_state = 0;
+static volatile int s_shell_ps_edge = 0;
+static int s_shell_handler_registered = 0;
 static int s_touchscreen_mode = 0;
 static int s_mouse_acceleration = 0;
 static bool s_motion_enabled = false;
@@ -130,6 +132,26 @@ static uint32_t vita_read_back_touch(const SceTouchData *back)
     return buttons;
 }
 
+
+static void vita_shell_event_handler(
+    int result,
+    SceShellUtilLockMode mode,
+    SceShellUtilLockType type,
+    void *userData)
+{
+    (void)userData;
+
+    vita_debug_log(
+        "[Input] ShellUtil event result=%d mode=%d type=0x%08x",
+        result,
+        (int)mode,
+        (unsigned int)type);
+
+    if ((type & (SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN |
+                 SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN_2)) != 0) {
+        s_shell_ps_edge = 1;
+    }
+}
 
 static void vita_input_send(uint32_t back_buttons)
 {
@@ -269,6 +291,32 @@ static void vita_input_process(void)
             (unsigned int)ps_probe_ext.buttons);
         s_ps_probe_ext_old = ps_probe_ext_pressed;
     }
+
+    /*
+     * A short PS tap can be a single older sample while the newest sample
+     * is already clear. Scan the recent Ext2 history before deciding the
+     * bit was never delivered.
+     */
+    if ((s_pad.buttons & SCE_CTRL_PSBUTTON) == 0) {
+        SceCtrlData history[16];
+        int history_count;
+        int history_index;
+
+        memset(history, 0, sizeof(history));
+        history_count = sceCtrlPeekBufferPositiveExt2(0, history, 16);
+        for (history_index = 0;
+             history_index < history_count && history_index < 16;
+             ++history_index) {
+            if ((history[history_index].buttons & SCE_CTRL_PSBUTTON) != 0) {
+                s_pad.buttons |= SCE_CTRL_PSBUTTON;
+                vita_debug_log(
+                    "[Input] PS found in Ext2 history index=%d buttons=0x%08x",
+                    history_index,
+                    (unsigned int)history[history_index].buttons);
+                break;
+            }
+        }
+    }
     sceTouchPeek(SCE_TOUCH_PORT_BACK, &s_back, 1);
 
     if (s_front_touchzones && s_touchscreen_mode == 0) {
@@ -309,6 +357,11 @@ front_done:
      * state machine if only one sample sees the bit.
      */
     ps_pressed = ((s_pad.buttons | ps_probe_ext.buttons) & SCE_CTRL_PSBUTTON) != 0;
+    if (!ps_pressed && s_shell_ps_edge) {
+        s_shell_ps_edge = 0;
+        ps_pressed = true;
+        vita_debug_log("[Input] PS edge from ShellUtil event");
+    }
     ps_pressed_old = s_ps_physical_old;
 
     if (s_ps_button_capture) {
@@ -567,6 +620,18 @@ void vita_input_start(void)
             vita_debug_log(
                 "[Input] ShellUtil init events result=0x%08x",
                 (unsigned int)init_result);
+        }
+
+        if (!s_shell_handler_registered) {
+            int handler_result = sceShellUtilRegisterEventHandler(
+                vita_shell_event_handler,
+                NULL);
+            if (handler_result == 0) {
+                s_shell_handler_registered = 1;
+            }
+            vita_debug_log(
+                "[Input] ShellUtil register handler result=0x%08x",
+                (unsigned int)handler_result);
         }
 
         result = sceShellUtilLock(

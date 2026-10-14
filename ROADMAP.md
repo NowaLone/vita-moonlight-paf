@@ -397,3 +397,15 @@ User tested the build containing the combined Ext2/Ext PS detection and supplied
 **Interpretation:** this excerpt does not show the state machine receiving any PS tap, so it cannot be evidence of a timeout or SPECIAL_FLAG-send failure. It is consistent with the polling APIs not exposing PS during the attempted taps, but the excerpt alone cannot prove whether the taps occurred during the captured interval or whether the app/firmware consumed them. Successful ShellUtil return codes confirm only that those calls returned success, not that PS samples must be visible through SceCtrl.
 
 **Next diagnostic:** capture a tightly scoped log while deliberately holding PS down for about one second, then releasing, with the console log visible continuously. Confirm whether either API ever reports `0x00010000` or emits `PS probe Ext edge`. This is a control test because previous logs did register held PS presses. If a hold is also invisible in the same installed build, verify the exact package/source revision and investigate ShellUtil/foreground behavior before changing tap timing or SPECIAL_FLAG code. If the hold is visible but a short tap is not, compare the raw edge logs and measured tap duration. The repeated `Waiting for IDR frame` messages are video recovery diagnostics and do not explain the absent PS samples. No build or hardware test was performed by the agent.
+
+### Three-path PS behavior (2026-10-14)
+
+User observation on the current build:
+
+1. A single PS tap is blocked: the app does not minimize, the tap is absent from the logs, and nothing reaches the host.
+2. A PS hold opens Quick Actions, is present in the logs, does not minimize the app, and correctly sends nothing to the host.
+3. PS+Select force-closes the app. That combo is not blocked and is absent from the logs, but a press still reaches the host.
+
+**Interpretation:** the ShellUtil lock is doing its system-side job for a tap, but the short press never enters the SceCtrl sample the state machine watches. A hold is long enough to appear in SceCtrl, so the existing hold-suppression path runs. PS+Select is a system combo that bypasses the app lock and kills the process before this loop can log; the host press is therefore not evidence that the tap state machine sent `SPECIAL_FLAG`. Clean stream stop already sends a zero controller packet, so this is an abrupt-kill/disconnect side effect.
+
+**Source change:** register `sceShellUtilRegisterEventHandler` and treat a `PS_BTN`/`PS_BTN_2` event as a synthetic short-press edge when SceCtrl did not see the bit. Also scan the recent Ext2 history in case the newest sample is already clear. Expected short-tap log is `ShellUtil event` or `PS found in Ext2 history`, then `press pending`, `release detected`, and `single press, forwarding after timeout`. No hardware test has been run for this change.
