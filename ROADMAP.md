@@ -199,6 +199,16 @@ Source change committed on `feat/quick-actions-lifecycle-review`:
 
 **Still unresolved:** this change does not implement Quick Actions overlay detection or pause/resume gating for other controller inputs. Do not consider the lifecycle requirement complete until a reliable system/app signal is verified on the target firmware and input forwarding resumes only after confirmed return to the app.
 
+### ShellUtil initialization follow-up (2026-10-14)
+
+The next device log reports `sceShellUtilLock()` as `0x80101801` even with `ps_capture=1`. The SELF packaging experiment therefore has not demonstrated successful PS-button locking in the reported run.
+
+A source review found a second concrete prerequisite worth testing: Vita homebrew code in [TheOfficialFloW/h-encore](https://github.com/TheOfficialFloW/h-encore/blob/6d43b4cd662d1012ca851a86d43f3696b2323200/bootstrap/bootstrap.c) calls `sceShellUtilInitEvents(0)` before `sceShellUtilLock(SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN)`. Another Vita implementation documents that the ShellUtil event subsystem must be initialized before lock/unlock. The current PAF code did not initialize it.
+
+**Change committed on `feat/quick-actions-lifecycle-review`:** `src/moonlight/vita_input.c` now calls `sceShellUtilInitEvents(0)` before attempting the PS-button lock, logs the initialization result, and retries initialization on a later stream start if the call fails. This is a hypothesis-driven change, not a confirmed fix; no build or device test has run for this commit.
+
+**Next device test:** build/install this exact revision and capture both `[Input] ShellUtil init events result=...` and `[Input] PS Button lock result=...`. If init succeeds but lock still fails, investigate the exact error/SELF permissions next. If init fails, record its result and Vita firmware/CFW details. Do not infer that the lock works merely because the PS press handler logs a message.
+
 ### Follow-up device log (2026-10-14)
 
 The new startup excerpt resolves the missing diagnostic:
