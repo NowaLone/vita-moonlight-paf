@@ -275,3 +275,15 @@ User-reported test after restoring SELF auth ID `0x2F00000000000101` while retai
 **Current diagnosis:** SELF auth ID appears to affect AppSettings persistence in the user's device test, while the PS event issue shown by these logs is consistent with the input state machine's hold classification. These are separate observations; do not assume the successful ShellUtil lock means a short PS event was sent to the host.
 
 **Next test:** keep the working master auth ID and test a deliberately brief PS tap (release well before 500 ms), then wait at least 300 ms for the 250 ms double-tap window to expire. Capture logs for the entire press/release interval. Expected log: `PS Button single press, forwarding after timeout`. Confirm whether the host receives the mapped special/home event. Separately test a deliberate hold to open Quick Actions and confirm that no host event is sent after returning. If a short tap is still suppressed, instrument the raw PS press/release timestamps and the pending-state transitions before changing thresholds. Build and device behavior here are user-reported; no build/test was performed by the agent.
+
+
+### PS short-tap test produced no expected log (2026-10-14)
+
+User reports that the deliberate short-tap test produced none of the expected messages, including `PS Button single press, forwarding after timeout`. This does not yet identify whether the physical PS bit is visible to the polling loop, whether a press/release edge is recognized, or whether the pending state expires.
+
+**Diagnostic change committed** in `src/moonlight/vita_input.c` (commit `2230ef398281a0595df692564066bd4f11800f50`):
+- While PS capture is enabled, emit a throttled `[Input] PS diag ...` line at most once per second with raw button bits, current/previous PS state, pending flag, and press/release timestamps.
+- Emit `[Input] PS Button release detected duration_us=...` when a release edge is observed.
+- This should separate “PS bit never appears in the sampled controller state” from “edge/state-machine path runs but the single-tap timeout does not fire.”
+
+**Next device test:** rebuild/install this exact commit with the known-working SELF auth ID `0x2F00000000000101`, confirm startup still reports `ps_capture=1`, tap PS briefly and capture the diagnostic lines across press and release. If `pressed` never becomes 1, investigate controller sampling/Shell interaction first. If press and release are both logged but the single-timeout message is absent, inspect timestamps and pending-state transitions before changing thresholds. If the timeout message appears but the host does not react, investigate the outgoing `SPECIAL_FLAG` pulse path. The agent has not built or tested this commit on hardware.
