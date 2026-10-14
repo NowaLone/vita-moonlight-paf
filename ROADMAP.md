@@ -260,3 +260,18 @@ Next diagnostic:
 2. If persistence returns, investigate the packaging/auth-ID effect and choose a compatible way to support PS capture without regressing AppSettings.
 3. If it still fails, compare the full build/package pipeline and other branch-specific changes, then instrument `GetInt("settings_version")`, `Initialize()`, and `SetInt` return values where the API provides them.
 4. Record the tested commit, package metadata, and device result. No build or device verification has been run as part of this source comparison.
+
+
+### PS capture test with master SELF auth ID (2026-10-14)
+
+User-reported test after restoring SELF auth ID `0x2F00000000000101` while retaining `UNSAFE ATTRIBUTE 0x0E`:
+
+- AppSettings now load and save across app restarts.
+- With `ps_button_capture=1`, the log reports `sceShellUtilInitEvents=0` and `sceShellUtilLock(...PS_BTN | PS_BTN_2)=0`, so both calls return success in this run.
+- Quick Actions opens when PS is held; the app does not minimize.
+- Two observed presses each log `PS Button press pending tap/hold detection` followed by `PS Button hold detected; suppressing host event`. Therefore the captured presses shown in this excerpt were classified as holds and intentionally suppressed; this excerpt does not demonstrate the short-tap path or a host-side `SPECIAL_FLAG` pulse.
+- The separate `[Limelight] Unrecoverable frame ... received < needed` line indicates a video-frame recovery issue and is not evidence about PS handling.
+
+**Current diagnosis:** SELF auth ID appears to affect AppSettings persistence in the user's device test, while the PS event issue shown by these logs is consistent with the input state machine's hold classification. These are separate observations; do not assume the successful ShellUtil lock means a short PS event was sent to the host.
+
+**Next test:** keep the working master auth ID and test a deliberately brief PS tap (release well before 500 ms), then wait at least 300 ms for the 250 ms double-tap window to expire. Capture logs for the entire press/release interval. Expected log: `PS Button single press, forwarding after timeout`. Confirm whether the host receives the mapped special/home event. Separately test a deliberate hold to open Quick Actions and confirm that no host event is sent after returning. If a short tap is still suppressed, instrument the raw PS press/release timestamps and the pending-state transitions before changing thresholds. Build and device behavior here are user-reported; no build/test was performed by the agent.
