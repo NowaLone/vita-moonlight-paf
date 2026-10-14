@@ -230,3 +230,16 @@ The new startup excerpt resolves the missing diagnostic:
 - Stream startup and initial video decode occurred in this excerpt. It contains no evidence sufficient to diagnose the separate video packet-loss reports.
 
 Next step: build the branch and inspect the generated SELF auth ID/attributes; on real Vita, first verify the PAF UI still launches, then capture the exact `sceShellUtilLock` result. Test PS capture enabled (single press forwarded, double press stops stream) and disabled (native PS behavior; no stream stop). Also exercise Quick Actions open/return and confirm controller input is suspended only while the system overlay is active. No build or device test has yet been run for this packaging change.
+
+
+### Quick Actions hold behavior clarification (2026-10-14)
+
+The intended behavior is to **allow the system Quick Actions UI to open** when PS is held, while **never forwarding that held PS press to the streaming host**. Do not try to prevent Quick Actions from opening as part of this requirement.
+
+Source change committed in `src/moonlight/vita_input.c`:
+- Added a 500 ms hold threshold separate from the 250 ms double-tap window.
+- If PS remains held for 500 ms, cancel the pending host-side single-press event. Releasing after a long hold also cancels the pending event, including when input polling resumes after the system UI returns.
+- A short tap still waits for the 250 ms double-tap window before forwarding a single `SPECIAL_FLAG`; a second tap in that window stops the stream and suppresses the host event.
+- `ps_button_capture=0` remains on the native Vita path and does not enter this state machine.
+
+**Verification status:** source change only; no build or Vita hardware test has been run. Verify that holding PS opens Quick Actions, no PS event reaches the host after returning, a short single tap forwards exactly one event after the double-tap window, a double tap stops the stream without forwarding PS, and capture-disabled behavior remains native. If Quick Actions activates before the 500 ms threshold on target firmware, lower the hold threshold based on measured device behavior.
