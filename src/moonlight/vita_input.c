@@ -27,6 +27,7 @@ static bool s_ps_button_capture = true;
 static bool s_ps_button_locked = false;
 static bool s_shell_events_initialized = false;
 static uint64_t s_ps_button_release_time = 0;
+static uint64_t s_ps_press_time = 0;
 static bool s_ps_single_pending = false;
 static bool s_ps_physical_old = false;
 static int s_ps_host_pulse_state = 0;
@@ -305,19 +306,43 @@ front_done:
                 vita_debug_log("[Input] PS Button double press, stopping stream");
                 s_ps_single_pending = false;
                 s_ps_button_release_time = 0;
+                s_ps_press_time = 0;
                 s_ps_host_pulse_state = 0;
                 s_ps_physical_old = ps_pressed;
                 moonlight_stream_stop();
                 return;
             }
 
+            s_ps_press_time = now;
             s_ps_single_pending = true;
             s_ps_button_release_time = 0;
-            vita_debug_log("[Input] PS Button press pending double-tap window");
+            vita_debug_log("[Input] PS Button press pending tap/hold detection");
+        } else if (ps_pressed && s_ps_single_pending &&
+                   s_ps_press_time != 0 &&
+                   now >= s_ps_press_time &&
+                   now - s_ps_press_time >= 500000ull) {
+            /*
+             * A held PS press is intended for the system Quick Actions UI.
+             * Do not turn it into a delayed host SPECIAL_FLAG pulse after
+             * the system overlay returns to the app.
+             */
+            s_ps_single_pending = false;
+            s_ps_button_release_time = 0;
+            s_ps_press_time = 0;
+            vita_debug_log("[Input] PS Button hold detected; suppressing host event");
         } else if (!ps_pressed && ps_pressed_old) {
             if (s_ps_single_pending) {
-                s_ps_button_release_time = now;
+                if (s_ps_press_time != 0 &&
+                    now >= s_ps_press_time &&
+                    now - s_ps_press_time >= 500000ull) {
+                    s_ps_single_pending = false;
+                    s_ps_button_release_time = 0;
+                    vita_debug_log("[Input] PS Button hold released; host event suppressed");
+                } else {
+                    s_ps_button_release_time = now;
+                }
             }
+            s_ps_press_time = 0;
         }
 
         if (s_ps_single_pending && !ps_pressed &&
@@ -448,6 +473,7 @@ void vita_input_start(void)
     memset(&s_back, 0, sizeof(s_back));
     s_back_buttons_old = 0;
     s_ps_button_release_time = 0;
+    s_ps_press_time = 0;
     s_ps_single_pending = false;
     s_ps_physical_old = false;
     s_ps_host_pulse_state = 0;
