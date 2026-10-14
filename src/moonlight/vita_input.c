@@ -31,6 +31,7 @@ static uint64_t s_ps_press_time = 0;
 static uint64_t s_ps_diag_time = 0;
 static bool s_ps_single_pending = false;
 static bool s_ps_physical_old = false;
+static bool s_ps_probe_ext_old = false;
 static int s_ps_host_pulse_state = 0;
 static int s_touchscreen_mode = 0;
 static int s_mouse_acceleration = 0;
@@ -248,10 +249,26 @@ static void vita_input_process(void)
 {
     bool ps_pressed;
     bool ps_pressed_old;
+    bool ps_probe_ext_pressed;
+    int ctrl_ext2_result;
+    int ctrl_ext_result;
+    SceCtrlData ps_probe_ext;
     uint32_t back_buttons;
 
+    memset(&ps_probe_ext, 0, sizeof(ps_probe_ext));
     sceCtrlSetSamplingModeExt(SCE_CTRL_MODE_ANALOG_WIDE);
-    sceCtrlPeekBufferPositiveExt2(0, &s_pad, 1);
+    ctrl_ext2_result = sceCtrlPeekBufferPositiveExt2(0, &s_pad, 1);
+    ctrl_ext_result = sceCtrlPeekBufferPositiveExt(0, &ps_probe_ext, 1);
+    ps_probe_ext_pressed =
+        (ps_probe_ext.buttons & SCE_CTRL_PSBUTTON) != 0;
+    if (ps_probe_ext_pressed != s_ps_probe_ext_old) {
+        vita_debug_log(
+            "[Input] PS probe Ext edge pressed=%d result=%d buttons=0x%08x",
+            ps_probe_ext_pressed ? 1 : 0,
+            ctrl_ext_result,
+            (unsigned int)ps_probe_ext.buttons);
+        s_ps_probe_ext_old = ps_probe_ext_pressed;
+    }
     sceTouchPeek(SCE_TOUCH_PORT_BACK, &s_back, 1);
 
     if (s_front_touchzones && s_touchscreen_mode == 0) {
@@ -297,10 +314,14 @@ front_done:
         if (s_ps_diag_time == 0 || now < s_ps_diag_time ||
             now - s_ps_diag_time >= 1000000ull) {
             vita_debug_log(
-                "[Input] PS diag raw_buttons=0x%08x pressed=%d old=%d pending=%d press_time=%llu release_time=%llu",
+                "[Input] PS diag Ext2 result=%d buttons=0x%08x pressed=%d old=%d; Ext result=%d buttons=0x%08x pressed=%d; pending=%d press_time=%llu release_time=%llu",
+                ctrl_ext2_result,
                 (unsigned int)s_pad.buttons,
                 ps_pressed ? 1 : 0,
                 ps_pressed_old ? 1 : 0,
+                ctrl_ext_result,
+                (unsigned int)ps_probe_ext.buttons,
+                ps_probe_ext_pressed ? 1 : 0,
                 s_ps_single_pending ? 1 : 0,
                 (unsigned long long)s_ps_press_time,
                 (unsigned long long)s_ps_button_release_time);
@@ -498,6 +519,7 @@ void vita_input_start(void)
     s_ps_diag_time = 0;
     s_ps_single_pending = false;
     s_ps_physical_old = false;
+    s_ps_probe_ext_old = false;
     s_ps_host_pulse_state = 0;
 
     /*
