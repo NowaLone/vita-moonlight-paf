@@ -343,3 +343,24 @@ Reason: the user-reported device test found AppSettings persistence working with
 **Next device verification:** build and install this exact branch revision; verify settings survive app restart, record the source commit shown by About if available, and test one brief PS tap (release well before 500 ms, then wait at least 350 ms) separately from a deliberate hold that opens Quick Actions. Capture ordered press/release/timeout logs and confirm whether the PC receives the short-tap special/home event. Do not tune the 250 ms double-tap window or 500 ms hold threshold until the installed revision and measured press duration are known.
 
 **Not verified by the agent:** no build or Vita hardware test was run for this commit.
+
+
+### PS input is absent from latest log; compare controller polling APIs (2026-10-14)
+
+User reports that pressing PS together with Select to forcibly close the app results in a PS/home event reaching the streaming PC. In the supplied streaming log, however, every throttled PS heartbeat shows `raw_buttons=0x00000000`; no press-edge, release-edge, hold, or single-tap-timeout message appears. The log excerpt does not include the forced-close moment, so the route by which the PC receives that event remains unconfirmed.
+
+Reference: VitaSDK documents `sceCtrlPeekBufferPositiveExt2` as the wireless-controller polling API, while `sceCtrlPeekBufferPositiveExt` is the regular controller polling API. The project currently uses Ext2 for its main input sample. This is a reason to compare APIs, not yet proof that Ext2 is the bug: earlier user logs did show `raw_buttons=0x00010000` at least once.
+
+**Diagnostic change committed:** [34f2898](https://github.com/NowaLone/vita-moonlight-paf/commit/34f2898d7cd797ac64127df0008fb89e0783375a) keeps Ext2 as the actual game-input source, additionally polls Ext into a separate probe buffer, logs both API return values and button masks in the heartbeat, and logs Ext probe press/release edges. This is diagnostic-only and does not intentionally change which controller state is forwarded to the host.
+
+**Next device test:** install a build containing this exact commit. While streaming, test a short PS tap, a deliberate PS hold, and PS+Select separately. Capture `PS diag Ext2 result=...`, `PS probe Ext edge...`, and the existing state-machine messages. Interpret the results:
+- Ext sees PS but Ext2 does not: consider switching the main sample to Ext after checking L/R trigger mapping and ordinary controller behavior.
+- Neither API sees PS while the lock calls succeed: investigate ShellUtil interception/permissions and firmware behavior; don't tune tap timing.
+- Either API sees PS edges but the state machine does not classify them: inspect the state machine and timestamps.
+- The PC receives PS only as the app is forcibly closed: capture host-side event timing and test whether app shutdown/release behavior explains it.
+
+No build or hardware test was performed by the agent.
+
+Sources:
+- [VitaSDK SceCtrl user API docs](https://docs.vitasdk.org/group__SceCtrlUser.html) — distinguishes regular and wireless Ext polling APIs and notes PS Button is a controller button.
+- [VitaSDK ShellUtil API docs](https://docs.vitasdk.org/shellutil_8h.html) — defines PS Button and Quick Menu lock types.
