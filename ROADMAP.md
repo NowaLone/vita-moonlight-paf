@@ -243,3 +243,20 @@ Source change committed in `src/moonlight/vita_input.c`:
 - `ps_button_capture=0` remains on the native Vita path and does not enter this state machine.
 
 **Verification status:** source change only; no build or Vita hardware test has been run. Verify that holding PS opens Quick Actions, no PS event reaches the host after returning, a short single tap forwards exactly one event after the double-tap window, a double tap stops the stream without forwarding PS, and capture-disabled behavior remains native. If Quick Actions activates before the 500 ms threshold on target firmware, lower the hold threshold based on measured device behavior.
+
+### Settings persistence regression isolated to feature branch (2026-10-14)
+
+User confirms that settings persist on `master` and are lost only on `feat/quick-actions-lifecycle-review`. This narrows the issue to a branch-specific difference; do not rewrite the settings storage implementation without evidence.
+
+Source comparison:
+- `src/moonlight/settings.cpp` is byte-identical on `master` and the feature branch (same blob SHA `2acf5493b43b39df58f1af3440e54eccdcb3343c`).
+- `cxml/moonlight_settings.xml` is byte-identical on both branches (same blob SHA `a67bcd123b62178f83aa9b87a2cdbd94680dd982`).
+- `CMakeLists.txt` differs in SELF authorization: `master` uses `-a 0x2F00000000000101`; the feature branch experiment uses `-a 0x2800000000000001` to investigate ShellUtil PS-button capture.
+
+This makes the branch's SELF packaging/authorization change the first controlled variable to test, but causality is not established. The `settings_version` initialization path is shared with master and is therefore not by itself an explanation for a regression that occurs only on the feature branch.
+
+Next diagnostic:
+1. Build the feature branch with the master SELF auth ID while leaving all source changes intact; test whether settings survive a full app exit/relaunch.
+2. If persistence returns, investigate the packaging/auth-ID effect and choose a compatible way to support PS capture without regressing AppSettings.
+3. If it still fails, compare the full build/package pipeline and other branch-specific changes, then instrument `GetInt("settings_version")`, `Initialize()`, and `SetInt` return values where the API provides them.
+4. Record the tested commit, package metadata, and device result. No build or device verification has been run as part of this source comparison.
