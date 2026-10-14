@@ -25,6 +25,7 @@ static uint8_t s_controller_type = LI_CTYPE_PS;
 static bool s_swap_shoulder_buttons = false;
 static bool s_ps_button_capture = true;
 static bool s_ps_button_locked = false;
+static bool s_shell_events_initialized = false;
 static uint64_t s_ps_button_release_time = 0;
 static int s_touchscreen_mode = 0;
 static int s_mouse_acceleration = 0;
@@ -437,7 +438,25 @@ void vita_input_start(void)
         capabilities);
 
     if (s_ps_button_capture && !s_ps_button_locked) {
-        int result = sceShellUtilLock(
+        int init_result = 0;
+        int result;
+
+        /*
+         * ShellUtil's event subsystem must be initialized before lock/unlock.
+         * Retry on the next stream start if initialization fails.
+         */
+        if (!s_shell_events_initialized) {
+            init_result = sceShellUtilInitEvents(0);
+            if (init_result == 0) {
+                s_shell_events_initialized = true;
+            }
+
+            vita_debug_log(
+                "[Input] ShellUtil init events result=0x%08x",
+                (unsigned int)init_result);
+        }
+
+        result = sceShellUtilLock(
             (SceShellUtilLockType)(
                 SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN |
                 SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN_2));
