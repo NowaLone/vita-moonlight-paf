@@ -27,6 +27,8 @@ static bool s_ps_button_capture = true;
 static bool s_ps_button_locked = false;
 static bool s_shell_events_initialized = false;
 static uint64_t s_ps_button_release_time = 0;
+static bool s_ps_single_pending = false;
+static int s_ps_host_pulse_state = 0;
 static int s_touchscreen_mode = 0;
 static int s_mouse_acceleration = 0;
 static bool s_motion_enabled = false;
@@ -159,7 +161,7 @@ static void vita_input_send(uint32_t back_buttons)
      * special/home button. The press edge is handled separately below so a
      * confirmed double press can stop the stream without stopping on tap.
      */
-    if (s_ps_button_capture && (s_pad.buttons & SCE_CTRL_PSBUTTON)) {
+    if (s_ps_button_capture && s_ps_host_pulse_state == 1) {
         button_flags |= SPECIAL_FLAG;
     }
 
@@ -287,27 +289,57 @@ front_done:
     if (s_ps_button_capture) {
         uint64_t now = sceKernelGetSystemTimeWide();
 
+        /*
+         * Never forward the physical PS bit directly. Wait until the
+         * double-tap window expires, otherwise the first tap leaks to the
+         * host before a second tap can be recognized.
+         */
+        s_pad.buttons &= ~SCE_CTRL_PSBUTTON;
+
         if (ps_pressed && !ps_pressed_old) {
-            if (s_ps_button_release_time != 0 &&
+            if (s_ps_single_pending &&
+                s_ps_button_release_time != 0 &&
                 now >= s_ps_button_release_time &&
                 now - s_ps_button_release_time <= 250000ull) {
                 vita_debug_log("[Input] PS Button double press, stopping stream");
+                s_ps_single_pending = false;
                 s_ps_button_release_time = 0;
-                s_pad.buttons &= ~SCE_CTRL_PSBUTTON;
+                s_ps_host_pulse_state = 0;
                 moonlight_stream_stop();
-            } else {
-                vita_debug_log("[Input] PS Button pressed, forwarding to host");
+                return;
             }
+
+            s_ps_single_pending = true;
+            s_ps_button_release_time = 0;
+            vita_debug_log("[Input] PS Button press pending double-tap window");
         } else if (!ps_pressed && ps_pressed_old) {
-            s_ps_button_release_time = now;
+            if (s_ps_single_pending) {
+                s_ps_button_release_time = now;
+            }
+        }
+
+        if (s_ps_single_pending && !ps_pressed &&
+            s_ps_button_release_time != 0 &&
+            now >= s_ps_button_release_time &&
+            now - s_ps_button_release_time > 250000ull) {
+            s_ps_single_pending = false;
+            s_ps_button_release_time = 0;
+            s_ps_host_pulse_state = 1;
+            vita_debug_log("[Input] PS Button single press, forwarding after timeout");
         }
     }
 
     back_buttons = vita_read_back_touch(&s_back);
 
     if (memcmp(&s_pad, &s_pad_old, sizeof(SceCtrlData)) != 0 ||
-        back_buttons != s_back_buttons_old) {
+        back_buttons != s_back_buttons_old ||
+        s_ps_host_pulse_state != 0) {
         vita_input_send(back_buttons);
+        if (s_ps_host_pulse_state == 1) {
+            s_ps_host_pulse_state = 2;
+        } else if (s_ps_host_pulse_state == 2) {
+            s_ps_host_pulse_state = 0;
+        }
         memcpy(&s_pad_old, &s_pad, sizeof(SceCtrlData));
         s_back_buttons_old = back_buttons;
     }
@@ -413,6 +445,8 @@ void vita_input_start(void)
     memset(&s_back, 0, sizeof(s_back));
     s_back_buttons_old = 0;
     s_ps_button_release_time = 0;
+    s_ps_single_pending = false;
+    s_ps_host_pulse_state = 0;
 
     /*
      * Match the controller declaration used by the original Vita Moonlight.
@@ -509,6 +543,8 @@ void vita_input_stop(void)
     memset(&s_pad, 0, sizeof(s_pad));
     memset(&s_pad_old, 0, sizeof(s_pad_old));
     s_ps_button_release_time = 0;
+    s_ps_single_pending = false;
+    s_ps_host_pulse_state = 0;
 
     if (s_ps_button_locked) {
         int result = sceShellUtilUnlock(
