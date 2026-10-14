@@ -199,6 +199,16 @@ Source change committed on `feat/quick-actions-lifecycle-review`:
 
 **Still unresolved:** this change does not implement Quick Actions overlay detection or pause/resume gating for other controller inputs. Do not consider the lifecycle requirement complete until a reliable system/app signal is verified on the target firmware and input forwarding resumes only after confirmed return to the app.
 
+### PS double-tap forwarding follow-up (2026-10-14)
+
+The latest device report confirms the intended basic behavior when `ps_button_capture` is enabled, but the first PS tap is forwarded before the second tap can stop the stream. The input path previously put `SPECIAL_FLAG` directly into every controller report while the physical PS bit was held, so stopping on the second edge could not retract the first report.
+
+**Change committed:** PS forwarding is now deferred until the 250 ms double-tap window expires. The physical PS state is tracked separately from the controller state sent to the host; a confirmed double tap clears the pending single tap and stops the stream without sending the pending PS event. A confirmed single tap emits a short host-side PS pulse after the window. Commits: [defer forwarding](https://github.com/NowaLone/vita-moonlight-paf/commit/fb0b2612ec22283541267bacf4c28ec6dcc0ea48) and [track physical PS edges separately](https://github.com/NowaLone/vita-moonlight-paf/commit/81acad9146f6e4b3adb3ef64a7ec304e07ba20de).
+
+This change is source-reviewed only; no build or hardware test has been run. Verify that single PS sends exactly one event after roughly 250 ms, double PS stops the stream without sending PS to the host, and a held PS does not generate repeated events.
+
+**Quick Actions while holding PS remains unresolved.** The user reports Quick Actions still opens when capture is enabled and PS is held, while the lock call had previously returned `0x80101801`. Do not claim this is fixed by input buffering: host-side event timing and Shell-level interception are separate mechanisms. Capture the latest `ShellUtil init events` and lock result from the revision containing the initialization call; only pursue Quick Actions suppression after confirming the actual lock result and supported API behavior. When capture is disabled, preserve native Shell behavior and do not acquire the PS lock.
+
 ### ShellUtil initialization follow-up (2026-10-14)
 
 The next device log reports `sceShellUtilLock()` as `0x80101801` even with `ps_capture=1`. The SELF packaging experiment therefore has not demonstrated successful PS-button locking in the reported run.
