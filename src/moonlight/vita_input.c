@@ -303,7 +303,12 @@ front_done:
         ;
     }
 
-    ps_pressed = (s_pad.buttons & SCE_CTRL_PSBUTTON) != 0;
+    /*
+     * Keep Ext2 as the source for normal controller input, but latch PS from
+     * either polling API. A very brief PS tap can otherwise be missed by the
+     * state machine if only one sample sees the bit.
+     */
+    ps_pressed = ((s_pad.buttons | ps_probe_ext.buttons) & SCE_CTRL_PSBUTTON) != 0;
     ps_pressed_old = s_ps_physical_old;
 
     if (s_ps_button_capture) {
@@ -314,7 +319,7 @@ front_done:
         if (s_ps_diag_time == 0 || now < s_ps_diag_time ||
             now - s_ps_diag_time >= 1000000ull) {
             vita_debug_log(
-                "[Input] PS diag Ext2 result=%d buttons=0x%08x pressed=%d old=%d; Ext result=%d buttons=0x%08x pressed=%d; pending=%d press_time=%llu release_time=%llu",
+                "[Input] PS diag Ext2 result=%d buttons=0x%08x effective_pressed=%d old=%d; Ext result=%d buttons=0x%08x pressed=%d; pending=%d press_time=%llu release_time=%llu",
                 ctrl_ext2_result,
                 (unsigned int)s_pad.buttons,
                 ps_pressed ? 1 : 0,
