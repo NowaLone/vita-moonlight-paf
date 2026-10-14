@@ -316,3 +316,20 @@ The PS bit is definitely observed, but this excerpt does not demonstrate that th
 **Important source/build inconsistency:** current branch source after commit `fa1725ef3df560349fafe5ae6a814388ee344b01` explicitly retains `s_ps_press_time` after hold classification so the release diagnostic can calculate duration. In that source, the shown sequence should not produce `press_time=0` in the heartbeat while the button is still pressed, nor `duration_us=0` at release (assuming the timestamp was recorded normally). The log therefore appears to come from a build older than that fix, or from a package that does not match the current branch source. Do not tune thresholds from this duration value.
 
 **Next test:** build/install the branch containing `fa1725ef3df560349fafe5ae6a814388ee344b01` with SELF auth ID `0x2F00000000000101`; capture the package's source commit if possible. Perform one clearly brief tap (press and release quickly), wait at least 350 ms, then do a separate deliberate hold and return from Quick Actions. For each gesture, record the ordered `press pending`, `hold detected`, `release detected duration_us=...`, and `single press, forwarding after timeout` messages. Do not change the 500 ms threshold until the measured duration and exact build are confirmed. No build or Vita test was performed by the agent.
+### Research note: Vita SELF Program Authority ID / auth ID (2026-10-14)
+
+Terminology: the 64-bit value passed with `vita-make-fself -a` is commonly called `authid`, but the PSDevWiki documents the fuller term as **Program Authority ID**. It is metadata in the SELF header, not the app's `TITLE_ID`, not a runtime Moonlight setting, and not a general-purpose list of interchangeable privilege levels. VitaSDK's `vita_create_self()` forwards configured flags to `vita-make-fself`; `UNSAFE` means the tool omits the default safe (`-s`) flag, while `ATTRIBUTE` sets a separate system-app attribute field.
+
+Public source findings:
+- PSDevWiki lists SDK-generated fSELF authority IDs `0x2F00000000000001` for SDK-compiled game applications and `0x2F00000000000002` for SDK-compiled non-game applications. This does **not** establish the meaning or safety of this project's `0x2F00000000000101` variant; no exact public match for that full value was found in this search.
+- Upstream `xyzz/vita-moonlight` 0.13.2 uses `vita-make-fself -a 0x2800000000000001 -at 0x0E -c` and states this packaging change was required for PS Button capture / SceShell permission. This is an observed upstream build configuration, not proof that it is a drop-in replacement for a PAF/system-UI application.
+- VitaSDK's CMake helper documentation says `UNSAFE` omits the safe flag and `ATTRIBUTE` sets the system app attribute; those controls are distinct from the authority ID.
+- In this repository, `master` currently uses `0x2F00000000000101` with `UNSAFE`; the reviewed feature branch currently uses the experimental `0x2800000000000001` with `UNSAFE ATTRIBUTE 0x0E`. User testing reported settings persistence with the former and loss of persistence with the latter. This is a correlation from device testing, not a proven direct effect of auth ID alone.
+
+Decision: keep `0x2F00000000000101` for builds where settings persistence and PAF launch behavior are required, unless a controlled test demonstrates a compatible alternative. Do not try arbitrary authority IDs copied from other applications. To investigate PS Button capture, compare otherwise-identical packages, inspect generated SELF metadata, and test PAF launch, settings persistence, `sceShellUtilLock`, PS behavior, and exit/resume on the target Vita. Record the exact source commit and package used for each result.
+
+Sources reviewed:
+- VitaSDK `vita.cmake`: https://github.com/vitasdk/vita-toolchain/blob/master/cmake_toolchain/vita.cmake
+- Upstream Moonlight build: https://github.com/xyzz/vita-moonlight/blob/vita/CMakeLists.txt
+- Upstream Moonlight 0.13.2 notes: https://github.com/xyzz/vita-moonlight/blob/vita/README.md
+- PSDevWiki Program Authority ID: https://www.psdevwiki.com/ps3/Program_Authority_ID
