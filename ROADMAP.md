@@ -409,3 +409,25 @@ User observation on the current build:
 **Interpretation:** the ShellUtil lock is doing its system-side job for a tap, but the short press never enters the SceCtrl sample the state machine watches. A hold is long enough to appear in SceCtrl, so the existing hold-suppression path runs. PS+Select is a system combo that bypasses the app lock and kills the process before this loop can log; the host press is therefore not evidence that the tap state machine sent `SPECIAL_FLAG`. Clean stream stop already sends a zero controller packet, so this is an abrupt-kill/disconnect side effect.
 
 **Source change:** register `sceShellUtilRegisterEventHandler` and treat a `PS_BTN`/`PS_BTN_2` event as a synthetic short-press edge when SceCtrl did not see the bit. Also scan the recent Ext2 history in case the newest sample is already clear. Expected short-tap log is `ShellUtil event` or `PS found in Ext2 history`, then `press pending`, `release detected`, and `single press, forwarding after timeout`. No hardware test has been run for this change.
+
+### Short PS taps still absent after combined polling/history probe (2026-10-14)
+
+User explicitly tested several short PS taps while streaming and supplied a continuous console excerpt. In every included diagnostic heartbeat:
+
+- `sceCtrlPeekBufferPositiveExt2` and `sceCtrlPeekBufferPositiveExt` return 1, but both button masks are `0x00000000`.
+- `effective_pressed=0`, `old=0`, and `pending=0`; no press/release edge reaches the tap/hold state machine.
+- There is no `PS probe Ext edge`, `PS found in Ext2 history`, `PS edge from ShellUtil event`, or state-machine press/release/timeout message.
+- The repeated ShellUtil callback logs have `result=0 mode=21 type=0x00000000`. They are not evidence of a PS-button event: the callback's `type` field contains no `PS_BTN` or `PS_BTN_2` bit.
+
+This confirms that the current tap state machine and its timeout are not the immediate failure point: the attempted taps are not visible to any of the currently logged detection paths. The excerpt cannot distinguish firmware/ShellUtil interception from the controller API simply not exposing those brief taps.
+
+**API research:** VitaSDK's `psp2/ctrl.h` documents `sceCtrlPeekBufferPositiveExt2` as polling and allows requesting up to 64 samples; `sceCtrlReadBufferPositiveExt2` is explicitly documented as blocking. Do not call the blocking read from the existing 2 ms input loop without a separate design, because it may stall input processing. The current 16-sample `PeekBuffer` history scan produced no PS-history log in this test, so it has not recovered the short taps.
+
+**Next investigation:** find a non-blocking, independently observable PS-button event source or verify the exact semantics of the Ext2 sample history on real Vita firmware. Keep the existing normal controller path and proven hold suppression unchanged until a source-level event can be demonstrated. Do not ask the user to repeat the same short-tap or hold tests; the current evidence already shows short taps missing and earlier logs already confirm hold detection.
+
+References:
+- [VitaSDK SceCtrl user API](https://docs.vitasdk.org/group__SceCtrlUser.html) — polling and buffered-read declarations.
+- [VitaSDK `ctrl.h`](https://github.com/vitasdk/vita-headers/blob/master/include/psp2/ctrl.h) — Peek APIs are polling; Read APIs are documented as blocking.
+- [VitaSDK ShellUtil API](https://docs.vitasdk.org/shellutil_8h.html) — ShellUtil callback carries lock mode/type, not a documented raw PS press/release event stream.
+
+No build or Vita hardware test was performed by the agent.
