@@ -287,3 +287,17 @@ User reports that the deliberate short-tap test produced none of the expected me
 - This should separate “PS bit never appears in the sampled controller state” from “edge/state-machine path runs but the single-tap timeout does not fire.”
 
 **Next device test:** rebuild/install this exact commit with the known-working SELF auth ID `0x2F00000000000101`, confirm startup still reports `ps_capture=1`, tap PS briefly and capture the diagnostic lines across press and release. If `pressed` never becomes 1, investigate controller sampling/Shell interaction first. If press and release are both logged but the single-timeout message is absent, inspect timestamps and pending-state transitions before changing thresholds. If the timeout message appears but the host does not react, investigate the outgoing `SPECIAL_FLAG` pulse path. The agent has not built or tested this commit on hardware.
+
+
+### PS capture diagnostic result: press observed but classified as hold (2026-10-14)
+
+User supplied logs from the diagnostic build:
+
+- `sceShellUtilInitEvents=0` and `sceShellUtilLock(...)=0`.
+- The input loop logs `PS Button press pending tap/hold detection`, then `PS Button hold detected; suppressing host event`.
+- The sampled controller state includes `raw_buttons=0x00010000 pressed=1`, followed later by a release edge. Thus PS is visible to the polling loop; this is not a total failure to sample the PS bit.
+- The release diagnostic says `duration_us=0`, but this is a diagnostic artifact: the hold branch cleared `s_ps_press_time` before the release edge, so the logged duration is not a valid measurement. The excerpt does not show `PS Button single press, forwarding after timeout`.
+
+**Diagnostic follow-up committed** in `src/moonlight/vita_input.c` (commit `fa1725ef3df560349fafe5ae6a814388ee344b01`): retain the original press timestamp after hold classification until the release edge, so the release log can report the actual sampled hold duration. This does not change the 500 ms threshold or host-event behavior.
+
+**Next device test:** rebuild/install this commit and repeat a deliberate quick tap, releasing well before 500 ms. Check `duration_us` and whether `PS Button single press, forwarding after timeout` appears. If the measured duration is at least 500,000 µs, the input loop is genuinely observing a hold (or the app is not processing the release while the system overlay is active); then correlate the physical press/release with Quick Actions open/return before adjusting thresholds. If duration is clearly below 500,000 µs but the hold message still appears, capture the full ordered log and investigate timestamp/state transitions. Agent has not built or tested this change on hardware.
