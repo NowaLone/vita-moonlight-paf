@@ -28,6 +28,7 @@ static bool s_ps_button_locked = false;
 static bool s_shell_events_initialized = false;
 static uint64_t s_ps_button_release_time = 0;
 static uint64_t s_ps_press_time = 0;
+static uint64_t s_ps_diag_time = 0;
 static bool s_ps_single_pending = false;
 static bool s_ps_physical_old = false;
 static int s_ps_host_pulse_state = 0;
@@ -291,6 +292,21 @@ front_done:
     if (s_ps_button_capture) {
         uint64_t now = sceKernelGetSystemTimeWide();
 
+        /* Diagnostic heartbeat: distinguish an unseen physical PS bit from
+         * a press/release state-machine problem without logging every poll. */
+        if (s_ps_diag_time == 0 || now < s_ps_diag_time ||
+            now - s_ps_diag_time >= 1000000ull) {
+            vita_debug_log(
+                "[Input] PS diag raw_buttons=0x%08x pressed=%d old=%d pending=%d press_time=%llu release_time=%llu",
+                (unsigned int)s_pad.buttons,
+                ps_pressed ? 1 : 0,
+                ps_pressed_old ? 1 : 0,
+                s_ps_single_pending ? 1 : 0,
+                (unsigned long long)s_ps_press_time,
+                (unsigned long long)s_ps_button_release_time);
+            s_ps_diag_time = now;
+        }
+
         /*
          * Never forward the physical PS bit directly. Wait until the
          * double-tap window expires, otherwise the first tap leaks to the
@@ -331,6 +347,10 @@ front_done:
             s_ps_press_time = 0;
             vita_debug_log("[Input] PS Button hold detected; suppressing host event");
         } else if (!ps_pressed && ps_pressed_old) {
+            vita_debug_log(
+                "[Input] PS Button release detected duration_us=%llu pending=%d",
+                (unsigned long long)(s_ps_press_time != 0 && now >= s_ps_press_time ? now - s_ps_press_time : 0),
+                s_ps_single_pending ? 1 : 0);
             if (s_ps_single_pending) {
                 if (s_ps_press_time != 0 &&
                     now >= s_ps_press_time &&
@@ -474,6 +494,7 @@ void vita_input_start(void)
     s_back_buttons_old = 0;
     s_ps_button_release_time = 0;
     s_ps_press_time = 0;
+    s_ps_diag_time = 0;
     s_ps_single_pending = false;
     s_ps_physical_old = false;
     s_ps_host_pulse_state = 0;
