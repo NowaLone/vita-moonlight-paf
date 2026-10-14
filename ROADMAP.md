@@ -177,7 +177,6 @@ Investigation checklist:
 5. **A promising Quick Actions/foreground signal has been found, but is not hardware-verified.** The VitaSDK `SceAppMgrAppState` structure includes `isSystemUiOverlaid`, and the documented `__sceAppMgrGetAppState()` / `_sceAppMgrGetAppState()` API family reports the calling app's pending-event and overlay state. `sceAppMgrReceiveSystemEvent()` can also deliver ON_ACTIVATE, ON_DEACTIVATE, ON_RESUME, and REQUEST_QUIT events. Confirm the exact symbol/signature in the project's installed VitaSDK headers, then test whether holding PS to open Quick Actions sets `isSystemUiOverlaid` on the target firmware. The input worker currently polls every 2 ms while `s_input_active` and has no overlay/foreground gate. `sceShellUtilLock()` is a shell-event lock, and `SCE_SHELL_UTIL_LOCK_TYPE_QUICK_MENU` is a separate lock type; neither should be treated as an overlay-state query. Do not add a timer-only gate or lock Quick Menu without confirming the required behavior.
 6. **Lifecycle entry points need a separate trace.** `src/app/paf_runtime.cpp` sets the PAF plugin `stop_func` and `exit_func` to `NULL` and calls `MoonlightApp::Shutdown()` only after `Framework::Run()` returns. Verify whether PAF/AppMgr/ShellUtil offers a reliable suspend/resume or foreground event in this application context, and ensure input forwarding resumes only after a confirmed return.
 7. **Reference-project comparison:** BetterHomebrewBrowser's `sceShellUtilLock(PS_BTN)` usage is scoped around blocking operations such as downloads/icon refreshes and is paired with unlock on success/failure. It is evidence for balanced lock/unlock cleanup, not for detecting Quick Actions. The project’s existing NetStream notes establish the PowerTick pattern only; no verified Quick Actions lifecycle mechanism has been identified there yet.
-
 **Next implementation plan (after source/API verification):**
 - Port the upstream PS press mapping and double-press behavior while preserving the existing setting and its default/storage.
 - Keep all PS interception and ShellUtil PS locks conditional on `ps_button_capture`; disabled means native shell behavior.
@@ -364,3 +363,17 @@ No build or hardware test was performed by the agent.
 Sources:
 - [VitaSDK SceCtrl user API docs](https://docs.vitasdk.org/group__SceCtrlUser.html) — distinguishes regular and wireless Ext polling APIs and notes PS Button is a controller button.
 - [VitaSDK ShellUtil API docs](https://docs.vitasdk.org/shellutil_8h.html) — defines PS Button and Quick Menu lock types.
+
+### PS polling comparison results (2026-10-14)
+
+User supplied a new log from the build containing the Ext2-vs-Ext probe:
+
+- Both polling calls return 1 and report the same button mask in the sampled heartbeat. When PS is idle, both report buttons=0x00000000; during observed presses, both report buttons=0x00010000.
+- sceCtrlPeekBufferPositiveExt() logs both rising and falling edges. The main Ext2 sample and the separate Ext probe therefore agree for the observed PS gestures; this log does not support switching the main input source from Ext2 to Ext.
+- Two observed holds were classified as holds and suppressed from host forwarding. The release diagnostics report duration_us=2218752 (about 2.22 s) and duration_us=1301405 (about 1.30 s), both above the 500 ms hold threshold. The second press initially appears as pending and is later cancelled by hold detection.
+- No “PS Button single press, forwarding after timeout” message appears in this excerpt, so it does not verify the short-tap-to-host path.
+- The excerpt does not explicitly capture the PS+Select forced-close moment or show a host-side PS event. It therefore does not establish why a PS event reaches the PC during forced close.
+
+**Next diagnostic:** do one deliberately brief tap while keeping the stream active, release well before 500 ms, then wait at least 350 ms. Confirm that the log shows a press edge, release edge with duration_us clearly below 500000, and “PS Button single press, forwarding after timeout”; verify whether the PC receives the expected special/home event. Then separately test PS+Select forced close and note whether the host receives PS before, during, or after app termination. Do not change the polling API or timing thresholds based on this excerpt alone.
+
+The repeated “Waiting for IDR frame” messages and later decoded-frame counters are a separate video recovery/performance concern; this log does not correlate them to the PS state machine. No build or hardware test was performed by the agent.
