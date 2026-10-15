@@ -739,3 +739,10 @@ After [f4ebee1](https://github.com/NowaLone/vita-moonlight-paf/commit/f4ebee1320
 **Next device capture:** install a build containing this commit. Capture the callback line(s) emitted immediately after stream startup, then press PS once, release, and press it again. Compare `result/mode/type` for startup versus each deliberate tap. If no callback appears on taps, inspect current controller polling samples next; do not infer that lock/unlock callbacks are physical button events.
 
 No build or hardware test was performed by the agent.
+
+## PS Button ShellUtil callback compatibility (2026-10-16)
+
+- Restored compatibility with the observed Vita callback signature `result=0, mode=21, type=0`, which the user confirmed occurs on short physical PS Button presses. Filtering exclusively by documented PS lock-type flags caused these short presses to stop being handled.
+- Kept acceptance of callbacks whose type contains `SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN` or `SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN_2`.
+- The separate startup callback `mode=1, type=0x00000801` was reported to have no observable effect; it is not treated as the cause of a stream problem.
+- Hardware verification is still required after this source change: check short and held PS presses, double-PS stop, and stream restart. No build or device test is claimed by this change.
