@@ -378,7 +378,6 @@ static void vita_input_process(void)
     bool ps_pressed;
     bool ps_pressed_old;
     bool suppress_ps_sample = false;
-    bool ps_probe_ext_pressed;
     SceCtrlData ps_probe_ext;
     uint32_t back_buttons;
 
@@ -386,8 +385,6 @@ static void vita_input_process(void)
     sceCtrlSetSamplingModeExt(SCE_CTRL_MODE_ANALOG_WIDE);
     sceCtrlPeekBufferPositiveExt2(0, &s_pad, 1);
     sceCtrlPeekBufferPositiveExt(0, &ps_probe_ext, 1);
-    ps_probe_ext_pressed =
-        (ps_probe_ext.buttons & SCE_CTRL_PSBUTTON) != 0;
 
     /*
      * Quick Actions can make the PS bit appear as a fresh controller edge
