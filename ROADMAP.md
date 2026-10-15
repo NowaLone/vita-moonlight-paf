@@ -61,6 +61,25 @@ Not part of the PS4 Link parity pass because the needed pieces do not exist in t
 
 **Done when:** the known host-list diagnostic has an evidence-based conclusion and the highest-value non-PAF logic has repeatable checks where practical.
 
+## PS Button capture and Quick Actions lifecycle
+### Log observations (2026-10-14)
+
+- Device log confirms the input loop logs PS rising edges and does not stop the stream on the observed presses.
+- The supplied excerpt does **not** include `[Input] PS Button lock result=...`; therefore it does not establish whether `sceShellUtilLock(PS_BTN | PS_BTN_2)` succeeded.
+- The excerpt also contains Limelight video recovery messages: unrecoverable frames, missing IDR frames, and a 16-frame network-drop report. These indicate loss of enough frame data to decode/recover and recovery waiting; they do not alone prove whether the root cause is network loss, application suspension, or decoder scheduling.
+- Next diagnostic: capture the startup lines including `[Input] start ... ps_capture=...` and `[Input] PS Button lock result=...`, plus timestamped logs immediately before/after PS press and Quick Actions return. Compare the same stream without pressing PS. Keep input/lifecycle diagnosis separate from video packet-loss diagnosis until there is correlated evidence.
+
+
+
+**Status: blocked on SELF authorization verification and real-device lifecycle testing.**
+
+- The current input code calls `sceShellUtilLock(PS_BTN | PS_BTN_2)` when the existing `ps_button_capture` setting is enabled, and logs the return code. The user observed that pressing PS still minimizes/suspends the app; therefore the input-side double-press logic alone does not satisfy capture.
+- Upstream `xyzz/vita-moonlight` packages its SELF with `vita-make-fself -a 0x2800000000000001 -at 0x0E -c` and documents the SceShell permission as a prerequisite for PS capture. The current PAF project uses auth ID `0x2F00000000000101`, `vita_create_self(... UNSAFE)`, and SFO attributes `ATTRIBUTE=33472` / `ATTRIBUTE_MINOR=16`. In VitaSDK, `UNSAFE` omits the default safe flag; it does not replace the SELF authorization ID.
+- Do **not** replace the current authorization ID or add SELF attributes solely by analogy with upstream: this project is a PAF/system-UI application, and the compatibility of those upstream SELF parameters with its system-UI launch/permissions has not been established. Resolve the required authorization/attribute combination before changing packaging.
+- Keep the existing `ps_button_capture` setting as the sole toggle. When enabled, a single PS press should be sent to the host and only a confirmed double press should stop the stream. When disabled, do not intercept PS or stop the stream.
+- Quick Actions input suspension still needs a verified system-state signal. `SceAppMgrAppState.isSystemUiOverlaid` is a candidate for investigation, not yet hardware-verified. Do not substitute a timer-only suppression window or lock Quick Menu unconditionally, since that can break native behavior when capture is disabled.
+- Next verification: inspect the generated SELF metadata/permissions from a real build; test lock return codes and PS behavior on Vita with capture enabled and disabled; then validate the chosen AppMgr overlay signal through Quick Actions open/close and confirm controller forwarding resumes only after returning to the app. Record firmware and logs. Do not mark this complete before device testing.
+
 ## 4. Prepare a release
 
 - [ ] Review licensing and attribution obligations for this project, Moonlight code, and vendored dependencies before choosing or adding a project license.
@@ -129,3 +148,404 @@ User-reported `psp2shell` logs from Vita after applying the `DeleteCell(0, 0, ex
 - These observations support the fix for stale/duplicate ListView cells and the selection-template rebuild path.
 
 **Follow-up:** user confirmed that the list behavior is OK. The clean build remains unverified separately; the runtime logs came from a running Vita build.
+
+
+## Next task: Quick Actions, PS Button, and application lifecycle
+
+**Priority: next, beginning with investigation rather than speculative API changes.**
+Known issue from Vita testing: holding PS to open Quick Actions does not currently suspend controller forwarding to the streaming host. PS Button handling must respect the existing setting that controls forwarding PS to the PC; do not replace this setting with unconditional interception or unconditional system-button locking.
+
+Required behavior:
+- **PS forwarding setting enabled:** a single PS press is forwarded to the PC as the special/home button and must never stop or close the video stream. Only a confirmed double press may stop the stream; implement the original Vita Moonlight timing/state machine rather than treating a press edge as a stop. Coordinate this with Quick Actions and lifecycle handling so unrelated controller forwarding is paused while the system UI is active, then resumes only after a verified return to the app.
+- **PS forwarding setting disabled:** do not intercept or consume PS, do not stop the stream on either a single or double press, and do not lock out the system action. Preserve Vita's native PS behavior, including suspending/minimizing the app to LiveArea.
+- In both modes, stream stop, failed startup, app suspension/resume, and exit must not leave controller input forwarding stuck or stream resources in an inconsistent state.
+
+Investigation checklist:
+- [ ] Find the existing PS forwarding setting, confirm its persisted/default value, and trace how it currently affects controller input.
+- [ ] Trace controller input from the Vita input reader through the Moonlight input sender and identify where conditional PS interception and safe pause/resume belong.
+- [ ] Trace application and stream lifecycle entry points, including PAF runtime startup/shutdown, stream start/stop, page transitions, suspend/resume, and cleanup of worker threads/resources.
+- [ ] Compare concrete lifecycle and PS Button handling in NetStream and BetterHomebrewBrowser; record which mechanisms are directly applicable to this PAF app and which are app-specific.
+- [ ] Verify whether a supported shell/app event or status API signals Quick Actions visibility or foreground/background transitions. Document the API and evidence before relying on it.
+- [ ] Define and test the enabled/disabled setting behavior for opening Quick Actions, returning to the app, entering LiveArea, resuming, stopping a stream, and exiting the app.
+- [ ] Implement only after the event/ownership model is established; avoid timer-only suppression because it can resume forwarding while Quick Actions is still open.
+- [ ] Build and verify on real Vita hardware with `psp2shell` logs. Record results and any firmware-dependent behavior here.
+
+**Acceptance criteria:** with capture enabled, a single PS press is forwarded and never stops the stream; only a confirmed double press stops the stream. With capture disabled, PS retains native Vita behavior and neither press sequence is intercepted by Moonlight. Input forwarding resumes only after a verified return-to-app transition; stream and app resources remain valid through suspend/resume and are released safely on stop/exit. No unverified system API or hardware behavior is marked complete.
+
+### Investigation findings (2026-10-13; source review, not hardware verification)
+
+1. **The setting and current behavior are now identified.** `ps_button_capture` is already defined in `cxml/moonlight_settings.xml` with default `1`. `moonlight_stream_start()` passes it to `vita_input_configure()` as `enable_psbutton_capture`.
+2. **The current enabled path violates both PS requirements.** In `src/moonlight/vita_input.c`, enabled capture acquires ShellUtil locks for `PS_BTN` and `PS_BTN_2`; any rising edge of `SCE_CTRL_PSBUTTON` immediately calls `moonlight_stream_stop()` and clears the bit. No PS/special button flag is sent to the host. This means one tap closes the stream and cannot be forwarded. A single tap must instead be forwarded as `SPECIAL_FLAG`; only a confirmed double tap may stop the stream, and only when capture is enabled. No code behavior has been changed in this analysis step.
+3. **The disabled path must stay native.** When the setting is false, the lock and special PS handling should both be skipped. Do not consume PS, stop the stream, or lock the Quick Menu in this mode.
+4. **Upstream behavior is now verified in source.** `xyzz/vita-moonlight` 0.13.2 README describes optional PS capture: a single press is forwarded to Sunshine as a PS/Xbox button mapping and a double press opens the menu. In `src/input/vita.c::handle_psbutton()`, `PSBTN_DOUBLETAP_DELAY` is 250,000 µs; a non-double press sends `SPECIAL_FLAG` through the special-button handler, while a double press unlocks the PS button to open the menu. There is no single-press stream stop in this path. `moonlight-common-c` defines `SPECIAL_FLAG`, not a distinct `PS_FLAG`. For this project, retain the upstream timing/state-machine approach but implement the requested local action of stopping the stream on a double press, including press/release handling and balanced shell locks.
+5. **A promising Quick Actions/foreground signal has been found, but is not hardware-verified.** The VitaSDK `SceAppMgrAppState` structure includes `isSystemUiOverlaid`, and the documented `__sceAppMgrGetAppState()` / `_sceAppMgrGetAppState()` API family reports the calling app's pending-event and overlay state. `sceAppMgrReceiveSystemEvent()` can also deliver ON_ACTIVATE, ON_DEACTIVATE, ON_RESUME, and REQUEST_QUIT events. Confirm the exact symbol/signature in the project's installed VitaSDK headers, then test whether holding PS to open Quick Actions sets `isSystemUiOverlaid` on the target firmware. The input worker currently polls every 2 ms while `s_input_active` and has no overlay/foreground gate. `sceShellUtilLock()` is a shell-event lock, and `SCE_SHELL_UTIL_LOCK_TYPE_QUICK_MENU` is a separate lock type; neither should be treated as an overlay-state query. Do not add a timer-only gate or lock Quick Menu without confirming the required behavior.
+6. **Lifecycle entry points need a separate trace.** `src/app/paf_runtime.cpp` sets the PAF plugin `stop_func` and `exit_func` to `NULL` and calls `MoonlightApp::Shutdown()` only after `Framework::Run()` returns. Verify whether PAF/AppMgr/ShellUtil offers a reliable suspend/resume or foreground event in this application context, and ensure input forwarding resumes only after a confirmed return.
+7. **Reference-project comparison:** BetterHomebrewBrowser's `sceShellUtilLock(PS_BTN)` usage is scoped around blocking operations such as downloads/icon refreshes and is paired with unlock on success/failure. It is evidence for balanced lock/unlock cleanup, not for detecting Quick Actions. The project’s existing NetStream notes establish the PowerTick pattern only; no verified Quick Actions lifecycle mechanism has been identified there yet.
+**Next implementation plan (after source/API verification):**
+- Port the upstream PS press mapping and double-press behavior while preserving the existing setting and its default/storage.
+- Keep all PS interception and ShellUtil PS locks conditional on `ps_button_capture`; disabled means native shell behavior.
+- Add a small, explicit input-forwarding gate driven by a verified system/app lifecycle signal, not elapsed time alone. When gated, release any host-side held buttons once and avoid sending further controller/touch/motion events; reopen the gate only on confirmed foreground return.
+- Make lock acquisition/release idempotent and cover stream startup failure, normal stop, page teardown, app exit, and any confirmed suspend/resume callbacks.
+- Verify with logs and real hardware in both setting states: single press, double press, hold for Quick Actions, return to app, PS-disabled LiveArea behavior, stream stop/reconnect, and repeated transitions. Build and hardware verification remain outstanding.
+
+### PS single/double press implementation update (2026-10-13)
+
+Source change committed on `feat/quick-actions-lifecycle-review`:
+
+- `src/moonlight/vita_input.c` now adds `SPECIAL_FLAG` to the host controller report while PS is held and capture is enabled.
+- A single PS press no longer calls `moonlight_stream_stop()`; the log message now states that the button is being forwarded to the host.
+- The input path records the PS release timestamp. A subsequent press within 250,000 µs (250 ms) is treated as a double press and requests stream stop. The second PS bit is cleared before the changed controller state is sent.
+- The release timestamp is reset when input starts and stops.
+- The existing setting and its default/storage were not changed. The existing ShellUtil PS locks remain conditional on capture being enabled, and disabled capture does not enter the PS interception branch.
+
+**Verification status:** source change only. No build or Vita hardware test has been run for this commit. Verify on device that a single press reaches the PC as the special/home button and leaves the stream running; a double press stops the stream; a slow second press does not stop it; and capture-disabled PS still invokes native Vita behavior.
+
+**Still unresolved:** this change does not implement Quick Actions overlay detection or pause/resume gating for other controller inputs. Do not consider the lifecycle requirement complete until a reliable system/app signal is verified on the target firmware and input forwarding resumes only after confirmed return to the app.
+
+### PS double-tap forwarding follow-up (2026-10-14)
+
+The latest device report confirms the intended basic behavior when `ps_button_capture` is enabled, but the first PS tap is forwarded before the second tap can stop the stream. The input path previously put `SPECIAL_FLAG` directly into every controller report while the physical PS bit was held, so stopping on the second edge could not retract the first report.
+
+**Change committed:** PS forwarding is now deferred until the 250 ms double-tap window expires. The physical PS state is tracked separately from the controller state sent to the host; a confirmed double tap clears the pending single tap and stops the stream without sending the pending PS event. A confirmed single tap emits a short host-side PS pulse after the window. Commits: [defer forwarding](https://github.com/NowaLone/vita-moonlight-paf/commit/fb0b2612ec22283541267bacf4c28ec6dcc0ea48) and [track physical PS edges separately](https://github.com/NowaLone/vita-moonlight-paf/commit/81acad9146f6e4b3adb3ef64a7ec304e07ba20de).
+
+This change is source-reviewed only; no build or hardware test has been run. Verify that single PS sends exactly one event after roughly 250 ms, double PS stops the stream without sending PS to the host, and a held PS does not generate repeated events.
+
+**Quick Actions while holding PS remains unresolved.** The user reports Quick Actions still opens when capture is enabled and PS is held, while the lock call had previously returned `0x80101801`. Do not claim this is fixed by input buffering: host-side event timing and Shell-level interception are separate mechanisms. Capture the latest `ShellUtil init events` and lock result from the revision containing the initialization call; only pursue Quick Actions suppression after confirming the actual lock result and supported API behavior. When capture is disabled, preserve native Shell behavior and do not acquire the PS lock.
+
+### ShellUtil initialization follow-up (2026-10-14)
+
+The next device log reports `sceShellUtilLock()` as `0x80101801` even with `ps_capture=1`. The SELF packaging experiment therefore has not demonstrated successful PS-button locking in the reported run.
+
+A source review found a second concrete prerequisite worth testing: Vita homebrew code in [TheOfficialFloW/h-encore](https://github.com/TheOfficialFloW/h-encore/blob/6d43b4cd662d1012ca851a86d43f3696b2323200/bootstrap/bootstrap.c) calls `sceShellUtilInitEvents(0)` before `sceShellUtilLock(SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN)`. Another Vita implementation documents that the ShellUtil event subsystem must be initialized before lock/unlock. The current PAF code did not initialize it.
+
+**Change committed on `feat/quick-actions-lifecycle-review`:** `src/moonlight/vita_input.c` now calls `sceShellUtilInitEvents(0)` before attempting the PS-button lock, logs the initialization result, and retries initialization on a later stream start if the call fails. This is a hypothesis-driven change, not a confirmed fix; no build or device test has run for this commit.
+
+**Next device test:** build/install this exact revision and capture both `[Input] ShellUtil init events result=...` and `[Input] PS Button lock result=...`. If init succeeds but lock still fails, investigate the exact error/SELF permissions next. If init fails, record its result and Vita firmware/CFW details. Do not infer that the lock works merely because the PS press handler logs a message.
+
+### Follow-up device log (2026-10-14)
+
+The new startup excerpt resolves the missing diagnostic:
+
+- `[Input] start ... ps_capture=1` confirms the setting is enabled in the running input loop.
+- `[Input] PS Button lock result=0x80101801` is **not success**; VitaSDK documents `sceShellUtilLock()` as returning 0 on success and a negative error on failure. The PS capture path therefore has not established a successful system-level lock. Do not interpret the later `PS Button pressed, forwarding to host` log as proof that the button reached the host or that native Shell handling was suppressed.
+- The current `CMakeLists.txt` sets SELF auth ID `0x2F00000000000101`. Upstream `xyzz/vita-moonlight` documents its PS capture requirement as removing the safe `-s` flag and adding SceShell permission/auth ID `0x2800000000000001`. This makes SELF authorization/packaging the leading hypothesis for the lock failure, but the exact meaning of `0x80101801` and the correct authorization combination for this PAF/system-UI app are **not yet verified**.
+- **Experimental packaging change now committed on `feat/quick-actions-lifecycle-review`:** `CMakeLists.txt` uses upstream's `-a 0x2800000000000001`, keeps `UNSAFE` (no `-s`), and adds `ATTRIBUTE 0x0E`, matching upstream `xyzz/vita-moonlight` PS-capture packaging. This is a hypothesis-driven test change, not a verified compatibility fix: it may affect the PAF/system-UI app's runtime permissions. Build the VPK, inspect the resulting SELF metadata, and test launching the PAF UI before concluding this combination is valid.
+- Stream startup and initial video decode occurred in this excerpt. It contains no evidence sufficient to diagnose the separate video packet-loss reports.
+
+Next step: build the branch and inspect the generated SELF auth ID/attributes; on real Vita, first verify the PAF UI still launches, then capture the exact `sceShellUtilLock` result. Test PS capture enabled (single press forwarded, double press stops stream) and disabled (native PS behavior; no stream stop). Also exercise Quick Actions open/return and confirm controller input is suspended only while the system overlay is active. No build or device test has yet been run for this packaging change.
+
+
+### Quick Actions hold behavior clarification (2026-10-14)
+
+The intended behavior is to **allow the system Quick Actions UI to open** when PS is held, while **never forwarding that held PS press to the streaming host**. Do not try to prevent Quick Actions from opening as part of this requirement.
+
+Source change committed in `src/moonlight/vita_input.c`:
+- Added a 500 ms hold threshold separate from the 250 ms double-tap window.
+- If PS remains held for 500 ms, cancel the pending host-side single-press event. Releasing after a long hold also cancels the pending event, including when input polling resumes after the system UI returns.
+- A short tap still waits for the 250 ms double-tap window before forwarding a single `SPECIAL_FLAG`; a second tap in that window stops the stream and suppresses the host event.
+- `ps_button_capture=0` remains on the native Vita path and does not enter this state machine.
+
+**Verification status:** source change only; no build or Vita hardware test has been run. Verify that holding PS opens Quick Actions, no PS event reaches the host after returning, a short single tap forwards exactly one event after the double-tap window, a double tap stops the stream without forwarding PS, and capture-disabled behavior remains native. If Quick Actions activates before the 500 ms threshold on target firmware, lower the hold threshold based on measured device behavior.
+
+### Settings persistence regression isolated to feature branch (2026-10-14)
+
+User confirms that settings persist on `master` and are lost only on `feat/quick-actions-lifecycle-review`. This narrows the issue to a branch-specific difference; do not rewrite the settings storage implementation without evidence.
+
+Source comparison:
+- `src/moonlight/settings.cpp` is byte-identical on `master` and the feature branch (same blob SHA `2acf5493b43b39df58f1af3440e54eccdcb3343c`).
+- `cxml/moonlight_settings.xml` is byte-identical on both branches (same blob SHA `a67bcd123b62178f83aa9b87a2cdbd94680dd982`).
+- `CMakeLists.txt` differs in SELF authorization: `master` uses `-a 0x2F00000000000101`; the feature branch experiment uses `-a 0x2800000000000001` to investigate ShellUtil PS-button capture.
+
+This makes the branch's SELF packaging/authorization change the first controlled variable to test, but causality is not established. The `settings_version` initialization path is shared with master and is therefore not by itself an explanation for a regression that occurs only on the feature branch.
+
+Next diagnostic:
+1. Build the feature branch with the master SELF auth ID while leaving all source changes intact; test whether settings survive a full app exit/relaunch.
+2. If persistence returns, investigate the packaging/auth-ID effect and choose a compatible way to support PS capture without regressing AppSettings.
+3. If it still fails, compare the full build/package pipeline and other branch-specific changes, then instrument `GetInt("settings_version")`, `Initialize()`, and `SetInt` return values where the API provides them.
+4. Record the tested commit, package metadata, and device result. No build or device verification has been run as part of this source comparison.
+
+
+### PS capture test with master SELF auth ID (2026-10-14)
+
+User-reported test after restoring SELF auth ID `0x2F00000000000101` while retaining `UNSAFE ATTRIBUTE 0x0E`:
+
+- AppSettings now load and save across app restarts.
+- With `ps_button_capture=1`, the log reports `sceShellUtilInitEvents=0` and `sceShellUtilLock(...PS_BTN | PS_BTN_2)=0`, so both calls return success in this run.
+- Quick Actions opens when PS is held; the app does not minimize.
+- Two observed presses each log `PS Button press pending tap/hold detection` followed by `PS Button hold detected; suppressing host event`. Therefore the captured presses shown in this excerpt were classified as holds and intentionally suppressed; this excerpt does not demonstrate the short-tap path or a host-side `SPECIAL_FLAG` pulse.
+- The separate `[Limelight] Unrecoverable frame ... received < needed` line indicates a video-frame recovery issue and is not evidence about PS handling.
+
+**Current diagnosis:** SELF auth ID appears to affect AppSettings persistence in the user's device test, while the PS event issue shown by these logs is consistent with the input state machine's hold classification. These are separate observations; do not assume the successful ShellUtil lock means a short PS event was sent to the host.
+
+**Next test:** keep the working master auth ID and test a deliberately brief PS tap (release well before 500 ms), then wait at least 300 ms for the 250 ms double-tap window to expire. Capture logs for the entire press/release interval. Expected log: `PS Button single press, forwarding after timeout`. Confirm whether the host receives the mapped special/home event. Separately test a deliberate hold to open Quick Actions and confirm that no host event is sent after returning. If a short tap is still suppressed, instrument the raw PS press/release timestamps and the pending-state transitions before changing thresholds. Build and device behavior here are user-reported; no build/test was performed by the agent.
+
+
+### PS short-tap test produced no expected log (2026-10-14)
+
+User reports that the deliberate short-tap test produced none of the expected messages, including `PS Button single press, forwarding after timeout`. This does not yet identify whether the physical PS bit is visible to the polling loop, whether a press/release edge is recognized, or whether the pending state expires.
+
+**Diagnostic change committed** in `src/moonlight/vita_input.c` (commit `2230ef398281a0595df692564066bd4f11800f50`):
+- While PS capture is enabled, emit a throttled `[Input] PS diag ...` line at most once per second with raw button bits, current/previous PS state, pending flag, and press/release timestamps.
+- Emit `[Input] PS Button release detected duration_us=...` when a release edge is observed.
+- This should separate “PS bit never appears in the sampled controller state” from “edge/state-machine path runs but the single-tap timeout does not fire.”
+
+**Next device test:** rebuild/install this exact commit with the known-working SELF auth ID `0x2F00000000000101`, confirm startup still reports `ps_capture=1`, tap PS briefly and capture the diagnostic lines across press and release. If `pressed` never becomes 1, investigate controller sampling/Shell interaction first. If press and release are both logged but the single-timeout message is absent, inspect timestamps and pending-state transitions before changing thresholds. If the timeout message appears but the host does not react, investigate the outgoing `SPECIAL_FLAG` pulse path. The agent has not built or tested this commit on hardware.
+
+
+### PS capture diagnostic result: press observed but classified as hold (2026-10-14)
+
+User supplied logs from the diagnostic build:
+
+- `sceShellUtilInitEvents=0` and `sceShellUtilLock(...)=0`.
+- The input loop logs `PS Button press pending tap/hold detection`, then `PS Button hold detected; suppressing host event`.
+- The sampled controller state includes `raw_buttons=0x00010000 pressed=1`, followed later by a release edge. Thus PS is visible to the polling loop; this is not a total failure to sample the PS bit.
+- The release diagnostic says `duration_us=0`, but this is a diagnostic artifact: the hold branch cleared `s_ps_press_time` before the release edge, so the logged duration is not a valid measurement. The excerpt does not show `PS Button single press, forwarding after timeout`.
+
+**Diagnostic follow-up committed** in `src/moonlight/vita_input.c` (commit `fa1725ef3df560349fafe5ae6a814388ee344b01`): retain the original press timestamp after hold classification until the release edge, so the release log can report the actual sampled hold duration. This does not change the 500 ms threshold or host-event behavior.
+**Next device test:** rebuild/install this commit and repeat a deliberate quick tap, releasing well before 500 ms. Check `duration_us` and whether `PS Button single press, forwarding after timeout` appears. If the measured duration is at least 500,000 µs, the input loop is genuinely observing a hold (or the app is not processing the release while the system overlay is active); then correlate the physical press/release with Quick Actions open/return before adjusting thresholds. If duration is clearly below 500,000 µs but the hold message still appears, capture the full ordered log and investigate timestamp/state transitions. Agent has not built or tested this change on hardware.
+
+### Repeated PS taps test: timestamp discrepancy (2026-10-14)
+
+User tested several press intervals and also a hold. The log shows only one recognized rising edge and one release edge:
+
+- `[Input] PS Button press pending tap/hold detection`
+- `[Input] PS Button hold detected; suppressing host event`
+- heartbeat: `raw_buttons=0x00010000 pressed=1 old=1 pending=0 press_time=0 release_time=0`
+- `[Input] PS Button release detected duration_us=0 pending=0`
+
+The PS bit is definitely observed, but this excerpt does not demonstrate that the deliberate short taps were individually sampled: only one press/release pair appears. The recognized press was classified as a hold and the pending host event was cancelled, so no single-tap forwarding is expected from that state.
+
+**Important source/build inconsistency:** current branch source after commit `fa1725ef3df560349fafe5ae6a814388ee344b01` explicitly retains `s_ps_press_time` after hold classification so the release diagnostic can calculate duration. In that source, the shown sequence should not produce `press_time=0` in the heartbeat while the button is still pressed, nor `duration_us=0` at release (assuming the timestamp was recorded normally). The log therefore appears to come from a build older than that fix, or from a package that does not match the current branch source. Do not tune thresholds from this duration value.
+
+**Next test:** build/install the branch containing `fa1725ef3df560349fafe5ae6a814388ee344b01` with SELF auth ID `0x2F00000000000101`; capture the package's source commit if possible. Perform one clearly brief tap (press and release quickly), wait at least 350 ms, then do a separate deliberate hold and return from Quick Actions. For each gesture, record the ordered `press pending`, `hold detected`, `release detected duration_us=...`, and `single press, forwarding after timeout` messages. Do not change the 500 ms threshold until the measured duration and exact build are confirmed. No build or Vita test was performed by the agent.
+### Research note: Vita SELF Program Authority ID / auth ID (2026-10-14)
+
+Terminology: the 64-bit value passed with `vita-make-fself -a` is commonly called `authid`, but the PSDevWiki documents the fuller term as **Program Authority ID**. It is metadata in the SELF header, not the app's `TITLE_ID`, not a runtime Moonlight setting, and not a general-purpose list of interchangeable privilege levels. VitaSDK's `vita_create_self()` forwards configured flags to `vita-make-fself`; `UNSAFE` means the tool omits the default safe (`-s`) flag, while `ATTRIBUTE` sets a separate system-app attribute field.
+
+Public source findings:
+- PSDevWiki lists SDK-generated fSELF authority IDs `0x2F00000000000001` for SDK-compiled game applications and `0x2F00000000000002` for SDK-compiled non-game applications. This does **not** establish the meaning or safety of this project's `0x2F00000000000101` variant; no exact public match for that full value was found in this search.
+- Upstream `xyzz/vita-moonlight` 0.13.2 uses `vita-make-fself -a 0x2800000000000001 -at 0x0E -c` and states this packaging change was required for PS Button capture / SceShell permission. This is an observed upstream build configuration, not proof that it is a drop-in replacement for a PAF/system-UI application.
+- VitaSDK's CMake helper documentation says `UNSAFE` omits the safe flag and `ATTRIBUTE` sets the system app attribute; those controls are distinct from the authority ID.
+- In this repository, `master` currently uses `0x2F00000000000101` with `UNSAFE`; the reviewed feature branch currently uses the experimental `0x2800000000000001` with `UNSAFE ATTRIBUTE 0x0E`. User testing reported settings persistence with the former and loss of persistence with the latter. This is a correlation from device testing, not a proven direct effect of auth ID alone.
+
+Decision: keep `0x2F00000000000101` for builds where settings persistence and PAF launch behavior are required, unless a controlled test demonstrates a compatible alternative. Do not try arbitrary authority IDs copied from other applications. To investigate PS Button capture, compare otherwise-identical packages, inspect generated SELF metadata, and test PAF launch, settings persistence, `sceShellUtilLock`, PS behavior, and exit/resume on the target Vita. Record the exact source commit and package used for each result.
+
+Sources reviewed:
+- VitaSDK `vita.cmake`: https://github.com/vitasdk/vita-toolchain/blob/master/cmake_toolchain/vita.cmake
+- Upstream Moonlight build: https://github.com/xyzz/vita-moonlight/blob/vita/CMakeLists.txt
+- Upstream Moonlight 0.13.2 notes: https://github.com/xyzz/vita-moonlight/blob/vita/README.md
+- PSDevWiki Program Authority ID: https://www.psdevwiki.com/ps3/Program_Authority_ID
+
+### Restore the PAF-compatible SELF authority ID for continued PS tests (2026-10-14)
+
+**Change committed:** `CMakeLists.txt` now uses `-a 0x2F00000000000101` again while retaining `UNSAFE ATTRIBUTE 0x0E`. Commit: [7eb5086](https://github.com/NowaLone/vita-moonlight-paf/commit/7eb5086a5c2dc087029d328db03ce00875c40e3a).
+
+Reason: the user-reported device test found AppSettings persistence working with this authority ID and reported successful `sceShellUtilInitEvents` / `sceShellUtilLock` return codes in the same configuration. The upstream `0x2800000000000001` experiment coincided with settings persistence failing, so it is not a suitable default for further input testing without resolving that regression. This is a controlled project decision based on reported device results, not proof that the authority ID alone caused the persistence difference.
+
+**Next device verification:** build and install this exact branch revision; verify settings survive app restart, record the source commit shown by About if available, and test one brief PS tap (release well before 500 ms, then wait at least 350 ms) separately from a deliberate hold that opens Quick Actions. Capture ordered press/release/timeout logs and confirm whether the PC receives the short-tap special/home event. Do not tune the 250 ms double-tap window or 500 ms hold threshold until the installed revision and measured press duration are known.
+
+**Not verified by the agent:** no build or Vita hardware test was run for this commit.
+
+
+### PS input is absent from latest log; compare controller polling APIs (2026-10-14)
+
+User reports that pressing PS together with Select to forcibly close the app results in a PS/home event reaching the streaming PC. In the supplied streaming log, however, every throttled PS heartbeat shows `raw_buttons=0x00000000`; no press-edge, release-edge, hold, or single-tap-timeout message appears. The log excerpt does not include the forced-close moment, so the route by which the PC receives that event remains unconfirmed.
+
+Reference: VitaSDK documents `sceCtrlPeekBufferPositiveExt2` as the wireless-controller polling API, while `sceCtrlPeekBufferPositiveExt` is the regular controller polling API. The project currently uses Ext2 for its main input sample. This is a reason to compare APIs, not yet proof that Ext2 is the bug: earlier user logs did show `raw_buttons=0x00010000` at least once.
+
+**Diagnostic change committed:** [34f2898](https://github.com/NowaLone/vita-moonlight-paf/commit/34f2898d7cd797ac64127df0008fb89e0783375a) keeps Ext2 as the actual game-input source, additionally polls Ext into a separate probe buffer, logs both API return values and button masks in the heartbeat, and logs Ext probe press/release edges. This is diagnostic-only and does not intentionally change which controller state is forwarded to the host.
+
+**Next device test:** install a build containing this exact commit. While streaming, test a short PS tap, a deliberate PS hold, and PS+Select separately. Capture `PS diag Ext2 result=...`, `PS probe Ext edge...`, and the existing state-machine messages. Interpret the results:
+- Ext sees PS but Ext2 does not: consider switching the main sample to Ext after checking L/R trigger mapping and ordinary controller behavior.
+- Neither API sees PS while the lock calls succeed: investigate ShellUtil interception/permissions and firmware behavior; don't tune tap timing.
+- Either API sees PS edges but the state machine does not classify them: inspect the state machine and timestamps.
+- The PC receives PS only as the app is forcibly closed: capture host-side event timing and test whether app shutdown/release behavior explains it.
+
+No build or hardware test was performed by the agent.
+
+Sources:
+- [VitaSDK SceCtrl user API docs](https://docs.vitasdk.org/group__SceCtrlUser.html) — distinguishes regular and wireless Ext polling APIs and notes PS Button is a controller button.
+- [VitaSDK ShellUtil API docs](https://docs.vitasdk.org/shellutil_8h.html) — defines PS Button and Quick Menu lock types.
+
+### PS polling comparison results (2026-10-14)
+
+User supplied a new log from the build containing the Ext2-vs-Ext probe:
+
+- Both polling calls return 1 and report the same button mask in the sampled heartbeat. When PS is idle, both report buttons=0x00000000; during observed presses, both report buttons=0x00010000.
+- sceCtrlPeekBufferPositiveExt() logs both rising and falling edges. The main Ext2 sample and the separate Ext probe therefore agree for the observed PS gestures; this log does not support switching the main input source from Ext2 to Ext.
+- Two observed holds were classified as holds and suppressed from host forwarding. The release diagnostics report duration_us=2218752 (about 2.22 s) and duration_us=1301405 (about 1.30 s), both above the 500 ms hold threshold. The second press initially appears as pending and is later cancelled by hold detection.
+- No “PS Button single press, forwarding after timeout” message appears in this excerpt, so it does not verify the short-tap-to-host path.
+- The excerpt does not explicitly capture the PS+Select forced-close moment or show a host-side PS event. It therefore does not establish why a PS event reaches the PC during forced close.
+
+**Next diagnostic:** do one deliberately brief tap while keeping the stream active, release well before 500 ms, then wait at least 350 ms. Confirm that the log shows a press edge, release edge with duration_us clearly below 500000, and “PS Button single press, forwarding after timeout”; verify whether the PC receives the expected special/home event. Then separately test PS+Select forced close and note whether the host receives PS before, during, or after app termination. Do not change the polling API or timing thresholds based on this excerpt alone.
+
+The repeated “Waiting for IDR frame” messages and later decoded-frame counters are a separate video recovery/performance concern; this log does not correlate them to the PS state machine. No build or hardware test was performed by the agent.
+
+
+### Short PS tap not handled: combine polling samples (2026-10-14)
+
+User reports that short PS taps are not handled. The current state machine already supports a short-tap path, but its edge detection used only the PS bit in the Ext2 sample even though the loop also polls Ext into a separate buffer.
+
+**Source change committed:** [f82f3a6](https://github.com/NowaLone/vita-moonlight-paf/commit/f82f3a6e9ccd27ff0c9b9ab30786a554915f66ea) updates PS detection to use the OR of the PS bit from Ext2 and Ext. Ext2 remains the source of all normal controller buttons; only PS edge detection combines the samples. The heartbeat's `effective_pressed` field now shows the combined state, while the raw button masks remain available for comparison.
+
+This is a targeted attempt to avoid missing a brief PS state visible in only one polling sample; it is not yet proven to be the root cause. It does not change the 500 ms hold threshold or the 250 ms double-tap window.
+
+**Device verification needed:** build/install this exact commit with the known-working SELF auth ID `0x2F00000000000101`. Test one brief PS tap, wait at least 350 ms, then test a hold separately. Expected short-tap sequence: `press pending` → `release detected duration_us<500000` → `single press, forwarding after timeout`. If that sequence appears but the host does not react, investigate the `SPECIAL_FLAG` send path; if it does not, capture the new `effective_pressed` and both raw API masks. No build or Vita hardware test has been run by the agent.
+
+
+### Combined PS polling test: no press edge observed (2026-10-14)
+
+User tested the build containing the combined Ext2/Ext PS detection and supplied a log excerpt. The startup confirms `ps_capture=1`; ShellUtil init and lock both return 0. However, every included heartbeat reports Ext2 and Ext button masks as `0x00000000`, `effective_pressed=0`, `old=0`, and `pending=0`. No Ext probe edge, state-machine press/release message, or single-tap timeout appears.
+
+**Interpretation:** this excerpt does not show the state machine receiving any PS tap, so it cannot be evidence of a timeout or SPECIAL_FLAG-send failure. It is consistent with the polling APIs not exposing PS during the attempted taps, but the excerpt alone cannot prove whether the taps occurred during the captured interval or whether the app/firmware consumed them. Successful ShellUtil return codes confirm only that those calls returned success, not that PS samples must be visible through SceCtrl.
+
+**Next diagnostic:** capture a tightly scoped log while deliberately holding PS down for about one second, then releasing, with the console log visible continuously. Confirm whether either API ever reports `0x00010000` or emits `PS probe Ext edge`. This is a control test because previous logs did register held PS presses. If a hold is also invisible in the same installed build, verify the exact package/source revision and investigate ShellUtil/foreground behavior before changing tap timing or SPECIAL_FLAG code. If the hold is visible but a short tap is not, compare the raw edge logs and measured tap duration. The repeated `Waiting for IDR frame` messages are video recovery diagnostics and do not explain the absent PS samples. No build or hardware test was performed by the agent.
+
+### Three-path PS behavior (2026-10-14)
+
+User observation on the current build:
+
+1. A single PS tap is blocked: the app does not minimize, the tap is absent from the logs, and nothing reaches the host.
+2. A PS hold opens Quick Actions, is present in the logs, does not minimize the app, and correctly sends nothing to the host.
+3. PS+Select force-closes the app. That combo is not blocked and is absent from the logs, but a press still reaches the host.
+
+**Interpretation:** the ShellUtil lock is doing its system-side job for a tap, but the short press never enters the SceCtrl sample the state machine watches. A hold is long enough to appear in SceCtrl, so the existing hold-suppression path runs. PS+Select is a system combo that bypasses the app lock and kills the process before this loop can log; the host press is therefore not evidence that the tap state machine sent `SPECIAL_FLAG`. Clean stream stop already sends a zero controller packet, so this is an abrupt-kill/disconnect side effect.
+
+**Source change:** register `sceShellUtilRegisterEventHandler` and treat a `PS_BTN`/`PS_BTN_2` event as a synthetic short-press edge when SceCtrl did not see the bit. Also scan the recent Ext2 history in case the newest sample is already clear. Expected short-tap log is `ShellUtil event` or `PS found in Ext2 history`, then `press pending`, `release detected`, and `single press, forwarding after timeout`. No hardware test has been run for this change.
+
+### Short PS taps still absent after combined polling/history probe (2026-10-14)
+
+User explicitly tested several short PS taps while streaming and supplied a continuous console excerpt. In every included diagnostic heartbeat:
+
+- `sceCtrlPeekBufferPositiveExt2` and `sceCtrlPeekBufferPositiveExt` return 1, but both button masks are `0x00000000`.
+- `effective_pressed=0`, `old=0`, and `pending=0`; no press/release edge reaches the tap/hold state machine.
+- There is no `PS probe Ext edge`, `PS found in Ext2 history`, `PS edge from ShellUtil event`, or state-machine press/release/timeout message.
+- The repeated ShellUtil callback logs have `result=0 mode=21 type=0x00000000`. They are not evidence of a PS-button event: the callback's `type` field contains no `PS_BTN` or `PS_BTN_2` bit.
+
+This confirms that the current tap state machine and its timeout are not the immediate failure point: the attempted taps are not visible to any of the currently logged detection paths. The excerpt cannot distinguish firmware/ShellUtil interception from the controller API simply not exposing those brief taps.
+
+**API research:** VitaSDK's `psp2/ctrl.h` documents `sceCtrlPeekBufferPositiveExt2` as polling and allows requesting up to 64 samples; `sceCtrlReadBufferPositiveExt2` is explicitly documented as blocking. Do not call the blocking read from the existing 2 ms input loop without a separate design, because it may stall input processing. The current 16-sample `PeekBuffer` history scan produced no PS-history log in this test, so it has not recovered the short taps.
+
+**Next investigation:** find a non-blocking, independently observable PS-button event source or verify the exact semantics of the Ext2 sample history on real Vita firmware. Keep the existing normal controller path and proven hold suppression unchanged until a source-level event can be demonstrated. Do not ask the user to repeat the same short-tap or hold tests; the current evidence already shows short taps missing and earlier logs already confirm hold detection.
+
+References:
+- [VitaSDK SceCtrl user API](https://docs.vitasdk.org/group__SceCtrlUser.html) — polling and buffered-read declarations.
+- [VitaSDK `ctrl.h`](https://github.com/vitasdk/vita-headers/blob/master/include/psp2/ctrl.h) — Peek APIs are polling; Read APIs are documented as blocking.
+- [VitaSDK ShellUtil API](https://docs.vitasdk.org/shellutil_8h.html) — ShellUtil callback carries lock mode/type, not a documented raw PS press/release event stream.
+
+No build or Vita hardware test was performed by the agent.
+
+### ShellUtil callback correlation diagnostics (2026-10-15)
+
+**Diagnostic-only source change committed:** [0eeffe2](https://github.com/NowaLone/vita-moonlight-paf/commit/0eeffe23ad844b915389249f7411027a3b0df25b) adds a monotonically increasing callback counter and sceKernelGetSystemTimeWide() timestamp to each ShellUtil callback log. The log now prints count, time_us, result, decimal and hexadecimal mode, and hexadecimal type.
+
+Why: user observed repeated callbacks near short PS taps, but the captured arguments were consistently result=0 mode=21 type=0x00000000. A zero type contains neither documented PS_BTN nor PS_BTN_2, so the existing handler correctly does not synthesize a PS edge from that callback. Decimal and hexadecimal mode output will make the unexpected value easier to compare with the VitaSDK enum declarations; timestamps/counters let the next log establish event order and timing rather than relying on visual proximity.
+
+**Next device check:** build/install this exact revision and make one brief PS tap while the stream log is continuously visible. Capture the callback line(s) immediately before and after the tap plus the PS heartbeat. Do not repeat the already-confirmed hold test. Compare whether callback timestamps/counts cluster reproducibly around taps and whether result, mode_hex, or type changes. If callback arguments remain unchanged, do not treat type=0 as a PS event; investigate callback registration/API semantics and another independently observable event source. If a documented PS type bit appears, wire only that verified signal into the existing edge/state-machine path.
+
+The change deliberately does not interpret type=0 as a PS tap and does not alter controller polling, tap timing, or hold suppression. No build or Vita hardware test was performed by the agent.
+
+### ShellUtil mode=21/type=0 callback follows repeated PS taps (2026-10-15)
+
+User tested many short PS taps with timestamped callback diagnostics. The first callback was `result=0 mode=1 type=0x00000801`, followed by `PS edge from ShellUtil event`, press-pending, release after 2714 µs, and the single-tap timeout. This confirms the documented PS lock-type path can inject a pulse into the existing state machine. The 2714 µs interval is the synthetic pulse duration, not a measurement of the physical button hold.
+
+The remaining callbacks (counts 2–15) repeatedly reported `result=0 mode=21 mode_hex=0x00000015 type=0x00000000` while the user was tapping PS. VitaSDK publicly documents lock modes 1 and 2 and does not document mode 21 as a PS event, so this signature is not yet a confirmed API contract. However, its repeated occurrence during the tap test makes it a useful candidate for a controlled experiment.
+
+**Experimental source change committed:** [0bba74e](https://github.com/NowaLone/vita-moonlight-paf/commit/0bba74e68b1b800f65139edef1327f8bc438378d) provisionally latches a PS pulse for `result=0, mode=21, type=0`, with a separate log tag `ShellUtil PS edge source=experimental_mode21`. The documented PS_BTN/PS_BTN_2 type-bit path remains unchanged. This is intentionally experimental: do not treat mode 21 as a documented enum value until hardware results establish the mapping.
+
+**Next device check:** build/install this exact revision and test a few single taps, then one hold only if needed. For each tap, look for `ShellUtil PS edge source=experimental_mode21`, `PS Button press pending`, `PS Button release detected`, and `PS Button single press, forwarding after timeout`; also confirm whether the host receives exactly one home/special event per tap. If unrelated ShellUtil events also trigger the experimental path, revert this heuristic and investigate the callback ABI/event semantics instead. Existing hold suppression is intended to remain unchanged, but this experimental signature should be validated before relying on it.
+
+Reference: [VitaSDK ShellUtil API](https://docs.vitasdk.org/shellutil_8h.html) documents lock modes 1/2 and PS lock type bits 0x1/0x800; it does not document mode 21/type 0 as a PS event. No build or Vita hardware test was performed by the agent.
+
+### Short PS tap reaches the streaming host (2026-10-15)
+
+User tested several short PS taps on the build containing the experimental `mode=21/type=0` handler and confirmed that the PS/special-button action reaches the PC.
+
+The supplied device log shows five callbacks (`count=2` through `count=6`) with `result=0 mode=21 type=0x00000000`. Each is followed by `ShellUtil PS edge source=experimental_mode21`, a synthetic press/release pulse (about 2.7–3.1 ms), and `PS Button single press, forwarding after timeout`. Both SceCtrl polling APIs continue to report `buttons=0`, so short-tap detection is coming from the ShellUtil callback path rather than the controller samples. The user confirms the host receives the action; this validates the experimental path for the tested short taps.
+
+**Remaining caveats and next check:**
+- `mode=21/type=0` remains undocumented by the public VitaSDK ShellUtil enum, so keep the special case isolated and do not assume it represents a PS tap for every firmware or ShellUtil callback.
+- Verify one deliberate PS hold that opens Quick Actions: it must not send a host-side PS action, and normal controller forwarding must behave correctly around opening/closing the overlay.
+- If that passes, consider the short-tap path hardware-verified for this tested device/build, while keeping Quick Actions lifecycle and firmware portability open.
+- No build was run by the agent; the report describes the user's test of their installed build.
+
+
+### PS hold suppresses host event; return/input lifecycle still needs confirmation (2026-10-15)
+
+User tested deliberate PS holds several times on the same device build and reports that **no extra PS action is sent to the streaming host**.
+
+The supplied logs support the hold-suppression result:
+- The controller poll detects buttons=0x00010000, then logs `PS Button hold detected; suppressing host event`.
+- Release is eventually observed with durations around 1.85–3.02 seconds; no host-forwarding log appears in the supplied hold segments.
+- Video decoding and stream diagnostics continue in the capture. One `[Stream] connection status=0` appears during the first hold, but this excerpt alone does not establish whether it means an expected pause during the system overlay or a stream disconnect.
+- After the PS release edge, `sceCtrlPeekBufferPositiveExt2` history repeatedly reports `PS found in Ext2 history index=0 buttons=0x00010000` even while current samples show `buttons=0`. This is stale/repeated history output and should not be interpreted as repeated physical presses. It is noisy and worth fixing or throttling separately so diagnostics reflect current state more clearly.
+
+**Assessment:** host-side hold suppression is confirmed by the user's repeated tests. The log is not enough to call the complete Quick Actions lifecycle verified: it does not explicitly prove that controller forwarding resumes correctly after returning from the overlay, and the meaning of `connection status=0` needs context from the surrounding stream lifecycle code/logs. Keep lifecycle handling open until return-to-app and ordinary controller input are explicitly confirmed. The experimental ShellUtil `result=0, mode=21, type=0` signature also remains undocumented; these hold logs do not establish its behavior on other firmware.
+
+No build or Vita hardware test was performed by the agent; these observations are from the user's device test.
+
+
+### Gate host input while Quick Actions/system UI is overlaid (2026-10-15)
+
+**Source change committed for device validation:** [598c923](https://github.com/NowaLone/vita-moonlight-paf/commit/598c923e0adbf473e366d366329395b840a3d649) adds a `SceAppMgrAppState` poll via `_sceAppMgrGetAppState(..., sizeof(state), 0)` and checks `isSystemUiOverlaid` at a 100 Hz cadence before entering the normal input processing path.
+
+When the system UI overlay is reported active, the input loop sends one neutral controller packet to release any host-held controls, updates local controller/touch baselines without forwarding them, clears pending PS tap/pulse state, skips normal controller/touch forwarding, and returns early. Baselines continue to update during the overlay so button presses made and released inside Quick Actions are not replayed to the host after returning. A known active-overlay state is preserved across transient AppMgr API errors; if the API has never succeeded, the code fails open and logs the error so the app does not silently remain input-locked.
+
+**Important limitations:** this is a source-level implementation, not yet device-verified. It depends on the target firmware returning a valid `isSystemUiOverlaid` value from `_sceAppMgrGetAppState`. The 10 ms poll interval also means the first few milliseconds of an overlay transition could precede detection. The error log must be checked on hardware; if AppMgr returns an error, do not consider overlay suppression verified. No build was run by the agent.
+
+**Next device check:** install a build from this commit, open Quick Actions with a PS hold, press/release several ordinary buttons while the overlay remains open, and confirm none of those actions reaches the PC. Close Quick Actions, then confirm ordinary input works again without restarting the stream. Capture the `[Input] System UI overlay changed active=1` / `active=0` messages and any `AppMgr get app state failed` lines. Also watch whether `[Stream] connection status=0` recurs and correlate it with the overlay state rather than assuming it means a disconnect.
+
+Reference implementation: [GrapheneCt/TransparentImpose](https://github.com/GrapheneCt/TransparentImpose/blob/master/TrImpose.c) polls `SceAppMgrAppState.isSystemUiOverlaid` through `_sceAppMgrGetAppState`; the public VitaSDK header declares `_sceAppMgrGetAppState` and defines `SceAppMgrAppState` as a 0x80-byte structure. This supports the API/structure choice, but does not by itself prove behavior on every retail firmware.
+
+### Suppress the stale PS edge after Quick Actions closes (2026-10-15)
+
+User verified that ordinary controller input is blocked while Quick Actions is open and resumes after closing, but reported one extra PS action reaching the host on return. The supplied log narrows the sequence down:
+
+- AppMgr reports `active=1`, and the host controller state is released.
+- AppMgr then reports `active=0`.
+- Immediately after returning, Ext/Ext2 reports a fresh `SCE_CTRL_PSBUTTON` bit and the PS state machine starts a new pending tap.
+- The next history log still contains the old PS bit, consistent with the already-observed stale Ext2 history behavior.
+
+**Source change committed for device validation:** [0956be8](https://github.com/NowaLone/vita-moonlight-paf/commit/0956be88d76434aa4541a80d180fa366b9b2347b) adds a post-overlay PS quarantine. While Quick Actions is active, the input path arms the quarantine. After the overlay closes, it masks PS from both current polling samples and clears pending PS state until both current samples report PS released. It also skips the Ext2 history fallback during this transition, so a stale buffered PS bit cannot recreate the synthetic press. Other controller buttons continue through the normal path; the quarantine does not intentionally block ordinary input after returning.
+
+**Device validation needed:** rebuild/install this exact commit, open Quick Actions with a PS hold, then close it. Confirm there is no host-side PS action on return, while ordinary buttons are still blocked inside the overlay and resume after it closes. Check for `[Input] PS suppression after system UI cleared`; an `Ignoring PS sample while returning from system UI` line is expected only if the current PS bit remains visible briefly after the overlay closes. Then test a deliberate short PS tap after the quarantine has cleared to ensure the normal host-side tap path still works.
+
+No build or hardware test was performed by the agent.
+
+#### Follow-up: Ext2 history is persistently stale on the tested device
+
+Reviewing the return-to-app trace exposed a second way the extra PS action could recur: even after current Ext/Ext2 samples report PS released, the Ext2 history path has repeatedly returned the old `0x00010000` bit at index 0. Merely skipping history for the first post-overlay sample would leave later iterations vulnerable to replaying that stale bit.
+
+**Additional source change:** [4f5daf9](https://github.com/NowaLone/vita-moonlight-paf/commit/4f5daf931bb89d1bee70afa18ee0d857275193ab) removes the Ext2 history fallback from PS edge detection. The existing ShellUtil callback path remains responsible for the tested short-tap path; current Ext/Ext2 samples continue to support hold detection. This intentionally favors avoiding false PS presses over trying to reconstruct a tap from history that the device has demonstrated can remain stale.
+
+The post-overlay quarantine from [0956be8](https://github.com/NowaLone/vita-moonlight-paf/commit/0956be88d76434aa4541a80d180fa366b9b2347b) remains in place. Re-test both cases on hardware: closing Quick Actions must not emit a host PS action, and a deliberate short PS tap after returning must still reach the host through the ShellUtil path. No build or hardware test was performed by the agent.
+
+### Quick Actions return: stale PS sample is suppressed (2026-10-15)
+
+User tested the post-overlay quarantine on Vita and reports that behavior now appears correct. The supplied log confirms:
+
+- AppMgr transitions to `active=1`, and the host controller state is released.
+- On return, AppMgr transitions to `active=0`.
+- Ext briefly reports `buttons=0x00010000` while Ext2 reports `buttons=0x00000000`.
+- The input loop logs `Ignoring PS sample while returning from system UI` rather than starting the PS tap state machine.
+
+This is direct device evidence that the stale/late PS sample is being filtered on return. User's assessment is "вроде всё ок"; keep this marked as user-tested on the current device, not universally verified across firmware. The remaining quick regression check is to confirm that a deliberate short PS tap after the quarantine clears still reaches the host and ordinary controller buttons continue to work. No build or hardware test was performed by the agent.
+
+### Quick Actions lifecycle regression check complete on user's device (2026-10-15)
+
+User confirms that a deliberate short PS tap after returning from Quick Actions still reaches the streaming host. Together with the preceding device log showing the stale PS sample being ignored during return, and the earlier confirmation that ordinary buttons resume after closing the overlay, the currently tested lifecycle behaves as intended on this device:
+
+- Ordinary controller input is suppressed while Quick Actions/system UI is overlaid.
+- Closing the overlay does not forward the stale PS sample as an extra host action.
+- Ordinary controller input resumes after return.
+- A deliberate short PS tap after the quarantine clears still reaches the host.
+
+This is user-reported device verification for the tested build/device/firmware only; it is not cross-firmware verification. No build or hardware test was performed by the agent.
+
+
+
+### Remove temporary PS input diagnostics before integration (2026-10-15)
+
+Removed the temporary ShellUtil callback counter/timestamps, per-callback argument dump, per-sample Ext edge logs, and one-second PS polling heartbeat from `src/moonlight/vita_input.c`. These were added to identify the short-tap event source and are no longer needed after the tested device confirmed the ShellUtil path and Quick Actions lifecycle. Kept event-driven PS state-transition messages and AppMgr overlay/error messages because they remain useful for diagnosing real input/lifecycle regressions. The undocumented `result=0, mode=21, type=0` heuristic and post-overlay quarantine are unchanged; this is log cleanup, not a behavior change.
+
+No build or hardware test was run for this cleanup.

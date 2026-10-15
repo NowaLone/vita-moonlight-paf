@@ -185,13 +185,22 @@ The long-term native-integration shortlist below was researched specifically for
 
 #### Secondary system integration worth testing
 
-- **`SceAppMgr`** — application lifecycle, system events, application launching and related app-management APIs. Particularly interesting are system-event handling, `sceAppMgrSetInfobarState`, and app launching by URI. Do not introduce AppMgr calls merely because they exist; use them for a concrete lifecycle/shell integration need.
+- **`SceAppMgr`** — application lifecycle, system events, application launching and related app-management APIs. Particularly relevant to the PS/Quick Actions investigation: VitaSDK documents activate/deactivate/resume events through `sceAppMgrReceiveSystemEvent()` and an app-state structure with `isSystemUiOverlaid`, retrieved by the underscored `__sceAppMgrGetAppState()` / `_sceAppMgrGetAppState()` family (header/documentation naming varies). This is a promising candidate for detecting a system UI overlay, but it is not yet verified that Quick Actions sets the flag on this app/firmware. Check the exact symbol and ABI in the installed VitaSDK headers, then validate on hardware before relying on it. Do not introduce AppMgr calls merely because they exist; use them for this concrete lifecycle/shell integration need.
 - **`SceNetCheckDialog`** — native network-check/diagnostic dialog. Worth testing for a user-invoked network diagnostic path, but not required for the core LAN streaming flow.
 - **`SceLiveArea`** — possible LiveArea integration and app launch/context information. Could be used later for richer shell-facing presentation, but is not currently part of core architecture.
 - **`SceBGAppUtil`** — background-application utility. Potentially relevant to background discovery/update work, but no current feature depends on it.
 - **`SceAppMgr` BGM/audio-port facilities** — potentially useful if Moonlight audio conflicts with system/background audio are observed.
 - **`SceIncomingDialog`** — native incoming-event overlay. Interesting for future shell-like notifications, but there is no current Moonlight event that requires it.
 - **`SceShutterSound`** — system shutter sound, only relevant if a future screenshot/capture feature needs a native sound effect.
+
+#### PS Button and Quick Actions: current source facts
+
+- The existing setting is `ps_button_capture` in `cxml/moonlight_settings.xml`, under Input Settings, with default value `1`. Preserve this setting; do not add a second toggle or change its storage key.
+- `src/moonlight/vita_input.c` currently locks `SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN | SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN_2` when capture is enabled. On a detected PS-button rising edge, it calls `moonlight_stream_stop()` immediately and clears the bit; it does **not** currently forward PS to the PC. This is incorrect: a single press must never stop the stream. Only a confirmed double press may trigger the local stream-stop action, and only when PS capture is enabled. `vita_input_send()` does not map `SCE_CTRL_PSBUTTON` to a Moonlight button flag.
+- When capture is disabled, the lock is not acquired, so the intended behavior is to leave PS to Vita's shell. Keep this path free of interception and do not stop the stream because of PS.
+- The upstream `xyzz/vita-moonlight` 0.13.2 README documents optional PS capture with a single press forwarded as a PS/Xbox/special-button event and a double press opening the menu. Its `src/input/vita.c::handle_psbutton()` uses `PSBTN_DOUBLETAP_DELAY` (250,000 µs), sends `SPECIAL_FLAG` for a non-double press, and unlocks PS capture on a double press to open the menu; it does not stop the stream on a single press. Use its timing/state handling as a reference, but follow this project's required action: when capture is enabled, a confirmed double press stops the stream. Include press/release transitions and lock cleanup. `moonlight-common-c` exposes `SPECIAL_FLAG`; it does not define a separate `PS_FLAG`.
+- `sceShellUtilLock()` is a shell-event lock, not proof that Quick Actions is hidden or detectable. `SCE_SHELL_UTIL_LOCK_TYPE_QUICK_MENU` is a separate lock type. Do not lock Quick Menu unconditionally: that would conflict with the required native PS behavior when capture is disabled. Verify the supported event/state mechanism and hardware behavior before relying on it.
+- The PAF plugin's `stop_func` and `exit_func` are currently `NULL` in `src/app/paf_runtime.cpp`. `MoonlightApp::Shutdown()` is called after `paf::Framework::Run()` returns. Do not assume this alone covers shell overlay, suspend, or foreground/resume transitions.
 
 #### Internal / reverse-engineered APIs
 

@@ -2,6 +2,7 @@
 
 #include <Limelight.h>
 #include <psp2/ctrl.h>
+#include <psp2/appmgr.h>
 #include <psp2/touch.h>
 #include <psp2/shellutil.h>
 #include <psp2/kernel/threadmgr.h>
@@ -25,6 +26,22 @@ static uint8_t s_controller_type = LI_CTYPE_PS;
 static bool s_swap_shoulder_buttons = false;
 static bool s_ps_button_capture = true;
 static bool s_ps_button_locked = false;
+static bool s_shell_events_initialized = false;
+static uint64_t s_ps_button_release_time = 0;
+static uint64_t s_ps_press_time = 0;
+static uint64_t s_ps_diag_time = 0;
+static uint64_t s_app_state_poll_time = 0;
+static uint64_t s_app_state_error_log_time = 0;
+static bool s_system_ui_overlaid = false;
+static bool s_app_state_known = false;
+static bool s_overlay_release_sent = false;
+static bool s_ignore_ps_until_release = false;
+static bool s_ps_single_pending = false;
+static bool s_ps_physical_old = false;
+static bool s_ps_probe_ext_old = false;
+static int s_ps_host_pulse_state = 0;
+static volatile int s_shell_ps_edge = 0;
+static int s_shell_handler_registered = 0;
 static int s_touchscreen_mode = 0;
 static int s_mouse_acceleration = 0;
 static bool s_motion_enabled = false;
@@ -123,6 +140,49 @@ static uint32_t vita_read_back_touch(const SceTouchData *back)
 }
 
 
+static uint32_t s_shell_event_count = 0;
+
+static void vita_shell_event_handler(
+    int result,
+    SceShellUtilLockMode mode,
+    SceShellUtilLockType type,
+    void *userData)
+{
+    uint64_t now = sceKernelGetSystemTimeWide();
+    uint32_t event_count = ++s_shell_event_count;
+
+    (void)userData;
+
+    vita_debug_log(
+        "[Input] ShellUtil event count=%u time_us=%llu result=%d mode=%d mode_hex=0x%08x type=0x%08x",
+        (unsigned int)event_count,
+        (unsigned long long)now,
+        result,
+        (int)mode,
+        (unsigned int)mode,
+        (unsigned int)type);
+
+    if ((type & (SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN |
+                 SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN_2)) != 0) {
+        s_shell_ps_edge = 1;
+        vita_debug_log(
+            "[Input] ShellUtil PS edge source=lock_type count=%u",
+            (unsigned int)event_count);
+    } else if (result == 0 && (int)mode == 21 && (unsigned int)type == 0) {
+        /*
+         * On the tested Vita, repeated callbacks correlated with user PS taps
+         * arrive as result=0, mode=21, type=0, even though this signature is
+         * not described by VitaSDK's public enum. Treat it as a provisional
+         * PS pulse so the next device build can validate the correlation.
+         * Keep this isolated from the documented lock-type path.
+         */
+        s_shell_ps_edge = 1;
+        vita_debug_log(
+            "[Input] ShellUtil PS edge source=experimental_mode21 count=%u",
+            (unsigned int)event_count);
+    }
+}
+
 static void vita_input_send(uint32_t back_buttons)
 {
     const uint32_t BACK_NORTHWEST = 0x01;
@@ -151,6 +211,14 @@ static void vita_input_send(uint32_t back_buttons)
     }
     if (s_pad.buttons & SCE_CTRL_SELECT) {
         button_flags |= BACK_FLAG;
+    }
+    /*
+     * When PS capture is enabled, forward PS to the host as Moonlight's
+     * special/home button. The press edge is handled separately below so a
+     * confirmed double press can stop the stream without stopping on tap.
+     */
+    if (s_ps_button_capture && s_ps_host_pulse_state == 1) {
+        button_flags |= SPECIAL_FLAG;
     }
 
     if (s_pad.buttons & SCE_CTRL_TRIANGLE) {
@@ -229,14 +297,165 @@ static void vita_input_send(uint32_t back_buttons)
         -vita_axis_to_limelight(s_pad.ry));
 }
 
-static void vita_input_process(void)
+/*
+ * SceAppMgr exposes whether system software UI is overlaid on this app.
+ * Poll at 100 Hz rather than every 2 ms; controller forwarding is gated
+ * before the normal input state machine whenever the overlay is active.
+ */
+static bool vita_input_system_ui_overlaid(void)
 {
-    bool ps_pressed;
-    bool ps_pressed_old;
+    uint64_t now = sceKernelGetSystemTimeWide();
+
+    if (s_app_state_poll_time == 0 ||
+        now < s_app_state_poll_time ||
+        now - s_app_state_poll_time >= 10000ull) {
+        SceAppMgrAppState app_state;
+        int result;
+
+        memset(&app_state, 0, sizeof(app_state));
+        result = _sceAppMgrGetAppState(
+            &app_state, sizeof(app_state), 0);
+        s_app_state_poll_time = now;
+
+        if (result >= 0) {
+            bool overlaid = app_state.isSystemUiOverlaid != 0;
+
+            if (!s_app_state_known || overlaid != s_system_ui_overlaid) {
+                vita_debug_log(
+                    "[Input] System UI overlay changed active=%d result=0x%08x",
+                    overlaid ? 1 : 0,
+                    (unsigned int)result);
+            }
+
+            s_system_ui_overlaid = overlaid;
+            s_app_state_known = true;
+        } else if (s_app_state_error_log_time == 0 ||
+                   now < s_app_state_error_log_time ||
+                   now - s_app_state_error_log_time >= 1000000ull) {
+            vita_debug_log(
+                "[Input] AppMgr get app state failed result=0x%08x; overlay state=%s",
+                (unsigned int)result,
+                s_app_state_known ? "cached" : "unknown");
+            s_app_state_error_log_time = now;
+        }
+    }
+
+    /*
+     * Preserve a known active-overlay state across transient API errors so
+     * controller input cannot leak into Quick Actions. If the API has never
+     * succeeded, fail open but make the failure visible in the log.
+     */
+    return s_app_state_known && s_system_ui_overlaid;
+}
+
+static void vita_input_suppress_for_system_ui(void)
+{
     uint32_t back_buttons;
 
-    sceCtrlSetSamplingModeExt(SCE_CTRL_MODE_ANALOG_WIDE);
+    /* Quick Actions may leave a synthetic/stale PS sample on return. */
+    s_ignore_ps_until_release = true;
+
+    /*
+     * Release any controller state the host may still consider held, then
+     * keep sampling/baselining locally while the system overlay owns input.
+     * This avoids replaying buttons that were pressed while Quick Actions
+     * was visible after control returns to the app.
+     */
+    if (!s_overlay_release_sent) {
+        const short axis_center = vita_axis_to_limelight(128);
+        LiSendMultiControllerEvent(
+            0, 1, 0, 0, 0,
+            axis_center, -axis_center, axis_center, -axis_center);
+        s_overlay_release_sent = true;
+        vita_debug_log("[Input] Host controller state released for system UI overlay");
+    }
+
+    memset(&s_pad, 0, sizeof(s_pad));
     sceCtrlPeekBufferPositiveExt2(0, &s_pad, 1);
+    s_pad.buttons &= ~SCE_CTRL_PSBUTTON;
+    sceTouchPeek(SCE_TOUCH_PORT_BACK, &s_back, 1);
+    back_buttons = vita_read_back_touch(&s_back);
+
+    memcpy(&s_pad_old, &s_pad, sizeof(SceCtrlData));
+    s_back_buttons_old = back_buttons;
+
+    /* Do not let a pending tap become a host pulse after the overlay closes. */
+    s_ps_button_release_time = 0;
+    s_ps_press_time = 0;
+    s_ps_single_pending = false;
+    s_ps_physical_old = false;
+    s_ps_probe_ext_old = false;
+    s_ps_host_pulse_state = 0;
+    s_shell_ps_edge = 0;
+}
+
+static void vita_input_process(void)
+{
+    if (vita_input_system_ui_overlaid()) {
+        vita_input_suppress_for_system_ui();
+        return;
+    }
+    s_overlay_release_sent = false;
+
+    bool ps_pressed;
+    bool ps_pressed_old;
+    bool suppress_ps_sample = false;
+    bool ps_probe_ext_pressed;
+    int ctrl_ext2_result;
+    int ctrl_ext_result;
+    SceCtrlData ps_probe_ext;
+    uint32_t back_buttons;
+
+    memset(&ps_probe_ext, 0, sizeof(ps_probe_ext));
+    sceCtrlSetSamplingModeExt(SCE_CTRL_MODE_ANALOG_WIDE);
+    ctrl_ext2_result = sceCtrlPeekBufferPositiveExt2(0, &s_pad, 1);
+    ctrl_ext_result = sceCtrlPeekBufferPositiveExt(0, &ps_probe_ext, 1);
+    ps_probe_ext_pressed =
+        (ps_probe_ext.buttons & SCE_CTRL_PSBUTTON) != 0;
+    if (ps_probe_ext_pressed != s_ps_probe_ext_old) {
+        vita_debug_log(
+            "[Input] PS probe Ext edge pressed=%d result=%d buttons=0x%08x",
+            ps_probe_ext_pressed ? 1 : 0,
+            ctrl_ext_result,
+            (unsigned int)ps_probe_ext.buttons);
+        s_ps_probe_ext_old = ps_probe_ext_pressed;
+    }
+
+    /*
+     * Quick Actions can make the PS bit appear as a fresh controller edge
+     * when the overlay closes. Ignore PS until both current polling samples
+     * have returned to released; do not consult buffered history in this
+     * transition frame because it can contain the overlay's stale PS bit.
+     */
+    if (s_ignore_ps_until_release) {
+        bool raw_ps_pressed =
+            ((s_pad.buttons | ps_probe_ext.buttons) & SCE_CTRL_PSBUTTON) != 0;
+
+        suppress_ps_sample = true;
+        s_pad.buttons &= ~SCE_CTRL_PSBUTTON;
+        ps_probe_ext.buttons &= ~SCE_CTRL_PSBUTTON;
+        s_ps_physical_old = false;
+        s_ps_probe_ext_old = false;
+        s_ps_button_release_time = 0;
+        s_ps_press_time = 0;
+        s_ps_single_pending = false;
+        s_ps_host_pulse_state = 0;
+        s_shell_ps_edge = 0;
+
+        if (!raw_ps_pressed) {
+            s_ignore_ps_until_release = false;
+            vita_debug_log("[Input] PS suppression after system UI cleared");
+        } else {
+            vita_debug_log("[Input] Ignoring PS sample while returning from system UI");
+        }
+    }
+
+    /*
+     * Do not recover PS presses from Ext2 history: on the tested device this
+     * history repeatedly returns an old PS bit after release/Quick Actions,
+     * which can be mistaken for a new press. Short taps are captured by the
+     * ShellUtil event path; current samples remain the fallback for holds.
+     */
     sceTouchPeek(SCE_TOUCH_PORT_BACK, &s_back, 1);
 
     if (s_front_touchzones && s_touchscreen_mode == 0) {
@@ -271,20 +490,123 @@ front_done:
         ;
     }
 
-    ps_pressed = (s_pad.buttons & SCE_CTRL_PSBUTTON) != 0;
-    ps_pressed_old = (s_pad_old.buttons & SCE_CTRL_PSBUTTON) != 0;
+    /*
+     * Keep Ext2 as the source for normal controller input, but latch PS from
+     * either polling API. A very brief PS tap can otherwise be missed by the
+     * state machine if only one sample sees the bit.
+     */
+    ps_pressed = !suppress_ps_sample &&
+        ((s_pad.buttons | ps_probe_ext.buttons) & SCE_CTRL_PSBUTTON) != 0;
+    if (!suppress_ps_sample && !ps_pressed && s_shell_ps_edge) {
+        s_shell_ps_edge = 0;
+        ps_pressed = true;
+        vita_debug_log("[Input] PS edge from ShellUtil event");
+    }
+    ps_pressed_old = s_ps_physical_old;
 
-    if (s_ps_button_capture && ps_pressed && !ps_pressed_old) {
-        vita_debug_log("[Input] PS Button pressed, stopping stream");
-        moonlight_stream_stop();
+    if (s_ps_button_capture) {
+        uint64_t now = sceKernelGetSystemTimeWide();
+
+        /* Diagnostic heartbeat: distinguish an unseen physical PS bit from
+         * a press/release state-machine problem without logging every poll. */
+        if (s_ps_diag_time == 0 || now < s_ps_diag_time ||
+            now - s_ps_diag_time >= 1000000ull) {
+            vita_debug_log(
+                "[Input] PS diag Ext2 result=%d buttons=0x%08x effective_pressed=%d old=%d; Ext result=%d buttons=0x%08x pressed=%d; pending=%d press_time=%llu release_time=%llu",
+                ctrl_ext2_result,
+                (unsigned int)s_pad.buttons,
+                ps_pressed ? 1 : 0,
+                ps_pressed_old ? 1 : 0,
+                ctrl_ext_result,
+                (unsigned int)ps_probe_ext.buttons,
+                ps_probe_ext_pressed ? 1 : 0,
+                s_ps_single_pending ? 1 : 0,
+                (unsigned long long)s_ps_press_time,
+                (unsigned long long)s_ps_button_release_time);
+            s_ps_diag_time = now;
+        }
+
+        /*
+         * Never forward the physical PS bit directly. Wait until the
+         * double-tap window expires, otherwise the first tap leaks to the
+         * host before a second tap can be recognized.
+         */
         s_pad.buttons &= ~SCE_CTRL_PSBUTTON;
+
+        if (ps_pressed && !ps_pressed_old) {
+            if (s_ps_single_pending &&
+                s_ps_button_release_time != 0 &&
+                now >= s_ps_button_release_time &&
+                now - s_ps_button_release_time <= 250000ull) {
+                vita_debug_log("[Input] PS Button double press, stopping stream");
+                s_ps_single_pending = false;
+                s_ps_button_release_time = 0;
+                s_ps_press_time = 0;
+                s_ps_host_pulse_state = 0;
+                s_ps_physical_old = ps_pressed;
+                moonlight_stream_stop();
+                return;
+            }
+
+            s_ps_press_time = now;
+            s_ps_single_pending = true;
+            s_ps_button_release_time = 0;
+            vita_debug_log("[Input] PS Button press pending tap/hold detection");
+        } else if (ps_pressed && s_ps_single_pending &&
+                   s_ps_press_time != 0 &&
+                   now >= s_ps_press_time &&
+                   now - s_ps_press_time >= 500000ull) {
+            /*
+             * A held PS press is intended for the system Quick Actions UI.
+             * Do not turn it into a delayed host SPECIAL_FLAG pulse after
+             * the system overlay returns to the app.
+             */
+            s_ps_single_pending = false;
+            s_ps_button_release_time = 0;
+            /* Keep press_time until release so hold classification stays stable. */
+            vita_debug_log("[Input] PS Button hold detected; suppressing host event");
+        } else if (!ps_pressed && ps_pressed_old) {
+            vita_debug_log(
+                "[Input] PS Button release detected duration_us=%llu pending=%d",
+                (unsigned long long)(s_ps_press_time != 0 && now >= s_ps_press_time ? now - s_ps_press_time : 0),
+                s_ps_single_pending ? 1 : 0);
+            if (s_ps_single_pending) {
+                if (s_ps_press_time != 0 &&
+                    now >= s_ps_press_time &&
+                    now - s_ps_press_time >= 500000ull) {
+                    s_ps_single_pending = false;
+                    s_ps_button_release_time = 0;
+                    vita_debug_log("[Input] PS Button hold released; host event suppressed");
+                } else {
+                    s_ps_button_release_time = now;
+                }
+            }
+            s_ps_press_time = 0;
+        }
+
+        if (s_ps_single_pending && !ps_pressed &&
+            s_ps_button_release_time != 0 &&
+            now >= s_ps_button_release_time &&
+            now - s_ps_button_release_time > 250000ull) {
+            s_ps_single_pending = false;
+            s_ps_button_release_time = 0;
+            s_ps_host_pulse_state = 1;
+            vita_debug_log("[Input] PS Button single press, forwarding after timeout");
+        }
     }
 
+    s_ps_physical_old = ps_pressed;
     back_buttons = vita_read_back_touch(&s_back);
 
     if (memcmp(&s_pad, &s_pad_old, sizeof(SceCtrlData)) != 0 ||
-        back_buttons != s_back_buttons_old) {
+        back_buttons != s_back_buttons_old ||
+        s_ps_host_pulse_state != 0) {
         vita_input_send(back_buttons);
+        if (s_ps_host_pulse_state == 1) {
+            s_ps_host_pulse_state = 2;
+        } else if (s_ps_host_pulse_state == 2) {
+            s_ps_host_pulse_state = 0;
+        }
         memcpy(&s_pad_old, &s_pad, sizeof(SceCtrlData));
         s_back_buttons_old = back_buttons;
     }
@@ -389,6 +711,13 @@ void vita_input_start(void)
     memset(&s_pad_old, 0, sizeof(s_pad_old));
     memset(&s_back, 0, sizeof(s_back));
     s_back_buttons_old = 0;
+    s_ps_button_release_time = 0;
+    s_ps_press_time = 0;
+    s_ps_diag_time = 0;
+    s_ps_single_pending = false;
+    s_ps_physical_old = false;
+    s_ps_probe_ext_old = false;
+    s_ps_host_pulse_state = 0;
 
     /*
      * Match the controller declaration used by the original Vita Moonlight.
@@ -414,7 +743,37 @@ void vita_input_start(void)
         capabilities);
 
     if (s_ps_button_capture && !s_ps_button_locked) {
-        int result = sceShellUtilLock(
+        int init_result = 0;
+        int result;
+
+        /*
+         * ShellUtil's event subsystem must be initialized before lock/unlock.
+         * Retry on the next stream start if initialization fails.
+         */
+        if (!s_shell_events_initialized) {
+            init_result = sceShellUtilInitEvents(0);
+            if (init_result == 0) {
+                s_shell_events_initialized = true;
+            }
+
+            vita_debug_log(
+                "[Input] ShellUtil init events result=0x%08x",
+                (unsigned int)init_result);
+        }
+
+        if (!s_shell_handler_registered) {
+            int handler_result = sceShellUtilRegisterEventHandler(
+                vita_shell_event_handler,
+                NULL);
+            if (handler_result == 0) {
+                s_shell_handler_registered = 1;
+            }
+            vita_debug_log(
+                "[Input] ShellUtil register handler result=0x%08x",
+                (unsigned int)handler_result);
+        }
+
+        result = sceShellUtilLock(
             (SceShellUtilLockType)(
                 SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN |
                 SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN_2));
@@ -466,6 +825,10 @@ void vita_input_stop(void)
 
     memset(&s_pad, 0, sizeof(s_pad));
     memset(&s_pad_old, 0, sizeof(s_pad_old));
+    s_ps_button_release_time = 0;
+    s_ps_single_pending = false;
+    s_ps_physical_old = false;
+    s_ps_host_pulse_state = 0;
 
     if (s_ps_button_locked) {
         int result = sceShellUtilUnlock(
