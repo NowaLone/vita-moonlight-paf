@@ -431,3 +431,13 @@ References:
 - [VitaSDK ShellUtil API](https://docs.vitasdk.org/shellutil_8h.html) — ShellUtil callback carries lock mode/type, not a documented raw PS press/release event stream.
 
 No build or Vita hardware test was performed by the agent.
+
+### ShellUtil callback correlation diagnostics (2026-10-15)
+
+**Diagnostic-only source change committed:** [0eeffe2](https://github.com/NowaLone/vita-moonlight-paf/commit/0eeffe23ad844b915389249f7411027a3b0df25b) adds a monotonically increasing callback counter and sceKernelGetSystemTimeWide() timestamp to each ShellUtil callback log. The log now prints count, time_us, result, decimal and hexadecimal mode, and hexadecimal type.
+
+Why: user observed repeated callbacks near short PS taps, but the captured arguments were consistently result=0 mode=21 type=0x00000000. A zero type contains neither documented PS_BTN nor PS_BTN_2, so the existing handler correctly does not synthesize a PS edge from that callback. Decimal and hexadecimal mode output will make the unexpected value easier to compare with the VitaSDK enum declarations; timestamps/counters let the next log establish event order and timing rather than relying on visual proximity.
+
+**Next device check:** build/install this exact revision and make one brief PS tap while the stream log is continuously visible. Capture the callback line(s) immediately before and after the tap plus the PS heartbeat. Do not repeat the already-confirmed hold test. Compare whether callback timestamps/counts cluster reproducibly around taps and whether result, mode_hex, or type changes. If callback arguments remain unchanged, do not treat type=0 as a PS event; investigate callback registration/API semantics and another independently observable event source. If a documented PS type bit appears, wire only that verified signal into the existing edge/state-machine path.
+
+The change deliberately does not interpret type=0 as a PS tap and does not alter controller polling, tap timing, or hold suppression. No build or Vita hardware test was performed by the agent.
