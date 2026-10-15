@@ -27,6 +27,7 @@ Run the full user journey on a real Vita and record reproducible failures with r
 
 - [ ] Discover a PC on the LAN and save/select it.
 - [ ] Reproduce and fix the Main screen's saved/paired-PC list not loading on entry: the list is empty until the user connects to a PC, opens System Settings, and returns to Main. Trace initial host-store loading, page lifecycle/refresh dispatch, and paired-host filtering; verify cold start and returning to Main without first connecting.
+  - Source review found that `InitialRefreshTask` previously stopped as soon as the backend reported any hosts, without checking whether the PAF `ListView` had created the matching cells. The warm-up now waits for a minimum delay and three consecutive host/cell-count matches (with a bounded timeout). This is a source-level lifecycle fix hypothesis; build and Vita cold-start verification are still required.
 - [ ] Check the PS4 Link style Search PCs and Pairing pages on hardware against the PS4 Link screens: header position and the fading line, the pairing page's flow bar and Back button position, the saved-PC row title and description positions, and that touching the row text still activates the row.
 - [ ] Add a PC manually, including a custom port; verify unsuccessful attempts do not create an incorrect saved-host record.
 - [ ] Pair successfully and verify incorrect-PIN errors are distinguished from transport/protocol failures.
