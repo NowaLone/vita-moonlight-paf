@@ -41,6 +41,9 @@ static StreamContext s_stream_context = { NULL, NULL, 0 };
 static pthread_t s_stream_thread;
 static volatile int s_stream_thread_running = 0;
 static volatile int s_stream_stop_requested = 0;
+static volatile int s_stream_cancel_requested = 0;
+
+static void *stream_stop_thread_main(void *);
 
 static size_t write_response(void *contents, size_t size, size_t count, void *userdata)
 {
@@ -409,6 +412,11 @@ static int run_stream_session(
         return -1;
     }
 
+    if (s_stream_cancel_requested) {
+        vita_debug_log("[Stream] launch cancelled before RTSP setup");
+        return -7;
+    }
+
     LiInitializeStreamConfiguration(&stream_config);
     stream_config.width = settings->width;
     stream_config.height = settings->height;
@@ -459,6 +467,11 @@ static int run_stream_session(
         stream_config.bitrate,
         server_info.serverInfoAppVersion,
         server_info.serverCodecModeSupport);
+
+    if (s_stream_cancel_requested) {
+        vita_debug_log("[Stream] launch cancelled before LiStartConnection");
+        return -7;
+    }
 
     result = LiStartConnection(
         &server_info,
@@ -573,6 +586,7 @@ extern "C" int moonlight_stream_start(
     s_stream_context.userdata = userdata;
     s_stream_context.started = 0;
     s_stream_stop_requested = 0;
+    s_stream_cancel_requested = 0;
 
     s_stream_thread_running = 1;
     result = pthread_create(
@@ -635,28 +649,37 @@ extern "C" int moonlight_stream_stop(void)
     pthread_t stop_thread;
     int result;
 
+    if (!s_stream_thread_running) {
+        return 0;
+    }
+
+    s_stream_cancel_requested = 1;
+
+    /* Limelight must not be stopped before its connection setup has begun. */
+    if (!s_stream_context.started) {
+        vita_debug_log("[Stream] cancellation requested before connection start");
+        return 0;
+    }
+
     if (s_stream_stop_requested) {
         vita_debug_log("[Stream] stop already requested");
         return 0;
     }
 
     s_stream_stop_requested = 1;
-
-    result = pthread_create(
-        &stop_thread,
-        NULL,
-        stream_stop_thread_main,
-        NULL);
+    result = pthread_create(&stop_thread, NULL, stream_stop_thread_main, NULL);
     if (result != 0) {
         s_stream_stop_requested = 0;
-        vita_debug_log(
-            "[Stream] stop worker create failed result=%d",
-            result);
+        vita_debug_log("[Stream] stop worker create failed result=%d", result);
         return result;
     }
 
     pthread_detach(stop_thread);
-
     vita_debug_log("[Stream] stop worker launched");
     return 0;
+}
+
+extern "C" int moonlight_stream_is_running(void)
+{
+    return s_stream_thread_running ? 1 : 0;
 }
