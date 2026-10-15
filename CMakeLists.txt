@@ -32,6 +32,9 @@ set(VITA_MKSFOEX_FLAGS
     "${VITA_MKSFOEX_FLAGS} -d ATTRIBUTE=33472 -d ATTRIBUTE_MINOR=16"
 )
 
+# Keep the PAF build's known-working authority ID. Device testing reported that
+# AppSettings persistence works with this ID; upstream's 0x280... ID regressed it.
+# PS Button ShellUtil lock success has also been observed with this ID on-device.
 set(VITA_MAKE_FSELF_FLAGS "${VITA_MAKE_FSELF_FLAGS} -a 0x2F00000000000101")
 
 enable_language(CXX ASM)
@@ -203,7 +206,8 @@ if(NOT EXISTS "${RCO_FILE}")
   message(FATAL_ERROR "Missing vita_moonlight_ui.rco. Run build_cxml.sh before configuring the project.")
 endif()
 
-vita_create_self(${PROJECT_NAME}.self ${PROJECT_NAME} UNSAFE)
+# UNSAFE omits the safe (-s) flag; ATTRIBUTE matches upstream PS capture packaging.
+vita_create_self(${PROJECT_NAME}.self ${PROJECT_NAME} UNSAFE ATTRIBUTE 0x0E)
 
 vita_create_vpk(vita_moonlight_paf.vpk "VLMP00001" ${PROJECT_NAME}.self
   VERSION "01.00"

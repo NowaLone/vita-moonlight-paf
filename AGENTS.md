@@ -307,3 +307,11 @@ The agreed, prioritized development plan lives in [`ROADMAP.md`](ROADMAP.md). Ke
 - Add automated tests when the project architecture is stable enough to support them.
 - Document preferred formatter/static-analysis tooling if one is adopted.
 - Define a release procedure, including adding/maintaining the appropriate LICENSE before a release.
+
+### PS Button and Quick Actions input lifecycle
+
+- With `ps_button_capture` enabled, a short PS tap is translated into a delayed host special-button event; a confirmed double tap stops the stream. A hold used to open Quick Actions must not generate a host PS event.
+- `src/moonlight/vita_input.c` checks `SceAppMgrAppState.isSystemUiOverlaid`; while the system UI overlay is active it sends a neutral controller state once, updates local baselines, and suppresses normal controller/touch forwarding.
+- On overlay return, suppress PS samples until both current polling APIs report the button released. Do not reconstruct PS edges from Ext2 history: on the tested device that history replayed a stale PS bit.
+- The ShellUtil callback signature `result=0, mode=21, type=0` is an experimental, undocumented firmware-specific heuristic. It has been confirmed on the user's device only; isolate it and do not claim cross-firmware support.
+- User verified the complete Quick Actions lifecycle on one device: ordinary input is blocked during the overlay and resumes afterward, no stale PS event is sent on return, and a deliberate short tap still reaches the host. The cleanup removed temporary callback counters and polling heartbeats but retained event-driven state-transition and AppMgr error logs. No build or hardware test was run by the agent for the log cleanup.
