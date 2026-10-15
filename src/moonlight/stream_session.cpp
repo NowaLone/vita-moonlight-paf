@@ -424,6 +424,11 @@ static int run_stream_session(
             ? server->server_codec_mode_support
             : SCM_H264;
 
+    if (s_stream_cancel_requested) {
+        vita_debug_log("[Stream] launch cancelled before LiStartConnection");
+        return -7;
+    }
+
     initialize_connection_callbacks(&callbacks);
 
     vita_debug_log(
