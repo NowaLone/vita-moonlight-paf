@@ -226,6 +226,7 @@ Main::Main()
       m_selected_index(-1),
       m_connecting(false),
       m_initial_refresh_attempts(0),
+      m_initial_refresh_stable_count(0),
       m_ime_open(false),
       m_ime_task_registered(false),
       m_ime_retry_pending(false),
@@ -292,13 +293,41 @@ void Main::InitialRefreshTask(void *userdata)
     }
 
     main->RefreshHosts();
+    ++main->m_initial_refresh_attempts;
 
     /*
-     * PageOpen returns before the first PAF layout pass. Keep refreshing for
-     * a short warm-up window so the initial host list is populated on the
-     * first visit instead of appearing only after another page is opened.
+     * PageOpen can return before the ListView has completed its first layout.
+     * A non-empty backend result alone is not enough to stop the warm-up:
+     * verify that PAF has created the matching number of cells, and that the
+     * result stays stable across several main-thread ticks.
      */
-    if (main->m_host_count > 0 || ++main->m_initial_refresh_attempts >= 60) {
+    paf::ui::ListView *list = main->root
+        ? static_cast<paf::ui::ListView *>(
+              main->root->FindChild("list_view_main"))
+        : NULL;
+    int cell_count = list ? list->GetCellNum(0) : -1;
+
+    if (main->m_host_count > 0 &&
+        cell_count == main->m_host_count) {
+        ++main->m_initial_refresh_stable_count;
+    } else {
+        main->m_initial_refresh_stable_count = 0;
+    }
+
+    const bool list_is_stable =
+        main->m_initial_refresh_attempts >= 10 &&
+        main->m_initial_refresh_stable_count >= 3;
+    const bool warmup_expired =
+        main->m_initial_refresh_attempts >= 120;
+
+    if (list_is_stable || warmup_expired) {
+        vita_debug_log(
+            "[Main] initial refresh finished attempts=%d hosts=%d cells=%d stable=%d timeout=%d",
+            main->m_initial_refresh_attempts,
+            main->m_host_count,
+            cell_count,
+            main->m_initial_refresh_stable_count,
+            warmup_expired ? 1 : 0);
         paf::common::MainThreadCallList::Unregister(InitialRefreshTask, userdata);
     }
 }
