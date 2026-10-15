@@ -647,9 +647,7 @@ Next work, in order:
 
 Source change: [54ba678](https://github.com/NowaLone/vita-moonlight-paf/commit/54ba67847c49b883e9f6f03dce8f8f20e732f0b3) adds explicit `s_stream_pending` and `s_stream_active` checks to `moonlight_api_start_application()`. The connection state can remain `PAIRED` during the asynchronous launch handshake, so state-only validation was not sufficient to express the stream lifecycle invariant. The API now rejects a second start request while a stream start is pending or a stream is active, rather than relying only on the lower-level worker to reject it.
 
-**Important remaining issue found during review:** `moonlight_api_disconnect_host()` currently requests asynchronous stream stop and then immediately shuts down the GameStream server object. That can race with the detached stop/stream workers. This commit does **not** fix that teardown race. Next, make host disconnect a deferred lifecycle transition: stop the stream first, then shut down GameStream resources only after the worker/connection cleanup has completed. Also handle disconnect during a pending launch, not just an already-active stream. Do not treat this as resolved until the lifecycle has been changed and tested.
-
-Verification: source review only. The user reports that the prior changes build successfully; this specific follow-up commit has not independently been built or run on device by the agent.
+**Resolution:** the teardown race and pending-launch path are addressed in the later section **Deferred stream teardown on host disconnect** below. That implementation is source-reviewed but still requires a build and Vita device regression test.
 
 
 ### Deferred stream teardown on host disconnect (2026-10-15)
