@@ -21,6 +21,7 @@ int moonlight_stream_start(
     void *userdata);
 
 int moonlight_stream_stop(void);
+int moonlight_stream_is_running(void);
 
 #ifdef __cplusplus
 }
