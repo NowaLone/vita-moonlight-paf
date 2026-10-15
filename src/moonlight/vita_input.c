@@ -35,6 +35,7 @@ static uint64_t s_app_state_error_log_time = 0;
 static bool s_system_ui_overlaid = false;
 static bool s_app_state_known = false;
 static bool s_overlay_release_sent = false;
+static bool s_ignore_ps_until_release = false;
 static bool s_ps_single_pending = false;
 static bool s_ps_physical_old = false;
 static bool s_ps_probe_ext_old = false;
@@ -351,6 +352,9 @@ static void vita_input_suppress_for_system_ui(void)
 {
     uint32_t back_buttons;
 
+    /* Quick Actions may leave a synthetic/stale PS sample on return. */
+    s_ignore_ps_until_release = true;
+
     /*
      * Release any controller state the host may still consider held, then
      * keep sampling/baselining locally while the system overlay owns input.
@@ -395,6 +399,7 @@ static void vita_input_process(void)
 
     bool ps_pressed;
     bool ps_pressed_old;
+    bool suppress_ps_sample = false;
     bool ps_probe_ext_pressed;
     int ctrl_ext2_result;
     int ctrl_ext_result;
@@ -417,11 +422,41 @@ static void vita_input_process(void)
     }
 
     /*
+     * Quick Actions can make the PS bit appear as a fresh controller edge
+     * when the overlay closes. Ignore PS until both current polling samples
+     * have returned to released; do not consult buffered history in this
+     * transition frame because it can contain the overlay's stale PS bit.
+     */
+    if (s_ignore_ps_until_release) {
+        bool raw_ps_pressed =
+            ((s_pad.buttons | ps_probe_ext.buttons) & SCE_CTRL_PSBUTTON) != 0;
+
+        suppress_ps_sample = true;
+        s_pad.buttons &= ~SCE_CTRL_PSBUTTON;
+        ps_probe_ext.buttons &= ~SCE_CTRL_PSBUTTON;
+        s_ps_physical_old = false;
+        s_ps_probe_ext_old = false;
+        s_ps_button_release_time = 0;
+        s_ps_press_time = 0;
+        s_ps_single_pending = false;
+        s_ps_host_pulse_state = 0;
+        s_shell_ps_edge = 0;
+
+        if (!raw_ps_pressed) {
+            s_ignore_ps_until_release = false;
+            vita_debug_log("[Input] PS suppression after system UI cleared");
+        } else {
+            vita_debug_log("[Input] Ignoring PS sample while returning from system UI");
+        }
+    }
+
+    /*
      * A short PS tap can be a single older sample while the newest sample
      * is already clear. Scan the recent Ext2 history before deciding the
-     * bit was never delivered.
+     * bit was never delivered, except during the post-overlay PS quarantine.
      */
-    if ((s_pad.buttons & SCE_CTRL_PSBUTTON) == 0) {
+    if (!suppress_ps_sample &&
+        (s_pad.buttons & SCE_CTRL_PSBUTTON) == 0) {
         SceCtrlData history[16];
         int history_count;
         int history_index;
@@ -480,8 +515,9 @@ front_done:
      * either polling API. A very brief PS tap can otherwise be missed by the
      * state machine if only one sample sees the bit.
      */
-    ps_pressed = ((s_pad.buttons | ps_probe_ext.buttons) & SCE_CTRL_PSBUTTON) != 0;
-    if (!ps_pressed && s_shell_ps_edge) {
+    ps_pressed = !suppress_ps_sample &&
+        ((s_pad.buttons | ps_probe_ext.buttons) & SCE_CTRL_PSBUTTON) != 0;
+    if (!suppress_ps_sample && !ps_pressed && s_shell_ps_edge) {
         s_shell_ps_edge = 0;
         ps_pressed = true;
         vita_debug_log("[Input] PS edge from ShellUtil event");
