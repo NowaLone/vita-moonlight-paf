@@ -43,8 +43,6 @@ static volatile int s_stream_thread_running = 0;
 static volatile int s_stream_stop_requested = 0;
 static volatile int s_stream_cancel_requested = 0;
 
-static void *stream_stop_thread_main(void *);
-
 static size_t write_response(void *contents, size_t size, size_t count, void *userdata)
 {
     LaunchBuffer *buffer = (LaunchBuffer *)userdata;
@@ -99,6 +97,36 @@ static void on_stage_failed(int stage, int result)
         stage,
         LiGetStageName(stage),
         result);
+}
+
+static void *stream_stop_thread_main(void *)
+{
+    int was_started;
+
+    vita_debug_log("[Stream] stop worker start");
+
+    if (s_stream_context.started) {
+        vita_input_stop();
+    }
+
+    LiStopConnection();
+
+    was_started = s_stream_context.started;
+    s_stream_context.started = 0;
+    s_stream_stop_requested = 0;
+
+    /*
+     * moonlight-common-c deliberately does not invoke
+     * connectionTerminated() after LiStopConnection(). Emit our own
+     * application-level stop event once Limelight has finished cleanup.
+     */
+    if (was_started) {
+        vita_debug_log("[Stream] emitting manual STREAM_STOPPED");
+        emit_event(MOONLIGHT_EVENT_STREAM_STOPPED, 0);
+    }
+
+    vita_debug_log("[Stream] stop worker finished");
+    return NULL;
 }
 
 static void on_connection_started(void)
@@ -614,35 +642,6 @@ extern "C" int moonlight_stream_start(
     return 0;
 }
 
-static void *stream_stop_thread_main(void *)
-{
-    int was_started;
-
-    vita_debug_log("[Stream] stop worker start");
-
-    if (s_stream_context.started) {
-        vita_input_stop();
-    }
-
-    LiStopConnection();
-
-    was_started = s_stream_context.started;
-    s_stream_context.started = 0;
-    s_stream_stop_requested = 0;
-
-    /*
-     * moonlight-common-c deliberately does not invoke
-     * connectionTerminated() after LiStopConnection(). Emit our own
-     * application-level stop event once Limelight has finished cleanup.
-     */
-    if (was_started) {
-        vita_debug_log("[Stream] emitting manual STREAM_STOPPED");
-        emit_event(MOONLIGHT_EVENT_STREAM_STOPPED, 0);
-    }
-
-    vita_debug_log("[Stream] stop worker finished");
-    return NULL;
-}
 
 extern "C" int moonlight_stream_stop(void)
 {
