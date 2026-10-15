@@ -812,7 +812,7 @@ void Main::OnSelectionCancel(
     if (!main || main->m_delete_dialog_open) return;
 
     main->ExitSelectionMode();
-    main->SetStatus("Select a PC to connect.");
+    main->ShowIdleStatus();
 }
 
 void Main::OnSelectionAction(
@@ -860,6 +860,16 @@ void Main::SetStatus(const char *text)
     /* Selection mode keeps the status hidden behind the action bar. */
     if (!m_selection_mode) {
         widget->Show(paf::common::transition::Type_Reset);
+    }
+}
+
+void Main::ShowIdleStatus()
+{
+    /* Same rule as RefreshHosts(): the rows are the hint, the text is for the empty state. */
+    if (m_host_count > 0) {
+        HideStatus();
+    } else {
+        SetStatus("No PCs registered.");
     }
 }
 
@@ -980,7 +990,7 @@ void Main::HandleAddPcImeResult()
     }
 
     if (result.button == SCE_IME_DIALOG_BUTTON_CLOSE) {
-        SetStatus("Select a PC to connect.");
+        ShowIdleStatus();
         return;
     }
 

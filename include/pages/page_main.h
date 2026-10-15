@@ -55,6 +55,7 @@ private:
     void SelectHost(int index);
     void SetStatus(const char *text);
     void HideStatus();
+    void ShowIdleStatus();
     void StartAddPcIme();
     void HandleAddPcImeResult();
     void StartManualConnection(const char *address);
