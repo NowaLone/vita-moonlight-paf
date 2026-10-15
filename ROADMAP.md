@@ -463,3 +463,18 @@ The supplied device log shows five callbacks (`count=2` through `count=6`) with 
 - Verify one deliberate PS hold that opens Quick Actions: it must not send a host-side PS action, and normal controller forwarding must behave correctly around opening/closing the overlay.
 - If that passes, consider the short-tap path hardware-verified for this tested device/build, while keeping Quick Actions lifecycle and firmware portability open.
 - No build was run by the agent; the report describes the user's test of their installed build.
+
+
+### PS hold suppresses host event; return/input lifecycle still needs confirmation (2026-10-15)
+
+User tested deliberate PS holds several times on the same device build and reports that **no extra PS action is sent to the streaming host**.
+
+The supplied logs support the hold-suppression result:
+- The controller poll detects buttons=0x00010000, then logs `PS Button hold detected; suppressing host event`.
+- Release is eventually observed with durations around 1.85–3.02 seconds; no host-forwarding log appears in the supplied hold segments.
+- Video decoding and stream diagnostics continue in the capture. One `[Stream] connection status=0` appears during the first hold, but this excerpt alone does not establish whether it means an expected pause during the system overlay or a stream disconnect.
+- After the PS release edge, `sceCtrlPeekBufferPositiveExt2` history repeatedly reports `PS found in Ext2 history index=0 buttons=0x00010000` even while current samples show `buttons=0`. This is stale/repeated history output and should not be interpreted as repeated physical presses. It is noisy and worth fixing or throttling separately so diagnostics reflect current state more clearly.
+
+**Assessment:** host-side hold suppression is confirmed by the user's repeated tests. The log is not enough to call the complete Quick Actions lifecycle verified: it does not explicitly prove that controller forwarding resumes correctly after returning from the overlay, and the meaning of `connection status=0` needs context from the surrounding stream lifecycle code/logs. Keep lifecycle handling open until return-to-app and ordinary controller input are explicitly confirmed. The experimental ShellUtil `result=0, mode=21, type=0` signature also remains undocumented; these hold logs do not establish its behavior on other firmware.
+
+No build or Vita hardware test was performed by the agent; these observations are from the user's device test.
