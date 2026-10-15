@@ -100,10 +100,30 @@ static void on_stage_failed(int stage, int result)
 
 static void on_connection_started(void)
 {
+    pthread_t stop_thread;
+    int stop_result;
+
     s_stream_context.started = 1;
     vita_input_start();
     vita_debug_log("[Stream] connection started");
     emit_event(MOONLIGHT_EVENT_STREAM_STARTED, 0);
+
+    /* Handle cancellation racing with Limelight's connectionStarted callback. */
+    if (s_stream_cancel_requested && !s_stream_stop_requested) {
+        s_stream_stop_requested = 1;
+        stop_result = pthread_create(
+            &stop_thread,
+            NULL,
+            stream_stop_thread_main,
+            NULL);
+        if (stop_result == 0) {
+            pthread_detach(stop_thread);
+            vita_debug_log("[Stream] cancellation applied after connection start");
+        } else {
+            s_stream_stop_requested = 0;
+            vita_debug_log("[Stream] cancelled connection stop worker failed=%d", stop_result);
+        }
+    }
 }
 
 static void on_connection_terminated(int result)
