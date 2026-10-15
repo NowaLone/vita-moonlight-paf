@@ -620,7 +620,7 @@ int moonlight_api_start_application(int application_id)
     MoonlightSettings settings;
 
     if (!s_has_current_host || !s_game_stream_initialized || !s_server.curl ||
-        s_connection_state != MOONLIGHT_CONNECTION_PAIRED) {
+        s_connection_state != MOONLIGHT_CONNECTION_PAIRED || s_stream_pending || s_stream_active) {
         vita_debug_log(
             "[GameStream] start rejected: host=%d initialized=%d curl=%d state=%d",
             s_has_current_host ? 1 : 0,
