@@ -648,7 +648,14 @@ extern "C" int moonlight_stream_stop(void)
     pthread_t stop_thread;
     int result;
 
-    if (!s_stream_thread_running) {
+    /*
+     * The launch/setup worker may already have returned after
+     * LiStartConnection() while Limelight continues streaming on its own
+     * threads. Do not use s_stream_thread_running as the sole indicator
+     * that an active connection can be stopped.
+     */
+    if (!s_stream_thread_running && !s_stream_context.started) {
+        vita_debug_log("[Stream] stop ignored: no active or pending session");
         return 0;
     }
 
@@ -680,5 +687,12 @@ extern "C" int moonlight_stream_stop(void)
 
 extern "C" int moonlight_stream_is_running(void)
 {
-    return s_stream_thread_running ? 1 : 0;
+    /*
+     * Include the established Limelight connection, not only the detached
+     * launch/setup worker. Disconnect cleanup must wait until stop/termination
+     * has cleared the active connection state.
+     */
+    return (s_stream_thread_running ||
+            s_stream_context.started ||
+            s_stream_stop_requested) ? 1 : 0;
 }
