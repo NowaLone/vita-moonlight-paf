@@ -670,3 +670,20 @@ No Sunshine-specific cancel/quit HTTP endpoint was added. A launch request alrea
 - Fixed the C++ compile error in `stream_session.cpp`: `stream_stop_thread_main()` is now defined inside the same anonymous namespace as its callers, avoiding two distinct functions with the same name and the ambiguous `pthread_create` callback.
 - Fixed the Vita SDK OpenSSL warning in `legacy_gamestream.c` by matching `X509_get0_signature()`'s declared `ASN1_BIT_STRING **` parameter type. The pointer is only read by this code.
 - Verification: source changes committed; no local build was run by the agent. Rebuild with VitaSDK to confirm.
+
+
+### Fix double-PS stream stop after launch worker exits (2026-10-16)
+
+User supplied a device log where the input state machine correctly logged `[Input] PS Button double press, stopping stream`, but video decoding continued and no stop-worker diagnostics appeared.
+
+Source review identified a lifecycle mismatch in `src/moonlight/stream_session.cpp`: `moonlight_stream_stop()` returned immediately when `s_stream_thread_running` was false, even if `s_stream_context.started` still represented an established Limelight connection. The detached launch/setup worker is not a reliable proxy for the active stream lifetime.
+
+**Fix committed to master:** [4e85124](https://github.com/NowaLone/vita-moonlight-paf/commit/4e851246e2a60ac369eccd23a5a221d0d8a6e212)
+
+- `moonlight_stream_stop()` now proceeds when either setup is pending/running or the connection is established; it only returns early when neither state is active.
+- `moonlight_stream_is_running()` now includes the established connection and stop-request state, so deferred disconnect cleanup does not mistake an active Limelight session for an idle one just because the launch worker returned.
+- The existing pending-launch cancellation path remains in place; the fix does not add a Sunshine-specific HTTP endpoint.
+
+**Device regression test required:** rebuild/install this commit, start a stream, double-press PS, and check for `[Stream] stop worker launched`, `[Stream] stop worker start`, `[Stream] emitting manual STREAM_STOPPED`, and `[Stream] stop worker finished`. Video frame logs should stop, the UI should leave the streaming state, and starting the same host/app again should work. Also test disconnect during an active stream to ensure deferred cleanup waits correctly.
+
+No build or hardware test was run by the agent; only the source change was committed.
