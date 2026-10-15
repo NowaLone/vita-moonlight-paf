@@ -478,3 +478,16 @@ The supplied logs support the hold-suppression result:
 **Assessment:** host-side hold suppression is confirmed by the user's repeated tests. The log is not enough to call the complete Quick Actions lifecycle verified: it does not explicitly prove that controller forwarding resumes correctly after returning from the overlay, and the meaning of `connection status=0` needs context from the surrounding stream lifecycle code/logs. Keep lifecycle handling open until return-to-app and ordinary controller input are explicitly confirmed. The experimental ShellUtil `result=0, mode=21, type=0` signature also remains undocumented; these hold logs do not establish its behavior on other firmware.
 
 No build or Vita hardware test was performed by the agent; these observations are from the user's device test.
+
+
+### Gate host input while Quick Actions/system UI is overlaid (2026-10-15)
+
+**Source change committed for device validation:** [598c923](https://github.com/NowaLone/vita-moonlight-paf/commit/598c923e0adbf473e366d366329395b840a3d649) adds a `SceAppMgrAppState` poll via `_sceAppMgrGetAppState(..., sizeof(state), 0)` and checks `isSystemUiOverlaid` at a 100 Hz cadence before entering the normal input processing path.
+
+When the system UI overlay is reported active, the input loop sends one neutral controller packet to release any host-held controls, updates local controller/touch baselines without forwarding them, clears pending PS tap/pulse state, skips normal controller/touch forwarding, and returns early. Baselines continue to update during the overlay so button presses made and released inside Quick Actions are not replayed to the host after returning. A known active-overlay state is preserved across transient AppMgr API errors; if the API has never succeeded, the code fails open and logs the error so the app does not silently remain input-locked.
+
+**Important limitations:** this is a source-level implementation, not yet device-verified. It depends on the target firmware returning a valid `isSystemUiOverlaid` value from `_sceAppMgrGetAppState`. The 10 ms poll interval also means the first few milliseconds of an overlay transition could precede detection. The error log must be checked on hardware; if AppMgr returns an error, do not consider overlay suppression verified. No build was run by the agent.
+
+**Next device check:** install a build from this commit, open Quick Actions with a PS hold, press/release several ordinary buttons while the overlay remains open, and confirm none of those actions reaches the PC. Close Quick Actions, then confirm ordinary input works again without restarting the stream. Capture the `[Input] System UI overlay changed active=1` / `active=0` messages and any `AppMgr get app state failed` lines. Also watch whether `[Stream] connection status=0` recurs and correlate it with the overlay state rather than assuming it means a disconnect.
+
+Reference implementation: [GrapheneCt/TransparentImpose](https://github.com/GrapheneCt/TransparentImpose/blob/master/TrImpose.c) polls `SceAppMgrAppState.isSystemUiOverlaid` through `_sceAppMgrGetAppState`; the public VitaSDK header declares `_sceAppMgrGetAppState` and defines `SceAppMgrAppState` as a 0x80-byte structure. This supports the API/structure choice, but does not by itself prove behavior on every retail firmware.
