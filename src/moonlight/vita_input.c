@@ -152,6 +152,13 @@ static void vita_shell_event_handler(
      * PS edge while the streaming input state machine is inactive; otherwise
      * an old edge can be replayed into the next session as a fresh tap.
      */
+    vita_debug_log(
+        "[Input] ShellUtil callback result=0x%08x mode=%d type=0x%08x active=%d",
+        (unsigned int)result,
+        (int)mode,
+        (unsigned int)type,
+        s_input_active ? 1 : 0);
+
     if (!s_input_active) {
         return;
     }
