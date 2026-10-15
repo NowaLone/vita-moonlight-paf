@@ -702,3 +702,25 @@ User verified that double-PS now stops the active stream, but the immediate atte
 **Device regression test required:** rebuild/install this commit; start a stream, double-press PS to stop it, then restart the same app. Verify the new stream stays active for at least 30 seconds and does not log a PS edge/double-press stop unless PS is deliberately pressed again. Also verify a deliberate short PS tap still reaches the host and a deliberate double press still stops the stream.
 
 No build or device test was performed by the agent; this is a source-level fix based on the supplied trace.
+
+
+### Reject undocumented ShellUtil callbacks as synthetic PS presses (2026-10-16)
+
+User confirmed that no physical PS button was pressed when the restarted stream logged:
+
+`[Input] PS edge from ShellUtil event`
+`[Input] PS Button press pending tap/hold detection`
+`[Input] PS Button release detected duration_us=3121 pending=1`
+`[Input] PS Button single press, forwarding after timeout`
+
+The video stream continued in this capture, but the input trace proves that an unsolicited ShellUtil callback was interpreted as a real PS tap. The current handler accepted either documented PS lock-type bits or the undocumented signature `result=0, mode=21, type=0`. VitaSDK documents lock modes as `LOCK=1` and `UNLOCK=2`, and PS lock types as `SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN` / `SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN_2`; the observed signature does not identify a PS lock type.
+
+**Fix committed to master:** [f4ebee1](https://github.com/NowaLone/vita-moonlight-paf/commit/f4ebee1320e87b5eedee6e92c1067152c0a2dd6c)
+
+- Removed the undocumented `result=0, mode=21, type=0` fallback from `vita_shell_event_handler()`.
+- ShellUtil can now enqueue a PS edge only when the callback's type explicitly contains one of the PS-button lock flags.
+- This favors preventing false PS actions on stream restart over trusting an undocumented callback signature. A short physical tap that is too brief for controller polling may no longer be detected if the firmware does not provide the documented PS type; verify this on hardware before calling PS tap handling complete.
+
+**Device regression test required:** rebuild/install this commit, stop a stream with double-PS, restart the same app without touching PS, and wait at least 30 seconds. There must be no PS edge/tap/single-press logs unless PS was physically pressed. Then test a deliberate short PS tap and a deliberate double press. If the short tap is missed, capture callback arguments for an actual tap and an idle/restart period so the event source can be distinguished without treating arbitrary callback signatures as PS input.
+
+No build or hardware test was performed by the agent. Reference: [VitaSDK ShellUtil documentation](https://docs.vitasdk.org/shellutil_8h.html).
