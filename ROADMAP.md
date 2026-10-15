@@ -724,3 +724,18 @@ The video stream continued in this capture, but the input trace proves that an u
 **Device regression test required:** rebuild/install this commit, stop a stream with double-PS, restart the same app without touching PS, and wait at least 30 seconds. There must be no PS edge/tap/single-press logs unless PS was physically pressed. Then test a deliberate short PS tap and a deliberate double press. If the short tap is missed, capture callback arguments for an actual tap and an idle/restart period so the event source can be distinguished without treating arbitrary callback signatures as PS input.
 
 No build or hardware test was performed by the agent. Reference: [VitaSDK ShellUtil documentation](https://docs.vitasdk.org/shellutil_8h.html).
+
+
+### Diagnose PS taps after removing undocumented ShellUtil fallback (2026-10-16)
+
+After [f4ebee1](https://github.com/NowaLone/vita-moonlight-paf/commit/f4ebee1320e87b5eedee6e92c1067152c0a2dd6c), the user reports that deliberate PS taps no longer react. The supplied trace contains one `PS edge from ShellUtil event` and one single-press forwarding message immediately after stream startup, before the first video packet, but no evidence that later physical taps reached the input state machine. This suggests the remaining accepted callback may be related to the ShellUtil lock/startup transition rather than a physical tap; the existing log does not include callback arguments, so that is not yet proven.
+
+**Diagnostic commit:** [a4aba5e](https://github.com/NowaLone/vita-moonlight-paf/commit/a4aba5e7728a007289cfaa4ddf419fd568fd5c6b)
+
+- Added a temporary log of every ShellUtil callback's `result`, `mode`, `type`, and whether streaming input is active.
+- The PS state machine still accepts only callback types containing documented PS lock-type flags; the undocumented `result=0, mode=21, type=0` fallback remains disabled.
+- This is diagnostic only; it does not restore the unsafe fallback or change input behavior.
+
+**Next device capture:** install a build containing this commit. Capture the callback line(s) emitted immediately after stream startup, then press PS once, release, and press it again. Compare `result/mode/type` for startup versus each deliberate tap. If no callback appears on taps, inspect current controller polling samples next; do not infer that lock/unlock callbacks are physical button events.
+
+No build or hardware test was performed by the agent.
