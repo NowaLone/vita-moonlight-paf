@@ -29,7 +29,6 @@ static bool s_ps_button_locked = false;
 static bool s_shell_events_initialized = false;
 static uint64_t s_ps_button_release_time = 0;
 static uint64_t s_ps_press_time = 0;
-static uint64_t s_ps_diag_time = 0;
 static uint64_t s_app_state_poll_time = 0;
 static uint64_t s_app_state_error_log_time = 0;
 static bool s_system_ui_overlaid = false;
@@ -38,7 +37,6 @@ static bool s_overlay_release_sent = false;
 static bool s_ignore_ps_until_release = false;
 static bool s_ps_single_pending = false;
 static bool s_ps_physical_old = false;
-static bool s_ps_probe_ext_old = false;
 static int s_ps_host_pulse_state = 0;
 static volatile int s_shell_ps_edge = 0;
 static int s_shell_handler_registered = 0;
@@ -140,7 +138,6 @@ static uint32_t vita_read_back_touch(const SceTouchData *back)
 }
 
 
-static uint32_t s_shell_event_count = 0;
 
 static void vita_shell_event_handler(
     int result,
@@ -148,26 +145,11 @@ static void vita_shell_event_handler(
     SceShellUtilLockType type,
     void *userData)
 {
-    uint64_t now = sceKernelGetSystemTimeWide();
-    uint32_t event_count = ++s_shell_event_count;
-
     (void)userData;
-
-    vita_debug_log(
-        "[Input] ShellUtil event count=%u time_us=%llu result=%d mode=%d mode_hex=0x%08x type=0x%08x",
-        (unsigned int)event_count,
-        (unsigned long long)now,
-        result,
-        (int)mode,
-        (unsigned int)mode,
-        (unsigned int)type);
 
     if ((type & (SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN |
                  SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN_2)) != 0) {
         s_shell_ps_edge = 1;
-        vita_debug_log(
-            "[Input] ShellUtil PS edge source=lock_type count=%u",
-            (unsigned int)event_count);
     } else if (result == 0 && (int)mode == 21 && (unsigned int)type == 0) {
         /*
          * On the tested Vita, repeated callbacks correlated with user PS taps
@@ -177,9 +159,6 @@ static void vita_shell_event_handler(
          * Keep this isolated from the documented lock-type path.
          */
         s_shell_ps_edge = 1;
-        vita_debug_log(
-            "[Input] ShellUtil PS edge source=experimental_mode21 count=%u",
-            (unsigned int)event_count);
     }
 }
 
@@ -384,7 +363,6 @@ static void vita_input_suppress_for_system_ui(void)
     s_ps_press_time = 0;
     s_ps_single_pending = false;
     s_ps_physical_old = false;
-    s_ps_probe_ext_old = false;
     s_ps_host_pulse_state = 0;
     s_shell_ps_edge = 0;
 }
@@ -401,25 +379,15 @@ static void vita_input_process(void)
     bool ps_pressed_old;
     bool suppress_ps_sample = false;
     bool ps_probe_ext_pressed;
-    int ctrl_ext2_result;
-    int ctrl_ext_result;
     SceCtrlData ps_probe_ext;
     uint32_t back_buttons;
 
     memset(&ps_probe_ext, 0, sizeof(ps_probe_ext));
     sceCtrlSetSamplingModeExt(SCE_CTRL_MODE_ANALOG_WIDE);
-    ctrl_ext2_result = sceCtrlPeekBufferPositiveExt2(0, &s_pad, 1);
-    ctrl_ext_result = sceCtrlPeekBufferPositiveExt(0, &ps_probe_ext, 1);
+    sceCtrlPeekBufferPositiveExt2(0, &s_pad, 1);
+    sceCtrlPeekBufferPositiveExt(0, &ps_probe_ext, 1);
     ps_probe_ext_pressed =
         (ps_probe_ext.buttons & SCE_CTRL_PSBUTTON) != 0;
-    if (ps_probe_ext_pressed != s_ps_probe_ext_old) {
-        vita_debug_log(
-            "[Input] PS probe Ext edge pressed=%d result=%d buttons=0x%08x",
-            ps_probe_ext_pressed ? 1 : 0,
-            ctrl_ext_result,
-            (unsigned int)ps_probe_ext.buttons);
-        s_ps_probe_ext_old = ps_probe_ext_pressed;
-    }
 
     /*
      * Quick Actions can make the PS bit appear as a fresh controller edge
@@ -435,7 +403,6 @@ static void vita_input_process(void)
         s_pad.buttons &= ~SCE_CTRL_PSBUTTON;
         ps_probe_ext.buttons &= ~SCE_CTRL_PSBUTTON;
         s_ps_physical_old = false;
-        s_ps_probe_ext_old = false;
         s_ps_button_release_time = 0;
         s_ps_press_time = 0;
         s_ps_single_pending = false;
@@ -506,25 +473,6 @@ front_done:
 
     if (s_ps_button_capture) {
         uint64_t now = sceKernelGetSystemTimeWide();
-
-        /* Diagnostic heartbeat: distinguish an unseen physical PS bit from
-         * a press/release state-machine problem without logging every poll. */
-        if (s_ps_diag_time == 0 || now < s_ps_diag_time ||
-            now - s_ps_diag_time >= 1000000ull) {
-            vita_debug_log(
-                "[Input] PS diag Ext2 result=%d buttons=0x%08x effective_pressed=%d old=%d; Ext result=%d buttons=0x%08x pressed=%d; pending=%d press_time=%llu release_time=%llu",
-                ctrl_ext2_result,
-                (unsigned int)s_pad.buttons,
-                ps_pressed ? 1 : 0,
-                ps_pressed_old ? 1 : 0,
-                ctrl_ext_result,
-                (unsigned int)ps_probe_ext.buttons,
-                ps_probe_ext_pressed ? 1 : 0,
-                s_ps_single_pending ? 1 : 0,
-                (unsigned long long)s_ps_press_time,
-                (unsigned long long)s_ps_button_release_time);
-            s_ps_diag_time = now;
-        }
 
         /*
          * Never forward the physical PS bit directly. Wait until the
@@ -713,10 +661,8 @@ void vita_input_start(void)
     s_back_buttons_old = 0;
     s_ps_button_release_time = 0;
     s_ps_press_time = 0;
-    s_ps_diag_time = 0;
     s_ps_single_pending = false;
     s_ps_physical_old = false;
-    s_ps_probe_ext_old = false;
     s_ps_host_pulse_state = 0;
 
     /*
