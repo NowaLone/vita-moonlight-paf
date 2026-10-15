@@ -619,3 +619,38 @@ This is user-reported device verification for the tested build/device/firmware o
 Removed the temporary ShellUtil callback counter/timestamps, per-callback argument dump, per-sample Ext edge logs, and one-second PS polling heartbeat from `src/moonlight/vita_input.c`. These were added to identify the short-tap event source and are no longer needed after the tested device confirmed the ShellUtil path and Quick Actions lifecycle. Kept event-driven PS state-transition messages and AppMgr overlay/error messages because they remain useful for diagnosing real input/lifecycle regressions. The undocumented `result=0, mode=21, type=0` heuristic and post-overlay quarantine are unchanged; this is log cleanup, not a behavior change.
 
 No build or hardware test was run for this cleanup.
+
+
+## Sunshine / GameStream API coverage audit (2026-10-15)
+
+Scope: source-level audit of the current master client paths, not an exhaustive protocol-conformance test. Moonlight talks to Sunshine primarily through the legacy GameStream client protocol plus RTSP/UDP streaming; Sunshine's administrative Web API is a separate interface.
+
+### Implemented client operations
+
+- `/serverinfo`: retrieves server metadata and PairStatus; parses server codec capability when present.
+- `/pair`: implements the multi-phase GameStream pairing flow.
+- `/applist`: fetches and parses application IDs/titles. Current client storage is capped at 8 entries.
+- `/launch` and `/resume`: launch a selected app or resume based on the current-game state; then Limelight handles the streaming connection.
+- Stream stop uses Limelight/RTSP teardown; the app does not appear to issue a separate HTTP `/cancel` request.
+
+### Gaps and limitations visible in the current implementation
+
+- No explicit client path found for GameStream `/cancel`, `/quit`, or `/unpair`. Confirm whether each is required for target Sunshine versions before implementing; stop/disconnect already have local RTSP/session handling, so these endpoints should not be added blindly.
+- No Sunshine administrative Web API client (server configuration/status management). This is outside the minimum Moonlight streaming flow.
+- Video negotiation is restricted to `VIDEO_FORMAT_H264`; HEVC and AV1 are not enabled in this stream configuration.
+- Audio is configured as `AUDIO_CONFIGURATION_STEREO`, and the launch query advertises stereo surround-audio information only. Multichannel/surround negotiation is not implemented here.
+- The launch request sets `remoteControllersBitmap=1`, so this path advertises one remote controller, not multi-controller support.
+- HDR is not fully implemented: the Limelight callback only logs the HDR state, while the stream configuration selects H.264 and fixed Rec.601/limited-range values. Logging an HDR callback is not HDR rendering support.
+- The client parser only retains eight apps and reads only title/ID from the applist response; richer app metadata is not surfaced.
+- When server codec metadata is absent, the client falls back to a default H.264 capability value and may use a hard-coded server app version. This is compatibility fallback logic, not complete server-capability negotiation.
+- Sunshine-specific administrative endpoints and features such as server settings, configuration changes, and user/session administration are not exposed by the current UI/API layer.
+
+### Recommended priorities
+
+1. Validate stop/cancel/quit semantics against current Sunshine and Moonlight upstream before adding endpoint calls; make stop/disconnect idempotent and test host-side session cleanup.
+2. Implement capability-driven video negotiation before adding HEVC/AV1/HDR. Keep decoder and Vita renderer capabilities as hard constraints.
+3. Expand audio capability negotiation only after confirming Vita audio renderer support for additional layouts.
+4. Remove the eight-app cap or make it a documented UI/data-model limit; parse applist metadata defensively.
+5. Keep the distinction clear in docs: GameStream protocol support is not equivalent to Sunshine administrative Web API support.
+
+No build or hardware test was run for this audit; conclusions above are based on source inspection.
