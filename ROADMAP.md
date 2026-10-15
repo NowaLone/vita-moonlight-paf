@@ -650,3 +650,18 @@ Source change: [54ba678](https://github.com/NowaLone/vita-moonlight-paf/commit/5
 **Important remaining issue found during review:** `moonlight_api_disconnect_host()` currently requests asynchronous stream stop and then immediately shuts down the GameStream server object. That can race with the detached stop/stream workers. This commit does **not** fix that teardown race. Next, make host disconnect a deferred lifecycle transition: stop the stream first, then shut down GameStream resources only after the worker/connection cleanup has completed. Also handle disconnect during a pending launch, not just an already-active stream. Do not treat this as resolved until the lifecycle has been changed and tested.
 
 Verification: source review only. The user reports that the prior changes build successfully; this specific follow-up commit has not independently been built or run on device by the agent.
+
+
+### Deferred stream teardown on host disconnect (2026-10-15)
+
+Implemented on `master` to address the detached-worker lifetime race:
+
+- `moonlight_api_disconnect_host()` now requests stream cancellation and schedules deferred cleanup instead of immediately freeing `LegacyGameStreamServer`.
+- The cleanup worker waits until the detached stream worker has fully returned, then shuts down GameStream resources and emits `MOONLIGHT_EVENT_CONNECTION_CLOSED`. Repeated disconnect calls while cleanup is pending are idempotent.
+- `moonlight_stream_stop()` now records cancellation during the launch handshake without prematurely calling `LiStopConnection()`; the stream worker checks cancellation after the launch HTTP request and again before entering `LiStartConnection()`.
+- Stop is accepted while a launch is pending, not only after `STREAM_STARTED`.
+- API shutdown requests cancellation and waits for the stream worker before releasing server resources. A new host connection is rejected while stream/disconnect cleanup is still in progress.
+
+No Sunshine-specific cancel/quit HTTP endpoint was added. A launch request already accepted by the host may still start the remote application; this client-side cancellation only prevents the local worker from continuing into RTSP when cancellation is observed.
+
+**Verification status:** source review only; no build or Vita hardware test was run for this change. Please build and test disconnect both during active streaming and immediately after launch, before treating the lifecycle as device-verified.
