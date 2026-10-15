@@ -55,6 +55,7 @@ Not part of the PS4 Link parity pass because the needed pieces do not exist in t
 ## 3. Close technical risks and improve testability
 
 - [x] Verify the `RefreshHosts` cell-count fix on Vita: user confirmed the host list behaves correctly. Reported logs show `after_delete=0` and `after_insert=hosts` across repeated refreshes, selection-mode toggles, and removing one of two hosts. The user reports the remaining list behavior is OK. A clean build was not separately verified. Source review found that `DeleteCell` was passed `existing - 1` even though BetterHomebrewBrowser passes the full `GetCellNum(0)` count.
+- [ ] Verify the same `DeleteCell(0, 0, existing)` call on the Search PCs and Apps lists on Vita. A Search PCs screenshot showed three rows for two found PCs, the third a stale copy of the first, which is the `existing - 1` symptom; after the fix two found PCs must show exactly two rows when the scan finishes, and repeated scans must not add rows.
 - [ ] Identify small, hardware-independent logic suitable for tests, starting with host identity resolution, pairing-result classification, and host persistence decisions. Separate each decision from the `sceIo*`/PAF calls around it first, so it can be built and run with a desktop compiler.
 - [ ] Add focused automated tests for that logic where it can be isolated without mocking the whole PAF runtime.
 - [ ] Select and document formatter/static-analysis tooling only if it fits the existing codebase and toolchain.
