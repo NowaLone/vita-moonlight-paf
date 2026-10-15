@@ -563,8 +563,7 @@ front_done:
              */
             s_ps_single_pending = false;
             s_ps_button_release_time = 0;
-            /* Keep press_time until the physical release so diagnostics can
-             * report the actual duration of a press classified as a hold. */
+            /* Keep press_time until release so hold classification stays stable. */
             vita_debug_log("[Input] PS Button hold detected; suppressing host event");
         } else if (!ps_pressed && ps_pressed_old) {
             vita_debug_log(
