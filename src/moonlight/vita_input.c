@@ -158,6 +158,21 @@ static void vita_shell_event_handler(
     if ((type & (SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN |
                  SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN_2)) != 0) {
         s_shell_ps_edge = 1;
+        vita_debug_log(
+            "[Input] ShellUtil PS edge source=lock_type count=%u",
+            (unsigned int)event_count);
+    } else if (result == 0 && (int)mode == 21 && (unsigned int)type == 0) {
+        /*
+         * On the tested Vita, repeated callbacks correlated with user PS taps
+         * arrive as result=0, mode=21, type=0, even though this signature is
+         * not described by VitaSDK's public enum. Treat it as a provisional
+         * PS pulse so the next device build can validate the correlation.
+         * Keep this isolated from the documented lock-type path.
+         */
+        s_shell_ps_edge = 1;
+        vita_debug_log(
+            "[Input] ShellUtil PS edge source=experimental_mode21 count=%u",
+            (unsigned int)event_count);
     }
 }
 
