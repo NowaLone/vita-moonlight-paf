@@ -133,18 +133,26 @@ static uint32_t vita_read_back_touch(const SceTouchData *back)
 }
 
 
+static uint32_t s_shell_event_count = 0;
+
 static void vita_shell_event_handler(
     int result,
     SceShellUtilLockMode mode,
     SceShellUtilLockType type,
     void *userData)
 {
+    uint64_t now = sceKernelGetSystemTimeWide();
+    uint32_t event_count = ++s_shell_event_count;
+
     (void)userData;
 
     vita_debug_log(
-        "[Input] ShellUtil event result=%d mode=%d type=0x%08x",
+        "[Input] ShellUtil event count=%u time_us=%llu result=%d mode=%d mode_hex=0x%08x type=0x%08x",
+        (unsigned int)event_count,
+        (unsigned long long)now,
         result,
         (int)mode,
+        (unsigned int)mode,
         (unsigned int)type);
 
     if ((type & (SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN |
