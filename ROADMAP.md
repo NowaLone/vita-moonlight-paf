@@ -687,3 +687,18 @@ Source review identified a lifecycle mismatch in `src/moonlight/stream_session.c
 **Device regression test required:** rebuild/install this commit, start a stream, double-press PS, and check for `[Stream] stop worker launched`, `[Stream] stop worker start`, `[Stream] emitting manual STREAM_STOPPED`, and `[Stream] stop worker finished`. Video frame logs should stop, the UI should leave the streaming state, and starting the same host/app again should work. Also test disconnect during an active stream to ensure deferred cleanup waits correctly.
 
 No build or hardware test was run by the agent; only the source change was committed.
+
+
+### Prevent stale PS callbacks from stopping a newly restarted stream (2026-10-16)
+
+User verified that double-PS now stops the active stream, but the immediate attempt to start the stream again appeared to stop almost immediately. The supplied trace shows the second launch reaching `[Stream] connection started`, followed by a fresh PS edge, a pending tap, another edge, and `PS Button double press, stopping stream`. This points to a stale/late ShellUtil callback being replayed into the next session, rather than a failure to launch the host application.
+
+**Fix committed to master:** [ef4b777](https://github.com/NowaLone/vita-moonlight-paf/commit/ef4b777a92022e850ba887cbd9ae8e368d303a9d)
+
+- `vita_shell_event_handler()` now ignores ShellUtil PS callbacks while `s_input_active` is false, so callbacks during teardown cannot queue a new edge.
+- `vita_input_start()` and `vita_input_stop()` explicitly clear `s_shell_ps_edge` and reset PS tap/hold state so an edge cannot carry over between stream sessions.
+- Reset the post-system-UI PS suppression flag on stream start/stop to avoid carrying unrelated overlay state across a full stream lifecycle.
+
+**Device regression test required:** rebuild/install this commit; start a stream, double-press PS to stop it, then restart the same app. Verify the new stream stays active for at least 30 seconds and does not log a PS edge/double-press stop unless PS is deliberately pressed again. Also verify a deliberate short PS tap still reaches the host and a deliberate double press still stops the stream.
+
+No build or device test was performed by the agent; this is a source-level fix based on the supplied trace.
