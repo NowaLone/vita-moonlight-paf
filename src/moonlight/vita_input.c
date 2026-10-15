@@ -156,17 +156,15 @@ static void vita_shell_event_handler(
         return;
     }
 
+    /*
+     * Only accept callbacks that explicitly identify a PS-button lock type.
+     * VitaSDK documents lock modes as LOCK=1 / UNLOCK=2 and the PS lock types
+     * as bit flags. The previously observed result=0, mode=21, type=0
+     * signature is undocumented and can occur without a physical PS press;
+     * treating it as a tap can stop a newly restarted stream.
+     */
     if ((type & (SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN |
                  SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN_2)) != 0) {
-        s_shell_ps_edge = 1;
-    } else if (result == 0 && (int)mode == 21 && (unsigned int)type == 0) {
-        /*
-         * On the tested Vita, repeated callbacks correlated with user PS taps
-         * arrive as result=0, mode=21, type=0, even though this signature is
-         * not described by VitaSDK's public enum. Treat it as a provisional
-         * PS pulse so the next device build can validate the correlation.
-         * Keep this isolated from the documented lock-type path.
-         */
         s_shell_ps_edge = 1;
     }
 }
