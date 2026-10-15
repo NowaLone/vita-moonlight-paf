@@ -618,3 +618,18 @@ This is user-reported device verification for the tested build/device/firmware o
 Removed the temporary ShellUtil callback counter/timestamps, per-callback argument dump, per-sample Ext edge logs, and one-second PS polling heartbeat from `src/moonlight/vita_input.c`. These were added to identify the short-tap event source and are no longer needed after the tested device confirmed the ShellUtil path and Quick Actions lifecycle. Kept event-driven PS state-transition messages and AppMgr overlay/error messages because they remain useful for diagnosing real input/lifecycle regressions. The undocumented `result=0, mode=21, type=0` heuristic and post-overlay quarantine are unchanged; this is log cleanup, not a behavior change.
 
 No build or hardware test was run for this cleanup.
+
+
+## PS Button capture: conclusions (2026-10-15)
+
+The PAF implementation combines ShellUtil callback events, AppMgr system-UI overlay detection, and a state machine for tap/hold handling. While Quick Actions is visible, it sends neutral controller state and suppresses controller/touch forwarding. After the overlay closes, it ignores PS samples until release to prevent stale input from becoming an extra host action.
+
+On the tested Vita, the user confirmed: ordinary input is blocked while Quick Actions is open, resumes after closing it, stale PS is not forwarded on return, and a deliberate short tap still reaches the host. This is user-reported verification on one device/firmware only; the agent did not build or test hardware.
+
+The callback signature result=0, mode=21, type=0 correlated with short PS taps on that device, but is undocumented and must remain an experimental heuristic. The key improvement over a basic PS capture path is lifecycle coordination with the system UI, not proof of a universally different low-level interception mechanism.
+
+Upstream vita-moonlight 0.13.2 documents optional PS capture where double press opens its menu and single press is forwarded to Sunshine. Its release notes mention disabling the safe vita-make-fself flag and adding SceShell permission 0x2800000000000001: https://github.com/xyzz/vita-moonlight/releases/tag/0.13.2 . The PAF port is adapted to native PAF/system UI lifecycle and adds explicit overlay gating and post-overlay stale-sample suppression.
+
+Advantages: reliable input isolation during Quick Actions, prevention of accidental host PS events after return, and separate tap/hold behavior. Risks: undocumented mode-21 signature may vary by firmware; AppMgr overlay transitions and press/release edge cases need hardware regression tests; added state logic is more complex than direct polling.
+
+Next steps: keep the overlay gate and release quarantine; keep the undocumented signature isolated and experimental; test short tap, hold, repeated taps, overlay entry/exit while held, suspend/resume, and stream stop/restart; compare the exact upstream source revision before making stronger claims about low-level differences; verify more than one firmware and run a clean build before claiming release readiness.
