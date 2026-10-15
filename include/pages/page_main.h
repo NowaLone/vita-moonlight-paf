@@ -73,6 +73,7 @@ private:
     int m_selected_index;
     bool m_connecting;
     int m_initial_refresh_attempts;
+    int m_initial_refresh_stable_count;
     HostButtonContext m_button_contexts[8];
 
     SceImeDialogParam m_ime_param;
