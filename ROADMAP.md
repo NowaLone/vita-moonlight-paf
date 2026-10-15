@@ -526,3 +526,14 @@ User tested the post-overlay quarantine on Vita and reports that behavior now ap
 
 This is direct device evidence that the stale/late PS sample is being filtered on return. User's assessment is "вроде всё ок"; keep this marked as user-tested on the current device, not universally verified across firmware. The remaining quick regression check is to confirm that a deliberate short PS tap after the quarantine clears still reaches the host and ordinary controller buttons continue to work. No build or hardware test was performed by the agent.
 
+### Quick Actions lifecycle regression check complete on user's device (2026-10-15)
+
+User confirms that a deliberate short PS tap after returning from Quick Actions still reaches the streaming host. Together with the preceding device log showing the stale PS sample being ignored during return, and the earlier confirmation that ordinary buttons resume after closing the overlay, the currently tested lifecycle behaves as intended on this device:
+
+- Ordinary controller input is suppressed while Quick Actions/system UI is overlaid.
+- Closing the overlay does not forward the stale PS sample as an extra host action.
+- Ordinary controller input resumes after return.
+- A deliberate short PS tap after the quarantine clears still reaches the host.
+
+This is user-reported device verification for the tested build/device/firmware only; it is not cross-firmware verification. No build or hardware test was performed by the agent.
+
