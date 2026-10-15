@@ -26,6 +26,7 @@ The source-level changes for the following items are present in `master`; this i
 Run the full user journey on a real Vita and record reproducible failures with runtime logs before changing implementation.
 
 - [ ] Discover a PC on the LAN and save/select it.
+- [ ] Reproduce and fix the Main screen's saved/paired-PC list not loading on entry: the list is empty until the user connects to a PC, opens System Settings, and returns to Main. Trace initial host-store loading, page lifecycle/refresh dispatch, and paired-host filtering; verify cold start and returning to Main without first connecting.
 - [ ] Check the PS4 Link style Search PCs and Pairing pages on hardware against the PS4 Link screens: header position and the fading line, the pairing page's flow bar and Back button position, the saved-PC row title and description positions, and that touching the row text still activates the row.
 - [ ] Add a PC manually, including a custom port; verify unsuccessful attempts do not create an incorrect saved-host record.
 - [ ] Pair successfully and verify incorrect-PIN errors are distinguished from transport/protocol failures.
@@ -51,6 +52,15 @@ Not part of the PS4 Link parity pass because the needed pieces do not exist in t
 - [ ] Document the expected toolchain and known build warnings; do not treat a build as verified unless it was actually run.
 
 **Done when:** a fresh environment can follow the instructions to build the project without undocumented manual fixes.
+
+## Sunshine / GameStream client API coverage
+
+- [ ] Inventory the client-facing Sunshine-compatible GameStream APIs/endpoints used by Moonlight and compare them with this project's implementation. For each endpoint, record its purpose, request/response shape, authentication/pairing requirements, implementation location, and coverage status (implemented, partial, missing, or not applicable).
+- [ ] Use the upstream Moonlight client and Sunshine documentation/source as references; distinguish streaming-client/GameStream APIs from Sunshine's separate administrative web API. Do not add Sunshine admin API integration unless a concrete client-side requirement is identified.
+- [ ] Implement missing client-side API support that is required for compatibility, in small changes following the existing backend/legacy-adapter boundaries; preserve protocol behavior from upstream implementations rather than inventing shortcuts.
+- [ ] Exercise the relevant endpoints against a real Sunshine host, including success, error, and version/feature-compatibility cases; document any intentionally unsupported endpoints and why.
+
+**Done when:** the API inventory is checked against source and runtime behavior, required missing client functionality is implemented, and remaining unsupported cases are explicitly documented.
 
 ## 3. Close technical risks and improve testability
 
