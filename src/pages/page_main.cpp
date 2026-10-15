@@ -292,8 +292,16 @@ void Main::InitialRefreshTask(void *userdata)
         return;
     }
 
-    main->RefreshHosts();
     ++main->m_initial_refresh_attempts;
+
+    /*
+     * Give PAF a few main-thread ticks between list rebuilds so its layout can
+     * settle instead of deleting/reinserting cells on every tick.
+     */
+    if (main->m_initial_refresh_attempts == 1 ||
+        main->m_initial_refresh_attempts % 3 == 0) {
+        main->RefreshHosts();
+    }
 
     /*
      * PageOpen can return before the ListView has completed its first layout.
