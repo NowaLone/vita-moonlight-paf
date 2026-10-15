@@ -7,6 +7,8 @@
 #include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
 #include <psp2/kernel/rng.h>
+#include <psp2/kernel/threadmgr.h>
+#include <pthread.h>
 
 #include "moonlight/api.h"
 #include "moonlight/settings.h"
@@ -34,6 +36,8 @@ static bool s_applications_valid = false;
 static int s_stream_application_id = -1;
 static bool s_stream_active = false;
 static bool s_stream_pending = false;
+static bool s_disconnect_pending = false;
+static bool s_disconnect_worker_running = false;
 
 static void emit(MoonlightEventType type,
                  int result,
@@ -191,6 +195,48 @@ static void on_stream_event(
     }
 }
 
+
+static void *disconnect_cleanup_worker(void *)
+{
+    while (moonlight_stream_is_running()) {
+        sceKernelDelayThread(10000);
+    }
+
+    if (s_game_stream_initialized) {
+        legacy_gamestream_shutdown(&s_server);
+        s_game_stream_initialized = false;
+    }
+
+    s_stream_pending = false;
+    s_stream_active = false;
+    s_stream_application_id = -1;
+    s_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
+
+    emit(MOONLIGHT_EVENT_CONNECTION_CLOSED, 0, s_current_host.id, -1, s_current_host.internal);
+    s_has_current_host = false;
+    s_disconnect_pending = false;
+    s_disconnect_worker_running = false;
+    return NULL;
+}
+
+static int begin_disconnect_cleanup(void)
+{
+    pthread_t worker;
+    int result;
+
+    if (s_disconnect_worker_running) return 0;
+    s_disconnect_pending = true;
+    s_disconnect_worker_running = true;
+    result = pthread_create(&worker, NULL, disconnect_cleanup_worker, NULL);
+    if (result != 0) {
+        s_disconnect_worker_running = false;
+        vita_debug_log("[GameStream] disconnect cleanup worker create failed=%d", result);
+        return result;
+    }
+    pthread_detach(worker);
+    return 0;
+}
+
 }
 
 int moonlight_api_init(void)
@@ -205,19 +251,24 @@ int moonlight_api_init(void)
 
 void moonlight_api_shutdown(void)
 {
-    if (s_stream_active || s_stream_pending) {
+    while (s_disconnect_worker_running) sceKernelDelayThread(10000);
+
+    if (s_stream_active || s_stream_pending || moonlight_stream_is_running()) {
         moonlight_stream_stop();
-        s_stream_active = false;
-        s_stream_pending = false;
-        s_stream_application_id = -1;
+        while (moonlight_stream_is_running()) sceKernelDelayThread(10000);
     }
-    legacy_gamestream_shutdown(&s_server);
-    s_game_stream_initialized = false;
-
+    if (s_game_stream_initialized) {
+        legacy_gamestream_shutdown(&s_server);
+        s_game_stream_initialized = false;
+    }
     legacy_host_discovery_shutdown();
-
     s_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
     s_has_current_host = false;
+    s_stream_active = false;
+    s_stream_pending = false;
+    s_stream_application_id = -1;
+    s_disconnect_pending = false;
+    s_disconnect_worker_running = false;
     memset(&s_server, 0, sizeof(s_server));
     memset(&s_current_host, 0, sizeof(s_current_host));
     s_callback = NULL;
@@ -291,7 +342,8 @@ int moonlight_api_connect_host(const MoonlightHost *host)
 {
     char client_directory[512];
 
-    if (!host || !host->internal[0]) {
+    if (!host || !host->internal[0] || s_disconnect_pending ||
+        s_disconnect_worker_running || moonlight_stream_is_running()) {
         return -1;
     }
 
@@ -696,38 +748,29 @@ int moonlight_api_start_application(int application_id)
 
 int moonlight_api_stop_application(void)
 {
-    if (!s_has_current_host || !s_stream_active) {
-        return -1;
-    }
-
+    if (!s_has_current_host || (!s_stream_active && !s_stream_pending)) return -1;
     return moonlight_stream_stop();
 }
 
 int moonlight_api_disconnect_host(void)
 {
-    if (!s_has_current_host) {
-        return 0;
+    int result;
+    if (!s_has_current_host) return 0;
+    if (s_disconnect_pending) return 0;
+
+    s_disconnect_pending = true;
+    if (s_stream_active || s_stream_pending || moonlight_stream_is_running()) {
+        result = moonlight_stream_stop();
+        if (result != 0) {
+            s_disconnect_pending = false;
+            return result;
+        }
     }
-
-    if (s_stream_active) {
-        moonlight_stream_stop();
-        s_stream_active = false;
+    result = begin_disconnect_cleanup();
+    if (result != 0) {
+        s_disconnect_pending = false;
+        return result;
     }
-
-    if (s_game_stream_initialized) {
-        legacy_gamestream_shutdown(&s_server);
-        s_game_stream_initialized = false;
-    }
-
-    s_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
-    emit(
-        MOONLIGHT_EVENT_CONNECTION_CLOSED,
-        0,
-        s_current_host.id,
-        -1,
-        s_current_host.internal);
-
-    s_has_current_host = false;
     return 0;
 }
 
