@@ -26,7 +26,9 @@ static bool s_has_current_host = false;
 static MoonlightConnectionState s_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
 static LegacyGameStreamServer s_server;
 static bool s_game_stream_initialized = false;
-static MoonlightApplication s_applications[8];
+// Keep a practical upper bound while avoiding the old eight-app truncation.
+static const int MAX_APPLICATIONS = 64;
+static MoonlightApplication s_applications[MAX_APPLICATIONS];
 static int s_application_count = 0;
 static bool s_applications_valid = false;
 static int s_stream_application_id = -1;
@@ -555,7 +557,7 @@ int moonlight_api_get_applications(MoonlightApplication *out, int capacity)
     bool have_id = false;
     title[0] = '\0';
 
-    while (cursor && *cursor && s_application_count < 8) {
+    while (cursor && *cursor && s_application_count < MAX_APPLICATIONS) {
         const char *tag = strchr(cursor, '<');
         if (!tag) break;
 
