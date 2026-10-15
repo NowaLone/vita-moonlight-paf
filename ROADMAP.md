@@ -537,3 +537,10 @@ User confirms that a deliberate short PS tap after returning from Quick Actions 
 
 This is user-reported device verification for the tested build/device/firmware only; it is not cross-firmware verification. No build or hardware test was performed by the agent.
 
+
+
+### Remove temporary PS input diagnostics before integration (2026-10-15)
+
+Removed the temporary ShellUtil callback counter/timestamps, per-callback argument dump, per-sample Ext edge logs, and one-second PS polling heartbeat from `src/moonlight/vita_input.c`. These were added to identify the short-tap event source and are no longer needed after the tested device confirmed the ShellUtil path and Quick Actions lifecycle. Kept event-driven PS state-transition messages and AppMgr overlay/error messages because they remain useful for diagnosing real input/lifecycle regressions. The undocumented `result=0, mode=21, type=0` heuristic and post-overlay quarantine are unchanged; this is log cleanup, not a behavior change.
+
+No build or hardware test was run for this cleanup.
