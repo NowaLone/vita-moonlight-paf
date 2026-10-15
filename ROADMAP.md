@@ -515,3 +515,14 @@ Reviewing the return-to-app trace exposed a second way the extra PS action could
 
 The post-overlay quarantine from [0956be8](https://github.com/NowaLone/vita-moonlight-paf/commit/0956be88d76434aa4541a80d180fa366b9b2347b) remains in place. Re-test both cases on hardware: closing Quick Actions must not emit a host PS action, and a deliberate short PS tap after returning must still reach the host through the ShellUtil path. No build or hardware test was performed by the agent.
 
+### Quick Actions return: stale PS sample is suppressed (2026-10-15)
+
+User tested the post-overlay quarantine on Vita and reports that behavior now appears correct. The supplied log confirms:
+
+- AppMgr transitions to `active=1`, and the host controller state is released.
+- On return, AppMgr transitions to `active=0`.
+- Ext briefly reports `buttons=0x00010000` while Ext2 reports `buttons=0x00000000`.
+- The input loop logs `Ignoring PS sample while returning from system UI` rather than starting the PS tap state machine.
+
+This is direct device evidence that the stale/late PS sample is being filtered on return. User's assessment is "вроде всё ок"; keep this marked as user-tested on the current device, not universally verified across firmware. The remaining quick regression check is to confirm that a deliberate short PS tap after the quarantine clears still reaches the host and ordinary controller buttons continue to work. No build or hardware test was performed by the agent.
+
