@@ -451,31 +451,11 @@ static void vita_input_process(void)
     }
 
     /*
-     * A short PS tap can be a single older sample while the newest sample
-     * is already clear. Scan the recent Ext2 history before deciding the
-     * bit was never delivered, except during the post-overlay PS quarantine.
+     * Do not recover PS presses from Ext2 history: on the tested device this
+     * history repeatedly returns an old PS bit after release/Quick Actions,
+     * which can be mistaken for a new press. Short taps are captured by the
+     * ShellUtil event path; current samples remain the fallback for holds.
      */
-    if (!suppress_ps_sample &&
-        (s_pad.buttons & SCE_CTRL_PSBUTTON) == 0) {
-        SceCtrlData history[16];
-        int history_count;
-        int history_index;
-
-        memset(history, 0, sizeof(history));
-        history_count = sceCtrlPeekBufferPositiveExt2(0, history, 16);
-        for (history_index = 0;
-             history_index < history_count && history_index < 16;
-             ++history_index) {
-            if ((history[history_index].buttons & SCE_CTRL_PSBUTTON) != 0) {
-                s_pad.buttons |= SCE_CTRL_PSBUTTON;
-                vita_debug_log(
-                    "[Input] PS found in Ext2 history index=%d buttons=0x%08x",
-                    history_index,
-                    (unsigned int)history[history_index].buttons);
-                break;
-            }
-        }
-    }
     sceTouchPeek(SCE_TOUCH_PORT_BACK, &s_back, 1);
 
     if (s_front_touchzones && s_touchscreen_mode == 0) {
