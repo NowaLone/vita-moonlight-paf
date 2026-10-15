@@ -147,6 +147,15 @@ static void vita_shell_event_handler(
 {
     (void)userData;
 
+    /*
+     * ShellUtil's callback can arrive around teardown/restart. Never queue a
+     * PS edge while the streaming input state machine is inactive; otherwise
+     * an old edge can be replayed into the next session as a fresh tap.
+     */
+    if (!s_input_active) {
+        return;
+    }
+
     if ((type & (SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN |
                  SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN_2)) != 0) {
         s_shell_ps_edge = 1;
@@ -661,6 +670,8 @@ void vita_input_start(void)
     s_ps_single_pending = false;
     s_ps_physical_old = false;
     s_ps_host_pulse_state = 0;
+    s_shell_ps_edge = 0;
+    s_ignore_ps_until_release = false;
 
     /*
      * Match the controller declaration used by the original Vita Moonlight.
@@ -769,9 +780,12 @@ void vita_input_stop(void)
     memset(&s_pad, 0, sizeof(s_pad));
     memset(&s_pad_old, 0, sizeof(s_pad_old));
     s_ps_button_release_time = 0;
+    s_ps_press_time = 0;
     s_ps_single_pending = false;
     s_ps_physical_old = false;
     s_ps_host_pulse_state = 0;
+    s_shell_ps_edge = 0;
+    s_ignore_ps_until_release = false;
 
     if (s_ps_button_locked) {
         int result = sceShellUtilUnlock(
