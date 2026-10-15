@@ -956,7 +956,7 @@ static bool get_certificate_signature(
 {
     BIO *bio;
     X509 *certificate;
-    const ASN1_BIT_STRING *certificate_signature;
+    ASN1_BIT_STRING *certificate_signature;
 
     if (!certificate_pem || !signature || !signature_length) {
         return false;
