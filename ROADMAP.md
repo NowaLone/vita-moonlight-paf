@@ -619,3 +619,25 @@ This is user-reported device verification for the tested build/device/firmware o
 Removed the temporary ShellUtil callback counter/timestamps, per-callback argument dump, per-sample Ext edge logs, and one-second PS polling heartbeat from `src/moonlight/vita_input.c`. These were added to identify the short-tap event source and are no longer needed after the tested device confirmed the ShellUtil path and Quick Actions lifecycle. Kept event-driven PS state-transition messages and AppMgr overlay/error messages because they remain useful for diagnosing real input/lifecycle regressions. The undocumented `result=0, mode=21, type=0` heuristic and post-overlay quarantine are unchanged; this is log cleanup, not a behavior change.
 
 No build or hardware test was run for this cleanup.
+
+
+## GameStream client API coverage and follow-up (2026-10-15)
+
+Scope decision: this project implements the **Moonlight/GameStream client** required to discover hosts, pair, list apps, launch/resume, and stream. Sunshine's administrative Web API (server configuration, user/admin management, and similar control-plane features) is out of scope and is not a missing feature for the streaming client.
+
+Source audit of `src/moonlight/api.cpp`, `src/backend/legacy/legacy_gamestream.c`, and `src/moonlight/stream_session.cpp`:
+
+- Implemented client flow includes server status/info, GameStream pairing, app-list retrieval, launch/resume request, and Limelight RTSP streaming setup/teardown.
+- No separate HTTP `/cancel`, `/quit`, or `/unpair` request is currently issued. Do not add these endpoints by name alone: first verify the current Sunshine/Moonlight protocol semantics and whether the existing Limelight teardown and pairing lifecycle already cover the intended user action.
+- The app-list parser previously stopped after eight entries. The client cache/parser limit has now been raised to 64 to avoid truncating ordinary larger app lists. This remains an explicit bound; a future change can make storage dynamic if hosts with more than 64 apps are a real requirement.
+- Streaming capability negotiation remains intentionally conservative: H.264 only, stereo audio, one remote controller, and fixed Rec.601/limited-range color settings. HEVC/AV1, multichannel audio, HDR, and multi-controller support require checking Vita decoder/renderer/input capabilities before advertising or enabling them.
+- Server metadata has fallback values when some fields are absent. Keep fallback behavior compatible with older GameStream hosts, but avoid treating fallback values as negotiated capability data.
+
+Next work, in order:
+
+1. Verify stop/disconnect behavior against current upstream client implementations and host-side session cleanup; make client teardown idempotent where needed before adding protocol calls.
+2. Add focused tests for app-list parsing (more than eight apps, malformed/incomplete entries, and truncated responses) and decide whether the 64-entry bound is sufficient.
+3. Implement codec/audio/color negotiation only after confirming Vita hardware and renderer support. Do not advertise a codec that the decoder cannot actually consume.
+4. Keep Sunshine administrative Web API support out of the client roadmap unless the product scope explicitly changes.
+
+**Verification status:** source changes and this audit have not been built or exercised by the current agent. A clean Vita toolchain build and real-device streaming/lifecycle test are still required.
