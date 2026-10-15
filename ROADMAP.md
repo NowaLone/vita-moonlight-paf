@@ -148,7 +148,6 @@ User-reported `psp2shell` logs from Vita after applying the `DeleteCell(0, 0, ex
 ## Next task: Quick Actions, PS Button, and application lifecycle
 
 **Priority: next, beginning with investigation rather than speculative API changes.**
-
 Known issue from Vita testing: holding PS to open Quick Actions does not currently suspend controller forwarding to the streaming host. PS Button handling must respect the existing setting that controls forwarding PS to the PC; do not replace this setting with unconditional interception or unconditional system-button locking.
 
 Required behavior:
@@ -298,7 +297,6 @@ User supplied logs from the diagnostic build:
 - The release diagnostic says `duration_us=0`, but this is a diagnostic artifact: the hold branch cleared `s_ps_press_time` before the release edge, so the logged duration is not a valid measurement. The excerpt does not show `PS Button single press, forwarding after timeout`.
 
 **Diagnostic follow-up committed** in `src/moonlight/vita_input.c` (commit `fa1725ef3df560349fafe5ae6a814388ee344b01`): retain the original press timestamp after hold classification until the release edge, so the release log can report the actual sampled hold duration. This does not change the 500 ms threshold or host-event behavior.
-
 **Next device test:** rebuild/install this commit and repeat a deliberate quick tap, releasing well before 500 ms. Check `duration_us` and whether `PS Button single press, forwarding after timeout` appears. If the measured duration is at least 500,000 µs, the input loop is genuinely observing a hold (or the app is not processing the release while the system overlay is active); then correlate the physical press/release with Quick Actions open/return before adjusting thresholds. If duration is clearly below 500,000 µs but the hold message still appears, capture the full ordered log and investigate timestamp/state transitions. Agent has not built or tested this change on hardware.
 
 ### Repeated PS taps test: timestamp discrepancy (2026-10-14)
@@ -453,3 +451,15 @@ The remaining callbacks (counts 2–15) repeatedly reported `result=0 mode=21 mo
 **Next device check:** build/install this exact revision and test a few single taps, then one hold only if needed. For each tap, look for `ShellUtil PS edge source=experimental_mode21`, `PS Button press pending`, `PS Button release detected`, and `PS Button single press, forwarding after timeout`; also confirm whether the host receives exactly one home/special event per tap. If unrelated ShellUtil events also trigger the experimental path, revert this heuristic and investigate the callback ABI/event semantics instead. Existing hold suppression is intended to remain unchanged, but this experimental signature should be validated before relying on it.
 
 Reference: [VitaSDK ShellUtil API](https://docs.vitasdk.org/shellutil_8h.html) documents lock modes 1/2 and PS lock type bits 0x1/0x800; it does not document mode 21/type 0 as a PS event. No build or Vita hardware test was performed by the agent.
+
+### Short PS tap reaches the streaming host (2026-10-15)
+
+User tested several short PS taps on the build containing the experimental `mode=21/type=0` handler and confirmed that the PS/special-button action reaches the PC.
+
+The supplied device log shows five callbacks (`count=2` through `count=6`) with `result=0 mode=21 type=0x00000000`. Each is followed by `ShellUtil PS edge source=experimental_mode21`, a synthetic press/release pulse (about 2.7–3.1 ms), and `PS Button single press, forwarding after timeout`. Both SceCtrl polling APIs continue to report `buttons=0`, so short-tap detection is coming from the ShellUtil callback path rather than the controller samples. The user confirms the host receives the action; this validates the experimental path for the tested short taps.
+
+**Remaining caveats and next check:**
+- `mode=21/type=0` remains undocumented by the public VitaSDK ShellUtil enum, so keep the special case isolated and do not assume it represents a PS tap for every firmware or ShellUtil callback.
+- Verify one deliberate PS hold that opens Quick Actions: it must not send a host-side PS action, and normal controller forwarding must behave correctly around opening/closing the overlay.
+- If that passes, consider the short-tap path hardware-verified for this tested device/build, while keeping Quick Actions lifecycle and firmware portability open.
+- No build was run by the agent; the report describes the user's test of their installed build.
