@@ -507,3 +507,11 @@ User verified that ordinary controller input is blocked while Quick Actions is o
 
 No build or hardware test was performed by the agent.
 
+#### Follow-up: Ext2 history is persistently stale on the tested device
+
+Reviewing the return-to-app trace exposed a second way the extra PS action could recur: even after current Ext/Ext2 samples report PS released, the Ext2 history path has repeatedly returned the old `0x00010000` bit at index 0. Merely skipping history for the first post-overlay sample would leave later iterations vulnerable to replaying that stale bit.
+
+**Additional source change:** [4f5daf9](https://github.com/NowaLone/vita-moonlight-paf/commit/4f5daf931bb89d1bee70afa18ee0d857275193ab) removes the Ext2 history fallback from PS edge detection. The existing ShellUtil callback path remains responsible for the tested short-tap path; current Ext/Ext2 samples continue to support hold detection. This intentionally favors avoiding false PS presses over trying to reconstruct a tap from history that the device has demonstrated can remain stale.
+
+The post-overlay quarantine from [0956be8](https://github.com/NowaLone/vita-moonlight-paf/commit/0956be88d76434aa4541a80d180fa366b9b2347b) remains in place. Re-test both cases on hardware: closing Quick Actions must not emit a host PS action, and a deliberate short PS tap after returning must still reach the host through the ShellUtil path. No build or hardware test was performed by the agent.
+
