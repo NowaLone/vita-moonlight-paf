@@ -2,6 +2,7 @@
 
 #include <Limelight.h>
 #include <psp2/ctrl.h>
+#include <psp2/appmgr.h>
 #include <psp2/touch.h>
 #include <psp2/shellutil.h>
 #include <psp2/kernel/threadmgr.h>
@@ -29,6 +30,11 @@ static bool s_shell_events_initialized = false;
 static uint64_t s_ps_button_release_time = 0;
 static uint64_t s_ps_press_time = 0;
 static uint64_t s_ps_diag_time = 0;
+static uint64_t s_app_state_poll_time = 0;
+static uint64_t s_app_state_error_log_time = 0;
+static bool s_system_ui_overlaid = false;
+static bool s_app_state_known = false;
+static bool s_overlay_release_sent = false;
 static bool s_ps_single_pending = false;
 static bool s_ps_physical_old = false;
 static bool s_ps_probe_ext_old = false;
@@ -290,8 +296,103 @@ static void vita_input_send(uint32_t back_buttons)
         -vita_axis_to_limelight(s_pad.ry));
 }
 
+/*
+ * SceAppMgr exposes whether system software UI is overlaid on this app.
+ * Poll at 100 Hz rather than every 2 ms; controller forwarding is gated
+ * before the normal input state machine whenever the overlay is active.
+ */
+static bool vita_input_system_ui_overlaid(void)
+{
+    uint64_t now = sceKernelGetSystemTimeWide();
+
+    if (s_app_state_poll_time == 0 ||
+        now < s_app_state_poll_time ||
+        now - s_app_state_poll_time >= 10000ull) {
+        SceAppMgrAppState app_state;
+        int result;
+
+        memset(&app_state, 0, sizeof(app_state));
+        result = _sceAppMgrGetAppState(
+            &app_state, sizeof(app_state), 0);
+        s_app_state_poll_time = now;
+
+        if (result >= 0) {
+            bool overlaid = app_state.isSystemUiOverlaid != 0;
+
+            if (!s_app_state_known || overlaid != s_system_ui_overlaid) {
+                vita_debug_log(
+                    "[Input] System UI overlay changed active=%d result=0x%08x",
+                    overlaid ? 1 : 0,
+                    (unsigned int)result);
+            }
+
+            s_system_ui_overlaid = overlaid;
+            s_app_state_known = true;
+        } else if (s_app_state_error_log_time == 0 ||
+                   now < s_app_state_error_log_time ||
+                   now - s_app_state_error_log_time >= 1000000ull) {
+            vita_debug_log(
+                "[Input] AppMgr get app state failed result=0x%08x; overlay state=%s",
+                (unsigned int)result,
+                s_app_state_known ? "cached" : "unknown");
+            s_app_state_error_log_time = now;
+        }
+    }
+
+    /*
+     * Preserve a known active-overlay state across transient API errors so
+     * controller input cannot leak into Quick Actions. If the API has never
+     * succeeded, fail open but make the failure visible in the log.
+     */
+    return s_app_state_known && s_system_ui_overlaid;
+}
+
+static void vita_input_suppress_for_system_ui(void)
+{
+    uint32_t back_buttons;
+
+    /*
+     * Release any controller state the host may still consider held, then
+     * keep sampling/baselining locally while the system overlay owns input.
+     * This avoids replaying buttons that were pressed while Quick Actions
+     * was visible after control returns to the app.
+     */
+    if (!s_overlay_release_sent) {
+        const short axis_center = vita_axis_to_limelight(128);
+        LiSendMultiControllerEvent(
+            0, 1, 0, 0, 0,
+            axis_center, -axis_center, axis_center, -axis_center);
+        s_overlay_release_sent = true;
+        vita_debug_log("[Input] Host controller state released for system UI overlay");
+    }
+
+    memset(&s_pad, 0, sizeof(s_pad));
+    sceCtrlPeekBufferPositiveExt2(0, &s_pad, 1);
+    s_pad.buttons &= ~SCE_CTRL_PSBUTTON;
+    sceTouchPeek(SCE_TOUCH_PORT_BACK, &s_back, 1);
+    back_buttons = vita_read_back_touch(&s_back);
+
+    memcpy(&s_pad_old, &s_pad, sizeof(SceCtrlData));
+    s_back_buttons_old = back_buttons;
+
+    /* Do not let a pending tap become a host pulse after the overlay closes. */
+    s_ps_button_release_time = 0;
+    s_ps_press_time = 0;
+    s_ps_single_pending = false;
+    s_ps_physical_old = false;
+    s_ps_probe_ext_old = false;
+    s_ps_host_pulse_state = 0;
+    s_shell_ps_edge = 0;
+}
+
 static void vita_input_process(void)
 {
+    if (vita_input_system_ui_overlaid()) {
+        vita_input_suppress_for_system_ui();
+        return;
+    }
+    s_overlay_release_sent = false;
+
     bool ps_pressed;
     bool ps_pressed_old;
     bool ps_probe_ext_pressed;
