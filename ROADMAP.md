@@ -663,3 +663,10 @@ Implemented on `master` to address the detached-worker lifetime race:
 No Sunshine-specific cancel/quit HTTP endpoint was added. A launch request already accepted by the host may still start the remote application; this client-side cancellation only prevents the local worker from continuing into RTSP when cancellation is observed.
 
 **Verification status:** source review only; no build or Vita hardware test was run for this change. Please build and test disconnect both during active streaming and immediately after launch, before treating the lifecycle as device-verified.
+
+
+### Build follow-up: stream stop worker symbol scope (2026-10-15)
+
+- Fixed the C++ compile error in `stream_session.cpp`: `stream_stop_thread_main()` is now defined inside the same anonymous namespace as its callers, avoiding two distinct functions with the same name and the ambiguous `pthread_create` callback.
+- Fixed the Vita SDK OpenSSL warning in `legacy_gamestream.c` by matching `X509_get0_signature()`'s declared `ASN1_BIT_STRING **` parameter type. The pointer is only read by this code.
+- Verification: source changes committed; no local build was run by the agent. Rebuild with VitaSDK to confirm.
