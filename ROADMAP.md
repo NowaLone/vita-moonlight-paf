@@ -491,3 +491,19 @@ When the system UI overlay is reported active, the input loop sends one neutral 
 **Next device check:** install a build from this commit, open Quick Actions with a PS hold, press/release several ordinary buttons while the overlay remains open, and confirm none of those actions reaches the PC. Close Quick Actions, then confirm ordinary input works again without restarting the stream. Capture the `[Input] System UI overlay changed active=1` / `active=0` messages and any `AppMgr get app state failed` lines. Also watch whether `[Stream] connection status=0` recurs and correlate it with the overlay state rather than assuming it means a disconnect.
 
 Reference implementation: [GrapheneCt/TransparentImpose](https://github.com/GrapheneCt/TransparentImpose/blob/master/TrImpose.c) polls `SceAppMgrAppState.isSystemUiOverlaid` through `_sceAppMgrGetAppState`; the public VitaSDK header declares `_sceAppMgrGetAppState` and defines `SceAppMgrAppState` as a 0x80-byte structure. This supports the API/structure choice, but does not by itself prove behavior on every retail firmware.
+
+### Suppress the stale PS edge after Quick Actions closes (2026-10-15)
+
+User verified that ordinary controller input is blocked while Quick Actions is open and resumes after closing, but reported one extra PS action reaching the host on return. The supplied log narrows the sequence down:
+
+- AppMgr reports `active=1`, and the host controller state is released.
+- AppMgr then reports `active=0`.
+- Immediately after returning, Ext/Ext2 reports a fresh `SCE_CTRL_PSBUTTON` bit and the PS state machine starts a new pending tap.
+- The next history log still contains the old PS bit, consistent with the already-observed stale Ext2 history behavior.
+
+**Source change committed for device validation:** [0956be8](https://github.com/NowaLone/vita-moonlight-paf/commit/0956be88d76434aa4541a80d180fa366b9b2347b) adds a post-overlay PS quarantine. While Quick Actions is active, the input path arms the quarantine. After the overlay closes, it masks PS from both current polling samples and clears pending PS state until both current samples report PS released. It also skips the Ext2 history fallback during this transition, so a stale buffered PS bit cannot recreate the synthetic press. Other controller buttons continue through the normal path; the quarantine does not intentionally block ordinary input after returning.
+
+**Device validation needed:** rebuild/install this exact commit, open Quick Actions with a PS hold, then close it. Confirm there is no host-side PS action on return, while ordinary buttons are still blocked inside the overlay and resume after it closes. Check for `[Input] PS suppression after system UI cleared`; an `Ignoring PS sample while returning from system UI` line is expected only if the current PS bit remains visible briefly after the overlay closes. Then test a deliberate short PS tap after the quarantine has cleared to ensure the normal host-side tap path still works.
+
+No build or hardware test was performed by the agent.
+
