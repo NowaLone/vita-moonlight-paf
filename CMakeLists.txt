@@ -201,6 +201,17 @@ set_target_properties(${PROJECT_NAME}
   COMPILE_FLAGS "'-D__declspec(__v__)=/**/'"
 )
 
+# VitaSDK's SELF/stub helpers expect the extensionless target path. Keep it and
+# expose the same unstripped ELF with an extension for crash-dump tools.
+set(DEBUG_ELF_FILE "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.elf")
+add_custom_command(OUTPUT "${DEBUG_ELF_FILE}"
+  COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${PROJECT_NAME}>" "${DEBUG_ELF_FILE}"
+  DEPENDS ${PROJECT_NAME}
+  COMMENT "Copying debug ELF ${PROJECT_NAME}.elf"
+  VERBATIM
+)
+add_custom_target(${PROJECT_NAME}_debug_elf ALL DEPENDS "${DEBUG_ELF_FILE}")
+
 set(RCO_FILE "${CMAKE_CURRENT_BINARY_DIR}/vita_moonlight_ui.rco")
 if(NOT EXISTS "${RCO_FILE}")
   message(FATAL_ERROR "Missing vita_moonlight_ui.rco. Run build_cxml.sh before configuring the project.")

@@ -2,6 +2,47 @@
 
 This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordered by risk reduction and release readiness, not by a promise that every item must be completed before development continues. Keep individual changes small and verify device-specific behavior on real PS Vita hardware.
 
+## Current hardware regression: Settings open (2026-10-18)
+
+**Priority: diagnose before the API audit's F1 implementation follow-up.** The user reports that
+saved PCs now appear on Main at application startup, but attempting to open Settings freezes the
+application and eventually crashes with `C2-12828-1`. The user subsequently confirmed the crash
+occurs **after selecting Settings**, and supplied a textual crash report followed by the complete
+`.psp2dmp`. The exact installed package revision and useful loader logs remain unconfirmed.
+
+- The startup-list observation is user-reported device evidence for that run. It does not complete
+  the empty/one/multiple-host cold-start matrix or prove the host/cell diagnostics match.
+- Source review traced OptionMenu → Main suspension → SettingsService → LegacyMoonlightAdapter →
+  lazy AppSettings initialization → Interface::Show. No specific cause has been established from
+  the error code and symptom alone. No runtime behavior has been changed for this report.
+- Local NetStream and BetterHomebrewBrowser references also pass an InterfaceCallbacks table
+  allocated on the stack to Show; stack allocation alone is not evidence of this crash's cause.
+- Crash evidence: prefetch abort, PC/IFAR `0x0`, LR `ScePaf RX + 0x58919`, another reported PAF
+  frame at `+0x15fe31`. Reported peak stack use is 2168 of 10192 bytes; this excerpt does not show
+  a stack overflow. R2/R12 are annotated as application RX `+0x21c010`.
+- `arm-vita-eabi-nm` on the local baseline ELF maps exactly RX `+0x21c010` to the import stub for
+  `sce::AppSettings::PluginSetParamCB` (library NID `0x9522D063`, function NID `0xB3935DD3`).
+  This is consistent with a failure during PAF plugin initialization, but a register containing
+  that stub address does not prove which instruction branched to zero or why. The installed
+  package must match the ELF for definitive symbolization; no matching firmware PAF code was
+  available to disassemble the LR site. Do not claim an unresolved import or callback-lifetime
+  defect as established from this register match alone.
+- The agent ran `bash build.sh` successfully with the existing build directory: CXML, application,
+  SELF and VPK targets completed. This was not a clean build, deployment or Vita runtime verification.
+- Full-dump analysis (2026-10-19): captured PAF export/unwind tables recover
+  `Plugin::Plugin → internal PAF frame → Plugin::LoadSync → application`.
+  The application return maps to the existing `moonlight_settings_init` LoadSync call in the
+  comparison ELF. This localizes the failing stage before XML initialization / Interface::Show.
+  The 18 registered-module records include BXCE, INI processor and Common GUI Dialog, but no
+  AppSettings module. Loader failure is a supported investigation direction, not a proven cause.
+  The PAF call-site and runtime import-stub instructions are not captured. Details and evidence
+  limits are in [docs/SETTINGS_CRASH_ANALYSIS.md](docs/SETTINGS_CRASH_ANALYSIS.md).
+- Next evidence: confirm firmware/CFW and the installed VPK/ELF pair, then obtain the actual
+  AppSettings module load/start result or matching firmware code around the PAF LR site.
+  Read-only live queries did not provide that evidence; no console files were changed.
+  Do not change InitialRefreshTask, SELF authorization, storage formats or callback lifetime
+  speculatively. SAFE/AppSettings module research remains closed.
+
 
 ## Recent streaming implementation review
 
@@ -51,15 +92,26 @@ Not part of the PS4 Link parity pass because the needed pieces do not exist in t
 - [ ] Document dependency setup and environment variables in a clean, repeatable setup procedure.
 - [ ] Validate a clean build with `bash build.sh`, including CXML-to-RCO compilation and VPK/SELF generation.
 - [ ] Document the expected toolchain and known build warnings; do not treat a build as verified unless it was actually run.
+- [x] Generate `build/vita_moonlight_paf.elf` automatically for crash-dump symbolization (2026-10-18). CMake copies the unstripped linked executable and preserves the extensionless input expected by VitaSDK's packaging helpers. Verified with `bash build.sh` (existing build directory), successful SELF/VPK generation, byte equality and `.debug_info`/`.debug_line`/`.symtab` inspection. The direct CMake debug-ELF target also regenerated a missing `.elf` with identical SHA-256. This does not verify the Settings crash fix or GUI symbolization on a matching dump; preserve the ELF from each installed VPK.
 
 **Done when:** a fresh environment can follow the instructions to build the project without undocumented manual fixes.
 
 ## Sunshine / GameStream client API coverage
 
-- [ ] Inventory the client-facing Sunshine-compatible GameStream APIs/endpoints used by Moonlight and compare them with this project's implementation. For each endpoint, record its purpose, request/response shape, authentication/pairing requirements, implementation location, and coverage status (implemented, partial, missing, or not applicable).
-- [ ] Use the upstream Moonlight client and Sunshine documentation/source as references; distinguish streaming-client/GameStream APIs from Sunshine's separate administrative web API. Do not add Sunshine admin API integration unless a concrete client-side requirement is identified.
+- [x] Complete the source-level inventory of client-facing Sunshine-compatible GameStream APIs/protocols, including purpose, request/response semantics, authentication/pairing, local implementation, upstream references and coverage status. See [docs/SUNSHINE_API_AUDIT.md](docs/SUNSHINE_API_AUDIT.md), audited on 2026-10-18 against local `761d730` and pinned upstream revisions. This checkbox covers source review only, not runtime compatibility.
+- [x] Compare actual Moonlight/Vita Moonlight/common-c and Sunshine implementations; distinguish client GameStream APIs from administrative Web API. The audit confirms that `/cancel` is remote Quit, not ordinary disconnect or cancellation of an in-flight launch; the reviewed Sunshine has no GameStream `/quit` or `/unpair` route. Admin integration remains out of scope.
 - [ ] Implement missing client-side API support that is required for compatibility, in small changes following the existing backend/legacy-adapter boundaries; preserve protocol behavior from upstream implementations rather than inventing shortcuts.
 - [ ] Exercise the relevant endpoints against a real Sunshine host, including success, error, and version/feature-compatibility cases; document any intentionally unsupported endpoints and why.
+
+Source findings and isolated follow-ups (not yet fixed or runtime-verified):
+
+- [ ] **First: unexpected-termination cleanup ownership (audit F1).** `on_connection_terminated()` clears active state without calling `LiStopConnection()`; subsequent stop/disconnect can skip transport cleanup. Preserve cleanup ownership until common-c teardown finishes, then permit reconnect. Compare with both Vita Moonlight and Moonlight Qt; test explicit stop, remote termination, network loss, pending setup and immediate restart.
+- [ ] Refresh host active-app state before launch/resume and reject a different running app instead of silently resuming it (F2). Do not automatically quit another app.
+- [ ] Validate GameStream XML status/session results with Expat, fix app-list parsing and invalidate cache on host transitions (F3); keep scalable UI storage as a separate change. The backend limit is 64, but Apps still displays only eight.
+- [ ] Correct signature-verification return handling/error attribution, then separately design paired-server TLS pinning and certificate renewal behavior (F4). The existing client certificate authenticates the client to Sunshine; it does not authenticate the server to this client.
+- [ ] Run audit tests T1–T10 with recorded Vita/package and Sunshine version/configuration. API methods with no UI caller require a backend-level test trigger; page close alone does not prove DisconnectHost ran (F5).
+
+Current independent work order: the source audit is complete; proceed with F1 as a separate runtime change. The Main cold-start hypothesis in `10c62e1` still awaits new Vita logs/hardware validation; do not modify `Main::InitialRefreshTask()` speculatively. Older chronological notes below retain their original verification status and are superseded by the new audit where protocol conclusions differ.
 
 **Done when:** the API inventory is checked against source and runtime behavior, required missing client functionality is implemented, and remaining unsupported cases are explicitly documented.
 

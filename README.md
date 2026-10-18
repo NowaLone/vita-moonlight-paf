@@ -174,10 +174,16 @@ bash build.sh
 Outputs:
 
 ```
-build/vita_moonlight_paf
+build/vita_moonlight_paf.elf
 build/vita_moonlight_paf.self
 build/vita_moonlight_paf.vpk
 ```
+
+`vita_moonlight_paf.elf` is an unstripped copy of the linked executable, with debug
+symbols for tools such as Vita Crash Dump GUI. CMake generates it alongside SELF/VPK,
+including when building manually. Keep it with the corresponding VPK when collecting a
+crash dump. The extensionless `build/vita_moonlight_paf` remains an internal input to
+the VitaSDK packaging helpers.
 
 Rebuild CXML manually:
 
