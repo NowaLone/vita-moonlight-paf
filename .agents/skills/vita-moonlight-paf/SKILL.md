@@ -14,7 +14,7 @@ Use this skill for safe, repository-aware development of the native PS Vita Moon
 
 1. Identify the repository root and current branch. The agreed working branch is `master`.
 2. Check the working tree before editing. Do not overwrite unrelated or uncommitted user changes.
-3. Read `AGENTS.md`, `README.md`, and `ROADMAP.md` from the current branch before choosing a task. Follow more-specific repository instructions and refresh your understanding when a file or behavior may have changed.
+3. Read `AGENTS.md`, `README.md`, and `ROADMAP.md` from the current branch before choosing a task. If the task touches the interface (`cxml/`, `src/pages/`, `src/option_menu.cpp`), also read `docs/UI.md` first. Follow more-specific repository instructions and refresh your understanding when a file or behavior may have changed.
 4. Inspect the implementation related to the task. Do not assume a prior chat summary, a commit message, or documentation proves the current code behavior.
 5. Prefer the next uncompleted, highest-priority item in `ROADMAP.md`, unless the user gives a different task.
 
@@ -59,16 +59,16 @@ Keep pages focused on presentation and navigation. Route application behavior th
 
 ## 4. Current UI facts to preserve
 
-These reflect the documented and hardware-verified current UI; confirm the files if the task touches them.
+These reflect the documented and hardware-verified current UI; confirm the files if the task touches them. The complete UI reference, with evidence tags for every measured value, is `docs/UI.md`.
 
 - The bottom-right corner button opens a project-owned vertical PAF `speech_balloon` menu.
 - The current menu has **Delete** at the top and **Settings** at the bottom. The down-tail texture points toward the corner button.
 - Popup placement and Delete/Settings focus behavior have been verified on hardware.
 - Saved-host Delete enters multi-selection mode. Selection rows use `template_host_list_item_select` with native PAF `paf::ui::CheckBox` controls.
-- The bottom action bar provides Cancel, Select All/Deselect All and Delete. Delete uses native `SceMessageDialog` confirmation.
+- The bottom action bar provides Cancel, Select All / Clear All and Delete. Delete uses native `SceMessageDialog` confirmation.
 - Selection UI positioning, list height with six or more hosts, action-bar styling, select-all focus, disabled Delete behavior, confirmation and post-delete refresh/focus are documented as hardware-verified.
 - A disabled Delete button retains its black background while its label appears gray through native PAF `ButtonBase` disabled state.
-- The main page uses `template_list_view_main` to leave room for the bottom bar. Do not switch selection behavior onto a shared generic list template used by Search and Apps.
+- The main page uses `template_list_view_main` to leave room for the bottom bar. Do not switch selection behavior onto the shared generic row template (`template_list_item_generic`, used by Apps).
 
 Do not reopen these completed UI checks as TODO items without new evidence of a regression.
 
@@ -128,6 +128,6 @@ Use `ROADMAP.md` for completion criteria and current checkboxes. Mark work compl
 2. Make a minimal change preserving public interfaces and storage formats unless the task explicitly requires otherwise.
 3. Review the diff for unrelated edits, architecture leaks, generated files and secrets.
 4. Run the most relevant available checks. For XML/UI or Vita-native behavior, distinguish compilation from hardware verification.
-5. Update `AGENTS.md`, `README.md` or `ROADMAP.md` only when the documented fact, procedure or project status actually changes. Keep one canonical roadmap rather than duplicating its full checklist elsewhere.
+5. Update `AGENTS.md`, `README.md`, `ROADMAP.md` or `docs/UI.md` (for any UI change, in the same commit) only when the documented fact, procedure or project status actually changes. Keep one canonical roadmap rather than duplicating its full checklist elsewhere.
 6. Commit small changes on `master` when repository-write access and the user's request permit it. If the environment uses pull requests or prohibits direct commits, follow its policy instead.
 7. Report: files/behavior changed, the commit or diff link, checks actually run, and unverified behavior/blockers. Be concise and explicit; never imply that a test passed just because code was edited.

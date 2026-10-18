@@ -78,9 +78,10 @@ The current list/title resources intentionally follow the real patterns used by 
 - `template_list_item_generic`
 - `template_host_list_item` (saved-PC row with a title and a description)
 - `template_host_list_item_select` (saved-PC row with a checkbox, used only in selection mode)
-- `style_text_top_title_bar`
 - `style_list_view_generic`
 - `style_image_button_list_button`
+
+The full UI reference (screen zones, layout language, pages, templates, styles, helpers, measured values from PS4 Link and Photos, recipes and pitfalls) is [`docs/UI.md`](docs/UI.md).
 
 The main page contains a saved-PC list, an inline PC address input using the native Vita IME, Search PCs, and access to the system AppSettings UI.
 
