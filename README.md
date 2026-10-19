@@ -202,6 +202,8 @@ PSVITAIP=192.168.1.123 ./dev-build-run.sh
 
 The deployment script uses title ID `VLMP00001`.
 
+LiveArea images under `sce_sys/` must be 8-bit indexed PNG (color type 3). A 24-bit or 32-bit PNG installs as far as 99% and then fails with `0x8010113D`. `icon0.png` is 128×128 with no alpha. `pic0.png` is 960×544. `livearea/contents/bg0.png` is 840×500. `startup.png` is 280×158 and is the only one that may use palette transparency (`tRNS`). Re-exporting these from a normal editor without quantizing them will break installation again.
+
 The CXML build is fail-fast: if `psp2cxml-tool` is not available, the build stops instead of using an unrelated fallback resource.
 
 ## Runtime Validation

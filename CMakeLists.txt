@@ -232,6 +232,7 @@ endif()
 # UNSAFE omits the safe (-s) flag; ATTRIBUTE matches upstream PS capture packaging.
 vita_create_self(${PROJECT_NAME}.self ${PROJECT_NAME} UNSAFE ATTRIBUTE 0x0E)
 
+# sce_sys PNGs must stay 8-bit indexed. 24-bit assets fail VPK install with 0x8010113D.
 vita_create_vpk(vita_moonlight_paf.vpk "VLMP00001" ${PROJECT_NAME}.self
   VERSION "01.00"
   NAME "Vita Moonlight PAF UI"
