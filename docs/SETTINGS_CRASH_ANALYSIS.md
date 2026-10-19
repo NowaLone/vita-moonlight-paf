@@ -169,7 +169,7 @@ This is a diagnostic packaging hypothesis, not a proven ioPlus-free fix.
 - No deployment, installation, plugin change or new Vita test was performed
   by the agent.
 
-### Hardware test still required
+### Original category-test procedure
 
 1. Keep backups of the existing savedata and both moonlight data directories;
    do not clear or migrate them for this experiment. Install the gdc test VPK
@@ -189,3 +189,102 @@ reboot; record the result without changing another packaging parameter at
 the same time. If it succeeds, report category as verified on this one
 firmware/device only after the persistence checks. Cross-firmware behavior
 and the precise firmware policy remain unverified.
+
+## Negative category result and targeted diagnostics (2026-10-19)
+
+The user reports that after reinstalling the test application and disabling
+ioPlus, the problem recurred. This is a negative result for category alone;
+it is not evidence that the entire native Settings architecture is wrong.
+No new dump, package hash or filesystem/loader return codes accompanied
+this report. Persistence and streaming tests could not be completed through
+the crashing Settings flow.
+
+The category experiment is therefore removed from the normal configuration.
+`CATEGORY=gd` is explicit: VitaSDK stores `VITA_MKSFOEX_FLAGS` in CMakeCache,
+so merely removing `-s CATEGORY=gdc` from source left gdc in an existing
+build directory during validation. The explicit final gd value overrides
+that inherited flag; both final packaged SFOs were inspected.
+
+Review of [HENkaku's parse_headers_patched](https://github.com/henkaku/henkaku/blob/master/plugin/kernel.c)
+shows that, when unsafe homebrew is allowed, both its standard unsafe-ID
+branch and its custom-ID branch grant extended permissions; the latter also
+copies the requested authority ID. This does not identify the resulting
+firmware filesystem overlays or demonstrate that our custom ID is wrong.
+No authority ID, SAFE mode or alternate AppSettings loader is being tried.
+
+### Diagnostic scope
+
+`MOONLIGHT_SETTINGS_DIAGNOSTICS` is an explicit CMake option, default OFF.
+The normal Debug log toggle remains default-off. When this build option is
+enabled, **only** messages beginning `[SettingsDiag] ` are allowed through
+`vita_debug_log` independently of that toggle, because loading Settings must
+work before its toggle could normally be applied. Other logs retain their
+existing toggle behavior. All output is console-only, with no per-frame work.
+
+The diagnostic build records:
+
+- Real `sceIoMkdir` return values for the existing startup host-path attempts
+  and the path selected. It does not add directory creation or change fallback
+  decisions. `0x80010011` (already exists) remains an accepted result.
+- `sceIoGetstat`, read-only `sceIoOpen`, four-byte read and close results for
+  `vs0:vsh/common/app_settings.suprx` and `app_settings_plugin.rco`, before
+  the original plugin load. It does not modify either system file.
+- Four instruction words of the existing PluginSetParamCB import stub, before
+  LoadSync and after it returns. The earlier dump omitted this code memory.
+- Literal BXCE, INI processor and Common GUI Dialog load return values, using
+  the same calls in the same order as before.
+- Whether the original LoadSync returned and whether Find sees the plugin.
+
+This does not add an independent load/start call for AppSettings or catch
+an exception inside PAF. A missing final line is consistent with failure
+within LoadSync; the dependency return codes are not the AppSettings loader
+return code. Successful user-mode file access does not prove loader approval,
+start success or import rebinding. Read probes and output may alter timing,
+so a changed symptom must be recorded rather than called a fix.
+
+### Reproduce the diagnostic build
+
+Run from the repository root with the normal VitaSDK environment:
+
+```bash
+bash build_cxml.sh
+mkdir -p build/settings-diagnostics
+cp build/vita_moonlight_ui.rco build/settings-diagnostics/
+cmake -S . -B build/settings-diagnostics -DCMAKE_BUILD_TYPE=Release -DMOONLIGHT_SETTINGS_DIAGNOSTICS=ON
+cmake --build build/settings-diagnostics --parallel 4
+```
+
+Install **`build/settings-diagnostics/vita_moonlight_paf.vpk`**; the ordinary
+`build/vita_moonlight_paf.vpk` does not enable the probes. Its matching ELF is
+in the same diagnostic directory. The normal build directory keeps the
+option OFF. Manifest hashes are stored under the diagnostic directory.
+
+Connect the existing psp2shell console, for example in interactive mode:
+
+```bash
+psp2shell_cli 192.168.1.135 3333
+```
+
+Capture startup if possible, and connect before selecting Settings so the
+pre-LoadSync messages are captured even if the app crashes. Do not use the
+CLI's one-shot commands to collect this output: the installed CLI previously
+crashed locally on a one-shot disconnect. The console requires the existing
+psp2shell plugins to be active on the device; no plugin installation or
+configuration was changed by the agent.
+
+Run first without ioPlus and then with ioPlus, fully rebooting as needed and
+ensuring HENkaku is active. Keep this same diagnostic VPK, other plugins and
+saved data unchanged. Return the `[SettingsDiag]` lines from both runs.
+If no console output is available, resolve capture first rather than trying
+another authority ID or deleting settings.
+
+### Validation
+
+- Normal `bash build.sh` and the separate opt-in CMake build completed.
+- VPK ZIP integrity, `CATEGORY=gd`, authority ID `0x2F00000000000101`, packaged
+  SELF equality and debug-ELF equality were checked for both variants.
+- Diagnostic marker strings are absent from the normal ELF and present in
+  the enabled ELF. Existing legacy/linker warnings remain; build success is
+  not Vita verification.
+- `git diff --check` passed. No deployment or new Vita run was performed.
+  The next required evidence is the paired diagnostic output above.

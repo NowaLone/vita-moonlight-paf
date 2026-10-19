@@ -41,16 +41,26 @@ occurs **after selecting Settings**, and supplied a textual crash report followe
   resolves the problem; NetStream/BHBB reportedly open Settings without it. This supports an I/O
   environment dependency, not a proven category/authority-ID cause. The ux0/uma0 path selection
   still requires separate verification and actual filesystem error codes if it remains wrong.
-- [ ] Test the isolated `CATEGORY=gd → gdc` packaging experiment without ioPlus. NetStream and
+- [x] Run the isolated `CATEGORY=gd → gdc` packaging experiment without ioPlus. **Negative device
+  result (2026-10-19): user reinstalled, disabled ioPlus and reproduced the problem.** Category
+  alone is not a demonstrated fix. NetStream and
   BHBB use gdc; our default was gd. Only `VITA_MKSFOEX_FLAGS` changes; authority ID, SELF flags,
   runtime and storage remain unchanged. `bash build.sh` passed; VPK comparison confirmed that
   only the SFO CATEGORY value differs and eboot/ELF/resources are byte-identical to the gd control.
   Artifacts are under `build/category-test/{gd,gdc}/`, with a hash manifest. Full procedure and
   results are in [docs/SETTINGS_CRASH_ANALYSIS.md](docs/SETTINGS_CRASH_ANALYSIS.md).
-- Next evidence: install the gdc VPK on the known device without ioPlus and test Settings opening,
-  persistence after full app restart, actual host-storage path, then streaming/PS lifecycle.
-  If it fails, obtain the AppSettings load/start result or matching firmware code with an exact
-  VPK/ELF pair. No deployment or new hardware test was performed by the agent.
+- Category has been restored explicitly to `gd` so inherited CMake cache flags cannot keep gdc.
+  Added default-off `MOONLIGHT_SETTINGS_DIAGNOSTICS`: startup mkdir results, read-only access
+  probes for the native AppSettings module/resource, dependency load returns and SetParam import
+  words all go through `vita_debug_log` with prefix `[SettingsDiag]`. Only that prefix bypasses
+  the normal log toggle in this explicitly enabled diagnostic build; ordinary logging stays off
+  by default. No streaming/file logger or alternate module loader was added.
+- [ ] Next evidence: capture `[SettingsDiag]` from `build/settings-diagnostics/` with ioPlus
+  disabled, then enabled, on otherwise unchanged 3.60 HENkaku. Interpret filesystem return codes
+  before changing authority IDs or loader behavior. Accessible files do not prove module start
+  succeeded. The raw loader result is still not intercepted inside PAF.
+  Both normal and opt-in diagnostic builds passed locally; device behavior remains pending.
+  No deployment or plugin change was performed by the agent.
   Do not change InitialRefreshTask, SELF authorization, storage formats or callback lifetime
   speculatively. SAFE/AppSettings module research remains closed.
 

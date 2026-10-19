@@ -3,6 +3,11 @@
 #include <string.h>
 #include <paf.h>
 
+#ifdef MOONLIGHT_SETTINGS_DIAGNOSTICS
+#include <psp2/io/fcntl.h>
+#include <psp2/io/stat.h>
+#endif
+
 #include "common.h"
 #include "debug.h"
 #include "moonlight/settings.h"
@@ -148,11 +153,55 @@ static int32_t on_get_surface(paf::graph::Surface **, const char *)
     return SCE_OK;
 }
 
+#ifdef MOONLIGHT_SETTINGS_DIAGNOSTICS
+// Explicit diagnostic builds only: Settings cannot enable its own debug toggle
+// if loading the native plugin crashes. Keep these probes read-only and console-only.
+static void trace_settings_file(const char *path)
+{
+    SceIoStat stat;
+    int stat_result = sceIoGetstat(path, &stat);
+    SceUID fd = sceIoOpen(path, SCE_O_RDONLY, 0);
+    unsigned char header[4] = {};
+    int read_result = fd >= 0 ? sceIoRead(fd, header, sizeof(header)) : fd;
+    int close_result = fd >= 0 ? sceIoClose(fd) : 0;
+    vita_debug_log("[SettingsDiag] file path=%s stat=0x%08x open=0x%08x read=%d close=0x%08x magic=%02x%02x%02x%02x",
+        path, (unsigned)stat_result, (unsigned)fd, read_result, (unsigned)close_result,
+        (unsigned)header[0], (unsigned)header[1], (unsigned)header[2], (unsigned)header[3]);
+}
+
+static void trace_settings_import()
+{
+    uintptr_t stub = reinterpret_cast<uintptr_t>(sce::AppSettings::PluginSetParamCB) & ~uintptr_t(1);
+    uint32_t words[4];
+    memcpy(words, reinterpret_cast<const void *>(stub), sizeof(words));
+    vita_debug_log("[SettingsDiag] SetParam import=0x%08x words=%08x,%08x,%08x,%08x",
+        (unsigned)stub, (unsigned)words[0], (unsigned)words[1],
+        (unsigned)words[2], (unsigned)words[3]);
+}
+#endif
+
+static void load_settings_dependency(SceSysmoduleInternalModuleId id)
+{
+    int result = sceSysmoduleLoadModuleInternal(id);
+#ifdef MOONLIGHT_SETTINGS_DIAGNOSTICS
+    vita_debug_log("[SettingsDiag] dependency id=0x%08x result=0x%08x",
+        (unsigned)id, (unsigned)result);
+#else
+    (void)result;
+#endif
+}
+
 static int load_plugin()
 {
-    sceSysmoduleLoadModuleInternal(SCE_SYSMODULE_INTERNAL_BXCE);
-    sceSysmoduleLoadModuleInternal(SCE_SYSMODULE_INTERNAL_INI_FILE_PROCESSOR);
-    sceSysmoduleLoadModuleInternal(SCE_SYSMODULE_INTERNAL_COMMON_GUI_DIALOG);
+#ifdef MOONLIGHT_SETTINGS_DIAGNOSTICS
+    vita_debug_log("[SettingsDiag] build=%s native plugin load begin", MOONLIGHT_GIT_COMMIT);
+    trace_settings_file("vs0:vsh/common/app_settings.suprx");
+    trace_settings_file("vs0:vsh/common/app_settings_plugin.rco");
+    trace_settings_import();
+#endif
+    load_settings_dependency(SCE_SYSMODULE_INTERNAL_BXCE);
+    load_settings_dependency(SCE_SYSMODULE_INTERNAL_INI_FILE_PROCESSOR);
+    load_settings_dependency(SCE_SYSMODULE_INTERNAL_COMMON_GUI_DIALOG);
 
     paf::Plugin::InitParam param;
     param.name = "app_settings_plugin";
@@ -167,6 +216,11 @@ static int load_plugin()
     param.draw_priority = 0x96;
 
     paf::Plugin::LoadSync(param);
+#ifdef MOONLIGHT_SETTINGS_DIAGNOSTICS
+    vita_debug_log("[SettingsDiag] native plugin LoadSync returned found=%d",
+        paf::Plugin::Find("app_settings_plugin") != NULL ? 1 : 0);
+    trace_settings_import();
+#endif
     return paf::Plugin::Find("app_settings_plugin") != NULL ? 0 : -1;
 }
 

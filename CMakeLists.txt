@@ -29,7 +29,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g3 -Wl,-q -Wall -O0 -fno-inline -fno-builti
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -fno-rtti -fno-exceptions -Wl,-q -Wall -O0 -fno-builtin -fshort-wchar -Wno-unused-function -Wno-sign-compare")
 
 set(VITA_MKSFOEX_FLAGS
-    "${VITA_MKSFOEX_FLAGS} -d ATTRIBUTE=33472 -d ATTRIBUTE_MINOR=16 -s CATEGORY=gdc"
+    "${VITA_MKSFOEX_FLAGS} -d ATTRIBUTE=33472 -d ATTRIBUTE_MINOR=16 -s CATEGORY=gd"
 )
 
 # Keep the PAF build's known-working authority ID. Device testing reported that
@@ -141,6 +141,11 @@ add_executable(${PROJECT_NAME}
   ${MOONLIGHT_COMMON_SOURCES}
   ${ENET_SOURCES}
 )
+
+option(MOONLIGHT_SETTINGS_DIAGNOSTICS "Trace native Settings and host-directory access to psp2shell" OFF)
+if(MOONLIGHT_SETTINGS_DIAGNOSTICS)
+  target_compile_definitions(${PROJECT_NAME} PRIVATE MOONLIGHT_SETTINGS_DIAGNOSTICS=1)
+endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
