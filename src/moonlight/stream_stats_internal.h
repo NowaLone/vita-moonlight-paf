@@ -23,6 +23,9 @@ void moonlight_stats_prepared(uint32_t generation, uint64_t prepare_us,
     uint64_t vblank_us, unsigned int width, unsigned int height, unsigned int pitch);
 void moonlight_stats_queued(uint32_t generation, int replaced);
 void moonlight_stats_presented(uint32_t generation, uint64_t queue_us, uint64_t cpu_us);
+uint32_t moonlight_stats_configure_audio(int sample_rate, int channels);
+void moonlight_stats_audio_decode(uint32_t generation, uint64_t call_us, int failed);
+void moonlight_stats_audio_output(uint32_t generation, uint64_t call_us, int failed);
 int moonlight_stats_snapshot(MoonlightStreamStats *out);
 
 #ifdef __cplusplus

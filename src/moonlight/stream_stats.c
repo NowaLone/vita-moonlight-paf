@@ -13,6 +13,8 @@ enum TimingIndex {
     TIMING_VBLANK,
     TIMING_PAF_QUEUE,
     TIMING_PAF_CPU,
+    TIMING_AUDIO_DECODE,
+    TIMING_AUDIO_OUTPUT,
     TIMING_COUNT
 };
 
@@ -257,6 +259,39 @@ static double ratio(uint64_t numerator, uint64_t denominator, double scale)
     return denominator ? (double)numerator * scale / (double)denominator : 0.0;
 }
 
+uint32_t moonlight_stats_configure_audio(int sample_rate, int channels)
+{
+    uint32_t generation;
+    pthread_mutex_lock(&s_mutex);
+    s_session.audio_sample_rate = sample_rate;
+    s_session.audio_channels = channels;
+    generation = s_session.active && s_session.enabled ? s_session.generation : 0;
+    pthread_mutex_unlock(&s_mutex);
+    return generation;
+}
+
+void moonlight_stats_audio_decode(uint32_t generation, uint64_t call_us, int failed)
+{
+    if (begin_update(generation)) {
+        note_timing(TIMING_AUDIO_DECODE, call_us);
+        if (failed) {
+            ++s_session.audio_decode_errors;
+        }
+        pthread_mutex_unlock(&s_mutex);
+    }
+}
+
+void moonlight_stats_audio_output(uint32_t generation, uint64_t call_us, int failed)
+{
+    if (begin_update(generation)) {
+        note_timing(TIMING_AUDIO_OUTPUT, call_us);
+        if (failed) {
+            ++s_session.audio_output_errors;
+        }
+        pthread_mutex_unlock(&s_mutex);
+    }
+}
+
 static MoonlightTimingStats timing_snapshot(enum TimingIndex index)
 {
     Timing *a = &s_current.timing[index];
@@ -321,6 +356,8 @@ int moonlight_stats_snapshot(MoonlightStreamStats *out)
     out->vblank = timing_snapshot(TIMING_VBLANK);
     out->paf_queue = timing_snapshot(TIMING_PAF_QUEUE);
     out->paf_cpu = timing_snapshot(TIMING_PAF_CPU);
+    out->audio_decode = timing_snapshot(TIMING_AUDIO_DECODE);
+    out->audio_output = timing_snapshot(TIMING_AUDIO_OUTPUT);
     pthread_mutex_unlock(&s_mutex);
     return 0;
 }

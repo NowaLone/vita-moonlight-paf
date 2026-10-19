@@ -9,6 +9,7 @@
 #include <Limelight.h>
 
 #include "debug.h"
+#include "stream_stats_internal.h"
 
 enum {
     VITA_AUDIO_INIT_OK = 0,
@@ -25,11 +26,13 @@ static int s_port = -1;
 static int s_active = 0;
 static OpusMSDecoder *s_decoder = NULL;
 static short s_buffer[BUFFER_SIZE];
+static uint32_t s_stats_generation;
 
 static void vita_audio_cleanup(void)
 {
     s_active = 0;
     s_decode_offset = 0;
+    s_stats_generation = 0;
 
     if (s_decoder != NULL) {
         opus_multistream_decoder_destroy(s_decoder);
@@ -133,6 +136,9 @@ static int vita_audio_init(
         opus_config->coupledStreams,
         s_port);
 
+    s_stats_generation = moonlight_stats_configure_audio(
+        opus_config->sampleRate, opus_config->channelCount);
+
     return VITA_AUDIO_INIT_OK;
 }
 
@@ -154,11 +160,14 @@ static void vita_audio_decode_and_play_sample(
     int length)
 {
     int decoded;
+    const uint32_t generation = s_stats_generation;
+    uint64_t start_us;
 
     if (!data || length <= 0 || !s_decoder || s_port < 0 || !s_active) {
         return;
     }
 
+    start_us = generation ? LiGetMicroseconds() : 0;
     decoded = opus_multistream_decode(
         s_decoder,
         data,
@@ -166,6 +175,11 @@ static void vita_audio_decode_and_play_sample(
         s_buffer + 2 * s_decode_offset,
         FRAME_SIZE,
         0);
+
+    if (generation) {
+        moonlight_stats_audio_decode(generation, LiGetMicroseconds() - start_us,
+            decoded != FRAME_SIZE);
+    }
 
     if (decoded > 0) {
         if (decoded != FRAME_SIZE) {
@@ -178,8 +192,14 @@ static void vita_audio_decode_and_play_sample(
         s_decode_offset += decoded;
 
         if (s_decode_offset == VITA_SAMPLES) {
+            int output_result;
             s_decode_offset = 0;
-            sceAudioOutOutput(s_port, s_buffer);
+            start_us = generation ? LiGetMicroseconds() : 0;
+            output_result = sceAudioOutOutput(s_port, s_buffer);
+            if (generation) {
+                moonlight_stats_audio_output(generation, LiGetMicroseconds() - start_us,
+                    output_result < 0);
+            }
         }
     } else {
         vita_debug_log(

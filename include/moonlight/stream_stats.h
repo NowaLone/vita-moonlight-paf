@@ -55,6 +55,12 @@ typedef struct MoonlightStreamStats {
     MoonlightTimingStats vblank;
     MoonlightTimingStats paf_queue;
     MoonlightTimingStats paf_cpu;
+    int audio_sample_rate;
+    int audio_channels;
+    uint64_t audio_decode_errors;
+    uint64_t audio_output_errors;
+    MoonlightTimingStats audio_decode;
+    MoonlightTimingStats audio_output;
 } MoonlightStreamStats;
 
 #endif
