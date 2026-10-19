@@ -1,3 +1,16 @@
+# Agent Workflow
+
+These maintainer rules apply to all work in this repository:
+
+1. **Commit immediately after each completed logical change.** Review the diff and run applicable
+   non-build checks, then create the commit without waiting for another request. Include only the
+   task's changes. This standing authorization covers commits, not push or destructive Git operations.
+2. **Do not run builds.** The maintainer builds the project. Do not run application/resource compilation,
+   CMake configure/build, Make, packaging or rebuild/deployment scripts, including `build.sh`,
+   `build_cxml.sh` and `dev-build-run.sh`. Use non-build checks and clearly report build/hardware
+   validation as pending until the maintainer provides results. Build commands below are reference
+   instructions for the maintainer, not commands for the agent to execute.
+
 # Project Overview
 
 Vita Moonlight PAF is a native PS Vita application built with Sony's PAF framework. It provides a system-style frontend for the Moonlight/GameStream stack and currently has working host discovery, host persistence, pairing, application listing, and game streaming.

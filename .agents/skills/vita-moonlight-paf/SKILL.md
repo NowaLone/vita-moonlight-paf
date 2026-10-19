@@ -1,6 +1,6 @@
 ---
 name: vita-moonlight-paf
-description: Work on the Vita Moonlight PAF repository: PS Vita PAF UI, CXML resources, Moonlight/GameStream services and backend, host persistence, streaming lifecycle, Vita input, builds, validation, and roadmap tasks. Use whenever implementing, debugging, reviewing, or documenting this project.
+description: "Work on the Vita Moonlight PAF repository: PS Vita PAF UI, CXML resources, Moonlight/GameStream services and backend, host persistence, streaming lifecycle, Vita input, builds, validation, and roadmap tasks. Use whenever implementing, debugging, reviewing, or documenting this project."
 compatibility: Repository-specific skill for NowaLone/vita-moonlight-paf; Vita hardware validation and builds require the appropriate PS Vita SDK/toolchain.
 metadata:
   version: "1.0.0"
@@ -85,23 +85,16 @@ Do not reopen these completed UI checks as TODO items without new evidence of a 
 
 ### Build
 
-For C/C++ changes or a full validation, use:
-
-```bash
-bash build.sh
-```
-
-CXML changes require rebuilding the resource first; `build.sh` calls `build_cxml.sh`, or run it explicitly:
-
-```bash
-bash build_cxml.sh
-```
-
-The build needs VITASDK, `vitasdk-paf-component` and `psp2cxml-tool`. Deployment additionally uses `psp2shell_cli` and a configured Vita address. Never report build success unless the command completed successfully in the actual environment. If the toolchain is unavailable, say exactly what could not be checked.
+The maintainer runs builds; the agent must not run application/resource compilation, CMake
+configure/build, Make, packaging or rebuild/deployment scripts (`build.sh`, `build_cxml.sh`,
+`dev-build-run.sh`). The commands in README/AGENTS are maintainer reference only. Review source/diffs
+and run applicable non-build checks instead. Leave build and hardware validation pending until the
+maintainer supplies results, and distinguish their results from checks run by the agent.
 
 ### Runtime validation
 
-There is no established automated unit/integration test suite. Validate according to the affected layer:
+There is no established automated unit/integration test suite. The maintainer validates device behavior
+according to the affected layer:
 
 - CXML/layout, PAF focus and widget state: run on a real Vita.
 - Discovery, pairing and host store: exercise successful and failed cases and inspect logs.
@@ -116,9 +109,9 @@ Separate completed checks from recommended but unrun checks in the final report.
 Unless the user reprioritizes, work in this order:
 
 1. **Streaming lifecycle and motion input:** exercise the full connection-to-shutdown journey on Vita, including failures/recovery and gyroscope/accelerometer reporting.
-2. **Reproducible build:** record exact supported VITASDK, `vitasdk-paf-component` and `psp2cxml-tool` revisions; document a clean setup and validate a fresh build.
+2. **Reproducible build:** record exact supported VITASDK, `vitasdk-paf-component` and `psp2cxml-tool` revisions; document a clean setup for the maintainer to validate with a fresh build.
 3. **Technical risks and tests:** investigate `[Main] RefreshHosts ... after_insert=` when duplicates are reproduced. Compare `after_insert` to `hosts` and distinguish stale PAF ListView cells from duplicate persistent records before changing code. Add focused tests for hardware-independent logic such as host identity resolution, pairing-result classification and persistence decisions where feasible.
-4. **Release readiness:** review license/attribution obligations before selecting a license; document installation/compatibility; define versioning and release checklist; clean-build and smoke-test the release candidate on Vita.
+4. **Release readiness:** review license/attribution obligations before selecting a license; document installation/compatibility; define versioning and a release checklist with maintainer-run clean build and Vita smoke test.
 
 Use `ROADMAP.md` for completion criteria and current checkboxes. Mark work complete only when evidence exists. Do not treat the full roadmap as an invitation to perform unrelated refactors.
 
@@ -127,7 +120,7 @@ Use `ROADMAP.md` for completion criteria and current checkboxes. Mark work compl
 1. State the intended narrow scope internally and inspect the relevant callers/resources before editing.
 2. Make a minimal change preserving public interfaces and storage formats unless the task explicitly requires otherwise.
 3. Review the diff for unrelated edits, architecture leaks, generated files and secrets.
-4. Run the most relevant available checks. For XML/UI or Vita-native behavior, distinguish compilation from hardware verification.
+4. Run applicable non-build checks. The maintainer owns compilation and hardware verification; report those as pending until results are supplied.
 5. Update `AGENTS.md`, `README.md`, `ROADMAP.md` or `docs/UI.md` (for any UI change, in the same commit) only when the documented fact, procedure or project status actually changes. Keep one canonical roadmap rather than duplicating its full checklist elsewhere.
-6. Commit small changes on `master` when repository-write access and the user's request permit it. If the environment uses pull requests or prohibits direct commits, follow its policy instead.
+6. Immediately commit each completed logical change on `master` after diff review and applicable non-build checks; the maintainer has given standing authorization, so do not wait for a separate commit request. Include only the task's changes. Push and destructive Git operations still require an explicit request.
 7. Report: files/behavior changed, the commit or diff link, checks actually run, and unverified behavior/blockers. Be concise and explicit; never imply that a test passed just because code was edited.
