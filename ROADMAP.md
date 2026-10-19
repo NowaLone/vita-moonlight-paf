@@ -55,6 +55,31 @@ and successful return to the same Vita game session. This verifies frontend coex
 on that device/game; streaming and broader compatibility remain open. These are
 user-run device results; no agent build/device test ran.
 
+The user's subsequent stream attempt on `7e20e94` completed launch and RTSP but
+failed at stage 8 (control stream establishment), before the Vita video setup
+callback. Kernel allocation/thread creation failed; pthread returned 11. USER_RW
+free/total was 1328/32768 KiB before setup and 292/32768 KiB at the failure snapshot.
+Common-c requests a 1 MiB stack for each transport thread, and control startup
+creates multiple such threads. The log does not identify the failing thread or
+establish a leak from this early post-unwind sample.
+
+The system profile now applies a project-owned pthread adapter only to common-c
+`Platform.c`: 128 KiB stacks, checked setup, attribute cleanup and named `[Thread]`
+creation logs. Normal-profile thread sizes, dependency revisions, protocol flow and
+SELF/heap budgets are unchanged. Preprocessor-fixture, interpreted adapter failure-path,
+isolated CMake selection and whitespace checks passed. No agent compilation or device
+test ran. Device retest must establish stack sufficiency and whether stage 8 advances;
+the separate mode-A/PHYCONT/CDRAM streaming blockers remain open.
+
+The next user capture confirms the adapter is active: AudioPing plus ControlRecv,
+LossStats, ReqIdrFrame and CtrlAsyncCb all report 131072-byte stacks and successful
+creation; stage 8 completes. Stage 9 then reaches the video setup callback and
+`sceVideodecInitLibrary()` fails with `0x80620840`. Mode remains A with zero PHYCONT,
+zero free CDRAM and 648 KiB USER_RW free. The error is not named by the installed
+VitaSDK videodec header, so do not relabel it as that header's out-of-memory error
+(`0x80620803`). The thread-allocation blocker is passed in this test; long-session
+stack sufficiency and the separate video/system-mode constraints remain unresolved.
+
 - [x] Prototype an opt-in system-mode package with bounded newlib/PAF allocations and
   budget diagnostics; verify the frontend opens without closing a suspended Vita game.
 - [ ] Establish a measured decoder/graphics budget and validate streaming, native Settings,

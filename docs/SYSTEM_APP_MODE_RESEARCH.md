@@ -327,3 +327,76 @@ decoder reservation from this snapshot. A subsequent streaming-capable profile m
 establish an available physical budget/mode and output-buffer memory while retaining
 the game. Record decoder setup requirements and real allocation outcomes separately.
 No code or budget change was made in response to this Main/Settings-only report.
+
+### Follow-up: streaming fails on thread creation before decoder setup
+
+The next user capture from `7e20e940a52b` reaches successful host launch, RTSP and
+initialization of control/video/input transport state. It fails in stage 8, control
+stream establishment. `sceKernelCreateThread` reports an allocation failure and
+`PTE_OS_GENERAL_FAILURE: 80024302`; the pthread caller returns 11. The video setup
+callback (`[Memory] video-before-setup`) has not run. This capture therefore proves
+a thread-memory failure before AVC allocation, not a decoder memory-size result.
+
+Before setup the snapshot has 1328 KiB USER_RW free; after the failed setup/unwind
+snapshot it has 292 KiB. Newlib's arena changes from 217088 to 229376 bytes. Those
+small arena counters do not represent kernel thread-stack allocations. The snapshot
+also precedes exit of the session owner and possible deferred runtime cleanup; one
+sample is insufficient to conclude that thread stacks leaked. The kernel allocation
+messages alone do not identify which control thread failed.
+
+The checked common-c `Platform.c` requests `0x100000` stack bytes for every POSIX
+transport thread. `startControlStream()` creates ControlRecv, LossStats, ReqIdrFrame,
+CtrlAsyncCb and optionally InvRefFrames. Four 1 MiB requests cannot fit the reported
+1.3 MiB headroom. This is separate from the future PHYCONT/CDRAM requirements.
+
+The source change uses a narrow, project-owned adapter:
+
+- Only when `MOONLIGHT_SYSTEM_APP=ON`, CMake force-includes
+  `moonlight/vita_transport_threads.h` into the dependency's `Platform.c` and adds
+  `src/moonlight/vita_transport_threads.c` to the application.
+- The header includes pthread declarations first, preserves Platform.c's early
+  `_GNU_SOURCE` definition, and redirects only attribute initialization, stack-size
+  setting and thread creation call sites in that one translation unit.
+- The adapter sets 128 KiB stacks, verifies the resulting size before creation,
+  destroys the caller's attributes after the attempt, and returns setup/create
+  errors to common-c. It preserves common-c's ownership of the entry context and
+  its existing failure unwind. A failed initialization cannot cause an unchecked
+  fallback to a default stack.
+- `[Thread] <name> stack_bytes=... create_result=...` uses the existing debug logger.
+  There is no new worker, per-frame log, protocol change or dependency modification.
+  Other application workers, the ordinary profile and the submodule revision stay unchanged.
+
+The header is an integration adapter for the currently pinned Platform.c call pattern,
+not a general pthread replacement. Recheck its three call sites and attribute ownership
+when updating common-c. The ordinary profile continues to use the dependency directly.
+
+For four control threads the requested stack capacity falls from 4096 to 512 KiB,
+a 3584 KiB reduction. This arithmetic does not prove the stacks are sufficient for
+all callback/crypto/decoder workloads, or that the whole stream fits the system
+budget. No heap or SELF budget is changed. Build/install the full system-profile VPK
+and check named creation results, progression beyond stage 8, subsequent allocation
+errors, input, host/network loss and repeated failure/reconnect/stop. The renderer's
+zero PHYCONT and unavailable CDRAM remain separate unresolved constraints.
+
+Non-build checks: preprocessing a small call-site fixture verified the three macro
+redirects and unmodified pthread declarations; the adapter implementation's C AST was
+interpreted with injected init/stack-setting/stack-query/create failures and success
+to check returned errors, creation gating and attribute ownership. Actual CMake
+source-selection blocks ran in isolated script mode for ON/OFF; the dependency tree
+and diff whitespace were checked. These are not compiler/SDK type checks. No application
+compilation, project configure, packaging, deployment or hardware test was run.
+
+The user's next live-worktree build reports AudioPing, ControlRecv, LossStats,
+ReqIdrFrame and CtrlAsyncCb all created with `stack_bytes=131072 create_result=0`.
+Stage 8 completes and stage 9 reaches `video-before-setup`, so the reported transport
+thread-creation blocker is passed on this run. The log identifies HEAD `5940b72`
+because the adapter changes were still uncommitted when the user built; the named
+thread lines establish that those working-tree changes were included.
+
+Video initialization then fails in `sceVideodecInitLibrary()` with `0x80620840`, before
+the decoder memory-size query or external framebuffer allocation. The installed SDK
+enum does not name that error (its ordinary out-of-memory code is `0x80620803`).
+Do not assign an exact meaning without another primary reference. The snapshot is
+still mode A, PHYCONT 0/0, CDRAM 0/16384 and USER_RW 648/32768 KiB. These independent
+resource constraints remain. The successful setup interval does not establish
+128 KiB stack safety over a complete stream, failure recovery or long sessions.

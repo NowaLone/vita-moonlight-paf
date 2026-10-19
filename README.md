@@ -204,6 +204,11 @@ replacing only the SELF, so the changed launch metadata is promoted. Then test
 opening Moonlight with a Vita game suspended and returning to that same game session.
 Streaming coexistence is unverified; physical reservation defaults to zero.
 
+The system profile bounds common-c transport thread stacks to 128 KiB (the ordinary
+profile requests 1 MiB each). `[Thread]` logs report each thread name, stack bytes
+and creation result. This addresses the reported pre-decoder thread-memory failure
+experimentally; stack sufficiency and later PHYCONT/CDRAM allocations still need Vita tests.
+
 `dev-build-run.sh -DMOONLIGHT_SYSTEM_APP=ON` forwards the option, builds the VPK and
 stops with installation instructions. It deliberately skips SELF-only deployment
 for this profile. Its clean rebuild removes any cached selection, so supply ON
