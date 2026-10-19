@@ -87,6 +87,15 @@ along with the already-freed decoder input buffer. The parser destructor also fr
 its owned slice-data object/buffer. Interpreted cleanup-path checks passed; build,
 repeated failed setup and allocation-baseline checks on Vita remain pending.
 
+On 2026-10-20 the user supplied a decrypted `SceAvcodecUser` ELF. Export/import
+inspection confirms the Nongameapp init/query/create entry points, but their bodies
+only forward unchanged arguments to `SceAvcodec`. They do not expose parameter
+layouts or the budget check. The next required input is the decrypted SceAvcodec
+implementation (`avcodec.skprx.elf`, embedded in the bootimage), or a decrypted
+`os0:kd/bootimage.skprx` ELF for extraction. See the research document for file hash,
+addresses and import NIDs. No guessed ABI, renderer change, build or device test
+was introduced from this wrapper-only evidence.
+
 - [x] Prototype an opt-in system-mode package with bounded newlib/PAF allocations and
   budget diagnostics; verify the frontend opens without closing a suspended Vita game.
 - [ ] Establish a measured decoder/graphics budget and validate streaming, native Settings,

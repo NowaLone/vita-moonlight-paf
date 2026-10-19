@@ -441,3 +441,53 @@ is consistent with retained parser allocations, but the log is not a complete le
 measurement. Check repeated failed attempts against a settled baseline on hardware.
 Non-build checks interpret the actual cleanup paths and parser destructor with tracked
 allocations, including early failure and repeated calls. No agent build/device test ran.
+
+### Supplied SceAvcodecUser ELF inspection (2026-10-20)
+
+The user supplied `avcodec_us.suprx.elf`. Read-only inspection confirms a 9784-byte
+ARM little-endian EABI5 ELF with module name `SceAvcodecUser`, module NID
+`0x5AA351E8` and SHA-256
+`df88faafdbbe11a7baa1b992adf26c46bbf8bbc8308274462b1fc5636fcf3b8f`.
+It has no section/symbol table; its executable LOAD segment is at file offset
+`0xA0`, VA `0x81000000`, size `0x24F0`. The file does not establish a firmware
+version merely from its module version or matching NIDs. The binary is not added
+to the repository.
+
+Module-info export offsets `0xEDC..0x103C` and import offsets `0x103C..0x1084`
+(relative to that segment) locate 56 SceVideodecUser function exports and imports
+from `SceAvcodec` (library NID `0xA166C96E`) and `SceCodecEngineWrapper`.
+The important Nongameapp mappings are:
+
+- InitLibrary: export NID `0x26F3C35D`, Thumb entry `0x810003A1`, calls the
+  import `_sceVideodecInitLibraryNongameapp`, NID `0x3070B3ED`.
+- QueryMemSize: export `0x2D9AE981`, entry `0x81000391`, calls
+  `_sceVideodecQueryMemSizeNongameapp`, NID `0x8B52F56A`.
+- QueryDecoderMemSize: export `0xFA072F66`, entry `0x81000379`, calls
+  `_sceAvcdecQueryDecoderMemSizeNongameapp`, NID `0x6C290F95`.
+- CreateDecoder: export `0x3102196C`, entry `0x81000381`, calls
+  `_sceAvcdecCreateDecoderNongameapp`, NID `0x4099935D`.
+- InitLibraryWithUnmapMem: export `0x108C1FEC`, entry `0x81000399`, calls
+  `_sceVideodecInitLibraryWithUnmapMemNongameapp`, NID `0xE816BAE7`.
+
+All five bodies, plus nine selected ordinary/other Nongameapp exports, are identical
+in shape: save registers, call a matching import, restore/return. They do not read
+arguments or structures, calculate sizes, or contain the budget check. The imported
+addresses have on-disk unresolved import stubs, not the decoder implementation.
+The ordinary InitLibrary similarly forwards to `_sceVideodecInitLibrary`
+(`0xAE511B32`). This establishes the call boundary but not parameter types, exact
+arity, structure sizes, allocation ownership or compatible decode/presentation APIs.
+No API declaration or renderer change is justified from these wrappers alone.
+
+The next implementation needed is `SceAvcodec`, identified as embedded
+`avcodec.skprx.elf` in a bootimage by the original
+[3.60 export research](https://gist.github.com/devnoname120/2975ef91ed5180fe8cf680424ebbde66).
+Obtain a decrypted `os0:kd/bootimage.skprx` as ELF from the same device, then extract
+the embedded module. The [RE tools documentation](https://github.com/TeamFAPS/PSVita-RE-tools#psp2-kernel-bootimage-extract--by-celesteblue-dev-and-zecoxao)
+describes extraction of kernel-module ELFs from `bootimage.elf`; a standalone
+decrypted SceAvcodec ELF is also sufficient. That implementation can show the real
+Nongameapp argument accesses, size checks and budget/memory path.
+
+Checks performed: ELF/program/module metadata decoding, export/import NID matching
+against the installed VitaSDK databases, Thumb disassembly and byte-shape assertions
+on the fourteen selected wrappers/import stubs. No binary execution, firmware/device
+mutation, application build or hardware test occurred. Streaming remains unverified.
