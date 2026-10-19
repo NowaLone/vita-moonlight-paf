@@ -4,8 +4,7 @@
 #include <curl/curl.h>
 #include <psp2/kernel/rng.h>
 #include <pthread.h>
-#include <sys/time.h>
-#include <time.h>
+#include <psp2/kernel/threadmgr.h>
 
 #include <Limelight.h>
 
@@ -38,63 +37,23 @@ struct StreamThreadArgs {
     char unique_path[512];
     int application_id;
     MoonlightSettings settings;
+    uint32_t stats_generation;
 };
 
 static StreamContext s_stream_context = { NULL, NULL, 0 };
-static pthread_t s_stream_thread;
-static volatile int s_stream_thread_running = 0;
-static volatile int s_stream_stop_requested = 0;
-static volatile int s_stream_cancel_requested = 0;
+/* One owner reserves its thread before setup and keeps it until transport teardown. */
+static pthread_mutex_t s_stream_mutex = PTHREAD_MUTEX_INITIALIZER;
+static int s_stream_thread_running = 0;
+static int s_stream_stop_requested = 0;
+static int s_stream_cancel_requested = 0;
+static int s_stream_termination_result = 0;
 
-/* Serialize stats reads with transport retirement; never hold this during LiStopConnection(). */
-static pthread_mutex_t s_stats_transport_mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t s_stats_transport_wakeup = PTHREAD_COND_INITIALIZER;
-static pthread_t s_stats_thread;
-static int s_stats_thread_running = 0;
-static int s_stats_transport_ready = 0;
-static uint32_t s_stats_transport_generation = 0;
-
-static void retire_stats_transport(void)
+static int stream_cancel_requested(void)
 {
-    pthread_t stats_thread;
-    int join_thread;
-    uint32_t generation;
-    pthread_mutex_lock(&s_stats_transport_mutex);
-    s_stats_transport_ready = 0;
-    generation = s_stats_transport_generation;
-    s_stats_transport_generation = 0;
-    join_thread = s_stats_thread_running;
-    if (join_thread) {
-        stats_thread = s_stats_thread;
-        s_stats_thread_running = 0;
-    }
-    pthread_cond_signal(&s_stats_transport_wakeup);
-    pthread_mutex_unlock(&s_stats_transport_mutex);
-    if (join_thread) {
-        pthread_join(stats_thread, NULL);
-    }
-    moonlight_stats_end(generation);
-}
-
-static void *stats_thread_main(void *userdata)
-{
-    const uint32_t generation = (uint32_t)(uintptr_t)userdata;
-    pthread_mutex_lock(&s_stats_transport_mutex);
-    while (s_stats_transport_ready && s_stats_transport_generation == generation) {
-        uint32_t rtt = 0, variation = 0;
-        const int valid = LiGetEstimatedRttInfo(&rtt, &variation);
-        moonlight_stats_network(generation, valid, rtt, variation);
-
-        /* The wait releases the retirement mutex and can be interrupted immediately on stop. */
-        struct timeval now;
-        struct timespec deadline;
-        gettimeofday(&now, NULL);
-        deadline.tv_sec = now.tv_sec + 1;
-        deadline.tv_nsec = now.tv_usec * 1000;
-        pthread_cond_timedwait(&s_stats_transport_wakeup, &s_stats_transport_mutex, &deadline);
-    }
-    pthread_mutex_unlock(&s_stats_transport_mutex);
-    return NULL;
+    pthread_mutex_lock(&s_stream_mutex);
+    int cancelled = s_stream_cancel_requested;
+    pthread_mutex_unlock(&s_stream_mutex);
+    return cancelled;
 }
 
 static size_t write_response(void *contents, size_t size, size_t count, void *userdata)
@@ -116,16 +75,34 @@ static size_t write_response(void *contents, size_t size, size_t count, void *us
     return length;
 }
 
-static void emit_event(
-    MoonlightEventType type,
-    int result)
+static void emit_event(MoonlightEventType type, int result)
 {
-    if (s_stream_context.callback) {
-        s_stream_context.callback(
-            type,
-            result,
-            s_stream_context.userdata);
+    pthread_mutex_lock(&s_stream_mutex);
+    MoonlightStreamEventCallback callback = s_stream_context.callback;
+    void *userdata = s_stream_context.userdata;
+    pthread_mutex_unlock(&s_stream_mutex);
+    if (callback) {
+        callback(type, result, userdata);
     }
+}
+
+/* Publish completion only after cleanup, and never read a subsequent session's callback. */
+static void finish_stream_worker(MoonlightEventType type, int result)
+{
+    pthread_mutex_lock(&s_stream_mutex);
+    MoonlightStreamEventCallback callback = s_stream_context.callback;
+    void *userdata = s_stream_context.userdata;
+    s_stream_context.started = 0;
+    pthread_mutex_unlock(&s_stream_mutex);
+    if (callback) {
+        callback(type, result, userdata);
+    }
+    /* Disconnect cleanup must not overtake the API's stop-event bookkeeping. */
+    pthread_mutex_lock(&s_stream_mutex);
+    s_stream_stop_requested = 0;
+    s_stream_cancel_requested = 0;
+    s_stream_thread_running = 0;
+    pthread_mutex_unlock(&s_stream_mutex);
 }
 
 static void on_stage_start(int stage)
@@ -153,91 +130,27 @@ static void on_stage_failed(int stage, int result)
         result);
 }
 
-static void *stream_stop_thread_main(void *)
-{
-    int was_started;
-
-    vita_debug_log("[Stream] stop worker start");
-
-    retire_stats_transport();
-
-    if (s_stream_context.started) {
-        vita_input_stop();
-    }
-
-    LiStopConnection();
-
-    was_started = s_stream_context.started;
-    s_stream_context.started = 0;
-    s_stream_stop_requested = 0;
-
-    /*
-     * moonlight-common-c deliberately does not invoke
-     * connectionTerminated() after LiStopConnection(). Emit our own
-     * application-level stop event once Limelight has finished cleanup.
-     */
-    if (was_started) {
-        vita_debug_log("[Stream] emitting manual STREAM_STOPPED");
-        emit_event(MOONLIGHT_EVENT_STREAM_STOPPED, 0);
-    }
-
-    vita_debug_log("[Stream] stop worker finished");
-    return NULL;
-}
-
 static void on_connection_started(void)
 {
-    pthread_t stop_thread;
-    int stop_result;
-
+    pthread_mutex_lock(&s_stream_mutex);
     s_stream_context.started = 1;
-    pthread_mutex_lock(&s_stats_transport_mutex);
-    s_stats_transport_ready = 1;
-    MoonlightStreamStats stats;
-    if (moonlight_stats_snapshot(&stats) == 0 && stats.enabled && stats.active &&
-        stats.generation == s_stats_transport_generation) {
-        int result = pthread_create(&s_stats_thread, NULL, stats_thread_main,
-            (void *)(uintptr_t)stats.generation);
-        s_stats_thread_running = result == 0;
-        if (result != 0) {
-            vita_debug_log("[Stream] RTT statistics worker failed=%d", result);
-        }
-    }
-    pthread_mutex_unlock(&s_stats_transport_mutex);
+    pthread_mutex_unlock(&s_stream_mutex);
     vita_input_start();
     vita_debug_log("[Stream] connection started");
     emit_event(MOONLIGHT_EVENT_STREAM_STARTED, 0);
-
-    /* Handle cancellation racing with Limelight's connectionStarted callback. */
-    if (s_stream_cancel_requested && !s_stream_stop_requested) {
-        s_stream_stop_requested = 1;
-        stop_result = pthread_create(
-            &stop_thread,
-            NULL,
-            stream_stop_thread_main,
-            NULL);
-        if (stop_result == 0) {
-            pthread_detach(stop_thread);
-            vita_debug_log("[Stream] cancellation applied after connection start");
-        } else {
-            s_stream_stop_requested = 0;
-            vita_debug_log("[Stream] cancelled connection stop worker failed=%d", stop_result);
-        }
-    }
+    /* A pending cancellation is consumed by the owner as soon as LiStartConnection returns. */
 }
 
 static void on_connection_terminated(int result)
 {
-    retire_stats_transport();
-    vita_debug_log(
-        "[Stream] connection terminated result=%d",
-        result);
-
-    if (s_stream_context.started) {
-        vita_input_stop();
-        emit_event(MOONLIGHT_EVENT_STREAM_STOPPED, result);
+    /* common-c may call from its termination thread; the owner performs all cleanup. */
+    pthread_mutex_lock(&s_stream_mutex);
+    if (s_stream_thread_running) {
+        s_stream_termination_result = result;
+        s_stream_stop_requested = 1;
     }
-    s_stream_context.started = 0;
+    pthread_mutex_unlock(&s_stream_mutex);
+    vita_debug_log("[Stream] connection terminated result=%d; cleanup requested", result);
 }
 
 static void on_status_update(int status)
@@ -510,7 +423,7 @@ static int run_stream_session(
         return -1;
     }
 
-    if (s_stream_cancel_requested) {
+    if (stream_cancel_requested()) {
         vita_debug_log("[Stream] launch cancelled before RTSP setup");
         return -7;
     }
@@ -550,7 +463,7 @@ static int run_stream_session(
             ? server->server_codec_mode_support
             : SCM_H264;
 
-    if (s_stream_cancel_requested) {
+    if (stream_cancel_requested()) {
         vita_debug_log("[Stream] launch cancelled before LiStartConnection");
         return -7;
     }
@@ -566,7 +479,7 @@ static int run_stream_session(
         server_info.serverInfoAppVersion,
         server_info.serverCodecModeSupport);
 
-    if (s_stream_cancel_requested) {
+    if (stream_cancel_requested()) {
         vita_debug_log("[Stream] launch cancelled before LiStartConnection");
         return -7;
     }
@@ -583,7 +496,6 @@ static int run_stream_session(
         0);
 
     if (result != 0) {
-        retire_stats_transport();
         vita_debug_log(
             "[Stream] LiStartConnection failed result=%d",
             result);
@@ -597,28 +509,47 @@ static void *stream_thread_main(void *arg)
     StreamThreadArgs *args = (StreamThreadArgs *)arg;
     int result;
 
-    vita_debug_log(
-        "[Stream] worker start app=%d",
-        args->application_id);
+    vita_debug_log("[Stream] worker start app=%d", args->application_id);
+    result = stream_cancel_requested() ? -7 : run_stream_session(
+        args->server, args->unique_path, args->application_id, &args->settings);
+    vita_debug_log("[Stream] setup finished app=%d result=%d", args->application_id, result);
 
-    result = run_stream_session(
-        args->server,
-        args->unique_path,
-        args->application_id,
-        &args->settings);
-
-    vita_debug_log(
-        "[Stream] worker finished app=%d result=%d",
-        args->application_id,
-        result);
-
-    if (result != 0 && !s_stream_context.started) {
-        retire_stats_transport();
-        emit_event(MOONLIGHT_EVENT_STREAM_FAILED, result);
+    if (result != 0) {
+        /* LiStartConnection unwinds partial setup itself; no active transport remains. */
+        moonlight_stats_end(args->stats_generation);
+        free(args);
+        finish_stream_worker(MOONLIGHT_EVENT_STREAM_FAILED, result);
+        return NULL;
     }
 
+    uint64_t next_stats_us = 0;
+    for (;;) {
+        pthread_mutex_lock(&s_stream_mutex);
+        int stop = s_stream_stop_requested || s_stream_cancel_requested;
+        pthread_mutex_unlock(&s_stream_mutex);
+        if (stop) {
+            break;
+        }
+        if (args->settings.show_fps && LiGetMicroseconds() >= next_stats_us) {
+            uint32_t rtt = 0, variation = 0;
+            int valid = LiGetEstimatedRttInfo(&rtt, &variation);
+            moonlight_stats_network(args->stats_generation, valid, rtt, variation);
+            next_stats_us = LiGetMicroseconds() + 1000000ull;
+        }
+        sceKernelDelayThread(10000);
+    }
+
+    vita_debug_log("[Stream] stop worker start (session owner)");
+    moonlight_stats_end(args->stats_generation);
+    vita_input_stop();
+    /* Never run on a Limelight/input thread, and never allocate a thread to reach here. */
+    LiStopConnection();
+    pthread_mutex_lock(&s_stream_mutex);
+    result = s_stream_termination_result;
+    pthread_mutex_unlock(&s_stream_mutex);
     free(args);
-    s_stream_thread_running = 0;
+    vita_debug_log("[Stream] stop worker finished result=%d", result);
+    finish_stream_worker(MOONLIGHT_EVENT_STREAM_STOPPED, result);
     return NULL;
 }
 
@@ -633,28 +564,38 @@ extern "C" int moonlight_stream_start(
     void *userdata)
 {
     StreamThreadArgs *args;
+    pthread_t stream_thread;
     int result;
 
-    if (!server || !settings || !server->curl || !server->address[0] ||
-        !unique_path) {
+    if (!server || !settings || !server->curl || !server->address[0] || !unique_path) {
         return -1;
     }
-
-    if (s_stream_thread_running) {
-        vita_debug_log("[Stream] start rejected: worker already running");
-        return -2;
-    }
-
     args = (StreamThreadArgs *)malloc(sizeof(*args));
     if (!args) {
         return -3;
     }
+    pthread_mutex_lock(&s_stream_mutex);
+    if (s_stream_thread_running) {
+        pthread_mutex_unlock(&s_stream_mutex);
+        free(args);
+        vita_debug_log("[Stream] start rejected: session owner already running");
+        return -2;
+    }
+    s_stream_thread_running = 1;
+    s_stream_stop_requested = 0;
+    s_stream_cancel_requested = 0;
+    s_stream_termination_result = 0;
+    s_stream_context.callback = callback;
+    s_stream_context.userdata = userdata;
+    s_stream_context.started = 0;
+    pthread_mutex_unlock(&s_stream_mutex);
 
     args->server = server;
     strncpy(args->unique_path, unique_path, sizeof(args->unique_path) - 1);
     args->unique_path[sizeof(args->unique_path) - 1] = '\0';
     args->application_id = application_id;
     args->settings = *settings;
+    args->stats_generation = moonlight_stats_begin(settings);
 
     vita_input_configure(
         settings->controller_type,
@@ -681,97 +622,47 @@ extern "C" int moonlight_stream_start(
         settings->center_region_only,
         settings->enable_ref_frame_invalidation);
 
-    s_stream_context.callback = callback;
-    s_stream_context.userdata = userdata;
-    s_stream_context.started = 0;
-    s_stream_stop_requested = 0;
-    s_stream_cancel_requested = 0;
-
-    retire_stats_transport();
-    pthread_mutex_lock(&s_stats_transport_mutex);
-    s_stats_transport_generation = moonlight_stats_begin(settings);
-    pthread_mutex_unlock(&s_stats_transport_mutex);
-
-    s_stream_thread_running = 1;
-    result = pthread_create(
-        &s_stream_thread,
-        NULL,
-        stream_thread_main,
-        args);
+    result = pthread_create(&stream_thread, NULL, stream_thread_main, args);
     if (result != 0) {
-        s_stream_thread_running = 0;
-        retire_stats_transport();
+        moonlight_stats_end(args->stats_generation);
         free(args);
-        vita_debug_log(
-            "[Stream] pthread_create failed result=%d",
-            result);
+        pthread_mutex_lock(&s_stream_mutex);
         s_stream_context.callback = NULL;
         s_stream_context.userdata = NULL;
+        s_stream_thread_running = 0;
+        pthread_mutex_unlock(&s_stream_mutex);
+        vita_debug_log("[Stream] session owner create failed=%d", result);
         return -4;
     }
-
-    pthread_detach(s_stream_thread);
-
-    vita_debug_log(
-        "[Stream] worker launched for app=%d",
-        application_id);
-
+    pthread_detach(stream_thread);
+    vita_debug_log("[Stream] worker launched for app=%d", application_id);
     return 0;
 }
 
-
 extern "C" int moonlight_stream_stop(void)
 {
-    pthread_t stop_thread;
-    int result;
-
-    /*
-     * The launch/setup worker may already have returned after
-     * LiStartConnection() while Limelight continues streaming on its own
-     * threads. Do not use s_stream_thread_running as the sole indicator
-     * that an active connection can be stopped.
-     */
-    if (!s_stream_thread_running && !s_stream_context.started) {
+    pthread_mutex_lock(&s_stream_mutex);
+    if (!s_stream_thread_running) {
+        pthread_mutex_unlock(&s_stream_mutex);
         vita_debug_log("[Stream] stop ignored: no active or pending session");
         return 0;
     }
-
+    int already_requested = s_stream_stop_requested;
     s_stream_cancel_requested = 1;
-
-    /* Limelight must not be stopped before its connection setup has begun. */
-    if (!s_stream_context.started) {
-        vita_debug_log("[Stream] cancellation requested before connection start");
-        return 0;
-    }
-
-    if (s_stream_stop_requested) {
-        vita_debug_log("[Stream] stop already requested");
-        return 0;
-    }
-
     s_stream_stop_requested = 1;
-    result = pthread_create(&stop_thread, NULL, stream_stop_thread_main, NULL);
-    if (result != 0) {
-        s_stream_stop_requested = 0;
-        vita_debug_log("[Stream] stop worker create failed result=%d", result);
-        return result;
+    pthread_mutex_unlock(&s_stream_mutex);
+    if (!already_requested) {
+        vita_debug_log("[Stream] stop requested for session owner");
     }
-
-    pthread_detach(stop_thread);
-    vita_debug_log("[Stream] stop worker launched");
     return 0;
 }
 
 extern "C" int moonlight_stream_is_running(void)
 {
-    /*
-     * Include the established Limelight connection, not only the detached
-     * launch/setup worker. Disconnect cleanup must wait until stop/termination
-     * has cleared the active connection state.
-     */
-    return (s_stream_thread_running ||
-            s_stream_context.started ||
-            s_stream_stop_requested) ? 1 : 0;
+    pthread_mutex_lock(&s_stream_mutex);
+    int running = s_stream_thread_running;
+    pthread_mutex_unlock(&s_stream_mutex);
+    return running;
 }
 
 extern "C" int moonlight_stream_get_stats(MoonlightStreamStats *out)

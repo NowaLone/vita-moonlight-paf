@@ -7,11 +7,11 @@ This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordere
 Replace the existing FPS-only display with useful stream diagnostics based on the
 user's Moonlight Qt reference. The source-based metric inventory, measurement limits
 and implementation sequence are in [docs/STREAM_DIAGNOSTICS_PLAN.md](docs/STREAM_DIAGNOSTICS_PLAN.md).
-Source implementation is now on `codex/stream-diagnostics`. The FPS-only UI is replaced by an
+Source implementation is now on `codex/stream-diagnostics`. The FPS-only UI is replaced by a
 compact overlay of at most six lines, refreshed independently of video arrival. The existing
 `show_fps` key/default is preserved under the new label `Display stream statistics`. Video/audio
-hooks collect session-tagged counters and rolling timings; RTT is sampled in a joinable worker
-retired before transport cleanup, so UI snapshots do not wait for ENet. Unsupported video RTP/FEC
+hooks collect session-tagged counters and rolling timings; RTT is sampled by the existing session
+owner before transport cleanup, so UI snapshots do not wait for ENet. Unsupported video RTP/FEC
 fields are omitted. Decoder time is explicitly API-call time; PAF submit timing is CPU time, not
 display/GPU completion. Core source and resource checks are complete; all build/device acceptance
 items below remain open, including numerical and performance verification.
@@ -26,7 +26,26 @@ Source review of that failure found repeated `PresentTask` registration with no 
 unregister. PAF call-list entries are persistent (also demonstrated by NetStream's surface-update
 lifecycle), so registrations could grow throughout streaming. Stream now registers one presentation
 callback for its lifetime; the deferred framebuffer release callback also unregisters explicitly.
-This is a concrete resource-growth defect, not proof that it was the only cause of the user's hang.
+This removes an unbounded registration pattern; its contribution to the reported hang still needs
+device confirmation.
+
+The supplied log also proves a separate exit failure: double PS reaches `moonlight_stream_stop()`,
+but `pthread_create` for the stop worker repeatedly returns 11 (`EAGAIN` in the installed SDK).
+That indicates unavailable thread resources; it does not identify which resource was exhausted.
+The launch worker now remains alive for the whole session and owns RTT polling plus teardown.
+Stop and termination callbacks only set mutex-protected requests; no new stop/RTT thread or
+condition-variable wait is needed. The owner calls `vita_input_stop()` / `LiStopConnection()`
+before reporting stopped, retains running/cleanup ownership through API event bookkeeping, and
+rejects another start until it finishes. Partial setup failures still use common-c's own unwind.
+This also addresses the source ownership problem in API audit F1; runtime acceptance stays open.
+
+Non-build checks: XML/style checks for the compact overlay, source registration-count checks,
+session C-subset grammar parsing (not SDK type checking), and interpreted checks of the actual
+state-handler bodies for idle stop, pending cancellation, repeated stop, remote error and final
+completion. No application/resource compilation or device test was run. Re-test a long session,
+double PS after a stall, host/network loss, pending launch cancellation, Quick Actions and repeated
+stop/reconnect with statistics both enabled and disabled. The original freeze is not yet reproduced
+or conclusively attributed to one cause.
 
 - [ ] Implement session-scoped video statistics and safe snapshots: incoming/decoded/PAF-submit
   FPS, host processing latency, estimated missing frames, local drops, ENet RTT/variation,

@@ -184,8 +184,9 @@ stalled-video state remain. Audio/CPU/stride/window/cumulative-counter details a
 `N/A` rows have been removed after the user's device screenshot showed excessive screen coverage.
 The old 928 x 380 panel is superseded; the compact panel is not yet hardware-verified. PAF FPS
 still measures texture submission, not physical presentation.
-RTT is sampled outside PAF in a session-scoped joinable worker, retired before transport cleanup;
-UI snapshots only copy cached statistics. Queue timing includes waiting to acquire the frame mutex.
+RTT is sampled outside PAF by the existing session owner, which also performs transport cleanup;
+UI snapshots only copy cached statistics. There is no separate RTT thread. Queue timing includes
+waiting to acquire the frame mutex.
 See [STREAM_DIAGNOSTICS_PLAN.md](STREAM_DIAGNOSTICS_PLAN.md) for metric definitions and remaining work.
 
 Buttons and lists: `style_image_button_list_button` (list row button with the empty 102 x 70 icon slot),
