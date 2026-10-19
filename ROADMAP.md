@@ -2,6 +2,20 @@
 
 This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordered by risk reduction and release readiness, not by a promise that every item must be completed before development continues. Keep individual changes small and verify device-specific behavior on real PS Vita hardware.
 
+## Requested: launch alongside an existing Vita application (2026-10-19)
+
+Source research compared BetterHomebrewBrowser's system-mode packaging with Moonlight.
+See [docs/SYSTEM_APP_MODE_RESEARCH.md](docs/SYSTEM_APP_MODE_RESEARCH.md). VitaSDK supports
+explicit SELF budgets, but Moonlight currently requests a default 128 MiB newlib heap;
+streaming additionally needs physical-contiguous decoder memory and CDRAM. Changing
+only the SFO category cannot establish coexistence. No runtime/packaging changes or
+agent-run builds/device tests were made.
+
+- [ ] Prototype an opt-in system-mode package with bounded newlib/PAF allocations and
+  budget diagnostics; verify the frontend opens without closing a suspended Vita game.
+- [ ] Establish a measured decoder/graphics budget and validate streaming, native Settings,
+  dialogs, PS/Quick Actions, cleanup and return to the same game session on Vita.
+
 ## Requested: full stream diagnostics overlay (2026-10-19)
 
 Replace the existing FPS-only display with useful stream diagnostics based on the
