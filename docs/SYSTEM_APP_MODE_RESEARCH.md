@@ -225,3 +225,34 @@ source grammar checks with installed SDK declarations, `bash -n build.sh`, and d
 review/whitespace checks. No project configure, application/resource compilation,
 packaging, deployment or hardware test was performed. The previous build artifacts
 were not regenerated; they still describe the ordinary profile from the investigation.
+
+### Follow-up: a successful launch was an ordinary build
+
+The user reported a successful launch with the game-close prompt and no `[Memory]`
+output. Read-only inspection of the newly available local package found source
+revision `150c538d1aa8`, `MOONLIGHT_SYSTEM_APP:BOOL=OFF`, SFO `CATEGORY=gd`, SELF
+type-6 attribute/physical/total all zero, and no `[Memory]` diagnostics in the ELF.
+These facts explain the local package's behavior. The installed package was not read,
+so they do not prove the exact device package or which build command the user ran.
+The user subsequently confirmed running `build.sh` without arguments, consistent
+with the ordinary profile observed locally. This was not a system-mode acceptance run.
+
+The experiment remains opt-in: being on this branch is insufficient. The development
+wrapper removed `build/` and called `build.sh` without forwarding arguments, resetting
+the option to OFF even if the caller supplied ON. It now forwards `"$@"`; if the built
+cache selects the system profile, it reports the VPK path and skips SELF-only deployment.
+Run `bash build.sh -DMOONLIGHT_SYSTEM_APP=ON` for the simplest installation path,
+install the complete VPK with VitaShell, then launch from LiveArea. The development
+wrapper still has its existing Vita-IP/CLI prerequisites and needs ON on each clean run.
+
+CMake prints `Moonlight launch profile: SYSTEM` or `NORMAL`. Applying Settings with
+Debug log enabled now always emits `[Launch] profile=system system_app=ON commit=...`
+or `[Launch] profile=normal system_app=OFF commit=...`. Only the system profile adds
+the detailed `[Memory]` snapshots. No logger toggle is bypassed, and no streaming or
+memory flags were changed in response to an unconfirmed system-profile test.
+
+Follow-up non-build checks passed: shell syntax, exact forwarding of option arguments,
+isolated deployment-branch behavior for ON/OFF and common boolean spellings, rejection
+of a missing system VPK, isolated CMake profile messages and diff whitespace. Only the
+relevant shell snippets and CMake script-mode blocks were exercised; no build/deploy
+script, project configure, compilation, packaging or device test was executed.

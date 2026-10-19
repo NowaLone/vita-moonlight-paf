@@ -57,8 +57,10 @@ if(MOONLIGHT_SYSTEM_APP)
   # Physical reservation is part of MEMSIZE, not additional memory. Zero is the
   # frontend-first trial; set it only after measuring decoder requirements.
   set(VITA_MAKE_FSELF_FLAGS "${VITA_MAKE_FSELF_FLAGS} -pm ${MOONLIGHT_SYSTEM_PHYCONT_KIB}")
+  message(STATUS "Moonlight launch profile: SYSTEM (gdc, ${MOONLIGHT_SYSTEM_MEMSIZE_KIB} KiB, boot attribute 0x08)")
 else()
   set(moonlight_category gd)
+  message(STATUS "Moonlight launch profile: NORMAL (gd). System experiment requires -DMOONLIGHT_SYSTEM_APP=ON")
 endif()
 
 # Preserve the current SFO attribute bits while isolating the launch category.

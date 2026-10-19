@@ -337,6 +337,11 @@ void moonlight_settings_apply_runtime(void)
     moonlight_settings_get_value(MOONLIGHT_SETTING_DEBUG_LOG, &debug_log);
     vita_debug_log_set_enabled(debug_log);
     if (debug_log) {
+#ifdef MOONLIGHT_SYSTEM_APP
+        vita_debug_log("[Launch] profile=system system_app=ON commit=%s", MOONLIGHT_GIT_COMMIT);
+#else
+        vita_debug_log("[Launch] profile=normal system_app=OFF commit=%s", MOONLIGHT_GIT_COMMIT);
+#endif
         moonlight_log_memory_budget("settings-applied");
     }
 

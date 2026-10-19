@@ -10,9 +10,12 @@
 # Usage:
 #   ./dev-build-run.sh
 #   PSVITAIP=192.168.1.123 ./dev-build-run.sh
+#   ./dev-build-run.sh -DMOONLIGHT_SYSTEM_APP=ON
 #
 # The target app must already be installed on the Vita once (VPK install).
 # After that, psp2shell "load" replaces its eboot and restarts it.
+# System-profile builds stop after packaging: install the full VPK through
+# VitaShell and launch from LiveArea to promote the changed launch metadata.
 
 set -euo pipefail
 
@@ -55,7 +58,17 @@ rm -rf "$BUILD_DIR"
 
 log "Running build.sh"
 cd "$ROOT"
-bash "$ROOT/build.sh"
+bash "$ROOT/build.sh" "$@"
+
+# SELF-only deployment does not promote changed SFO/SELF launch metadata.
+# CMake BOOL cache values preserve spellings such as TRUE/YES as well as ON.
+if grep -Eiq '^MOONLIGHT_SYSTEM_APP:BOOL=(ON|TRUE|YES|Y|1)$' "$BUILD_DIR/CMakeCache.txt"; then
+    [ -f "$BUILD_DIR/vita_moonlight_paf.vpk" ] || fail "System-profile VPK was not produced."
+    log "System profile built; install the complete VPK through VitaShell, then launch from LiveArea"
+    echo "VPK: $BUILD_DIR/vita_moonlight_paf.vpk"
+    echo "[*] Skipping psp2shell SELF-only deployment: it cannot update launch metadata."
+    exit 0
+fi
 
 [ -f "$SELF_FILE" ] || fail "SELF was not produced: $SELF_FILE"
 

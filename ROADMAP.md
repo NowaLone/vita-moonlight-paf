@@ -20,6 +20,18 @@ grammar/SDK declarations, shell syntax and diff whitespace. No application/resou
 compilation, project configure, packaging or device test was run. Acceptance items
 below remain unchecked.
 
+Follow-up device report: the app still requested closing the Vita game and emitted
+no `[Memory]` lines. The local package from commit `150c538` was inspected read-only:
+cache OFF, SFO `gd`, SELF total/physical/attribute zero, and no `[Memory]` strings in
+the ELF. This establishes an ordinary local build, not a failed system-mode test or
+proof of which package was installed. The user confirmed building with `build.sh`
+without arguments, which leaves a fresh/default profile OFF. Separately,
+`dev-build-run.sh` previously discarded CMake
+arguments and removed the cache; it now forwards arguments and leaves system-mode
+VPKs for full installation rather than issuing SELF-only load. CMake and runtime
+`[Launch]` messages identify the selected/compiled profile. Correct-profile device
+verification is still pending.
+
 - [ ] Prototype an opt-in system-mode package with bounded newlib/PAF allocations and
   budget diagnostics; verify the frontend opens without closing a suspended Vita game.
 - [ ] Establish a measured decoder/graphics budget and validate streaming, native Settings,

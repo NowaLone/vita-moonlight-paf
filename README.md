@@ -186,6 +186,11 @@ Maintainer build commands (not executed by the agent):
 bash build.sh -DMOONLIGHT_SYSTEM_APP=ON
 ```
 
+Switching branches alone does not enable the experiment: a build without this option
+uses the ordinary profile unless ON is already cached. CMake prints the selected
+`Moonlight launch profile`. With Debug log enabled, Settings also logs `[Launch]`
+with `profile=system` or `profile=normal` and the source revision.
+
 It uses `gdc` packaging, a 32 MiB SELF budget, a 6 MiB newlib heap, a 10 MiB PAF
 heap and PAF application mode. UNSAFE and the existing authority/settings remain.
 These are initial frontend-test allocations, not measured streaming requirements.
@@ -193,6 +198,11 @@ Install the complete VPK through VitaShell, then launch from LiveArea, rather th
 replacing only the SELF, so the changed launch metadata is promoted. Then test
 opening Moonlight with a Vita game suspended and returning to that same game session.
 Streaming coexistence is unverified; physical reservation defaults to zero.
+
+`dev-build-run.sh -DMOONLIGHT_SYSTEM_APP=ON` forwards the option, builds the VPK and
+stops with installation instructions. It deliberately skips SELF-only deployment
+for this profile. Its clean rebuild removes any cached selection, so supply ON
+on every system-profile invocation of that script.
 
 Enable **Debug log** in Settings for `[Memory]` snapshots, including the actual
 AppMgr mode and USER_RW/PHYCONT/CDRAM budgets. The first useful snapshot is emitted
