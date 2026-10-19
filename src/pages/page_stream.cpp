@@ -1,6 +1,7 @@
 #include <paf.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 
 #include <psp2/common_dialog.h>
@@ -49,95 +50,65 @@ static void set_stream_power_tick(bool enabled)
     }
 }
 
-static void format_timing(char *text, size_t size, const MoonlightTimingStats &timing,
-    bool fresh)
+static void append_statistics_line(char *text, size_t size, size_t *used,
+    const char *format, ...)
 {
-    if (fresh && timing.samples) {
-        snprintf(text, size, "%.2f / %.2f ms", timing.average_ms, timing.maximum_ms);
-    } else {
-        snprintf(text, size, "N/A");
+    if (*used >= size) {
+        return;
     }
-}
-
-static void format_percent(char *text, size_t size, double percent, bool valid)
-{
-    if (valid) {
-        snprintf(text, size, "%.2f%%", percent);
-    } else {
-        snprintf(text, size, "N/A");
+    va_list args;
+    va_start(args, format);
+    int written = vsnprintf(text + *used, size - *used, format, args);
+    va_end(args);
+    if (written > 0) {
+        *used += (size_t)written < size - *used ? (size_t)written : size - *used;
     }
 }
 
 static void format_stream_statistics(const MoonlightStreamStats &stats,
     char *text, size_t size)
 {
+    size_t used = 0;
     const bool fresh = stats.active && stats.has_video && stats.video_age_us < 2000000ull;
-    char host[64];
-    char network[64];
-    char missing[24];
-    char pacer[24];
-    char replaced[24];
-    char assembly[48], decode[48], prepare[48], vblank[48], queue[48], submit[48];
-    char audio_decode[48], audio_output[48];
-    const char *status = !stats.active ? "stopped" : !stats.has_video
-        ? "waiting for video" : fresh ? "receiving" : "video stalled";
-
-    if (fresh && stats.host_latency_samples) {
-        snprintf(host, sizeof(host), "%.1f / %.1f / %.1f ms",
-            stats.host_latency_min_ms, stats.host_latency_max_ms, stats.host_latency_average_ms);
-    } else {
-        snprintf(host, sizeof(host), "N/A");
-    }
+    append_statistics_line(text, size, &used,
+        "Video: %dx%d | H.264 | %d FPS | %.2f Mbps\n"
+        "FPS: incoming %.1f | decode %.1f | PAF %.1f",
+        stats.width, stats.height, stats.target_fps, stats.payload_mbps,
+        stats.incoming_fps, stats.decoded_fps, stats.paf_submit_fps);
     if (stats.rtt_valid) {
-        snprintf(network, sizeof(network), "%u / %u ms", stats.rtt_ms, stats.rtt_variation_ms);
-    } else {
-        snprintf(network, sizeof(network), "N/A");
+        append_statistics_line(text, size, &used, "\nRTT: %u ms | variation: %u ms",
+            stats.rtt_ms, stats.rtt_variation_ms);
     }
-    format_percent(missing, sizeof(missing), stats.missing_percent, fresh && stats.incoming_fps > 0);
-    format_percent(pacer, sizeof(pacer), stats.pacer_drop_percent, fresh && stats.decoded_fps > 0);
-    format_percent(replaced, sizeof(replaced), stats.replaced_percent, fresh && stats.prequeue.samples > 0);
-    format_timing(assembly, sizeof(assembly), stats.reassembly, fresh);
-    format_timing(decode, sizeof(decode), stats.decoder_call, fresh);
-    format_timing(prepare, sizeof(prepare), stats.prequeue, fresh);
-    format_timing(vblank, sizeof(vblank), stats.vblank, fresh);
-    format_timing(queue, sizeof(queue), stats.paf_queue, fresh);
-    format_timing(submit, sizeof(submit), stats.paf_cpu, fresh);
-    format_timing(audio_decode, sizeof(audio_decode), stats.audio_decode, stats.active != 0);
-    format_timing(audio_output, sizeof(audio_output), stats.audio_output, stats.active != 0);
-
-    snprintf(text, size,
-        "Video: %dx%d | %s | target %d FPS\n"
-        "FPS: incoming %.2f | decoded %.2f | PAF submit %.2f\n"
-        "Host processing min / max / avg: %s\n"
-        "Frames missing before decoder: %s (%llu total)\n"
-        "Local drops: pacer %s (%llu) | PAF queue %s (%llu)\n"
-        "Network RTT / variation: %s\n"
-        "Video payload: %.2f Mbps | target %.2f Mbps\n"
-        "Frame assembly avg / max: %s\n"
-        "Decoder call avg / max: %s\n"
-        "Prequeue avg / max (includes Vblank/crop): %s\n"
-        "Explicit Vblank wait avg / max: %s\n"
-        "PAF queue wait avg / max: %s\n"
-        "PAF submit CPU avg / max: %s\n"
-        "Totals: decode errors %llu | NEED_IDR %llu | IDR %llu | no output %llu\n"
-        "Output: %ux%u stride %u | %s | pacer %s\n"
-        "Audio: Opus %d Hz / %d ch | decode avg / max: %s\n"
-        "Audio output call avg / max: %s | errors decode / output: %llu / %llu\n"
-        "Window: 1-2 s | %s | video age %.0f ms | display/GPU time: N/A",
-        stats.width, stats.height, stats.video_format == VIDEO_FORMAT_H264 ? "H.264" : "N/A",
-        stats.target_fps, stats.incoming_fps, stats.decoded_fps, stats.paf_submit_fps,
-        host, missing, (unsigned long long)stats.missing_frames,
-        pacer, (unsigned long long)stats.pacer_drops,
-        replaced, (unsigned long long)stats.pending_replacements, network,
-        stats.payload_mbps, (double)stats.bitrate_kbps / 1000.0,
-        assembly, decode, prepare, stats.vblank_wait ? vblank : "off", queue, submit,
-        (unsigned long long)stats.decode_errors, (unsigned long long)stats.idr_returns,
-        (unsigned long long)stats.idr_frames, (unsigned long long)stats.no_output,
-        stats.output_width, stats.output_height, stats.output_pitch,
-        stats.center_region ? "Center Region" : "Fit", stats.frame_pacer ? "on" : "off",
-        stats.audio_sample_rate, stats.audio_channels, audio_decode, audio_output,
-        (unsigned long long)stats.audio_decode_errors, (unsigned long long)stats.audio_output_errors,
-        status, (double)stats.video_age_us / 1000.0);
+    if (fresh) {
+        if (stats.incoming_fps > 0 && stats.decoded_fps > 0) {
+            append_statistics_line(text, size, &used,
+                "\nDrops: missing %.2f%% | pacer %.2f%% | PAF %.2f%%",
+                stats.missing_percent, stats.pacer_drop_percent, stats.replaced_percent);
+        }
+        if (stats.decoder_call.samples || stats.paf_queue.samples) {
+            append_statistics_line(text, size, &used, "\n");
+            if (stats.decoder_call.samples) {
+                append_statistics_line(text, size, &used, "Decode call: %.2f ms",
+                    stats.decoder_call.average_ms);
+            }
+            if (stats.paf_queue.samples) {
+                append_statistics_line(text, size, &used, "%sPAF queue: %.2f ms",
+                    stats.decoder_call.samples ? " | " : "", stats.paf_queue.average_ms);
+            }
+        }
+        if (stats.host_latency_samples) {
+            append_statistics_line(text, size, &used, "\nHost min/max/avg: %.1f / %.1f / %.1f ms",
+                stats.host_latency_min_ms, stats.host_latency_max_ms, stats.host_latency_average_ms);
+        }
+    } else {
+        const char *status = !stats.active ? "Stream stopped" : !stats.has_video
+            ? "Waiting for video" : "Video stalled";
+        append_statistics_line(text, size, &used, "\n%s", status);
+        if (stats.has_video && stats.active) {
+            append_statistics_line(text, size, &used, " (%.0f s without frames)",
+                (double)stats.video_age_us / 1000000.0);
+        }
+    }
 }
 
 static void send_keyboard_text(const SceWChar16 *text)
@@ -535,7 +506,7 @@ void Stream::UpdateStatistics()
         m_statistics_background->Hide(common::transition::Type_Reset);
         return;
     }
-    char text[2304];
+    char text[768];
     format_stream_statistics(stats, text, sizeof(text));
     m_statistics_text->SetString(common::string_util::ToWString(text));
     m_statistics_background->Show(common::transition::Type_Reset);

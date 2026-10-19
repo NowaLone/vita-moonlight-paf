@@ -106,10 +106,10 @@
         <layout_hint anchor="1, 2" align="1, 2" size="960, 544" />
       </plane>
       <plane style="style_plane_stream_statistics" id="plane_stream_statistics">
-        <layout_hint anchor="1, 2" align="1, 2" size="928, 380" pos="16, -12" />
+        <layout_hint anchor="1, 2" align="1, 2" size="660, 136" pos="16, -12" />
       </plane>
       <text style="style_text_stream_statistics" id="text_stream_statistics">
-        <layout_hint anchor="1, 2" align="1, 2" size="904, 360" pos="24, -20" />
+        <layout_hint anchor="1, 2" align="1, 2" size="644, 120" pos="24, -20" />
       </text>
     </page>
 
@@ -227,7 +227,7 @@
     </style_text>
 
     <style_text textobj="stream_statistics_obj" id="style_text_stream_statistics">
-      <textobj font_size="18" bold="0" color="1, 1, 0, 1" align_x="0" align_y="0" word_wrap="0" ellipsis="0" max_line_count="18" enlarge_line_pitch="1" line_pitch="20" id="stream_statistics_obj" />
+      <textobj font_size="18" bold="0" color="1, 1, 0, 1" align_x="0" align_y="0" word_wrap="0" ellipsis="0" max_line_count="6" enlarge_line_pitch="1" line_pitch="20" id="stream_statistics_obj" />
     </style_text>
 
     <style_list_view color="0, 0, 0, 0" id="style_list_view_generic" sbar_v_margin="6, 80, 9" />

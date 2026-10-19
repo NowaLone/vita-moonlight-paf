@@ -167,8 +167,8 @@ Text: `style_text_header` (26 regular, left), `style_text_paragraph` (26 regular
 `style_text_flow_note` (22, 85% white, wrapped), `style_text_main_status` (22, centred; page status text),
 `style_text_stream_statistics` (18, yellow, left/top, unwrapped, 20 px line pitch; streaming diagnostics).
 
-The stream statistics overlay uses `plane_stream_statistics` (928 x 380, top-left offset 16/-12)
-and `text_stream_statistics` (904 x 360, offset 24/-20, 18 explicit lines). The background is
+The stream statistics overlay uses `plane_stream_statistics` (660 x 136, top-left offset 16/-12)
+and `text_stream_statistics` (644 x 120, offset 24/-20, at most 6 explicit lines). The background is
 black at alpha 0.65 with a white style multiplier. These are implementation values **[code]**,
 not screenshot measurements; readability, line clipping and actual appearance need Vita verification
 **[open]**. The old stray `ge>` text was removed when editing the resource.
@@ -177,10 +177,13 @@ The existing AppSettings key `show_fps` and `msg_show_fps` identifier remain; th
 `Display stream statistics`. `Stream::StatisticsTask` updates cached text/background widgets at most
 once per second independently of arriving video, and is unregistered in the page destructor. With
 the setting off neither the task nor the per-frame timing hooks collect statistics. The overlay
-shows rolling rates and average/max timings, host min/max/average, cumulative error/drop counts,
-audio call timing and state/video age. A stall expires old samples and shows `N/A`; RTT can remain
-available independently. PAF submit FPS/CPU timing are not GPU/display completion. Explicit Vblank
-wait is a component of the prequeue time (which includes crop), not an additional end-to-end delay.
+shows only video mode/payload bitrate, incoming/decode/PAF FPS, available RTT/variation, drop
+percentages, average decode-call/PAF-queue timing and optional host min/max/average. Unsupported
+or expired measurements are omitted. During a stall only current rates, available RTT and the
+stalled-video state remain. Audio/CPU/stride/window/cumulative-counter details and permanent
+`N/A` rows have been removed after the user's device screenshot showed excessive screen coverage.
+The old 928 x 380 panel is superseded; the compact panel is not yet hardware-verified. PAF FPS
+still measures texture submission, not physical presentation.
 RTT is sampled outside PAF in a session-scoped joinable worker, retired before transport cleanup;
 UI snapshots only copy cached statistics. Queue timing includes waiting to acquire the frame mutex.
 See [STREAM_DIAGNOSTICS_PLAN.md](STREAM_DIAGNOSTICS_PLAN.md) for metric definitions and remaining work.

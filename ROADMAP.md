@@ -8,13 +8,19 @@ Replace the existing FPS-only display with useful stream diagnostics based on th
 user's Moonlight Qt reference. The source-based metric inventory, measurement limits
 and implementation sequence are in [docs/STREAM_DIAGNOSTICS_PLAN.md](docs/STREAM_DIAGNOSTICS_PLAN.md).
 Source implementation is now on `codex/stream-diagnostics`. The FPS-only UI is replaced by an
-18-line yellow-on-translucent-black overlay, refreshed independently of video arrival. The existing
+compact overlay of at most six lines, refreshed independently of video arrival. The existing
 `show_fps` key/default is preserved under the new label `Display stream statistics`. Video/audio
 hooks collect session-tagged counters and rolling timings; RTT is sampled in a joinable worker
 retired before transport cleanup, so UI snapshots do not wait for ENet. Unsupported video RTP/FEC
 fields are omitted. Decoder time is explicitly API-call time; PAF submit timing is CPU time, not
 display/GPU completion. Core source and resource checks are complete; all build/device acceptance
 items below remain open, including numerical and performance verification.
+
+User follow-up (2026-10-19): the original 18-line overlay was visible on Vita but covered too
+much of the image. The supplied stalled-stream screenshot shows no incoming/decoded/PAF frames
+while RTT remains available, with no decoder errors. The layout is now reduced to a 660 x 136
+panel; unavailable rows and audio/CPU/stride/window/cumulative-counter details are omitted.
+This is a source change awaiting another device check, not verification of stream stability.
 
 - [ ] Implement session-scoped video statistics and safe snapshots: incoming/decoded/PAF-submit
   FPS, host processing latency, estimated missing frames, local drops, ENet RTT/variation,
