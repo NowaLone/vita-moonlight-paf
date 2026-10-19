@@ -236,5 +236,10 @@ vita_create_vpk(vita_moonlight_paf.vpk "VLMP00001" ${PROJECT_NAME}.self
   VERSION "01.00"
   NAME "Vita Moonlight PAF UI"
   FILE ${RCO_FILE} vita_moonlight_ui.rco
+  FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/icon0.png sce_sys/icon0.png
+  FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/pic0.png sce_sys/pic0.png
+  FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/livearea/contents/bg0.png sce_sys/livearea/contents/bg0.png
+  FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/livearea/contents/startup.png sce_sys/livearea/contents/startup.png
+  FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/livearea/contents/template.xml sce_sys/livearea/contents/template.xml
 )
 vita_create_stubs(stubs_${PROJECT_NAME} ${PROJECT_NAME} exports.yml)
