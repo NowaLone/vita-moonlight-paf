@@ -226,6 +226,12 @@ Only these `_common_*` names appear in the XML and are known to resolve: `_commo
 
 ### 4.9 Events and threads **[code]**
 
+Stream presentation metadata carries a statistics-session token and queue timestamp with each
+pending frame. The video bridge records queue replacement and successful PAF texture submission;
+the statistics module rejects tokens from older sessions. These hooks measure CPU submission and
+queue wait, not GPU completion or physical display. Source implementation only; build/hardware
+validation is pending. Pages read snapshots through `MoonlightApp::Connection().GetStreamStats()`.
+
 Backend callbacks may arrive on worker threads. `MoonlightApp` queues them and delivers them through
 `MainThreadCallList`, so page callbacks run on the PAF main thread. Only the topmost page owns the event callback; when
 a page is destroyed it hands the callback back to the page below (`RestoreEventCallback()` in `Main`, `Search`, `Apps`,

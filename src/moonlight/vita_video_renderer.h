@@ -11,7 +11,12 @@ void moonlight_video_present(
     void *buffer,
     unsigned int width,
     unsigned int height,
-    unsigned int pitch);
+    unsigned int pitch,
+    uint32_t stats_generation);
+
+/* Presentation hooks carry the frame's session token; they do not read transport state. */
+void moonlight_video_note_queued(uint32_t generation, int replaced);
+void moonlight_video_note_submitted(uint32_t generation, uint64_t queue_us, uint64_t cpu_us);
 
 void moonlight_video_invalidate(void);
 void moonlight_video_release_frame_buffers(void);

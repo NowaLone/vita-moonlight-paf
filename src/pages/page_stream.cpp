@@ -28,7 +28,7 @@ using namespace paf;
 namespace page {
 
 Stream *Stream::s_instance = NULL;
-Stream::Frame Stream::s_pending_frame = { NULL, 0, 0, 0, false };
+Stream::Frame Stream::s_pending_frame = { NULL, 0, 0, 0, false, 0, 0 };
 bool Stream::s_task_registered = false;
 unsigned int Stream::s_release_delay = 0;
 
@@ -215,7 +215,7 @@ Stream *Stream::Instance()
 
 void Stream::PresentTask(void *)
 {
-    Frame frame = { NULL, 0, 0, 0, false };
+    Frame frame = { NULL, 0, 0, 0, false, 0, 0 };
 
     thread::RMutex::main_thread_mutex.Lock();
 
@@ -317,6 +317,7 @@ Stream::SurfaceSlot *Stream::FindSurfaceSlot(void *buffer)
 
 void Stream::PresentFrame(const Frame &frame)
 {
+    const uint64_t start_us = frame.stats_generation ? LiGetMicroseconds() : 0;
     if (!m_video_plane || !frame.buffer ||
         frame.width == 0 || frame.height == 0 || frame.pitch == 0) {
         return;
@@ -397,6 +398,11 @@ void Stream::PresentFrame(const Frame &frame)
         }
     }
 
+    if (slot->surface.get() && frame.stats_generation) {
+        moonlight_video_note_submitted(frame.stats_generation,
+            start_us - frame.queued_us, LiGetMicroseconds() - start_us);
+    }
+
     paf::ui::Widget *fps = root ? root->FindChild("text_stream_fps") : NULL;
     if (fps) {
         if (moonlight_video_show_fps()) {
@@ -421,18 +427,24 @@ void Stream::QueueFrame(
     void *buffer,
     unsigned int width,
     unsigned int height,
-    unsigned int pitch)
+    unsigned int pitch,
+    uint32_t stats_generation)
 {
     bool register_task = false;
 
     thread::RMutex::main_thread_mutex.Lock();
 
     if (s_instance != NULL && buffer != NULL) {
+        const bool replaced = s_pending_frame.valid &&
+            s_pending_frame.stats_generation == stats_generation;
         s_pending_frame.buffer = buffer;
         s_pending_frame.width = width;
         s_pending_frame.height = height;
         s_pending_frame.pitch = pitch;
+        s_pending_frame.stats_generation = stats_generation;
+        s_pending_frame.queued_us = stats_generation ? LiGetMicroseconds() : 0;
         s_pending_frame.valid = true;
+        moonlight_video_note_queued(stats_generation, replaced);
 
         if (!s_task_registered) {
             s_task_registered = true;
@@ -460,9 +472,10 @@ extern "C" void moonlight_video_present(
     void *buffer,
     unsigned int width,
     unsigned int height,
-    unsigned int pitch)
+    unsigned int pitch,
+    uint32_t stats_generation)
 {
-    Stream::QueueFrame(buffer, width, height, pitch);
+    Stream::QueueFrame(buffer, width, height, pitch, stats_generation);
 }
 
 extern "C" void moonlight_video_invalidate(void)
