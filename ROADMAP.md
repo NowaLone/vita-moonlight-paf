@@ -2,6 +2,23 @@
 
 This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordered by risk reduction and release readiness, not by a promise that every item must be completed before development continues. Keep individual changes small and verify device-specific behavior on real PS Vita hardware.
 
+## Requested: full stream diagnostics overlay (2026-10-19)
+
+Replace the existing FPS-only display with useful stream diagnostics based on the
+user's Moonlight Qt reference. The source-based metric inventory, measurement limits
+and implementation sequence are in [docs/STREAM_DIAGNOSTICS_PLAN.md](docs/STREAM_DIAGNOSTICS_PLAN.md).
+This is a plan only; runtime behavior and AppSettings are unchanged.
+
+- [ ] Implement session-scoped video statistics and safe snapshots: incoming/decoded/PAF-submit
+  FPS, host processing latency, estimated missing frames, local drops, ENet RTT/variation,
+  decode/queue/CPU-submit timing and video payload bitrate. Label PAF/RTT estimates accurately.
+- [ ] Replace the FPS text with a readable CXML overlay, retaining the `show_fps` AppSettings key;
+  refresh without per-frame string formatting and age stale values even if video stalls.
+- [ ] Add useful audio counters after core video validation; implement missing RTP video
+  counters only as a separately reviewed common-c change, without displaying unsupported zeros.
+- [ ] Maintainer builds and verifies readability, numerical behavior, performance, network loss,
+  Quick Actions, stop/reconnect and teardown on Vita; record results before marking complete.
+
 ## Stream system infobar (2026-10-19)
 
 Source investigation on `codex/research-stream-infobar` identified NetStream's explicit
