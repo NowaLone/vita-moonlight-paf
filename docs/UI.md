@@ -7,6 +7,10 @@ measured numbers behind every layout decision. Read this before changing anythin
 Companion documents: `AGENTS.md` (hard rules for agents), `ROADMAP.md` (plan and hardware checks), `README.md`
 (overview and build).
 
+System infobar during streaming: [research and integration proposal](STREAM_INFOBAR_RESEARCH.md)
+compares NetStream's AppMgr calls with the current Stream lifecycle **[code]**. Runtime hiding/restoration
+is not implemented or hardware-verified by that investigation **[open]**.
+
 Evidence tags used below:
 
 - **[hw]** verified on a real Vita.
