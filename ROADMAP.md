@@ -6,8 +6,8 @@ This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordere
 
 **Status:** user verified native Settings open/close and persistence across a complete
 application restart on 3.60 HENkaku without ioPlus with authority `0x2200000000000001`.
-PS double-press stream stop/cleanup is also confirmed on that build. Broader PS/Quick
-Actions/reconnect regression coverage remains pending; no cross-firmware claim is made.
+PS double-press stream stop/cleanup, short PS forwarding, hold/Quick Actions and
+reconnect are also user-confirmed on that build. No cross-firmware claim is made.
 
 **Original priority: diagnose before the API audit's F1 implementation follow-up.** The user reports that
 saved PCs now appear on Main at application startup, but attempting to open Settings freezes the
@@ -132,18 +132,19 @@ occurs **after selecting Settings**, and supplied a textual crash report followe
 - [x] Verify double-PS stream stop on the new authority without ioPlus: user confirms
   the supplied stop/cleanup log is from this variant. Worker completion, successful
   audio drain/release and deferred video-buffer release are recorded.
-- [ ] Regress reconnect and deliberate PS tap/hold/Quick Actions under the new authority.
-  Existing uma0 data is not migrated; verify new saved-host writes under ux0 persist.
+- [x] Regress reconnect and deliberate PS tap/hold/Quick Actions under the new authority:
+  user confirms all work on the same new VPK without ioPlus.
+- [ ] Verify new saved-host writes under ux0 persist. Existing uma0 data is not migrated.
 
 - Real-loader follow-up: supplied log shows two separate processes of the expected
   live build (`72819b499d4a`) reaching `native plugin LoadSync returned found=1`;
   SetParam import is patched after loading. Both select ux0, have no blocking
   overlays and refresh one host with after_delete=0 / after_insert=1. The failed
-  plugin-load stage is passed on hardware. Visible Settings operation and value
-  persistence still need confirmation before closing the regression.
+  plugin-load stage is passed on hardware. User subsequently confirmed visible
+  Settings operation and persistence, closing the reported regression.
 - The accompanying stream-stop excerpt reaches worker completion and deferred
-  video-buffer release, but its build/plugin provenance is not present. Confirm
-  it belongs to the new authority test before counting PS/stop regression coverage.
+  video-buffer release; user confirmed its provenance as the new authority VPK
+  without ioPlus. Subsequent confirmation also covers Quick Actions/PS/reconnect.
 
 
 ## Recent streaming implementation review

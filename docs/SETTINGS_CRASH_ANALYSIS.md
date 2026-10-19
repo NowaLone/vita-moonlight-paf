@@ -689,3 +689,18 @@ Those remain separate checks. Default builds keep diagnostics OFF; no further
 runtime patch or Main refresh change is needed for this Settings issue.
 This stage changes documentation only: source/log review and diff checks were
 performed; no rebuild/deployment was necessary or performed by the agent.
+
+
+### Remaining PS/Quick Actions/reconnect checks confirmed (2026-10-19)
+
+Responding specifically to the outstanding Quick Actions, short PS press and
+reconnect checks, the user confirms that all also work. In the ongoing context
+this is the new authority VPK on the same 3.60 HENkaku device without ioPlus.
+Together with the previous explicit Settings/persistence/double-PS stop
+confirmation, the requested authority-change regressions are covered on this
+device. No additional logs or timing measurements accompany this confirmation;
+do not infer network-loss-free behavior, new host-write persistence, every
+input setting combination or compatibility with other firmware. No runtime
+change or rebuild is needed. The next independent implementation item remains
+API audit F1 (unexpected stream termination cleanup), subject to current source
+review, rather than further speculative Settings/PS changes.
