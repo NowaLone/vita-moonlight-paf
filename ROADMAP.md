@@ -42,7 +42,20 @@ capacity. The failed allocation's caller is not identified by the log; this is a
 targeted footprint experiment, not a proven crash fix. Total/physical/heap budgets
 are unchanged. Source/whitespace checks passed; build and device retest are pending.
 
-- [ ] Prototype an opt-in system-mode package with bounded newlib/PAF allocations and
+User retest of `7e20e940a52b`: startup no longer crashes and Main/Settings work. The
+runtime confirms system profile, AppMgr mode 2 (A), total USER_RW 32768 KiB, free
+1632 KiB before Settings, 1428 KiB after showing it, and 1632 KiB after closing it.
+PHYCONT is 0/0; CDRAM free/total is 0/16384 KiB; extra memory is 0/0 despite
+`allowed=1`. Newlib's arena is only 12288 bytes, with 4760 used, inside its reserved
+6 MiB heap; arena statistics do not measure the full reservation. The current AVC
+renderer needs PHYCONT plus separate CDRAM framebuffers, so these snapshots do not
+establish streaming support. No further allocation settings were changed from
+this browsing-only result. The user also explicitly confirms no game-close prompt
+and successful return to the same Vita game session. This verifies frontend coexistence
+on that device/game; streaming and broader compatibility remain open. These are
+user-run device results; no agent build/device test ran.
+
+- [x] Prototype an opt-in system-mode package with bounded newlib/PAF allocations and
   budget diagnostics; verify the frontend opens without closing a suspended Vita game.
 - [ ] Establish a measured decoder/graphics budget and validate streaming, native Settings,
   dialogs, PS/Quick Actions, cleanup and return to the same game session on Vita.

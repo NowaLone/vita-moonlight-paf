@@ -296,3 +296,34 @@ logging intentionally follows the existing Debug log preference.
 Non-build validation checked the guarded pool assignments, the 7 MiB reduction,
 unchanged ordinary-profile source and diff whitespace. No agent-run configure,
 application/resource compilation, packaging, deployment or hardware test occurred.
+
+### Follow-up: Main and Settings run with the smaller pools
+
+The user reports that `7e20e940a52b` no longer crashes and Main/Settings work. The
+runtime explicitly identifies `profile=system system_app=ON`. AppMgr reports:
+
+- Application mode 2, corresponding to mode A in the installed SDK header, without
+  physically contiguous memory access. PHYCONT free/total is 0/0 KiB.
+- USER_RW free/total is 1632/32768 KiB before Settings, 1428/32768 KiB immediately
+  after showing it, and 1632/32768 KiB after closing it. This one open/close cycle
+  returns to baseline; it does not establish long-run leak freedom.
+- CDRAM free/total is 0/16384 KiB. The reported 16 MiB total does not mean any of it
+  is currently available for the renderer's additional framebuffers.
+- Extra free/total is 0/0 KiB, although `extra_mem_allowed=1`; the permission flag
+  alone does not establish an available extra-memory budget.
+- Newlib's arena is 12288 bytes: 4760 used and 7528 free. This is the allocator's
+  current arena, not the full 6 MiB reserved heap and not the process footprint.
+
+The snapshot supports the reduced-pool startup/Main/Settings result. The user also
+explicitly confirms that Moonlight no longer asks to close the Vita game and the
+same game session resumes afterward. This verifies the frontend coexistence goal
+for that device/game; it does not establish all-game or cross-firmware compatibility.
+It does not validate the streaming path: the current decoder needs PHYCONT and
+the three output buffers need CDRAM.
+The reported mode/budgets cannot accommodate those allocations as they stand.
+
+Do not infer a production newlib size from its idle arena or introduce an arbitrary
+decoder reservation from this snapshot. A subsequent streaming-capable profile must
+establish an available physical budget/mode and output-buffer memory while retaining
+the game. Record decoder setup requirements and real allocation outcomes separately.
+No code or budget change was made in response to this Main/Settings-only report.

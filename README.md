@@ -196,7 +196,9 @@ heap and PAF application mode. UNSAFE and the existing authority/settings remain
 These are initial frontend-test allocations, not measured streaming requirements.
 PAF surface/text pools are 4/1 MiB after the initial 8/4 MiB configuration failed
 with an 8 MiB DDR-main allocation request on startup with a game resident. The
-smaller pools save 7 MiB in requested pool capacity; their device retest is pending.
+smaller pools save 7 MiB in requested pool capacity. On `7e20e94`, the user verified
+Main/Settings, launch without closing the Vita game, and resuming its existing session
+on the tested device. Streaming in this profile remains unverified.
 Install the complete VPK through VitaShell, then launch from LiveArea, rather than
 replacing only the SELF, so the changed launch metadata is promoted. Then test
 opening Moonlight with a Vita game suspended and returning to that same game session.

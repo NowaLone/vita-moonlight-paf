@@ -21,11 +21,14 @@ The opt-in `MOONLIGHT_SYSTEM_APP` prototype switches the PAF runtime to
 `Mode_Application` after `SampleInit()`, initially following BHBB **[code]**. After
 the user's startup allocation failure, its surface/text-surface pools are reduced
 from 8/4 MiB to 4/1 MiB to leave room for Moonlight's separate newlib heap **[code]**.
-The log proves an 8 MiB DDR-main request failed, but does not identify its caller;
-this pool adjustment still needs a device retest **[open]**.
+The original log does not identify the failed allocation's caller. On `7e20e94`,
+the user confirms startup no longer crashes and Main/Settings work; Settings
+open/close logs return USER_RW free space to its earlier value **[hw, user-reported]**.
+The user also confirms launch without closing the Vita game and return to its same
+session on the tested device **[hw, user-reported]**.
 It retains `graphics_option=7` and the existing
-CXML/page geometry. This is an experimental runtime profile; native dialogs,
-AppSettings, infobar restoration and streaming presentation need Vita checks
+CXML/page geometry. This is an experimental runtime profile; remaining native dialogs,
+AppSettings persistence, infobar restoration and streaming presentation need Vita checks
 **[open]**. See [system-mode notes](SYSTEM_APP_MODE_RESEARCH.md#prototype-on-codexsystem-app-mode).
 
 Evidence tags used below:
