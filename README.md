@@ -209,6 +209,11 @@ profile requests 1 MiB each). `[Thread]` logs report each thread name, stack byt
 and creation result. This addresses the reported pre-decoder thread-memory failure
 experimentally; stack sufficiency and later PHYCONT/CDRAM allocations still need Vita tests.
 
+The latest device test passes control-thread creation but stops at decoder initialization:
+`0x80620840` is `SCE_VIDEODEC_ERROR_NOT_GAME_BUDGET`. The standard decoder API rejects
+the system application budget. `Nongameapp` exports exist, but their ABI must be established
+before adapting the renderer; streaming alongside a suspended game remains unsupported.
+
 `dev-build-run.sh -DMOONLIGHT_SYSTEM_APP=ON` forwards the option, builds the VPK and
 stops with installation instructions. It deliberately skips SELF-only deployment
 for this profile. Its clean rebuild removes any cached selection, so supply ON

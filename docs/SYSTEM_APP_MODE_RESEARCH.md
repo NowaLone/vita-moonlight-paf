@@ -394,9 +394,50 @@ because the adapter changes were still uncommitted when the user built; the name
 thread lines establish that those working-tree changes were included.
 
 Video initialization then fails in `sceVideodecInitLibrary()` with `0x80620840`, before
-the decoder memory-size query or external framebuffer allocation. The installed SDK
+the decoder memory-size query or external framebuffer allocation. VitaSDK's public
 enum does not name that error (its ordinary out-of-memory code is `0x80620803`).
-Do not assign an exact meaning without another primary reference. The snapshot is
-still mode A, PHYCONT 0/0, CDRAM 0/16384 and USER_RW 648/32768 KiB. These independent
+The snapshot is still mode A, PHYCONT 0/0, CDRAM 0/16384 and USER_RW 648/32768 KiB. These independent
 resource constraints remain. The successful setup interval does not establish
 128 KiB stack safety over a complete stream, failure recovery or long sessions.
+
+### Decoder budget error and failed-setup cleanup
+
+Further local primary-source inspection found the exact code in the Sony SDK
+debugging error table (`sdk/host_tools/debugging/error_code/error_table.csv`):
+`0x80620840` is `SCE_VIDEODEC_ERROR_NOT_GAME_BUDGET`. This identifies a budget-class
+rejection by the standard decoder initialization API. It is not evidence that merely
+increasing the physical reservation will make that API accept a system application.
+The renderer now logs the symbolic name alongside its existing numeric failure.
+
+VitaSDK's [SceAvcodecUser NID database](https://github.com/vitasdk/vita-headers/blob/master/db/360/SceAvcodecUser.yml)
+and installed SceVideodec stub archive contain the following exports:
+
+- `sceVideodecInitLibraryNongameapp` (`0x26F3C35D`),
+  `sceVideodecQueryMemSizeNongameapp` (`0x2D9AE981`) and
+  `sceVideodecInitLibraryWithUnmapMemNongameapp` (`0x108C1FEC`).
+- `sceAvcdecQueryDecoderMemSizeNongameapp` (`0xFA072F66`) and
+  `sceAvcdecCreateDecoderNongameapp` (`0x3102196C`).
+- Nongameapp decode/get-picture variants, including `sceAvcdecDecodeAuNongameapp`
+  (`0x867C75AD`) and `sceAvcdecDecodeGetPictureNongameapp` (`0xCF3CFC70`).
+
+The public and available local SDK headers do not declare these signatures. Vita3K's
+kernel implementations are unimplemented exports, not usable ABI evidence. Names
+and import stubs alone cannot establish argument counts, structure layouts, memory
+ownership or whether the entire decoder lifecycle must use matching variants.
+The next step needs declarations or a decrypted/disassembled `SceAvcodecUser` module
+to establish that contract, then real system-mode allocation results. No guessed
+prototype, decoder substitution or extra reservation is introduced here.
+
+Independently, failed setup leaked resources: `gs_sps_init()` and the init-info
+allocation precede library initialization, but its failure jumped past their cleanup.
+Common-c does not call renderer cleanup when renderer setup fails. The common failure
+tail now stops the SPS parser and frees/resets init-info and the decoder input buffer;
+library termination still occurs only after successful initialization. The vendored
+parser destructor also omitted its owned `slice_data` object and optional `rbsp_buf`;
+both are now freed. These fixes apply to either profile and do not enable streaming.
+
+The reported newlib used-byte rise from 114760 before video setup to 516224 on failure
+is consistent with retained parser allocations, but the log is not a complete leak
+measurement. Check repeated failed attempts against a settled baseline on hardware.
+Non-build checks interpret the actual cleanup paths and parser destructor with tracked
+allocations, including early failure and repeated calls. No agent build/device test ran.

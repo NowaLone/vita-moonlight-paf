@@ -19,6 +19,8 @@
 static SceAvcdecCtrl *s_decoder;
 static SceUID s_decoder_memblock = -1;
 #define VITA_VIDEO_FRAME_COUNT 3
+/* Sony SDK error table; this code is absent from VitaSDK's public enum. */
+#define VITA_VIDEO_ERROR_NOT_GAME_BUDGET 0x80620840u
 
 static SceUID s_frame_memblocks[VITA_VIDEO_FRAME_COUNT] = { -1, -1, -1 };
 static void *s_frame_buffers[VITA_VIDEO_FRAME_COUNT] = { NULL, NULL, NULL };
@@ -248,6 +250,11 @@ static int vita_video_setup(
     result = sceVideodecInitLibrary(SCE_VIDEODEC_TYPE_HW_AVCDEC, s_init_info);
     if (result < 0) {
         vita_debug_log("[Video] sceVideodecInitLibrary failed 0x%08x", result);
+        if ((unsigned int)result == VITA_VIDEO_ERROR_NOT_GAME_BUDGET) {
+            vita_debug_log(
+                "[Video] SCE_VIDEODEC_ERROR_NOT_GAME_BUDGET: "
+                "standard decoder init rejects this application budget");
+        }
         goto fail;
     }
 
@@ -451,9 +458,11 @@ fail_info:
     s_decoder_info = NULL;
 fail_library:
     sceVideodecTermLibrary(SCE_VIDEODEC_TYPE_HW_AVCDEC);
+fail:
+    /* SPS/init-info also exist when library initialization itself fails. */
+    gs_sps_stop();
     free(s_init_info);
     s_init_info = NULL;
-fail:
     free(s_decoder_buffer);
     s_decoder_buffer = NULL;
     s_decoder_buffer_size = 0;

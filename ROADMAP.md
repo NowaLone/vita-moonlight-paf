@@ -75,10 +75,17 @@ The next user capture confirms the adapter is active: AudioPing plus ControlRecv
 LossStats, ReqIdrFrame and CtrlAsyncCb all report 131072-byte stacks and successful
 creation; stage 8 completes. Stage 9 then reaches the video setup callback and
 `sceVideodecInitLibrary()` fails with `0x80620840`. Mode remains A with zero PHYCONT,
-zero free CDRAM and 648 KiB USER_RW free. The error is not named by the installed
-VitaSDK videodec header, so do not relabel it as that header's out-of-memory error
-(`0x80620803`). The thread-allocation blocker is passed in this test; long-session
-stack sufficiency and the separate video/system-mode constraints remain unresolved.
+zero free CDRAM and 648 KiB USER_RW free. Sony's local SDK error table identifies
+`0x80620840` as `SCE_VIDEODEC_ERROR_NOT_GAME_BUDGET`: the standard API rejects this
+application budget. VitaSDK's NID database/stubs expose a `Nongameapp` family, but
+the available headers do not establish its ABI. Verify those signatures and memory
+requirements before calling it. The thread-allocation blocker is passed in this test;
+long-session stack sufficiency and video/system-mode constraints remain unresolved.
+
+Source cleanup now releases the SPS parser and init-info on library-init failure,
+along with the already-freed decoder input buffer. The parser destructor also frees
+its owned slice-data object/buffer. Interpreted cleanup-path checks passed; build,
+repeated failed setup and allocation-baseline checks on Vita remain pending.
 
 - [x] Prototype an opt-in system-mode package with bounded newlib/PAF allocations and
   budget diagnostics; verify the frontend opens without closing a suspended Vita game.

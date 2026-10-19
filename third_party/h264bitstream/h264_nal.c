@@ -77,6 +77,11 @@ void h264_free(h264_stream_t* h)
         free(h->seis);
     }
     free(h->sh);
+    if (h->slice_data != NULL)
+    {
+        free(h->slice_data->rbsp_buf);
+        free(h->slice_data);
+    }
     free(h);
 }
 
