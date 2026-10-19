@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<livearea style="a1" format-ver="01.00" content-rev="1">
+    <livearea-background>
+        <image>bg0.png</image>
+    </livearea-background>
+    <gate>
+        <startup-image>startup.png</startup-image>
+    </gate>
+    <frame id="frame5">
+        <liveitem>
+            <text origin="background" align="right" line-align="right" text-valign="bottom" margin-bottom="8" margin-right="16">
+                <str size="18" bold="off" shadow="on" color="#aaaaaa">Vita Moonlight PAF</str>
+            </text>
+        </liveitem>
+    </frame>
+</livearea>
