@@ -18,8 +18,12 @@ Individual lifecycle/failure-case results were not supplied; the full matrix rem
 **[open]**. No build or hardware test was run by the agent.
 
 The opt-in `MOONLIGHT_SYSTEM_APP` prototype switches the PAF runtime to
-`Mode_Application` after `SampleInit()`, with 8 MiB surface and 4 MiB text-surface
-pools, following BHBB **[code]**. It retains `graphics_option=7` and the existing
+`Mode_Application` after `SampleInit()`, initially following BHBB **[code]**. After
+the user's startup allocation failure, its surface/text-surface pools are reduced
+from 8/4 MiB to 4/1 MiB to leave room for Moonlight's separate newlib heap **[code]**.
+The log proves an 8 MiB DDR-main request failed, but does not identify its caller;
+this pool adjustment still needs a device retest **[open]**.
+It retains `graphics_option=7` and the existing
 CXML/page geometry. This is an experimental runtime profile; native dialogs,
 AppSettings, infobar restoration and streaming presentation need Vita checks
 **[open]**. See [system-mode notes](SYSTEM_APP_MODE_RESEARCH.md#prototype-on-codexsystem-app-mode).

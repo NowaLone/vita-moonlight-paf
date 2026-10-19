@@ -32,6 +32,16 @@ VPKs for full installation rather than issuing SELF-only load. CMake and runtime
 `[Launch]` messages identify the selected/compiled profile. Correct-profile device
 verification is still pending.
 
+The next user run failed immediately on launch with a Vita game resident: an 8 MiB
+request (`0x00800000`) in `ddrmain: VLMP00001` failed and a coredump was generated.
+The current local VPK now contains the intended system metadata (`gdc`, boot
+attribute 8, total 32768 KiB, physical 0) and the memory diagnostics. Source defaults
+had copied BHBB's 8/4 MiB surface/text pools despite Moonlight's additional 6 MiB
+newlib heap. These pools are now reduced to 4/1 MiB, saving 7 MiB of requested pool
+capacity. The failed allocation's caller is not identified by the log; this is a
+targeted footprint experiment, not a proven crash fix. Total/physical/heap budgets
+are unchanged. Source/whitespace checks passed; build and device retest are pending.
+
 - [ ] Prototype an opt-in system-mode package with bounded newlib/PAF allocations and
   budget diagnostics; verify the frontend opens without closing a suspended Vita game.
 - [ ] Establish a measured decoder/graphics budget and validate streaming, native Settings,

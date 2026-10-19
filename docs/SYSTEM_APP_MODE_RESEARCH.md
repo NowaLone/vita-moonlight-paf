@@ -195,8 +195,9 @@ plus physical reservation must leave space inside total. Passing these checks on
 establishes configuration consistency; it does not prove sufficient runtime memory or
 firmware-specific physical-budget alignment. The experimental values need measurement.
 
-PAF application mode is set after `SampleInit()`, with 8 MiB surface and 4 MiB
-text-surface pools, while retaining `graphics_option=7`. The ordinary profile keeps
+PAF application mode is set after `SampleInit()`, initially with 8 MiB surface and
+4 MiB text-surface pools, while retaining `graphics_option=7`. The startup-failure
+follow-up below reduces those pools to 4/1 MiB. The ordinary profile keeps
 its previous heap/framework/SELF settings. The newlib startup probe catches a wholly
 unavailable heap and returns module-start failure with an existing-style bootstrap
 console error; later allocation pressure still uses the existing failure paths.
@@ -256,3 +257,42 @@ isolated deployment-branch behavior for ON/OFF and common boolean spellings, rej
 of a missing system VPK, isolated CMake profile messages and diff whitespace. Only the
 relevant shell snippets and CMake script-mode blocks were exercised; no build/deploy
 script, project configure, compilation, packaging or device test was executed.
+
+### Follow-up: startup allocation failure with a game resident
+
+The user reports an immediate startup crash with a Vita game left resident. The
+kernel log shows an unsuccessful `0x00800000` (8 MiB) allocation in
+`ddrmain: VLMP00001`, followed by a coredump. It does not identify the allocation's
+caller, the firmware failure code, or establish that `0x00310000` is a free-memory
+counter. A DDR-main physical-page allocation failure alone is not evidence that the
+AVC decoder's separate PHYCONT reservation should be increased.
+
+Read-only inspection of the current local VPK/cache now confirms the system profile:
+`CATEGORY=gdc`, control-info-6 attribute 8, physical 0, total 32768 KiB. The ELF has
+`[Memory]` strings and a strong `_newlib_heap_size_user`; its data contains a 6 MiB
+override. The new crash dump is not available locally; the Desktop dump is older
+than this test and was not used to diagnose it.
+
+The first profile copied BHBB's 8/4 MiB surface/text pools but also reserved a 6 MiB
+newlib heap in addition to the 10 MiB global PAF heap. Matching BHBB's pool sizes
+therefore did not reproduce its memory footprint. The surface pool is an explicit
+8 MiB allocation candidate, but matching sizes do not prove its ownership of the
+failed request; inherited PAF/GXM settings and firmware allocations remain relevant.
+
+The next source trial reduces surface/text pools to 4/1 MiB, a 7 MiB reduction in
+their combined requested capacities. Global PAF/newlib heaps, total SELF budget,
+physical reservation, rendering mode and authority are unchanged. Pool capacities
+are not measured resident usage, and 4/1 MiB is not yet a verified sufficient size
+for native dialogs, fonts, settings or video presentation.
+
+Rebuild with `bash build.sh -DMOONLIGHT_SYSTEM_APP=ON`, install the full VPK and repeat
+the same launch with the game resident. If startup succeeds, collect `[Launch]` and
+`[Memory]` after applying Settings and test native UI before streaming. If it still
+fails, use the fresh `.psp2dmp` and matching unstripped `.elf` to identify the failing
+thread/call site before further pool or reservation changes. Later `[Memory]` logs
+cannot diagnose a failure before the framework/settings are initialized, because
+logging intentionally follows the existing Debug log preference.
+
+Non-build validation checked the guarded pool assignments, the 7 MiB reduction,
+unchanged ordinary-profile source and diff whitespace. No agent-run configure,
+application/resource compilation, packaging, deployment or hardware test occurred.

@@ -194,6 +194,9 @@ with `profile=system` or `profile=normal` and the source revision.
 It uses `gdc` packaging, a 32 MiB SELF budget, a 6 MiB newlib heap, a 10 MiB PAF
 heap and PAF application mode. UNSAFE and the existing authority/settings remain.
 These are initial frontend-test allocations, not measured streaming requirements.
+PAF surface/text pools are 4/1 MiB after the initial 8/4 MiB configuration failed
+with an 8 MiB DDR-main allocation request on startup with a game resident. The
+smaller pools save 7 MiB in requested pool capacity; their device retest is pending.
 Install the complete VPK through VitaShell, then launch from LiveArea, rather than
 replacing only the SELF, so the changed launch metadata is promoted. Then test
 opening Moonlight with a Vita game suspended and returning to that same game session.
