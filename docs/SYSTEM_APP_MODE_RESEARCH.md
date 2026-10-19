@@ -626,3 +626,19 @@ Neither these arena counters nor their free field describe the whole reserved
 6 MiB newlib heap. Do not increase that heap solely because an early arena-free
 sample was small. User-run results are distinct from agent checks; the agent did
 not build, deploy or run the application.
+
+The follow-up project log callback rate-limits only the exact common-c format
+strings `Waiting for IDR frame\n` and `Waiting for RFI frame\n`. Each kind emits
+immediately, then at most once per second with the preceding omitted-repeat count.
+After transport threads have joined, a summary preserves total message/omission
+counts including a final partial interval. A mutex protects the two small counters;
+console output occurs outside the lock. State resets before each session. Other
+messages, IDR requests, drop limits, transport sources and renderer behavior remain
+unchanged. The count describes log messages, not a new network-loss metric.
+
+Non-build checks interpret the actual timing-helper C AST: 120 messages at 60 Hz
+yield two periodic emissions and 118 omissions; tests cover the exact one-second
+boundary, final pending counts, independent IDR/RFI state and session reset.
+Source checks cover callback pass-through, logging outside the lock, teardown
+summary ordering and an unchanged common-c tree. Build and hardware validation of
+this diagnostic change remain pending; it is not claimed to fix the initial loss.

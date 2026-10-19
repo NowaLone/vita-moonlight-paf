@@ -139,6 +139,13 @@ root cause. Final USER_RW free is 31552 KiB versus 33584 before stream setup;
 newlib used grows from 93056 to 3279376 bytes. A repeated settled baseline is
 needed before classifying that retained footprint. No agent build/device test ran.
 
+The project log callback now limits the two exact common-c IDR/RFI wait messages
+to one per kind per second, aggregates omitted repeats and summarizes totals after
+transport teardown (including failed setup). It preserves other messages and all
+protocol/recovery behavior; no dependency source was changed. State resets before
+each session. Interpreted timing/counter checks passed; this logging-only follow-up
+has not been built or hardware-tested by the agent.
+
 ## Requested: full stream diagnostics overlay (2026-10-19)
 
 Replace the existing FPS-only display with useful stream diagnostics based on the

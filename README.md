@@ -245,6 +245,11 @@ when Settings applies the logging preference; successful early bootstrap remains
 quiet. The prototype and tuning parameters are documented in
 [docs/SYSTEM_APP_MODE_RESEARCH.md](docs/SYSTEM_APP_MODE_RESEARCH.md#prototype-on-codexsystem-app-mode).
 
+Repeated common-c `Waiting for IDR/RFI frame` messages are limited to one per
+second for each kind, with omitted-message totals reported after transport teardown.
+IDR requests, recovery/drop-limit events and other logs remain visible. This limits
+console traffic during recovery without changing the transport's recovery behavior.
+
 The option persists in the build directory. To return to the ordinary profile:
 
 ```bash

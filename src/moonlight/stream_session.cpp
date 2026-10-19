@@ -49,6 +49,56 @@ static int s_stream_stop_requested = 0;
 static int s_stream_cancel_requested = 0;
 static int s_stream_termination_result = 0;
 
+struct RecoveryWaitLog {
+    uint64_t last_emit_us;
+    unsigned int seen;
+    unsigned int emitted;
+    unsigned int pending;
+};
+
+static pthread_mutex_t s_recovery_log_mutex = PTHREAD_MUTEX_INITIALIZER;
+static RecoveryWaitLog s_recovery_wait_logs[2] = {};
+
+static bool update_recovery_wait_log(
+    RecoveryWaitLog *state, uint64_t now_us, unsigned int *omitted)
+{
+    ++state->seen;
+    if (state->emitted && now_us - state->last_emit_us < 1000000ull) {
+        ++state->pending;
+        return false;
+    }
+    *omitted = state->pending;
+    state->pending = 0;
+    state->last_emit_us = now_us;
+    ++state->emitted;
+    return true;
+}
+
+static void reset_recovery_wait_logs(void)
+{
+    pthread_mutex_lock(&s_recovery_log_mutex);
+    memset(s_recovery_wait_logs, 0, sizeof(s_recovery_wait_logs));
+    pthread_mutex_unlock(&s_recovery_log_mutex);
+}
+
+/* Called only after common-c has joined its transport threads. */
+static void summarize_recovery_wait_logs(void)
+{
+    RecoveryWaitLog snapshot[2];
+    pthread_mutex_lock(&s_recovery_log_mutex);
+    memcpy(snapshot, s_recovery_wait_logs, sizeof(snapshot));
+    pthread_mutex_unlock(&s_recovery_log_mutex);
+
+    for (int kind = 0; kind < 2; ++kind) {
+        if (snapshot[kind].seen > snapshot[kind].emitted) {
+            vita_debug_log(
+                "[Limelight] %s wait log summary: messages=%u omitted=%u",
+                kind == 0 ? "IDR" : "RFI", snapshot[kind].seen,
+                snapshot[kind].seen - snapshot[kind].emitted);
+        }
+    }
+}
+
 static int stream_cancel_requested(void)
 {
     pthread_mutex_lock(&s_stream_mutex);
@@ -163,6 +213,23 @@ static void on_log_message(const char *format, ...)
 {
     char buffer[512];
     va_list args;
+
+    /* These exact common-c messages occur once per discarded waiting frame. */
+    int kind = strcmp(format, "Waiting for IDR frame\n") == 0 ? 0 :
+        (strcmp(format, "Waiting for RFI frame\n") == 0 ? 1 : -1);
+    if (kind >= 0) {
+        unsigned int omitted = 0;
+        pthread_mutex_lock(&s_recovery_log_mutex);
+        bool emit = update_recovery_wait_log(
+            &s_recovery_wait_logs[kind], sceKernelGetSystemTimeWide(), &omitted);
+        pthread_mutex_unlock(&s_recovery_log_mutex);
+        if (emit) {
+            vita_debug_log(
+                "[Limelight] Waiting for %s frame (repeated logs omitted=%u)",
+                kind == 0 ? "IDR" : "RFI", omitted);
+        }
+        return;
+    }
 
     va_start(args, format);
     vsnprintf(buffer, sizeof(buffer), format, args);
@@ -510,6 +577,7 @@ static void *stream_thread_main(void *arg)
     StreamThreadArgs *args = (StreamThreadArgs *)arg;
     int result;
 
+    reset_recovery_wait_logs();
     vita_debug_log("[Stream] worker start app=%d", args->application_id);
     moonlight_log_memory_budget("stream-before-setup");
     result = stream_cancel_requested() ? -7 : run_stream_session(
@@ -519,6 +587,7 @@ static void *stream_thread_main(void *arg)
 
     if (result != 0) {
         /* LiStartConnection unwinds partial setup itself; no active transport remains. */
+        summarize_recovery_wait_logs();
         moonlight_stats_end(args->stats_generation);
         free(args);
         finish_stream_worker(MOONLIGHT_EVENT_STREAM_FAILED, result);
@@ -547,6 +616,7 @@ static void *stream_thread_main(void *arg)
     vita_input_stop();
     /* Never run on a Limelight/input thread, and never allocate a thread to reach here. */
     LiStopConnection();
+    summarize_recovery_wait_logs();
     moonlight_log_memory_budget("stream-after-stop");
     pthread_mutex_lock(&s_stream_mutex);
     result = s_stream_termination_result;
