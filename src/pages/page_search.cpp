@@ -63,6 +63,10 @@ Search::~Search() {
 
 void Search::RestoreEventCallback() {
     if (MoonlightApp::Instance()->IsInitialized()) {
+        /* A completed/cancelled child flow must allow selecting a PC again. */
+        m_host_selected = false;
+        m_selected_index = -1;
+        SetStatus(m_host_count > 0 ? "Select a PC." : "No PCs found.");
         MoonlightApp::Instance()->SetEventCallback(OnMoonlightEvent, this);
     }
 }

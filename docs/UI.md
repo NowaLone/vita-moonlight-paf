@@ -114,6 +114,13 @@ Navigation **[code]**: Main -> `OptionMenu` -> (Settings = the system AppSetting
 Main). Main -> Search -> connect -> Pairing (unpaired host) or Apps (paired host). Main -> Add PC (inline button,
 `SceImeDialog`) -> connect -> Pairing or Apps. Pairing -> Apps. Apps -> Stream.
 
+Successful Pairing is removed from the existing Base stack only after Apps opens successfully;
+Apps then reclaims the event callback that Pairing's destructor temporarily returns to the parent.
+Back from Apps returns to Search when pairing began there, or to Main for a Main/manual connection,
+without revisiting the completed PIN page **[code]**. Search callback restoration clears the previous
+selection guard and restores its list prompt so another PC can be selected **[code]**. If Apps fails
+to open, Pairing stays available with an error. These navigation changes still need a Vita check **[open]**.
+
 Add PC is an inline control on Main; there is no Add PC page.
 
 ## 4. Building blocks

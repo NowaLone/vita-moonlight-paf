@@ -2,6 +2,30 @@
 
 This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordered by risk reduction and release readiness, not by a promise that every item must be completed before development continues. Keep individual changes small and verify device-specific behavior on real PS Vita hardware.
 
+## Pairing completion and Back navigation (2026-10-19)
+
+User reproduced Apps → Back returning to the completed PIN page instead of Search PCs.
+Root cause: successful Pairing pushed Apps without removing itself from Base's page stack.
+Search also retained `m_host_selected`, preventing another selection after a child page returned.
+
+The source change removes Pairing only after Apps opens successfully, then restores Apps' event
+callback after Pairing's destructor hands it back to its parent. Search callback restoration clears
+the old selection guard/index and restores the list prompt. Apps-open failure retains Pairing with
+its error. This uses the existing Base stack/removal/reactivation and main-thread event delivery;
+BetterHomebrewBrowser's page stack is the reference for ownership, not a second navigation system.
+
+- [ ] Verify on Vita: Search → unpaired PC → successful Pairing → Apps → Back returns directly to
+  Search; select a PC again. Also check already-paired Search → Apps → Back, Pairing cancel/failure,
+  and Main/manual → Pairing → Apps → Back returning to Main. Check Apps still receives its list/stream
+  events after Pairing destruction. No new hardware verification is claimed.
+
+Validation: `bash build.sh` completed CXML compilation, C++ build, SELF and VPK generation with
+the existing build directory. The first attempt stopped during PAF-header discovery; read-only
+inspection found the SDK headers and the second unchanged build command succeeded. Existing SDK
+signedness/wchar_t and future-resource-timestamp/clock-skew warnings remain. VPK CRC validation passed
+and its packaged eboot matches the newly built SELF. `git diff --check` passed. No deployment or Vita
+navigation test was performed by the agent.
+
 ## Main cold start: one saved PC verified by user (2026-10-19)
 
 User supplied the Vita log:

@@ -281,7 +281,17 @@ void Pairing::OnMoonlightEvent(
                 if (!apps->IsValid()) {
                     delete apps;
                     pairing->SetStatus("Unable to open applications.");
+                    return;
                 }
+
+                /*
+                 * Pairing is complete, so it must not remain a Back target.
+                 * Its destructor restores the parent callback; hand events
+                 * back to Apps after removing it from the existing stack.
+                 */
+                delete pairing;
+                apps->RestoreEventCallback();
+                return;
             }
         } else {
             pairing->ShowPairingError(event->result);
