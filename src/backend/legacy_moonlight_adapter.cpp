@@ -45,10 +45,14 @@ void LegacyMoonlightAdapter::Shutdown()
 
 int LegacyMoonlightAdapter::OpenSettings()
 {
+#ifdef MOONLIGHT_SETTINGS_DIAGNOSTICS_SCREEN
+    return moonlight_settings_show_diagnostics();
+#else
     if (moonlight_settings_init() != 0) {
         return -1;
     }
     return moonlight_settings_open();
+#endif
 }
 
 int LegacyMoonlightAdapter::GetSettings(MoonlightSettings *out)

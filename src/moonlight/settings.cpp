@@ -7,6 +7,10 @@
 #include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
 #endif
+#ifdef MOONLIGHT_SETTINGS_DIAGNOSTICS_SCREEN
+#include <psp2/message_dialog.h>
+#include <stdio.h>
+#endif
 
 #include "common.h"
 #include "debug.h"
@@ -155,8 +159,14 @@ static int32_t on_get_surface(paf::graph::Surface **, const char *)
 
 #ifdef MOONLIGHT_SETTINGS_DIAGNOSTICS
 // Explicit diagnostic builds only: Settings cannot enable its own debug toggle
-// if loading the native plugin crashes. Keep these probes read-only and console-only.
-static void trace_settings_file(const char *path)
+// if loading the native plugin crashes. Keep probes read-only and logs console-only.
+struct SettingsFileProbe {
+    int stat_result;
+    int open_result;
+    int read_result;
+};
+
+static SettingsFileProbe trace_settings_file(const char *path)
 {
     SceIoStat stat;
     int stat_result = sceIoGetstat(path, &stat);
@@ -167,6 +177,8 @@ static void trace_settings_file(const char *path)
     vita_debug_log("[SettingsDiag] file path=%s stat=0x%08x open=0x%08x read=%d close=0x%08x magic=%02x%02x%02x%02x",
         path, (unsigned)stat_result, (unsigned)fd, read_result, (unsigned)close_result,
         (unsigned)header[0], (unsigned)header[1], (unsigned)header[2], (unsigned)header[3]);
+    SettingsFileProbe probe = { stat_result, fd, read_result };
+    return probe;
 }
 
 static void trace_settings_import()
@@ -180,7 +192,7 @@ static void trace_settings_import()
 }
 #endif
 
-static void load_settings_dependency(SceSysmoduleInternalModuleId id)
+static int load_settings_dependency(SceSysmoduleInternalModuleId id)
 {
     int result = sceSysmoduleLoadModuleInternal(id);
 #ifdef MOONLIGHT_SETTINGS_DIAGNOSTICS
@@ -189,7 +201,34 @@ static void load_settings_dependency(SceSysmoduleInternalModuleId id)
 #else
     (void)result;
 #endif
+    return result;
 }
+
+#ifdef MOONLIGHT_SETTINGS_DIAGNOSTICS_SCREEN
+static bool s_diagnostic_dialog_open = false;
+static char s_diagnostic_message[SCE_MSG_DIALOG_USER_MSG_SIZE];
+static SceMsgDialogParam s_diagnostic_param;
+static SceMsgDialogUserMessageParam s_diagnostic_user_message;
+
+static void diagnostic_dialog_poll(void *)
+{
+    if (sceMsgDialogGetStatus() != SCE_COMMON_DIALOG_STATUS_FINISHED) return;
+    sceMsgDialogTerm();
+    s_diagnostic_dialog_open = false;
+    paf::common::MainThreadCallList::Unregister(diagnostic_dialog_poll, NULL);
+}
+
+static void close_diagnostic_dialog()
+{
+    if (!s_diagnostic_dialog_open) return;
+    paf::common::MainThreadCallList::Unregister(diagnostic_dialog_poll, NULL);
+    sceMsgDialogAbort();
+    if (sceMsgDialogGetStatus() == SCE_COMMON_DIALOG_STATUS_FINISHED) {
+        sceMsgDialogTerm();
+    }
+    s_diagnostic_dialog_open = false;
+}
+#endif
 
 static int load_plugin()
 {
@@ -226,8 +265,57 @@ static int load_plugin()
 
 }
 
+#ifdef MOONLIGHT_SETTINGS_DIAGNOSTICS_SCREEN
+int moonlight_settings_show_diagnostics(void)
+{
+    if (s_diagnostic_dialog_open || !g_plugin) return -1;
+
+    // Called only by OpenSettings on the UI thread; never load AppSettings here.
+    SettingsFileProbe module = trace_settings_file("vs0:vsh/common/app_settings.suprx");
+    SettingsFileProbe resource = trace_settings_file("vs0:vsh/common/app_settings_plugin.rco");
+    SceIoStat stat;
+    int ux0 = sceIoGetstat("ux0:data/moonlight/", &stat);
+    int uma0 = sceIoGetstat("uma0:data/moonlight/", &stat);
+    int bxce = load_settings_dependency(SCE_SYSMODULE_INTERNAL_BXCE);
+    int ini = load_settings_dependency(SCE_SYSMODULE_INTERNAL_INI_FILE_PROCESSOR);
+    int gui = load_settings_dependency(SCE_SYSMODULE_INTERNAL_COMMON_GUI_DIALOG);
+
+    snprintf(s_diagnostic_message, sizeof(s_diagnostic_message),
+        "SETTINGS DIAGNOSTICS - SCREEN\nBuild: %s\n"
+        "app_settings.suprx\nstat=%08X open=%08X read=%d\n"
+        "app_settings_plugin.rco\nstat=%08X open=%08X read=%d\n"
+        "moonlight dir stat: ux0=%08X uma0=%08X\n"
+        "deps: BXCE=%08X INI=%08X GUI=%08X\n"
+        "AppSettings load was not attempted.",
+        MOONLIGHT_GIT_COMMIT,
+        (unsigned)module.stat_result, (unsigned)module.open_result, module.read_result,
+        (unsigned)resource.stat_result, (unsigned)resource.open_result, resource.read_result,
+        (unsigned)ux0, (unsigned)uma0, (unsigned)bxce, (unsigned)ini, (unsigned)gui);
+
+    sceMsgDialogParamInit(&s_diagnostic_param);
+    memset(&s_diagnostic_user_message, 0, sizeof(s_diagnostic_user_message));
+    s_diagnostic_user_message.buttonType = SCE_MSG_DIALOG_BUTTON_TYPE_OK;
+    s_diagnostic_user_message.msg = reinterpret_cast<const SceChar8 *>(s_diagnostic_message);
+    s_diagnostic_param.mode = SCE_MSG_DIALOG_MODE_USER_MSG;
+    s_diagnostic_param.userMsgParam = &s_diagnostic_user_message;
+    int result = sceMsgDialogInit(&s_diagnostic_param);
+    vita_debug_log("[SettingsDiag] screen dialog init=0x%08x", (unsigned)result);
+    if (result >= 0) {
+        s_diagnostic_dialog_open = true;
+        paf::common::MainThreadCallList::Register(diagnostic_dialog_poll, NULL);
+    }
+
+    // Settings did not open; let the normal caller restore Main's activation.
+    return -1;
+}
+#endif
+
 int moonlight_settings_init(void)
 {
+#ifdef MOONLIGHT_SETTINGS_DIAGNOSTICS_SCREEN
+    // Incidental backend reads must not enter the crashing loader or show UI.
+    return -1;
+#endif
     if (s_initialized) return 0;
     if (!g_plugin) return -1;
 
@@ -268,6 +356,9 @@ int moonlight_settings_init(void)
 
 void moonlight_settings_shutdown(void)
 {
+#ifdef MOONLIGHT_SETTINGS_DIAGNOSTICS_SCREEN
+    close_diagnostic_dialog();
+#endif
     s_event_callback = NULL;
     s_event_userdata = NULL;
     s_settings = NULL;

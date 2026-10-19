@@ -288,3 +288,87 @@ another authority ID or deleting settings.
   not Vita verification.
 - `git diff --check` passed. No deployment or new Vita run was performed.
   The next required evidence is the paired diagnostic output above.
+
+## Console capture unavailable: on-device report (2026-10-19)
+
+The user reported no SettingsDiag lines, but did receive:
+
+```text
+[SceCommonDialog] Starting Init(), type 1
+[SceCommonDialog] Term() completed, type 1
+```
+
+These establish an active console connection and some system output, not
+successful capture of this application's stdout. The local diagnostic VPK
+was checked again and contains the SettingsDiag marker; whether that exact
+variant is installed is not yet established. The inspected local psp2shell
+kernel code captures sceIoWrite only when its fd matches a stored stdout fd,
+which is one possible capture limitation, not a proven explanation for this
+device. No console/plugin code or configuration was changed.
+
+### Screen-only report variant
+
+An additional option `MOONLIGHT_SETTINGS_DIAGNOSTICS_SCREEN=ON` requires the
+console diagnostic option to be ON as well. Both remain OFF by default.
+When selected, LegacyMoonlightAdapter::OpenSettings calls the native settings
+adapter's diagnostic report instead of initializing AppSettings. Incidental
+backend settings reads return an error without loading the problem plugin
+or showing UI from a worker thread.
+
+The report uses the same SceMessageDialog family and nonblocking PAF
+MainThreadCallList polling pattern already used by Main and ConnectionService.
+Its text and parameter buffers have static lifetime; the poll callback ends
+the dialog, and shutdown unregisters/aborts an owned report. Returning failure
+from the Settings operation lets the existing Main caller restore activation.
+No page or CXML implementation was modified.
+
+The visible heading is **SETTINGS DIAGNOSTICS - SCREEN**, followed by the
+embedded build revision, stat/open/read results for both native Settings
+files, stat results for the ux0/uma0 moonlight directories and dependency
+load results. Directory stat is only a read probe and cannot establish write
+permission or the actual selected storage directory. Module reads still do
+not establish loader/start success.
+
+**This variant never attempts to load AppSettings.** Closing a successful
+report therefore does not mean Settings works or the crash has been fixed.
+It is for photographing/transcribing results without relying on console
+capture. Actual Settings editing and streaming validation belong on a normal
+build after the root cause is identified.
+
+Rebuild separately from the repository root:
+
+```bash
+bash build_cxml.sh
+mkdir -p build/settings-diagnostics-screen
+cp build/vita_moonlight_ui.rco build/settings-diagnostics-screen/
+cmake -S . -B build/settings-diagnostics-screen -DCMAKE_BUILD_TYPE=Release -DMOONLIGHT_SETTINGS_DIAGNOSTICS=ON -DMOONLIGHT_SETTINGS_DIAGNOSTICS_SCREEN=ON
+cmake --build build/settings-diagnostics-screen --parallel 4
+```
+
+The produced VPK is in that directory. A convenience copy of the validated
+package is **`build/vita_moonlight_paf-settings-screen.vpk`**, with a matching
+`build/vita_moonlight_paf-settings-screen.elf`. These are ignored local build
+outputs, not additional tracked artifacts. The package SHA-256 for this run
+is `7e5354e2d9437ce1edfac98f87c4c6fa060ae37b1854ea92b69868dd0726e2b5`.
+It embeds parent revision `54fc6c7` because it was built before committing
+this diagnostic change; the manifest lives in the screen build directory.
+
+Install this variant, keep ioPlus disabled and HENkaku active, and select
+Settings. Return the report as a photo or transcription; repeat on the same
+VPK with ioPlus enabled for comparison. If the heading is absent, record
+whether Settings crashed, returned to Main, or another dialog appeared;
+do not assume the report ran.
+
+### Checks actually performed
+
+- Default, console-only and screen diagnostic configurations built successfully.
+  The screen build's first compile rejected the unsigned/signed message-pointer
+  conversion; an explicit SceChar8 cast matching the existing dialog pattern
+  corrected it, and the final screen build completed.
+- All three VPKs passed ZIP integrity, CATEGORY=gd, title ID VLMP00001 and
+  SELF authority ID `0x2F00000000000101` checks. Each packaged SELF and debug
+  ELF matches its corresponding build output.
+- Only the screen ELF contains the screen heading; default ELF has no
+  SettingsDiag marker, while both diagnostic ELFs have it.
+- `git diff --check` passed. No device deployment, dialog display or actual
+  Settings behavior was tested by the agent.

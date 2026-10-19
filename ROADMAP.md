@@ -63,6 +63,16 @@ occurs **after selecting Settings**, and supplied a textual crash report followe
   No deployment or plugin change was performed by the agent.
   Do not change InitialRefreshTask, SELF authorization, storage formats or callback lifetime
   speculatively. SAFE/AppSettings module research remains closed.
+- Console follow-up (2026-10-19): user sees CommonDialog Init/Term messages but no SettingsDiag
+  output. Connectivity exists; user-process stdout capture or the exact installed variant is
+  still unconfirmed. The local diagnostic VPK contains the expected marker. Do not interpret
+  the absence of console lines as a successful file probe or proof of a new root cause.
+- [ ] Use opt-in `MOONLIGHT_SETTINGS_DIAGNOSTICS_SCREEN` to show access/dependency results in a
+  native message dialog when Settings is selected, before any AppSettings load. Separate artifact:
+  `build/vita_moonlight_paf-settings-screen.vpk`. Screen, console-only and default builds pass
+  locally; SFO/SELF values and mutually exclusive diagnostic markers were checked. This report
+  build deliberately disables actual AppSettings initialization and is not a production fix.
+  Next: obtain a photo/transcription of the report without ioPlus, then with it, on the same VPK.
 
 
 ## Recent streaming implementation review
