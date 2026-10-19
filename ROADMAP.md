@@ -40,10 +40,12 @@ the old selection guard/index and restores the list prompt. Apps-open failure re
 its error. This uses the existing Base stack/removal/reactivation and main-thread event delivery;
 BetterHomebrewBrowser's page stack is the reference for ownership, not a second navigation system.
 
-- [ ] Verify on Vita: Search → unpaired PC → successful Pairing → Apps → Back returns directly to
-  Search; select a PC again. Also check already-paired Search → Apps → Back, Pairing cancel/failure,
-  and Main/manual → Pairing → Apps → Back returning to Main. Check Apps still receives its list/stream
-  events after Pairing destruction. No new hardware verification is claimed.
+- [x] Verify on Vita: Search → unpaired PC → successful Pairing → Apps → Back returns directly to
+  Search; select a PC again. User confirmed this exact requested flow works on 2026-10-19.
+  This is user-reported verification on the tested Vita, not an agent-run or cross-firmware test.
+- [ ] Check already-paired Search → Apps → Back, Pairing cancel/failure, and Main/manual → Pairing →
+  Apps → Back returning to Main. Check Apps still receives its stream events after Pairing destruction.
+  The user's confirmation of the pairing/Back/reselection flow does not verify these additional cases.
 
 Validation: `bash build.sh` completed CXML compilation, C++ build, SELF and VPK generation with
 the existing build directory. The first attempt stopped during PAF-header discovery; read-only

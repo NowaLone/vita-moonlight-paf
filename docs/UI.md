@@ -119,7 +119,9 @@ Apps then reclaims the event callback that Pairing's destructor temporarily retu
 Back from Apps returns to Search when pairing began there, or to Main for a Main/manual connection,
 without revisiting the completed PIN page **[code]**. Search callback restoration clears the previous
 selection guard and restores its list prompt so another PC can be selected **[code]**. If Apps fails
-to open, Pairing stays available with an error. These navigation changes still need a Vita check **[open]**.
+to open, Pairing stays available with an error **[code]**. User verified Search → successful Pairing →
+Apps → Back → Search and selecting a PC again on 2026-10-19 **[hw, tested Vita]**. The Main/manual path,
+already-paired path, Pairing cancel/failure and stream-event regression checks remain **[open]**.
 
 Add PC is an inline control on Main; there is no Add PC page.
 
