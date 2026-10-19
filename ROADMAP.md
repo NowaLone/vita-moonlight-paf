@@ -2,6 +2,32 @@
 
 This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordered by risk reduction and release readiness, not by a promise that every item must be completed before development continues. Keep individual changes small and verify device-specific behavior on real PS Vita hardware.
 
+## Requested: remote self-unpair when deleting a PC (2026-10-19)
+
+User requests that deleting a saved PC also revokes this Vita's pairing in Sunshine, and explicitly
+declines adding an administrative login to the Vita. This supersedes the earlier decision to treat
+remote revocation itself as intentionally unsupported; administrative access remains out of scope.
+
+**Status: requested, not implemented; unavailable through the reviewed stock Sunshine client API.**
+Rechecked Sunshine master `3d6e1d6008bd4a24906283ab25fcd0becc0a1c07` on 2026-10-19:
+GameStream registers serverinfo/pair/applist/appasset/launch/resume/cancel, with no unpair/self-revoke
+route. `POST /api/clients/unpair` is an admin Web API operation requiring Basic username/password and
+the server-generated client UUID; a pairing certificate does not authorize it. The admin UUID is
+not the local uniqueid or host UUID. See audit A21 for pinned handler/route references.
+
+- [ ] Obtain a supported Sunshine client self-revocation operation authenticated as this paired
+  Vita, or an explicitly agreed host-side extension. No admin-login feature is to be added.
+- [ ] Once that protocol prerequisite exists, implement remote revocation through HostService →
+  backend/adapter, targeting only this Vita on the selected host, before reporting successful remote
+  unpair/local removal. Define offline/rejection/retry and explicit local-only removal behavior.
+  Preserve the installation-wide identity and pairings on other hosts.
+- [ ] Verify the selected server-side record is gone, other clients/hosts remain paired, and rejected,
+  offline and repeated operations never report false unpair success.
+
+Until then Delete remains local metadata removal. Do not send a nonexistent GameStream `/unpair`,
+substitute `/cancel` (which quits the host app), or delete/rotate global client credentials to imitate
+remote revocation. No runtime unpair support or Sunshine-host test was added for this investigation.
+
 ## Pairing completion and Back navigation (2026-10-19)
 
 User reproduced Apps → Back returning to the completed PIN page instead of Search PCs.

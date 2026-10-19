@@ -150,6 +150,12 @@ Discovery results are temporary. Selecting a discovered PC creates or updates it
 
 The project does not provide compatibility or migration for the original Vita Moonlight per-host credential layout. Existing per-host `uniqueid.dat`, `client.pem`, `key.pem`, and `client.p12` files are not used by the new global client-identity implementation.
 
+Deleting a saved PC currently removes its local metadata; Sunshine retains the Vita's paired-client
+record. Remote self-unpair is requested in [ROADMAP.md](ROADMAP.md), but stock Sunshine exposes
+revocation through its administrative API, not its paired streaming-client API. Administrative login
+on Vita is outside the agreed scope. Until a client self-revocation protocol is available, remote
+revocation is performed in Sunshine's own client-management UI.
+
 ## Build
 
 Requirements:

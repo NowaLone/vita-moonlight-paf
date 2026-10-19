@@ -376,7 +376,7 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Verified / runtime:** source; T9 only if an explicit remote-Quit feature is later requested.
   Do not call this on ordinary stop, network loss or pending-launch cancellation. No endpoint added.
 
-### A21 — Unpair / delete saved host — intentionally unsupported (remote revocation)
+### A21 — Unpair / delete saved host — missing (requested client self-revocation)
 
 - **Endpoint / purpose / auth:** legacy GameStream HTTP `/unpair` exists in V/QP error-cleanup paths;
   S has **no registered `/unpair` route**. Sunshine paired-client revocation is administrative.
@@ -384,12 +384,24 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   compatibility with S. S removes failed/expired pairing attempts itself. Admin client removal is
   a separate authenticated operation and revokes the selected server-side client identity.
 - **Current:** L8 DeleteHost removes exact local host metadata only, preserving global identity;
-  no remote unpair or credential deletion. This is consistent with current saved-PC Delete UX.
+  no remote unpair or credential deletion. On 2026-10-19 the user requested remote unpair on Delete,
+  then explicitly declined administrative login. The requested self-revocation is therefore
+  **missing**, with an upstream protocol prerequisite; it is no longer intentionally excluded.
 - **Upstream / Sunshine:** QP/V cleanup calls; S pair expiry/route table; SA registers
   `POST /api/clients/unpair` and unpair-all. An older API comment says `/api/unpair`; the route table
-  is authoritative for this pinned revision.
+  is authoritative for this pinned revision. The admin handler calls `authenticate`, accepts a JSON
+  server-side client `uuid`, and returns `status`; that generated UUID is not the client's uniqueid
+  or host UUID. GameStream pairing credentials do not authorize this admin request.
 - **Verified / runtime:** source; T3 tests failed-pair retry; T9 revokes client on host and tests
-  reconnect. Local Delete is not evidence that Sunshine forgot the client. Admin API remains out of scope.
+  reconnect. Rechecked current Sunshine master on 2026-10-19: it still resolves to S and has no
+  client self-unpair route. Current Moonlight Qt `e4db5c2c18e0a55fd8a33d8d735d8b71c1f9a710`
+  [pairing implementation](https://github.com/moonlight-stream/moonlight-qt/blob/e4db5c2c18e0a55fd8a33d8d735d8b71c1f9a710/app/backend/nvpairingmanager.cpp)
+  retains legacy best-effort `/unpair` error cleanup; that is not a Sunshine route or normal Delete.
+  No live host request was made. Local Delete is not evidence that Sunshine forgot the client.
+  Admin API remains out of scope by the user's explicit choice. Implementation requires a supported
+  authenticated client self-revocation operation or an agreed host extension; no fake endpoint,
+  `/cancel`, or global-credential removal is an acceptable substitute. The plan/acceptance checks
+  are recorded in ROADMAP under requested remote self-unpair.
 
 ### A22 — Certificates / authentication — partial
 
