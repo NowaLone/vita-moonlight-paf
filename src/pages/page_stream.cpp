@@ -18,6 +18,7 @@
 #endif
 
 #include "debug.h"
+#include "app/moonlight_app.h"
 #include "pages/page_stream.h"
 #include "../moonlight/vita_input.h"
 #include "../moonlight/vita_video_renderer.h"
@@ -165,6 +166,7 @@ Stream::Stream()
 
         /* Keep the Vita awake only while the streaming page is active. */
         set_stream_power_tick(true);
+        MoonlightApp::Instance()->HideStreamInfobar();
     }
 }
 
@@ -180,6 +182,8 @@ Stream::~Stream()
      * after this page has been destroyed.
      */
     if (m_video_plane) {
+        /* Restore the system bar before Base reactivates the previous page. */
+        MoonlightApp::Instance()->RestoreStreamInfobar();
         m_video_plane->Hide(common::transition::Type_Reset);
         m_video_plane->SetActivate(false);
 

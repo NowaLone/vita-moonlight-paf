@@ -2,16 +2,20 @@
 
 This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordered by risk reduction and release readiness, not by a promise that every item must be completed before development continues. Keep individual changes small and verify device-specific behavior on real PS Vita hardware.
 
-## Stream system infobar research (2026-10-19)
+## Stream system infobar (2026-10-19)
 
 Source investigation on `codex/research-stream-infobar` identified NetStream's explicit
 `sceAppMgrSetInfobarState()` calls for playback entry/exit and controls visibility. See
 [docs/STREAM_INFOBAR_RESEARCH.md](docs/STREAM_INFOBAR_RESEARCH.md) for pinned reference code,
 Moonlight lifecycle integration points, orderly-shutdown restoration and the device checks.
-This is documentation only; no runtime behavior, build or hardware verification was added.
+Source implementation now uses a small AppMgr adapter in `MoonlightApp`: a valid Stream page
+requests hidden and its destructor requests visible. Orderly shutdown also restores visibility
+before disabling event delivery. Failed restores remain pending; transition results are logged
+through `vita_debug_log()`. No per-frame visibility enforcement or input changes were added.
+Non-build source checks only; compilation and device behavior remain unverified.
 
-- [ ] Implement hiding while the valid Stream page owns playback and restoration on page exit
-  and orderly application shutdown through a small main-thread AppMgr adapter.
+- [ ] Validate the implemented main-thread hiding/restoration on page entry/exit and orderly
+  application shutdown with a maintainer build and Vita run.
 - [ ] Verify start/stop/reconnect, launch failure, host loss, Quick Actions/return, native keyboard,
   application exit and the restored browsing-bar appearance on Vita.
 

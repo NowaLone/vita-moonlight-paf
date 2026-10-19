@@ -21,6 +21,10 @@ public:
     int Initialize();
     void Shutdown();
 
+    /* Stream presentation lifecycle; call only on the PAF main thread. */
+    void HideStreamInfobar();
+    void RestoreStreamInfobar();
+
     HostService &Hosts() { return m_hosts; }
     HostDiscoveryService &Discovery() { return m_discovery; }
     PairingService &Pairing() { return m_pairing; }
@@ -52,6 +56,7 @@ private:
     static const int kEventQueueCapacity = 16;
 
     bool m_initialized;
+    bool m_infobar_restore_pending;
 
     LegacyMoonlightAdapter m_backend;
     HostService m_hosts;

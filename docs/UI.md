@@ -7,9 +7,13 @@ measured numbers behind every layout decision. Read this before changing anythin
 Companion documents: `AGENTS.md` (hard rules for agents), `ROADMAP.md` (plan and hardware checks), `README.md`
 (overview and build).
 
-System infobar during streaming: [research and integration proposal](STREAM_INFOBAR_RESEARCH.md)
-compares NetStream's AppMgr calls with the current Stream lifecycle **[code]**. Runtime hiding/restoration
-is not implemented or hardware-verified by that investigation **[open]**.
+System infobar during streaming: [research and implementation notes](STREAM_INFOBAR_RESEARCH.md)
+compare NetStream's AppMgr calls with the Stream lifecycle **[code]**. A valid Stream page requests
+hidden through `MoonlightApp::HideStreamInfobar()`; its destructor requests visible before returning
+to Apps. `MoonlightApp::Shutdown()` also restores the bar independently of stop-event delivery.
+Failed restores remain pending for the next cleanup request; requests/results use console-only
+`[Infobar]` diagnostics. No per-frame requests or local controls/touch bindings are added. Build and
+Vita validation, including Quick Actions/IME return and restored appearance, remain **[open]**.
 
 Evidence tags used below:
 

@@ -2,7 +2,9 @@
 
 #include "app/moonlight_app.h"
 #include "common.h"
+#include "debug.h"
 #include "pages/page_main.h"
+#include <psp2/appmgr.h>
 #include <psp2/apputil.h>
 #include <psp2/net/net.h>
 #include <psp2/net/netctl.h>
@@ -16,6 +18,20 @@ static void *s_net_memory = NULL;
 static bool s_net_initialized = false;
 static bool s_netctl_initialized = false;
 static bool s_net_module_loaded = false;
+
+static int set_infobar_visible(bool visible)
+{
+    int result = sceAppMgrSetInfobarState(
+        visible ? SCE_APPMGR_INFOBAR_VISIBILITY_VISIBLE
+                : SCE_APPMGR_INFOBAR_VISIBILITY_INVISIBLE,
+        SCE_APPMGR_INFOBAR_COLOR_BLACK,
+        SCE_APPMGR_INFOBAR_TRANSPARENCY_TRANSLUCENT);
+
+    vita_debug_log(
+        "[Infobar] request visible=%d result=0x%08x",
+        visible ? 1 : 0, (unsigned int)result);
+    return result;
+}
 
 static int InitializeNetwork()
 {
@@ -95,6 +111,7 @@ static void ShutdownNetwork()
 
 MoonlightApp::MoonlightApp()
     : m_initialized(false),
+      m_infobar_restore_pending(false),
       m_backend(),
       m_hosts(m_backend),
       m_discovery(m_backend),
@@ -196,6 +213,9 @@ int MoonlightApp::Initialize()
 
 void MoonlightApp::Shutdown()
 {
+    /* Shutdown disables event delivery, so STREAM_STOPPED may never reach Apps. */
+    RestoreStreamInfobar();
+
     if (!m_initialized) {
         return;
     }
@@ -226,6 +246,24 @@ void MoonlightApp::Shutdown()
     m_initialized = false;
 
     ShutdownNetwork();
+}
+
+void MoonlightApp::HideStreamInfobar()
+{
+    /* Even a failed hide request must be followed by a best-effort restore. */
+    m_infobar_restore_pending = true;
+    set_infobar_visible(false);
+}
+
+void MoonlightApp::RestoreStreamInfobar()
+{
+    if (!m_infobar_restore_pending) {
+        return;
+    }
+
+    if (set_infobar_visible(true) >= 0) {
+        m_infobar_restore_pending = false;
+    }
 }
 
 void MoonlightApp::SetEventCallback(MoonlightAppEventCallback callback, void *userdata)

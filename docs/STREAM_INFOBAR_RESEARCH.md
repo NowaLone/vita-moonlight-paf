@@ -6,8 +6,9 @@ Moonlight source baseline: `9ce5dcad89737a0e4bdac5bd8a7e44691554803a`.
 **Result [code]:** use `sceAppMgrSetInfobarState()` to hide the Vita system status
 bar while the Stream page is active and show it again on exit. NetStream explicitly
 calls this API when its playback controls change visibility; video decoding does
-not automatically control the bar. This branch documents the investigation only;
-no runtime implementation, build or hardware validation was performed.
+not automatically control the bar. The follow-up implementation on this branch
+adds these requests to Moonlight's page/application lifecycle. No build or hardware
+validation was performed.
 
 ## Evidence and API
 
@@ -65,7 +66,7 @@ reviewed AppMgr header: restoring visible/black/translucent is an explicit polic
 matching NetStream, not restoration of a queried previous state. Verify its visual
 match to Moonlight's browsing baseline on hardware **[open]**.
 
-## Current Moonlight integration points [code]
+## Moonlight integration points at the research baseline [code]
 
 - `CMakeLists.txt` already links `SceAppMgr_stub`. No additional import library
   is needed for this API; a new adapter source would still need to be listed.
@@ -92,7 +93,35 @@ match to Moonlight's browsing baseline on hardware **[open]**.
   but does not explicitly destroy the page stack. It therefore cannot rely on a
   final `STREAM_STOPPED` event or `Stream::~Stream()` to restore visibility.
 
-## Recommended implementation (proposal, not present)
+## Implementation (2026-10-19) [code]
+
+`MoonlightApp` owns `m_infobar_restore_pending` and exposes `HideStreamInfobar()` /
+`RestoreStreamInfobar()` for the PAF main thread. A private AppMgr wrapper in the
+existing application source performs the requests and logs visibility/result once
+per call through `vita_debug_log()` (`[Infobar]`). No extra source/import library is
+needed. The pending flag records the need to restore, not a successful hide.
+
+Stream requests hidden only inside the valid `m_video_plane` constructor branch;
+the corresponding destructor branch restores visible before Base reactivates Apps.
+An invalid root or missing plane does not acquire infobar ownership. A failed hide
+does not interrupt playback and is still followed by a restore attempt. A successful
+restore clears pending state; a failed restore leaves it pending for the next cleanup
+request. A new stream always makes a fresh hide request, including after failed cleanup.
+
+`MoonlightApp::Shutdown()` restores before its initialization guard and before
+disabling backend event delivery. This does not depend on a final stop callback
+and permits another restore attempt on repeated shutdown if a previous attempt
+failed. No frame task or input worker calls AppMgr to set visibility.
+
+The stream-session review confirms manual stop and host termination emit
+`STREAM_STOPPED` after a started stream; Apps deletes Stream on that event.
+Startup failure without a Stream page makes no infobar request. No stream-event
+semantics or framebuffer teardown ordering were changed.
+
+The original integration plan follows for context; the adapter is implemented in
+the existing `MoonlightApp` files rather than a separate class/source file.
+
+## Integration plan
 
 1. Isolate the AppMgr calls and error logging in a small application-layer
    adapter. Expose stream entry/exit and an idempotent restore operation, all
@@ -114,8 +143,8 @@ match to Moonlight's browsing baseline on hardware **[open]**.
    `vita_debug_log()`. An infobar error should not abort a working stream. Do not
    mark a failed request as successfully applied or retry/log on every frame.
 
-The first implementation needs no CXML, settings, decode, touch or PS Button
-changes. In particular, do not copy NetStream's tap-anywhere trigger: Moonlight
+The implementation changes no CXML, settings, decode, touch or PS Button
+handling. In particular, do not copy NetStream's tap-anywhere trigger: Moonlight
 already sends touchscreen actions to the PC. If local stream controls are added
 later, their actual shown/hidden state can drive visible/invisible calls; the
 5-second NetStream timer is a reference, not a requirement for the current app.
@@ -130,7 +159,7 @@ not a substitute for the normal playback API investigated here.
 
 ## Maintainer validation still required [open]
 
-After implementation, build with the existing toolchain and test on a real Vita:
+Build with the existing toolchain and test on a real Vita:
 
 1. Record the browsing bar appearance. Start a stream: bar disappears, video
    remains full-screen, FPS overlay follows its own setting, touch still reaches
@@ -148,5 +177,6 @@ After implementation, build with the existing toolchain and test on a real Vita:
    appearance. Log actual AppMgr results with Debug log enabled; absence of a log
    with the toggle off is not evidence that no request occurred.
 
-Completed here: local source/API/lifecycle review and online VitaSDK API check.
-Build, runtime calls and all device outcomes above remain unverified.
+Completed: local source/API/lifecycle review, online VitaSDK API check and source
+implementation. Build, actual AppMgr results and all device outcomes above remain
+unverified.
