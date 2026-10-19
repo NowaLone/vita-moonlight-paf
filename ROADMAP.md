@@ -118,8 +118,26 @@ checks below remain pending.
 
 - [x] Prototype an opt-in system-mode package with bounded newlib/PAF allocations and
   budget diagnostics; verify the frontend opens without closing a suspended Vita game.
-- [ ] Establish a measured decoder/graphics budget and validate streaming, native Settings,
-  dialogs, PS/Quick Actions, cleanup and return to the same game session on Vita.
+- [x] Establish decoder/graphics allocations and verify a basic stream with image,
+  sound, controls, stop and return to the suspended game on the tested Vita.
+- [ ] Check longer/repeated streams and settled memory baselines; validate native
+  Settings/dialogs/Quick Actions with the larger budget and broader compatibility.
+
+User validation of `8b5d9a5` with total 65536 KiB, PHYCONT zero, mode A:
+library query 5767168 bytes, decoder query 8388608 bytes, arena 15728640 bytes;
+explicit init/create and all three main-RAM output mappings succeeded. Setup
+completed all eleven stages, decoded 1088 frames, then the user stopped with a PS
+double press. Audio drain/release and all deferred GXM unmaps returned zero.
+The user explicitly confirms working image, sound, controls and resuming the
+original Vita game. This verifies the requested basic coexistence scenario on
+that device/game, not long-session stability or every lifecycle path.
+
+The same capture contains 120 IDR-wait log messages after out-of-order video at
+frame 249; the existing drop-limit request is followed by resumed decoding.
+That is recovery evidence, not a new decoder-budget failure or proof of a network
+root cause. Final USER_RW free is 31552 KiB versus 33584 before stream setup;
+newlib used grows from 93056 to 3279376 bytes. A repeated settled baseline is
+needed before classifying that retained footprint. No agent build/device test ran.
 
 ## Requested: full stream diagnostics overlay (2026-10-19)
 

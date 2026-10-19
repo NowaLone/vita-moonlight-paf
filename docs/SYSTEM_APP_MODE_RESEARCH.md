@@ -587,3 +587,42 @@ five teardown failures exercise ownership/order and retained-resource reuse guar
 Source selection/linkage and ordinary-profile source preservation are checked
 separately. These checks do not replace VitaSDK compilation or device validation;
 neither was run by the agent.
+
+### First successful stream alongside a game (user validation)
+
+The user's `8b5d9a54717c` capture confirms system profile, total 65536 KiB, physical
+reservation zero and mode A. QueryMemSizeNongameapp reports 5767168 bytes (5.5 MiB)
+and QueryDecoderMemSizeNongameapp reports 8388608 bytes (8 MiB) for 960x544x60.
+The 15728640-byte (15 MiB) contiguous main-RAM arena opens successfully as a
+CodecEngine pool. Explicit library init/create both return zero. Three 2 MiB
+main-RAM output blocks map successfully; video-ready USER_RW free is 11396 KiB,
+then 10048 KiB after the remaining audio/input/transport setup completes.
+All eleven stages complete and the renderer reports 1088 decoded frames.
+
+The user explicitly confirms working image, sound, controls, and resuming the
+original suspended Vita game after Moonlight. This establishes the basic goal on
+that device/game with this 64 MiB configuration. It does not establish a minimum
+budget, cross-firmware/all-game support or long-session/reconnect stability.
+
+After out-of-order video data at frame 249, the capture has exactly 120
+`Waiting for IDR frame` messages, then `Reached consecutive drop limit`, an IDR
+request, and resumed decoding. These match the pinned common-c depacketizer's
+per-completed-frame wait logging and 120-frame consecutive-drop limit. It is
+recovery after a stream discontinuity; the log cannot identify whether network,
+scheduling, console output, or another cause produced it. The 4400 ms first-audio
+arrival and audio out-of-order recovery are also observations, not decoder errors.
+`connection status=0` is CONN_STATUS_OKAY in the pinned header. The control error
+4 appears after the user's PS double-press stop and ENet interruption; it does
+not indicate that initial connection setup failed.
+
+Stop finishes with result zero, audio drain/release zero and no nongame cleanup
+error. Before deferred framebuffer release USER_RW free is 25408 KiB; releasing
+the three mapped blocks increases it by exactly 6144 KiB to 31552 KiB. All three
+GXM unmaps return zero. Before setup free was 33584 KiB, so the final snapshot
+still has 2032 KiB less headroom. Newlib used changes from 93056 to 3279376 bytes;
+the arena grows to 3948544 bytes. Arena growth alone is not a leak, while the
+retained used-byte difference needs a repeat/settled-baseline investigation.
+Neither these arena counters nor their free field describe the whole reserved
+6 MiB newlib heap. Do not increase that heap solely because an early arena-free
+sample was small. User-run results are distinct from agent checks; the agent did
+not build, deploy or run the application.
