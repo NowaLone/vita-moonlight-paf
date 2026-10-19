@@ -639,3 +639,53 @@ remain pending. No SAFE-mode or other authority survey is reopened.
   manifest are under build/. No generated artifacts are committed.
 - `git diff --check` passed. No installation, actual Settings opening, persistence
   or PS/stream regression testing was performed by the agent.
+
+
+## Real AppSettings loader returns in two device launches (2026-10-19)
+
+The next user attachment contains two native-load runs embedding the expected
+live-build parent revision `72819b499d4a`, with different process IDs. In each:
+ux0 is selected; only four order-0x81 mappings exist; Settings files are readable;
+dependencies return zero; `native plugin LoadSync returned found=1` is reached.
+The SetParam import words change from the unresolved stub pattern
+`e24fc008,e3a0f000,e1a00000` to a patched address/branch pattern ending in
+`e12fff1c`. This is evidence that the real native plugin loads and the import
+is resolved, beyond the earlier screen-only file probes. The original failing
+stage is passed in both launches. No actual Show callback or settings-value
+readback is recorded, so visible open/close behavior and persistence still
+require user confirmation. The earlier stated no-ioPlus test condition is
+being confirmed together with that outcome.
+
+Both runs also include `RefreshHosts hosts=1 cells before=1 after_delete=0
+after_insert=1 selection=0`. This verifies that single-host refresh in those
+runs, not the full empty/one/multiple-host cold-start matrix. No Main refresh
+change is justified.
+
+The attachment starts with a stream-stop sequence: PS double press, stop worker,
+audio drain/release success, Limelight cleanup, manual STREAM_STOPPED, worker
+finished and three successful video unmaps/deferred release. The excerpt has
+no startup/build marker tying that stream to the new authority variant; do not
+mark its PS/stream regression complete until provenance is confirmed. IDR waits
+and dropped audio occur before the stop, so the capture also does not establish
+loss-free streaming. ENet/control errors during teardown alone do not establish
+a separate persistent failure after cleanup. No runtime change follows from
+this attachment.
+
+
+### User confirmation and closure of the reported Settings regression
+
+The user explicitly confirms both follow-up questions: on the new authority
+VPK **without ioPlus**, native Settings opens/closes and changed values survive
+complete application restart; the stream-stop excerpt also belongs to that
+same new variant without ioPlus. The originally reported Settings crash and
+persistence concern are therefore resolved on the tested 3.60 HENkaku device.
+The recorded double-PS stop, audio cleanup and video deferred release count
+as regression coverage for this variant. The earlier provenance/persistence
+questions above are answered by this confirmation, not by guessing from logs.
+
+Do not extend that result to other firmware, Quick Actions/hold/short-tap
+behavior, reconnect, network-loss-free streaming or new saved-host writes.
+Those remain separate checks. Default builds keep diagnostics OFF; no further
+runtime patch or Main refresh change is needed for this Settings issue.
+This stage changes documentation only: source/log review and diff checks were
+performed; no rebuild/deployment was necessary or performed by the agent.

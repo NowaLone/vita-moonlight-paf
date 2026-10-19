@@ -2,9 +2,14 @@
 
 This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordered by risk reduction and release readiness, not by a promise that every item must be completed before development continues. Keep individual changes small and verify device-specific behavior on real PS Vita hardware.
 
-## Current hardware regression: Settings open (2026-10-18)
+## Settings-open regression: verified resolved on tested Vita (2026-10-19)
 
-**Priority: diagnose before the API audit's F1 implementation follow-up.** The user reports that
+**Status:** user verified native Settings open/close and persistence across a complete
+application restart on 3.60 HENkaku without ioPlus with authority `0x2200000000000001`.
+PS double-press stream stop/cleanup is also confirmed on that build. Broader PS/Quick
+Actions/reconnect regression coverage remains pending; no cross-firmware claim is made.
+
+**Original priority: diagnose before the API audit's F1 implementation follow-up.** The user reports that
 saved PCs now appear on Main at application startup, but attempting to open Settings freezes the
 application and eventually crashes with `C2-12828-1`. The user subsequently confirmed the crash
 occurs **after selecting Settings**, and supplied a textual crash report followed by the complete
@@ -121,12 +126,24 @@ occurs **after selecting Settings**, and supplied a textual crash report followe
   and all runtime/storage code. The previous ID's persistence/PS observations were
   insufficient to establish ioPlus-free access. Normal and console-only diagnostic
   builds must be tested through real Settings; SCREEN mode is not used for this step.
-- [ ] Install `vita_moonlight_paf-settings-auth220-live.vpk` without ioPlus. Verify
-  Settings opens/closes, change a value and verify it after full application restart.
-  Capture `native plugin LoadSync returned found=1` or any crash/loader output.
-  Then regress stream start/stop/reconnect and PS tap/hold/Quick Actions. A different
-  authority may change AppSettings/SaveSafeMemory or shell permissions. Existing
-  uma0 data is not migrated; record visibility/persistence of hosts under ux0.
+- [x] Verify `vita_moonlight_paf-settings-auth220-live.vpk` without ioPlus: user confirms
+  Settings opens/closes and changed values persist after complete application restart.
+  Two supplied launches reach `native plugin LoadSync returned found=1`.
+- [x] Verify double-PS stream stop on the new authority without ioPlus: user confirms
+  the supplied stop/cleanup log is from this variant. Worker completion, successful
+  audio drain/release and deferred video-buffer release are recorded.
+- [ ] Regress reconnect and deliberate PS tap/hold/Quick Actions under the new authority.
+  Existing uma0 data is not migrated; verify new saved-host writes under ux0 persist.
+
+- Real-loader follow-up: supplied log shows two separate processes of the expected
+  live build (`72819b499d4a`) reaching `native plugin LoadSync returned found=1`;
+  SetParam import is patched after loading. Both select ux0, have no blocking
+  overlays and refresh one host with after_delete=0 / after_insert=1. The failed
+  plugin-load stage is passed on hardware. Visible Settings operation and value
+  persistence still need confirmation before closing the regression.
+- The accompanying stream-stop excerpt reaches worker completion and deferred
+  video-buffer release, but its build/plugin provenance is not present. Confirm
+  it belongs to the new authority test before counting PS/stop regression coverage.
 
 
 ## Recent streaming implementation review
