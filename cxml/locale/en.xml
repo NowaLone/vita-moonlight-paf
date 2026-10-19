@@ -28,7 +28,7 @@
 
   <string src="System" id="msg_system_settings" />
   <string src="Swap X & O for Moonlight" id="msg_swap_xo" />
-  <string src="Display streaming FPS" id="msg_show_fps" />
+  <string src="Display stream statistics" id="msg_show_fps" />
   <string src="Use center region only" id="msg_center_region_only" />
   <string src="Debug log" id="msg_debug_log" />
 

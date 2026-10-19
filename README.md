@@ -39,6 +39,8 @@ The current application supports:
 - Retrieving the application list from a paired PC.
 - H.264 video streaming and Vita AVC presentation.
 - Opus audio playback.
+- Optional stream statistics overlay: video rates, missing/local-drop estimates, RTT,
+  decode/PAF/audio call timing and payload bitrate. Source implementation; Vita validation pending.
 - Vita controller input.
 - Front touchscreen input.
 - Motion/gyro input path.

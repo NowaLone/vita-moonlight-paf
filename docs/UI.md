@@ -104,8 +104,6 @@ Rows are 80 px tall and 960 px wide. The first row's top edge is at y = 96 and d
   `image_button_host_select`); code picks the id by mode.
 - No XML comments inside elements: none exist in the project and they have not been tested with `psp2cxml-tool`.
   Put explanations in docs and commit messages.
-- `cxml/vita_moonlight_ui.xml` contains a stray line `ge>` between `</page>` and `</pagetable>` from an earlier edit.
-  It is parsed as harmless text; remove it when the file is next touched.
 - `cxml/locale/en.xml` contains raw `&` and `<->` in some attributes. The project's tool accepts them; a strict XML
   parser does not.
 
@@ -117,7 +115,7 @@ Rows are 80 px tall and 960 px wide. The first row's top edge is at y = 96 and d
 | `Search` (`Type_Search`) | `page_search_pcs` | LAN discovery list; the header text is the status | corner button `btn_close_search` |
 | `Pairing` (`Type_Pairing`) | `page_pairing` | shows the PIN, pairs as soon as it opens | bar button `btn_close_pairing` |
 | `Apps` (`Type_Apps`) | `page_apps` | application list of the connected PC | corner button `btn_close_apps` |
-| `Stream` (`Type_Stream`) | `page_stream` | full-screen video plane, black background, FPS text; no chrome | none (closed by stream events) |
+| `Stream` (`Type_Stream`) | `page_stream` | full-screen video plane, black background, optional statistics overlay; no chrome | none (closed by stream events) |
 | `OptionMenu` (`Type_OptionMenu`) | `page_settings_bubble` | speech-balloon overlay: Delete, Settings | dismiss button over the whole screen |
 
 Navigation **[code]**: Main -> `OptionMenu` -> (Settings = the system AppSettings plugin | Delete = selection mode on
@@ -166,8 +164,26 @@ Planes: `style_plane_selection_bar` (+ `_edge_dark`, `_edge_light`) for the Phot
 
 Text: `style_text_header` (26 regular, left), `style_text_paragraph` (26 regular, line pitch 40, wrapped),
 `style_text_row_title` (28 regular), `style_text_row_desc` (22, 85% white), `style_text_pin` (48 bold),
-`style_text_flow_note` (22, 85% white, wrapped), `style_text_main_status` (22, centred; used for page status text and the
-stream FPS overlay).
+`style_text_flow_note` (22, 85% white, wrapped), `style_text_main_status` (22, centred; page status text),
+`style_text_stream_statistics` (18, yellow, left/top, unwrapped, 20 px line pitch; streaming diagnostics).
+
+The stream statistics overlay uses `plane_stream_statistics` (928 x 380, top-left offset 16/-12)
+and `text_stream_statistics` (904 x 360, offset 24/-20, 18 explicit lines). The background is
+black at alpha 0.65 with a white style multiplier. These are implementation values **[code]**,
+not screenshot measurements; readability, line clipping and actual appearance need Vita verification
+**[open]**. The old stray `ge>` text was removed when editing the resource.
+
+The existing AppSettings key `show_fps` and `msg_show_fps` identifier remain; the visible label is now
+`Display stream statistics`. `Stream::StatisticsTask` updates cached text/background widgets at most
+once per second independently of arriving video, and is unregistered in the page destructor. With
+the setting off neither the task nor the per-frame timing hooks collect statistics. The overlay
+shows rolling rates and average/max timings, host min/max/average, cumulative error/drop counts,
+audio call timing and state/video age. A stall expires old samples and shows `N/A`; RTT can remain
+available independently. PAF submit FPS/CPU timing are not GPU/display completion. Explicit Vblank
+wait is a component of the prequeue time (which includes crop), not an additional end-to-end delay.
+RTT is sampled outside PAF in a session-scoped joinable worker, retired before transport cleanup;
+UI snapshots only copy cached statistics. Queue timing includes waiting to acquire the frame mutex.
+See [STREAM_DIAGNOSTICS_PLAN.md](STREAM_DIAGNOSTICS_PLAN.md) for metric definitions and remaining work.
 
 Buttons and lists: `style_image_button_list_button` (list row button with the empty 102 x 70 icon slot),
 `style_button_option_top` / `style_button_option_bottom` (popup buttons), `style_list_view_generic`,

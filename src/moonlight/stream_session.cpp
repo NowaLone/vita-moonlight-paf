@@ -4,6 +4,8 @@
 #include <curl/curl.h>
 #include <psp2/kernel/rng.h>
 #include <pthread.h>
+#include <sys/time.h>
+#include <time.h>
 
 #include <Limelight.h>
 
@@ -46,14 +48,53 @@ static volatile int s_stream_cancel_requested = 0;
 
 /* Serialize stats reads with transport retirement; never hold this during LiStopConnection(). */
 static pthread_mutex_t s_stats_transport_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t s_stats_transport_wakeup = PTHREAD_COND_INITIALIZER;
+static pthread_t s_stats_thread;
+static int s_stats_thread_running = 0;
 static int s_stats_transport_ready = 0;
+static uint32_t s_stats_transport_generation = 0;
 
 static void retire_stats_transport(void)
 {
+    pthread_t stats_thread;
+    int join_thread;
+    uint32_t generation;
     pthread_mutex_lock(&s_stats_transport_mutex);
     s_stats_transport_ready = 0;
+    generation = s_stats_transport_generation;
+    s_stats_transport_generation = 0;
+    join_thread = s_stats_thread_running;
+    if (join_thread) {
+        stats_thread = s_stats_thread;
+        s_stats_thread_running = 0;
+    }
+    pthread_cond_signal(&s_stats_transport_wakeup);
     pthread_mutex_unlock(&s_stats_transport_mutex);
-    moonlight_stats_end();
+    if (join_thread) {
+        pthread_join(stats_thread, NULL);
+    }
+    moonlight_stats_end(generation);
+}
+
+static void *stats_thread_main(void *userdata)
+{
+    const uint32_t generation = (uint32_t)(uintptr_t)userdata;
+    pthread_mutex_lock(&s_stats_transport_mutex);
+    while (s_stats_transport_ready && s_stats_transport_generation == generation) {
+        uint32_t rtt = 0, variation = 0;
+        const int valid = LiGetEstimatedRttInfo(&rtt, &variation);
+        moonlight_stats_network(generation, valid, rtt, variation);
+
+        /* The wait releases the retirement mutex and can be interrupted immediately on stop. */
+        struct timeval now;
+        struct timespec deadline;
+        gettimeofday(&now, NULL);
+        deadline.tv_sec = now.tv_sec + 1;
+        deadline.tv_nsec = now.tv_usec * 1000;
+        pthread_cond_timedwait(&s_stats_transport_wakeup, &s_stats_transport_mutex, &deadline);
+    }
+    pthread_mutex_unlock(&s_stats_transport_mutex);
+    return NULL;
 }
 
 static size_t write_response(void *contents, size_t size, size_t count, void *userdata)
@@ -152,6 +193,16 @@ static void on_connection_started(void)
     s_stream_context.started = 1;
     pthread_mutex_lock(&s_stats_transport_mutex);
     s_stats_transport_ready = 1;
+    MoonlightStreamStats stats;
+    if (moonlight_stats_snapshot(&stats) == 0 && stats.enabled && stats.active &&
+        stats.generation == s_stats_transport_generation) {
+        int result = pthread_create(&s_stats_thread, NULL, stats_thread_main,
+            (void *)(uintptr_t)stats.generation);
+        s_stats_thread_running = result == 0;
+        if (result != 0) {
+            vita_debug_log("[Stream] RTT statistics worker failed=%d", result);
+        }
+    }
     pthread_mutex_unlock(&s_stats_transport_mutex);
     vita_input_start();
     vita_debug_log("[Stream] connection started");
@@ -628,7 +679,6 @@ extern "C" int moonlight_stream_start(
         settings->enable_frame_pacer,
         settings->enable_vita_vblank_wait,
         settings->center_region_only,
-        settings->show_fps,
         settings->enable_ref_frame_invalidation);
 
     s_stream_context.callback = callback;
@@ -637,10 +687,10 @@ extern "C" int moonlight_stream_start(
     s_stream_stop_requested = 0;
     s_stream_cancel_requested = 0;
 
+    retire_stats_transport();
     pthread_mutex_lock(&s_stats_transport_mutex);
-    s_stats_transport_ready = 0;
+    s_stats_transport_generation = moonlight_stats_begin(settings);
     pthread_mutex_unlock(&s_stats_transport_mutex);
-    moonlight_stats_begin(settings);
 
     s_stream_thread_running = 1;
     result = pthread_create(
@@ -726,13 +776,6 @@ extern "C" int moonlight_stream_is_running(void)
 
 extern "C" int moonlight_stream_get_stats(MoonlightStreamStats *out)
 {
-    int result;
-    /* Retirement waits for any in-flight RTT read before common-c frees its mutex/peer. */
-    pthread_mutex_lock(&s_stats_transport_mutex);
-    result = moonlight_stats_snapshot(out);
-    if (result == 0 && out->enabled && out->active && s_stats_transport_ready) {
-        out->rtt_valid = LiGetEstimatedRttInfo(&out->rtt_ms, &out->rtt_variation_ms);
-    }
-    pthread_mutex_unlock(&s_stats_transport_mutex);
-    return result;
+    /* UI only reads cached counters; it never waits on the ENet mutex. */
+    return moonlight_stats_snapshot(out);
 }

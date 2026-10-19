@@ -46,10 +46,16 @@ private:
     };
 
     void PresentFrame(const Frame &frame);
+    static void StatisticsTask(void *userdata);
+    void UpdateStatistics();
     void OpenKeyboardIfRequested();
     SurfaceSlot *FindSurfaceSlot(void *buffer);
 
     paf::ui::Plane *m_video_plane;
+    paf::ui::Text *m_statistics_text;
+    paf::ui::Widget *m_statistics_background;
+    uint32_t m_statistics_generation;
+    uint64_t m_statistics_next_update_us;
     unsigned int m_video_plane_width;
     unsigned int m_video_plane_height;
     SurfaceSlot m_surface_slots[kSurfaceSlotCount];

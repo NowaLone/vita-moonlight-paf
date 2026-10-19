@@ -26,13 +26,9 @@ void moonlight_video_set_stream_options(
     int frame_pacer,
     int vblank_wait,
     int center_region,
-    int show_fps,
     int ref_frame_invalidation);
-int moonlight_video_show_fps(void);
 int moonlight_video_center_region(void);
 int moonlight_video_ref_frame_invalidation(void);
-unsigned int moonlight_video_presented_fps(void);
-unsigned int moonlight_video_target_fps(void);
 void moonlight_video_get_requested_size(
     unsigned int *width,
     unsigned int *height);

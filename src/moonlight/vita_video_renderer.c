@@ -42,15 +42,10 @@ static int s_target_fps = 60;
 static int s_frame_pacer = 1;
 static int s_vblank_wait = 0;
 static int s_center_region = 0;
-static int s_show_fps = 0;
 static int s_ref_frame_invalidation = 0;
 static unsigned int s_requested_width = 960;
 static unsigned int s_requested_height = 544;
-static unsigned int s_presented_frames;
-static unsigned int s_presented_fps;
-static uint64_t s_fps_window_start;
 static uint64_t s_last_present_time;
-static unsigned int s_fps_window_count;
 static uint32_t s_stats_generation;
 
 void moonlight_video_note_queued(uint32_t generation, int replaced)
@@ -150,7 +145,6 @@ void moonlight_video_set_stream_options(
     int frame_pacer,
     int vblank_wait,
     int center_region,
-    int show_fps,
     int ref_frame_invalidation)
 {
     if (fps < 1) {
@@ -160,13 +154,7 @@ void moonlight_video_set_stream_options(
     s_frame_pacer = frame_pacer ? 1 : 0;
     s_vblank_wait = vblank_wait ? 1 : 0;
     s_center_region = center_region ? 1 : 0;
-    s_show_fps = show_fps ? 1 : 0;
     s_ref_frame_invalidation = ref_frame_invalidation ? 1 : 0;
-}
-
-int moonlight_video_show_fps(void)
-{
-    return s_show_fps;
 }
 
 int moonlight_video_center_region(void)
@@ -177,16 +165,6 @@ int moonlight_video_center_region(void)
 int moonlight_video_ref_frame_invalidation(void)
 {
     return s_ref_frame_invalidation;
-}
-
-unsigned int moonlight_video_presented_fps(void)
-{
-    return s_presented_fps;
-}
-
-unsigned int moonlight_video_target_fps(void)
-{
-    return (unsigned int)s_target_fps;
 }
 
 void moonlight_video_get_requested_size(
@@ -217,23 +195,6 @@ static int vita_video_pacer_should_drop(void)
         return 1;
     }
     return 0;
-}
-
-static void vita_video_note_presented(void)
-{
-    uint64_t now = sceKernelGetSystemTimeWide();
-
-    if (s_fps_window_start == 0) {
-        s_fps_window_start = now;
-    }
-    ++s_presented_frames;
-    ++s_fps_window_count;
-    s_last_present_time = now;
-    if (now - s_fps_window_start >= 1000000ull) {
-        s_presented_fps = s_fps_window_count;
-        s_fps_window_count = 0;
-        s_fps_window_start = now;
-    }
 }
 
 static int vita_video_setup(
@@ -441,6 +402,7 @@ static int vita_video_setup(
 
     s_active = 1;
     s_decoded_frames = 0;
+    s_last_present_time = 0;
     s_stats_generation = moonlight_stats_configure_video(
         video_format, width, height, redraw_rate);
 #ifdef CAPABILITY_REFERENCE_FRAME_INVALIDATION_AVC
@@ -604,6 +566,7 @@ static int vita_video_submit(PDECODE_UNIT decode_unit)
     uint64_t decode_start_us = 0;
     uint64_t decode_end_us = 0;
     uint64_t vblank_us = 0;
+    int pacer_drop = 0;
 
     if (generation && decode_unit) {
         moonlight_stats_received(generation, (uint32_t)decode_unit->frameNumber,
@@ -685,8 +648,13 @@ static int vita_video_submit(PDECODE_UNIT decode_unit)
     result = sceAvcdecDecode(s_decoder, &au, &array_picture);
     if (generation) {
         decode_end_us = LiGetMicroseconds();
+    }
+    if (result >= 0 && array_picture.numOfOutput > 0 && s_active) {
+        pacer_drop = vita_video_pacer_should_drop();
+    }
+    if (generation) {
         moonlight_stats_decode(generation, decode_end_us - decode_start_us,
-            result < 0 ? 0 : array_picture.numOfOutput, result < 0);
+            result < 0 ? 0 : array_picture.numOfOutput, result < 0, pacer_drop);
     }
     if (result < 0) {
         vita_debug_log(
@@ -698,10 +666,7 @@ static int vita_video_submit(PDECODE_UNIT decode_unit)
     }
 
     if (array_picture.numOfOutput > 0 && s_active) {
-        if (vita_video_pacer_should_drop()) {
-            if (generation) {
-                moonlight_stats_pacer_drop(generation);
-            }
+        if (pacer_drop) {
             ++s_decoded_frames;
             return DR_OK;
         }
@@ -712,7 +677,7 @@ static int vita_video_submit(PDECODE_UNIT decode_unit)
                 vblank_us = LiGetMicroseconds() - wait_start_us;
             }
         }
-        vita_video_note_presented();
+        s_last_present_time = sceKernelGetSystemTimeWide();
         if (s_center_region) {
             unsigned int crop_x =
                 (s_frame_width - VITA_SCREEN_WIDTH) / 2u;

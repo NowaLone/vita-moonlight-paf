@@ -7,15 +7,23 @@ This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordere
 Replace the existing FPS-only display with useful stream diagnostics based on the
 user's Moonlight Qt reference. The source-based metric inventory, measurement limits
 and implementation sequence are in [docs/STREAM_DIAGNOSTICS_PLAN.md](docs/STREAM_DIAGNOSTICS_PLAN.md).
-This is a plan only; runtime behavior and AppSettings are unchanged.
+Source implementation is now on `codex/stream-diagnostics`. The FPS-only UI is replaced by an
+18-line yellow-on-translucent-black overlay, refreshed independently of video arrival. The existing
+`show_fps` key/default is preserved under the new label `Display stream statistics`. Video/audio
+hooks collect session-tagged counters and rolling timings; RTT is sampled in a joinable worker
+retired before transport cleanup, so UI snapshots do not wait for ENet. Unsupported video RTP/FEC
+fields are omitted. Decoder time is explicitly API-call time; PAF submit timing is CPU time, not
+display/GPU completion. Core source and resource checks are complete; all build/device acceptance
+items below remain open, including numerical and performance verification.
 
 - [ ] Implement session-scoped video statistics and safe snapshots: incoming/decoded/PAF-submit
   FPS, host processing latency, estimated missing frames, local drops, ENet RTT/variation,
   decode/queue/CPU-submit timing and video payload bitrate. Label PAF/RTT estimates accurately.
 - [ ] Replace the FPS text with a readable CXML overlay, retaining the `show_fps` AppSettings key;
   refresh without per-frame string formatting and age stale values even if video stalls.
-- [ ] Add useful audio counters after core video validation; implement missing RTP video
-  counters only as a separately reviewed common-c change, without displaying unsupported zeros.
+- [ ] Validate the implemented Opus parameters, decode/output call timing and error counters
+  alongside core video; add synchronized RTP audio/FEC snapshots and missing RTP video counters
+  only as separately reviewed follow-ups, without displaying unsupported zeros.
 - [ ] Maintainer builds and verifies readability, numerical behavior, performance, network loss,
   Quick Actions, stop/reconnect and teardown on Vita; record results before marking complete.
 

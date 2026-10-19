@@ -49,6 +49,97 @@ static void set_stream_power_tick(bool enabled)
     }
 }
 
+static void format_timing(char *text, size_t size, const MoonlightTimingStats &timing,
+    bool fresh)
+{
+    if (fresh && timing.samples) {
+        snprintf(text, size, "%.2f / %.2f ms", timing.average_ms, timing.maximum_ms);
+    } else {
+        snprintf(text, size, "N/A");
+    }
+}
+
+static void format_percent(char *text, size_t size, double percent, bool valid)
+{
+    if (valid) {
+        snprintf(text, size, "%.2f%%", percent);
+    } else {
+        snprintf(text, size, "N/A");
+    }
+}
+
+static void format_stream_statistics(const MoonlightStreamStats &stats,
+    char *text, size_t size)
+{
+    const bool fresh = stats.active && stats.has_video && stats.video_age_us < 2000000ull;
+    char host[64];
+    char network[64];
+    char missing[24];
+    char pacer[24];
+    char replaced[24];
+    char assembly[48], decode[48], prepare[48], vblank[48], queue[48], submit[48];
+    char audio_decode[48], audio_output[48];
+    const char *status = !stats.active ? "stopped" : !stats.has_video
+        ? "waiting for video" : fresh ? "receiving" : "video stalled";
+
+    if (fresh && stats.host_latency_samples) {
+        snprintf(host, sizeof(host), "%.1f / %.1f / %.1f ms",
+            stats.host_latency_min_ms, stats.host_latency_max_ms, stats.host_latency_average_ms);
+    } else {
+        snprintf(host, sizeof(host), "N/A");
+    }
+    if (stats.rtt_valid) {
+        snprintf(network, sizeof(network), "%u / %u ms", stats.rtt_ms, stats.rtt_variation_ms);
+    } else {
+        snprintf(network, sizeof(network), "N/A");
+    }
+    format_percent(missing, sizeof(missing), stats.missing_percent, fresh && stats.incoming_fps > 0);
+    format_percent(pacer, sizeof(pacer), stats.pacer_drop_percent, fresh && stats.decoded_fps > 0);
+    format_percent(replaced, sizeof(replaced), stats.replaced_percent, fresh && stats.prequeue.samples > 0);
+    format_timing(assembly, sizeof(assembly), stats.reassembly, fresh);
+    format_timing(decode, sizeof(decode), stats.decoder_call, fresh);
+    format_timing(prepare, sizeof(prepare), stats.prequeue, fresh);
+    format_timing(vblank, sizeof(vblank), stats.vblank, fresh);
+    format_timing(queue, sizeof(queue), stats.paf_queue, fresh);
+    format_timing(submit, sizeof(submit), stats.paf_cpu, fresh);
+    format_timing(audio_decode, sizeof(audio_decode), stats.audio_decode, stats.active != 0);
+    format_timing(audio_output, sizeof(audio_output), stats.audio_output, stats.active != 0);
+
+    snprintf(text, size,
+        "Video: %dx%d | %s | target %d FPS\n"
+        "FPS: incoming %.2f | decoded %.2f | PAF submit %.2f\n"
+        "Host processing min / max / avg: %s\n"
+        "Frames missing before decoder: %s (%llu total)\n"
+        "Local drops: pacer %s (%llu) | PAF queue %s (%llu)\n"
+        "Network RTT / variation: %s\n"
+        "Video payload: %.2f Mbps | target %.2f Mbps\n"
+        "Frame assembly avg / max: %s\n"
+        "Decoder call avg / max: %s\n"
+        "Prequeue avg / max (includes Vblank/crop): %s\n"
+        "Explicit Vblank wait avg / max: %s\n"
+        "PAF queue wait avg / max: %s\n"
+        "PAF submit CPU avg / max: %s\n"
+        "Totals: decode errors %llu | NEED_IDR %llu | IDR %llu | no output %llu\n"
+        "Output: %ux%u stride %u | %s | pacer %s\n"
+        "Audio: Opus %d Hz / %d ch | decode avg / max: %s\n"
+        "Audio output call avg / max: %s | errors decode / output: %llu / %llu\n"
+        "Window: 1-2 s | %s | video age %.0f ms | display/GPU time: N/A",
+        stats.width, stats.height, stats.video_format == VIDEO_FORMAT_H264 ? "H.264" : "N/A",
+        stats.target_fps, stats.incoming_fps, stats.decoded_fps, stats.paf_submit_fps,
+        host, missing, (unsigned long long)stats.missing_frames,
+        pacer, (unsigned long long)stats.pacer_drops,
+        replaced, (unsigned long long)stats.pending_replacements, network,
+        stats.payload_mbps, (double)stats.bitrate_kbps / 1000.0,
+        assembly, decode, prepare, stats.vblank_wait ? vblank : "off", queue, submit,
+        (unsigned long long)stats.decode_errors, (unsigned long long)stats.idr_returns,
+        (unsigned long long)stats.idr_frames, (unsigned long long)stats.no_output,
+        stats.output_width, stats.output_height, stats.output_pitch,
+        stats.center_region ? "Center Region" : "Fit", stats.frame_pacer ? "on" : "off",
+        stats.audio_sample_rate, stats.audio_channels, audio_decode, audio_output,
+        (unsigned long long)stats.audio_decode_errors, (unsigned long long)stats.audio_output_errors,
+        status, (double)stats.video_age_us / 1000.0);
+}
+
 static void send_keyboard_text(const SceWChar16 *text)
 {
     unsigned int i;
@@ -127,6 +218,10 @@ Stream::Stream()
            Plugin::TransitionType_None,
            Plugin::TransitionType_None),
       m_video_plane(NULL),
+      m_statistics_text(NULL),
+      m_statistics_background(NULL),
+      m_statistics_generation(0),
+      m_statistics_next_update_us(0),
       m_video_plane_width(0),
       m_video_plane_height(0)
 {
@@ -150,6 +245,14 @@ Stream::Stream()
     }
     m_video_plane = static_cast<ui::Plane *>(
         root->FindChild("plane_stream_video"));
+    m_statistics_text = static_cast<ui::Text *>(root->FindChild("text_stream_statistics"));
+    m_statistics_background = root->FindChild("plane_stream_statistics");
+    if (m_statistics_text) {
+        m_statistics_text->Hide(common::transition::Type_Reset);
+    }
+    if (m_statistics_background) {
+        m_statistics_background->Hide(common::transition::Type_Reset);
+    }
 
     vita_debug_log(
         "[StreamPage] root=%p video_plane=%p",
@@ -167,11 +270,19 @@ Stream::Stream()
         /* Keep the Vita awake only while the streaming page is active. */
         set_stream_power_tick(true);
         MoonlightApp::Instance()->HideStreamInfobar();
+        MoonlightStreamStats stats;
+        if (m_statistics_text && m_statistics_background &&
+            MoonlightApp::Instance()->Connection().GetStreamStats(&stats) == 0 && stats.enabled) {
+            m_statistics_generation = stats.generation;
+            UpdateStatistics();
+            common::MainThreadCallList::Register(StatisticsTask, this);
+        }
     }
 }
 
 Stream::~Stream()
 {
+    common::MainThreadCallList::Unregister(StatisticsTask, this);
     set_stream_power_tick(false);
     if (s_instance == this) {
         s_instance = NULL;
@@ -403,24 +514,32 @@ void Stream::PresentFrame(const Frame &frame)
             start_us - frame.queued_us, LiGetMicroseconds() - start_us);
     }
 
-    paf::ui::Widget *fps = root ? root->FindChild("text_stream_fps") : NULL;
-    if (fps) {
-        if (moonlight_video_show_fps()) {
-            char label[32];
-            snprintf(
-                label,
-                sizeof(label),
-                "fps: %u / %u",
-                moonlight_video_presented_fps(),
-                moonlight_video_target_fps());
-            ((paf::ui::Text *)fps)->SetString(
-                paf::common::string_util::ToWString(label));
-            fps->Show(paf::common::transition::Type_Reset);
-        } else {
-            fps->Hide(paf::common::transition::Type_Reset);
-        }
-    }
     OpenKeyboardIfRequested();
+}
+
+void Stream::StatisticsTask(void *userdata)
+{
+    Stream *stream = static_cast<Stream *>(userdata);
+    if (stream == s_instance && LiGetMicroseconds() >= stream->m_statistics_next_update_us) {
+        stream->UpdateStatistics();
+    }
+}
+
+void Stream::UpdateStatistics()
+{
+    MoonlightStreamStats stats;
+    m_statistics_next_update_us = LiGetMicroseconds() + 1000000ull;
+    if (MoonlightApp::Instance()->Connection().GetStreamStats(&stats) != 0 ||
+        !stats.enabled || stats.generation != m_statistics_generation) {
+        m_statistics_text->Hide(common::transition::Type_Reset);
+        m_statistics_background->Hide(common::transition::Type_Reset);
+        return;
+    }
+    char text[2304];
+    format_stream_statistics(stats, text, sizeof(text));
+    m_statistics_text->SetString(common::string_util::ToWString(text));
+    m_statistics_background->Show(common::transition::Type_Reset);
+    m_statistics_text->Show(common::transition::Type_Reset);
 }
 
 void Stream::QueueFrame(
@@ -431,6 +550,7 @@ void Stream::QueueFrame(
     uint32_t stats_generation)
 {
     bool register_task = false;
+    const uint64_t queued_us = stats_generation ? LiGetMicroseconds() : 0;
 
     thread::RMutex::main_thread_mutex.Lock();
 
@@ -442,7 +562,7 @@ void Stream::QueueFrame(
         s_pending_frame.height = height;
         s_pending_frame.pitch = pitch;
         s_pending_frame.stats_generation = stats_generation;
-        s_pending_frame.queued_us = stats_generation ? LiGetMicroseconds() : 0;
+        s_pending_frame.queued_us = queued_us;
         s_pending_frame.valid = true;
         moonlight_video_note_queued(stats_generation, replaced);
 

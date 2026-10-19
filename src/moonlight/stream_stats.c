@@ -119,10 +119,13 @@ uint32_t moonlight_stats_begin(const MoonlightSettings *settings)
     return generation;
 }
 
-void moonlight_stats_end(void)
+void moonlight_stats_end(uint32_t generation)
 {
     pthread_mutex_lock(&s_mutex);
-    s_session.active = 0;
+    if (generation && generation == s_session.generation) {
+        s_session.active = 0;
+        s_session.rtt_valid = 0;
+    }
     pthread_mutex_unlock(&s_mutex);
 }
 
@@ -183,7 +186,7 @@ void moonlight_stats_received(uint32_t generation, uint32_t frame_number,
 }
 
 void moonlight_stats_decode(uint32_t generation, uint64_t call_us,
-    unsigned int outputs, int failed)
+    unsigned int outputs, int failed, int pacer_drop)
 {
     if (!begin_update(generation)) {
         return;
@@ -193,6 +196,10 @@ void moonlight_stats_decode(uint32_t generation, uint64_t call_us,
         ++s_session.decode_errors;
     } else {
         s_current.decoded += outputs;
+        if (pacer_drop) {
+            s_current.pacer_drops += outputs;
+            s_session.pacer_drops += outputs;
+        }
         if (!outputs) {
             ++s_session.no_output;
         }
@@ -204,15 +211,6 @@ void moonlight_stats_idr_return(uint32_t generation)
 {
     if (begin_update(generation)) {
         ++s_session.idr_returns;
-        pthread_mutex_unlock(&s_mutex);
-    }
-}
-
-void moonlight_stats_pacer_drop(uint32_t generation)
-{
-    if (begin_update(generation)) {
-        ++s_current.pacer_drops;
-        ++s_session.pacer_drops;
         pthread_mutex_unlock(&s_mutex);
     }
 }
@@ -250,6 +248,16 @@ void moonlight_stats_presented(uint32_t generation, uint64_t queue_us, uint64_t 
         ++s_current.presented;
         note_timing(TIMING_PAF_QUEUE, queue_us);
         note_timing(TIMING_PAF_CPU, cpu_us);
+        pthread_mutex_unlock(&s_mutex);
+    }
+}
+
+void moonlight_stats_network(uint32_t generation, int valid, uint32_t rtt, uint32_t variation)
+{
+    if (begin_update(generation)) {
+        s_session.rtt_valid = valid;
+        s_session.rtt_ms = rtt;
+        s_session.rtt_variation_ms = variation;
         pthread_mutex_unlock(&s_mutex);
     }
 }

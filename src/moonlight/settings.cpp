@@ -344,6 +344,5 @@ void moonlight_settings_apply_runtime(void)
         settings.enable_frame_pacer,
         settings.enable_vita_vblank_wait,
         settings.center_region_only,
-        settings.show_fps,
         settings.enable_ref_frame_invalidation);
 }
