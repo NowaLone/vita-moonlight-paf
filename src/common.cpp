@@ -25,15 +25,7 @@ extern "C" void vita_debug_log(const char *fmt, ...)
     va_list args;
     int length;
 
-    int enabled = s_debug_log_enabled;
-#ifdef MOONLIGHT_SETTINGS_DIAGNOSTICS
-    // Explicit startup diagnostics must also work when AppSettings cannot load.
-    // Keep every other log under the normal, default-off AppSettings toggle.
-    if (fmt && sce_paf_strncmp(fmt, "[SettingsDiag] ", sizeof("[SettingsDiag] ") - 1) == 0) {
-        enabled = 1;
-    }
-#endif
-    if (!enabled || !fmt) {
+    if (!s_debug_log_enabled || !fmt) {
         return;
     }
 

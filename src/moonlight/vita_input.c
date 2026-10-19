@@ -152,13 +152,6 @@ static void vita_shell_event_handler(
      * PS edge while the streaming input state machine is inactive; otherwise
      * an old edge can be replayed into the next session as a fresh tap.
      */
-    vita_debug_log(
-        "[Input] ShellUtil callback result=0x%08x mode=%d type=0x%08x active=%d",
-        (unsigned int)result,
-        (int)mode,
-        (unsigned int)type,
-        s_input_active ? 1 : 0);
-
     if (!s_input_active) {
         return;
     }
@@ -479,7 +472,6 @@ front_done:
     if (!suppress_ps_sample && !ps_pressed && s_shell_ps_edge) {
         s_shell_ps_edge = 0;
         ps_pressed = true;
-        vita_debug_log("[Input] PS edge from ShellUtil event");
     }
     ps_pressed_old = s_ps_physical_old;
 
@@ -511,7 +503,6 @@ front_done:
             s_ps_press_time = now;
             s_ps_single_pending = true;
             s_ps_button_release_time = 0;
-            vita_debug_log("[Input] PS Button press pending tap/hold detection");
         } else if (ps_pressed && s_ps_single_pending &&
                    s_ps_press_time != 0 &&
                    now >= s_ps_press_time &&
@@ -526,10 +517,6 @@ front_done:
             /* Keep press_time until release so hold classification stays stable. */
             vita_debug_log("[Input] PS Button hold detected; suppressing host event");
         } else if (!ps_pressed && ps_pressed_old) {
-            vita_debug_log(
-                "[Input] PS Button release detected duration_us=%llu pending=%d",
-                (unsigned long long)(s_ps_press_time != 0 && now >= s_ps_press_time ? now - s_ps_press_time : 0),
-                s_ps_single_pending ? 1 : 0);
             if (s_ps_single_pending) {
                 if (s_ps_press_time != 0 &&
                     now >= s_ps_press_time &&

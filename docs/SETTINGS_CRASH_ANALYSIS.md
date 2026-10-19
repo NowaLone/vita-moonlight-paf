@@ -1,3 +1,9 @@
+> Historical investigation record. Temporary Settings/FIOS probes, screen report,
+> diagnostic build options and forced console logging were removed after the
+> successful device checks. The diagnostic build commands/artifact paths below
+> describe past experiments and no longer apply to current source. The authority
+> correction and native AppSettings path remain in place.
+
 # Settings crash: full-dump analysis (2026-10-19)
 
 ## Scope and evidence
@@ -704,3 +710,33 @@ input setting combination or compatibility with other firmware. No runtime
 change or rebuild is needed. The next independent implementation item remains
 API audit F1 (unexpected stream termination cleanup), subject to current source
 review, rather than further speculative Settings/PS changes.
+
+
+## Diagnostic cleanup after hardware verification (2026-10-19)
+
+Removed the SettingsDiag file/header/import/FIOS probes, local syscall ABI
+subset, screen report and its polling/shutdown logic, temporary init bypass,
+backend/header entry point, CMake options and diagnostic FIOS linkage. Restored
+direct dependency loads and the ordinary debug-toggle gate; no special prefix
+can force console output. Host mkdir no longer carries a diagnostic out-parameter.
+
+Removed the raw ShellUtil callback, synthetic-edge, press-pending and release
+duration traces. Kept the existing PS/overlay state machine, compatibility
+heuristic and useful state-transition/error/start-stop logs. Main host-refresh
+and stream lifecycle diagnostics required by project guardrails remain intact.
+The authority correction 0x2200000000000001, native Settings, host storage,
+streaming cleanup and debug ELF output remain in place.
+
+Obsolete named Settings diagnostic VPK/ELF/manifest artifacts and temporary
+investigation output are removed locally after verification. Original user
+attachments/dump files are not touched. This record retains the evidence and
+hardware verification limits; no new device test is implied by cleanup.
+
+
+Cleanup validation: `bash build.sh` completed through CXML/ELF/SELF/VPK. ELF
+inspection confirms SettingsDiag, screen-report and removed raw PS trace strings
+and FIOS probe symbols are absent; the required Main RefreshHosts diagnostic
+remains. Debug ELF equality, ZIP integrity, packaged SELF equality and authority
+0x2200000000000001 checks pass. Removed stale diagnostic CMake cache keys and
+28 obsolete generated artifacts/temporary outputs plus upstream research scratch
+files. `git diff --check` passes. No Vita test of this cleanup was performed.

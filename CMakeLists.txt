@@ -142,19 +142,6 @@ add_executable(${PROJECT_NAME}
   ${ENET_SOURCES}
 )
 
-option(MOONLIGHT_SETTINGS_DIAGNOSTICS "Trace native Settings and host-directory access to psp2shell" OFF)
-option(MOONLIGHT_SETTINGS_DIAGNOSTICS_SCREEN "Show Settings access probes instead of loading AppSettings" OFF)
-if(MOONLIGHT_SETTINGS_DIAGNOSTICS_SCREEN AND NOT MOONLIGHT_SETTINGS_DIAGNOSTICS)
-  message(FATAL_ERROR "Settings screen diagnostics require MOONLIGHT_SETTINGS_DIAGNOSTICS=ON")
-endif()
-if(MOONLIGHT_SETTINGS_DIAGNOSTICS)
-  target_compile_definitions(${PROJECT_NAME} PRIVATE MOONLIGHT_SETTINGS_DIAGNOSTICS=1)
-  target_link_libraries(${PROJECT_NAME} SceFios2Kernel_stub)
-endif()
-if(MOONLIGHT_SETTINGS_DIAGNOSTICS_SCREEN)
-  target_compile_definitions(${PROJECT_NAME} PRIVATE MOONLIGHT_SETTINGS_DIAGNOSTICS_SCREEN=1)
-endif()
-
 target_include_directories(${PROJECT_NAME} PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/legacy

@@ -12,8 +12,4 @@ int moonlight_settings_get_all(MoonlightSettings *out);
 int moonlight_settings_set_event_callback(MoonlightEventCallback callback, void *userdata);
 void moonlight_settings_apply_runtime(void);
 
-#ifdef MOONLIGHT_SETTINGS_DIAGNOSTICS_SCREEN
-int moonlight_settings_show_diagnostics(void);
-#endif
-
 #endif

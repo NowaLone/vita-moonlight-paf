@@ -14,10 +14,9 @@ namespace {
 
 static bool s_initialized = false;
 
-static bool ensure_directory(const char *path, int *mkdir_result = NULL)
+static bool ensure_directory(const char *path)
 {
     int result = sceIoMkdir(path, 0777);
-    if (mkdir_result) *mkdir_result = result;
     return result >= 0 || result == 0x80010011;
 }
 
@@ -121,13 +120,7 @@ int legacy_device_store_init(void)
     const size_t path_count = sizeof(paths) / sizeof(paths[0]);
 
     for (size_t i = 0; i < path_count; ++i) {
-        int mkdir_result = 0;
-        bool ready = ensure_directory(paths[i], &mkdir_result);
-#ifdef MOONLIGHT_SETTINGS_DIAGNOSTICS
-        vita_debug_log("[SettingsDiag] host-dir path=%s mkdir=0x%08x selected=%d",
-            paths[i], (unsigned)mkdir_result, ready ? 1 : 0);
-#endif
-        if (!ready) {
+        if (!ensure_directory(paths[i])) {
             continue;
         }
 

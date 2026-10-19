@@ -9,6 +9,12 @@ application restart on 3.60 HENkaku without ioPlus with authority `0x22000000000
 PS double-press stream stop/cleanup, short PS forwarding, hold/Quick Actions and
 reconnect are also user-confirmed on that build. No cross-firmware claim is made.
 
+**Diagnostic cleanup:** temporary Settings/FIOS probes, screen-report logic,
+CMake diagnostic options and forced logging were removed after verification.
+Raw PS callback/edge/timing traces were removed; functional input handling,
+state/error logs, the authority fix and required Main refresh logs remain.
+Investigation steps and artifact names below are historical.
+
 **Original priority: diagnose before the API audit's F1 implementation follow-up.** The user reports that
 saved PCs now appear on Main at application startup, but attempting to open Settings freezes the
 application and eventually crashes with `C2-12828-1`. The user subsequently confirmed the crash
