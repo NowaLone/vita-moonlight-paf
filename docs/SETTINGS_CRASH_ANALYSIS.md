@@ -372,3 +372,137 @@ do not assume the report ran.
   SettingsDiag marker, while both diagnostic ELFs have it.
 - `git diff --check` passed. No device deployment, dialog display or actual
   Settings behavior was tested by the agent.
+
+## ioPlus-enabled probes and report validation failure (2026-10-19)
+
+The user supplied actual SettingsDiag output with ioPlus enabled:
+
+- AppSettings module stat and close return zero; open is `0x4003006d`, read
+  returns four bytes, and the header is `53434500` (`SCE\0`).
+- RCO stat and close return zero; open is `0x4002019d`, read returns four
+  bytes, and the header is `52434f46` (`RCOF`).
+- Dependencies `0x80000005`, `0x80000006`, `0x8000000c` each return zero.
+- Screen dialog Init returns zero, followed by asynchronous
+  `SceMsgDialog Parameter Error : 9` and CommonDialog termination.
+
+Thus the diagnostic code is reached, console capture works for this run,
+both files are readable and dependencies load **with ioPlus enabled**.
+Four valid header bytes do not establish whole-file integrity. AppSettings
+itself was deliberately not loaded in this screen variant; no opening,
+initialization or persistence success may be inferred.
+
+The dialog error is a separate defect in the diagnostic path. Its numeric
+validation rule was not found in the public VitaSDK headers; Vita3K's
+message-dialog implementation is not evidence of firmware 3.60's exact
+validator. Do not label error 9 as a particular length/line limit without
+runtime confirmation or matching firmware code.
+
+The old report had nine explicit lines and about 291 ASCII bytes for the
+reported successful read values. As an isolated diagnostic presentation
+experiment, it is shortened to three explicit lines. File/module loader
+behavior, authority ID and persistent data are not changed. The revision,
+report byte count and directory stat results are also logged before Init;
+the dialog result query, final result and button are logged before Term.
+Init=0 alone is not evidence that a dialog passed asynchronous validation.
+
+The compact report retains heading **SETTINGS DIAGNOSTICS - SCREEN**:
+
+- `M` is `app_settings.suprx`; `R` is `app_settings_plugin.rco`. Each triple
+  is `stat / open / read` (first two hexadecimal, last decimal).
+- `UX` and `UMA` are directory stat results, not write tests.
+- `D` gives BXCE / INI processor / Common GUI Dialog load results in hex.
+
+The screen target was rebuilt and the VPK checked; convenience copies at
+`build/vita_moonlight_paf-settings-screen.vpk` and repository-root
+`vita_moonlight_paf-settings-screen.vpk` were refreshed with its matching
+build ELF retained. This is still a diagnostic UI hypothesis, not a
+hardware-verified dialog fix or AppSettings fix. The user subsequently supplied the ioPlus-disabled comparison below. The compact
+dialog itself still needs device verification.
+
+
+## ioPlus-disabled access failure and read-only FIOS follow-up (2026-10-19)
+
+On the same screen-diagnostic variant, the user supplied:
+
+```text
+host-dir ux0:data/moonlight/ mkdir=0x80010013 selected=0
+host-dir ux0:moonlight/      mkdir=0x80010013 selected=0
+host-dir uma0:data/moonlight/ mkdir=0x80010011 selected=1
+vs0:vsh/common/app_settings.suprx      stat=0x80010013 open=0x80010013
+vs0:vsh/common/app_settings_plugin.rco stat=0x80010013 open=0x80010013
+BXCE=0 INI=0 CommonGuiDialog=0
+```
+
+The logged read value `-2147418093` is the failed open result propagated by
+our probe, **not a read syscall performed on a valid descriptor**. Neither
+file has header bytes in this run. The report again returns Init=0 followed
+by Parameter Error 9; this remains separate from the original plugin crash.
+
+`0x80010013` is SCE_ERROR_ERRNO_ENODEV (no such device), not EACCES
+(`0x8001000d`). `0x80010011` is EEXIST, accepted by the existing directory
+selection code. See [Vita error codes](https://www.psdevwiki.com/vita/Error_Codes)
+and the installed newlib errno definitions. Therefore:
+
+- The uma0 fallback is directly explained by two failed ux0 attempts, without
+  changing the configured paths or deleting settings.
+- AppSettings files cannot be opened without ioPlus, whereas their headers
+  are readable with it. The native plugin loader lacks accessible inputs in
+  the failing environment. This supports the earlier absent-module finding;
+  the exact PAF branch-to-zero and internal loader return remain unobserved.
+- Successful sysmodule loads do not imply that arbitrary vs0 paths are accessible.
+- ENODEV alone does not prove a physically absent mount or a particular authority-ID
+  policy. Given [ioPlus's overlay hook](https://github.com/TeamFAPS/PSVita-RE-tools/blob/master/ioPlus/ioPlus-0.1/src/ioplus.c),
+  an `invalid:` redirection is a specific testable hypothesis, not yet an observed rule.
+
+### New diagnostic scope
+
+Settings diagnostics now query the current process's FIOS overlay IDs (up to
+128), read their info and resolve these four paths for reads: ux0/uma0
+moonlight directories and the two native Settings files. Logs use
+`[SettingsDiag] overlays`, `overlay`, and `resolve`. Enumeration reports the
+total count and capacity, so truncation is visible; failed queries retain
+raw error codes. The current thread's filtering state is read, never changed.
+No add/modify/remove/ThreadSetDisabled API is imported. Production builds
+have neither these imports nor the diagnostic strings.
+
+The local SDK's `fios2kernel02.h` declares only AddForProcess02, but its 3.60
+stub archive contains all four read/query exports used here. A diagnostics-only
+ABI subset is declared locally from [upstream vita-headers fios2kernel02.h](https://github.com/vitasdk/vita-headers/blob/master/include/psp2/fios2kernel02.h):
+GetList02 uses bounded ID storage, a total-count pointer and an explicit byte
+size; ResolveSync02 has independent maximum path and output-buffer sizes.
+Both option layouts are compile-time checked at 0x18 bytes. This avoids guessing
+the old header's unnamed syscall fields or changing the developer's SDK.
+These calls still require hardware validation and may return a privilege error.
+
+Install `vita_moonlight_paf-settings-screen.vpk` from the repository root over
+the existing application, keep ioPlus disabled, launch and select Settings,
+and capture all SettingsDiag lines. No screenshot or working report dialog is
+needed: console capture already works. This build deliberately never loads
+AppSettings, so it cannot validate an eventual Settings fix. If `resolve`
+shows `invalid:`, match its prefix to the table and investigate the rule's
+creation/policy. If it preserves the original path, investigate lower I/O
+layers instead. Do not disable overlays globally or change authority IDs on
+this hypothesis alone.
+
+
+### Validation of this follow-up
+
+- `bash build.sh` completed successfully with the ordinary default options,
+  including CXML, ELF, SELF and VPK. The old screen subdirectory had been
+  removed externally, so the new diagnostic target was configured separately
+  at `/tmp/vita-settings-fios-screen` with both diagnostic options ON and built
+  successfully with four jobs. Existing legacy signedness and libcurl wchar_t
+  linker warnings remain; no unrelated stubs or warning suppression was added.
+- Both VPKs pass ZIP integrity, packaged SELF equality, CATEGORY=gd,
+  title ID VLMP00001 and SELF authority `0x2F00000000000101` checks.
+  Each `.elf` equals its corresponding extensionless debug executable.
+- ELF inspection confirms the FIOS marker/GetList02 symbol exists only in the
+  diagnostic variant, and no ThreadSetDisabled02 symbol exists in either.
+- Screen VPK SHA-256:
+  `e7d95ed08b89372cd92a13cd4b763969563bb37db9c9fdcd33a80719c9e80ad8`.
+  This artifact embeds parent HEAD `f11f4af` and contains the subsequent
+  uncommitted diagnostic changes at build time. The local manifest at
+  `build/settings-fios-manifest.json` records its hash and untested status.
+  Root/build convenience VPKs and the build convenience ELF were refreshed.
+- No device deployment, FIOS query result or compact-dialog display was tested
+  by the agent. Runtime root cause beyond inaccessible paths remains open.

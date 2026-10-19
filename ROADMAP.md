@@ -55,7 +55,8 @@ occurs **after selecting Settings**, and supplied a textual crash report followe
   words all go through `vita_debug_log` with prefix `[SettingsDiag]`. Only that prefix bypasses
   the normal log toggle in this explicitly enabled diagnostic build; ordinary logging stays off
   by default. No streaming/file logger or alternate module loader was added.
-- [ ] Next evidence: capture `[SettingsDiag]` from `build/settings-diagnostics/` with ioPlus
+- [x] Capture filesystem `[SettingsDiag]` with ioPlus disabled and enabled (user logs below).
+  Original procedure: capture from `build/settings-diagnostics/` with ioPlus
   disabled, then enabled, on otherwise unchanged 3.60 HENkaku. Interpret filesystem return codes
   before changing authority IDs or loader behavior. Accessible files do not prove module start
   succeeded. The raw loader result is still not intercepted inside PAF.
@@ -73,6 +74,31 @@ occurs **after selecting Settings**, and supplied a textual crash report followe
   locally; SFO/SELF values and mutually exclusive diagnostic markers were checked. This report
   build deliberately disables actual AppSettings initialization and is not a production fix.
   Next: obtain a photo/transcription of the report without ioPlus, then with it, on the same VPK.
+- ioPlus-enabled diagnostic run (2026-10-19): user now receives the probe lines. Both native
+  files have stat=0, successful open and read=4 (SCE/RCOF headers); all three dependency loads
+  return zero. This confirms execution of diagnostic code and access in the enabled case only.
+  The report dialog accepts Init with zero, then prints `SceMsgDialog Parameter Error : 9` and
+  terminates. This is a separate diagnostic-UI failure before AppSettings is attempted.
+  Its exact internal validation rule remains unknown. The 291-byte, nine-line report has been
+  reduced to a three-line summary; dialog GetResult is now logged on completion. Screen build
+  and package validation pass, but the text-limit hypothesis and actual display need device
+  verification. The subsequent ioPlus-disabled capture below completes the file-access comparison.
+
+
+- ioPlus-disabled capture (2026-10-19): both ux0 mkdir attempts return `0x80010013`
+  (ENODEV, **not** EACCES); uma0 returns `0x80010011` (existing directory) and is
+  selected. Both native Settings files return ENODEV from stat/open; no read occurs.
+  BXCE/INI/Common GUI still load successfully. Thus filesystem access explains the
+  fallback to uma0 and supplies a concrete prerequisite failure for AppSettings.
+  It does not yet identify the firmware policy or prove which PAF instruction calls zero.
+- [ ] Capture the new read-only FIOS `overlays`, `overlay` and `resolve` lines with ioPlus
+  disabled. Diagnostics enumerate only this process and resolve the four probed paths;
+  they never add/remove/modify overlays or disable thread filtering. The installed SDK's
+  missing 02 declarations are supplied as a local ABI subset from current vita-headers.
+  Production builds do not import these diagnostic calls. Test package:
+  repository-root `vita_moonlight_paf-settings-screen.vpk`; it still bypasses AppSettings.
+  If a failed path resolves to `invalid:`, use the matching rule/order to investigate its
+  creation and authorization policy before proposing a minimal fix.
 
 
 ## Recent streaming implementation review

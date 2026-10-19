@@ -6,6 +6,34 @@
 #ifdef MOONLIGHT_SETTINGS_DIAGNOSTICS
 #include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
+#include <psp2/kernel/processmgr.h>
+#include <psp2common/fios2.h>
+
+// The installed SDK exports these 3.60 syscalls but its fios2kernel02.h only
+// declares AddForProcess02. Keep the read-only ABI subset local to diagnostics.
+// Reference: vita-headers/include/psp2/fios2kernel02.h (GetList/ResolveSync02).
+struct SettingsOverlayListOptions {
+    SceFiosOverlayID *out_ids;
+    SceSize max_ids;
+    SceSize *actual_ids;
+    SceSize out_ids_buffer_size;
+    SceUInt32 reserved[2];
+};
+struct SettingsOverlayResolveOptions {
+    char *out_path;
+    SceSize max_path;
+    SceUInt32 reserved0;
+    SceSize out_path_buffer_size;
+    SceUInt32 reserved1[2];
+};
+static_assert(sizeof(SettingsOverlayListOptions) == 0x18, "FIOS list ABI");
+static_assert(sizeof(SettingsOverlayResolveOptions) == 0x18, "FIOS resolve ABI");
+extern "C" {
+int sceFiosKernelOverlayGetList02(SceUID, SceUInt8, SceUInt8, const SettingsOverlayListOptions *);
+int sceFiosKernelOverlayGetInfoForProcess02(SceUID, SceFiosOverlayID, SceFiosOverlay *);
+int sceFiosKernelOverlayResolveSync02(SceUID, int, const char *, const SettingsOverlayResolveOptions *);
+int sceFiosKernelOverlayThreadIsDisabled02(void);
+}
 #endif
 #ifdef MOONLIGHT_SETTINGS_DIAGNOSTICS_SCREEN
 #include <psp2/message_dialog.h>
@@ -166,6 +194,55 @@ struct SettingsFileProbe {
     int read_result;
 };
 
+static void trace_settings_overlays()
+{
+    SceUID pid = sceKernelGetProcessId();
+    SceFiosOverlayID ids[128] = {};
+    SceSize actual = 0;
+    SettingsOverlayListOptions list = {};
+    list.out_ids = ids;
+    list.max_ids = sizeof(ids) / sizeof(ids[0]);
+    list.actual_ids = &actual;
+    list.out_ids_buffer_size = sizeof(ids);
+    int result = sceFiosKernelOverlayGetList02(pid, 0, 0xff, &list);
+    vita_debug_log("[SettingsDiag] overlays pid=0x%08x disabled=%d list=0x%08x count=%u capacity=%u",
+        (unsigned)pid, sceFiosKernelOverlayThreadIsDisabled02(), (unsigned)result,
+        (unsigned)actual, (unsigned)list.max_ids);
+    if (result >= 0) {
+        SceSize count = actual < list.max_ids ? actual : list.max_ids;
+        for (SceSize i = 0; i < count; ++i) {
+            SceFiosOverlay overlay = {};
+            int info = sceFiosKernelOverlayGetInfoForProcess02(pid, ids[i], &overlay);
+            if (info < 0) {
+                vita_debug_log("[SettingsDiag] overlay id=0x%08x info=0x%08x",
+                    (unsigned)ids[i], (unsigned)info);
+                continue;
+            }
+            vita_debug_log("[SettingsDiag] overlay id=0x%08x order=0x%02x type=%u dst=%.292s src=%.292s",
+                (unsigned)ids[i], (unsigned)overlay.order, (unsigned)overlay.type,
+                overlay.dst, overlay.src);
+        }
+    }
+
+    const char *paths[] = {
+        "ux0:data/moonlight/", "uma0:data/moonlight/",
+        "vs0:vsh/common/app_settings.suprx",
+        "vs0:vsh/common/app_settings_plugin.rco"
+    };
+    for (unsigned i = 0; i < sizeof(paths) / sizeof(paths[0]); ++i) {
+        char resolved[0x400] = {};
+        SettingsOverlayResolveOptions resolve = {};
+        resolve.out_path = resolved;
+        resolve.max_path = sizeof(resolved);
+        resolve.out_path_buffer_size = sizeof(resolved);
+        // Read resolution only: neither modifies overlays nor opens/writes files.
+        int resolved_result = sceFiosKernelOverlayResolveSync02(pid, 0, paths[i], &resolve);
+        resolved[sizeof(resolved) - 1] = '\0';
+        vita_debug_log("[SettingsDiag] resolve path=%s result=0x%08x out=%s",
+            paths[i], (unsigned)resolved_result, resolved_result >= 0 ? resolved : "<failed>");
+    }
+}
+
 static SettingsFileProbe trace_settings_file(const char *path)
 {
     SceIoStat stat;
@@ -213,6 +290,11 @@ static SceMsgDialogUserMessageParam s_diagnostic_user_message;
 static void diagnostic_dialog_poll(void *)
 {
     if (sceMsgDialogGetStatus() != SCE_COMMON_DIALOG_STATUS_FINISHED) return;
+    SceMsgDialogResult result;
+    memset(&result, 0, sizeof(result));
+    int query_result = sceMsgDialogGetResult(&result);
+    vita_debug_log("[SettingsDiag] screen finished query=0x%08x result=%d button=%d",
+        (unsigned)query_result, result.result, result.buttonId);
     sceMsgDialogTerm();
     s_diagnostic_dialog_open = false;
     paf::common::MainThreadCallList::Unregister(diagnostic_dialog_poll, NULL);
@@ -234,6 +316,7 @@ static int load_plugin()
 {
 #ifdef MOONLIGHT_SETTINGS_DIAGNOSTICS
     vita_debug_log("[SettingsDiag] build=%s native plugin load begin", MOONLIGHT_GIT_COMMIT);
+    trace_settings_overlays();
     trace_settings_file("vs0:vsh/common/app_settings.suprx");
     trace_settings_file("vs0:vsh/common/app_settings_plugin.rco");
     trace_settings_import();
@@ -271,6 +354,7 @@ int moonlight_settings_show_diagnostics(void)
     if (s_diagnostic_dialog_open || !g_plugin) return -1;
 
     // Called only by OpenSettings on the UI thread; never load AppSettings here.
+    trace_settings_overlays();
     SettingsFileProbe module = trace_settings_file("vs0:vsh/common/app_settings.suprx");
     SettingsFileProbe resource = trace_settings_file("vs0:vsh/common/app_settings_plugin.rco");
     SceIoStat stat;
@@ -281,16 +365,14 @@ int moonlight_settings_show_diagnostics(void)
     int gui = load_settings_dependency(SCE_SYSMODULE_INTERNAL_COMMON_GUI_DIALOG);
 
     snprintf(s_diagnostic_message, sizeof(s_diagnostic_message),
-        "SETTINGS DIAGNOSTICS - SCREEN\nBuild: %s\n"
-        "app_settings.suprx\nstat=%08X open=%08X read=%d\n"
-        "app_settings_plugin.rco\nstat=%08X open=%08X read=%d\n"
-        "moonlight dir stat: ux0=%08X uma0=%08X\n"
-        "deps: BXCE=%08X INI=%08X GUI=%08X\n"
-        "AppSettings load was not attempted.",
-        MOONLIGHT_GIT_COMMIT,
+        "SETTINGS DIAGNOSTICS - SCREEN\n"
+        "M %08X/%08X/%d R %08X/%08X/%d\n"
+        "UX %08X UMA %08X D %08X/%08X/%08X",
         (unsigned)module.stat_result, (unsigned)module.open_result, module.read_result,
         (unsigned)resource.stat_result, (unsigned)resource.open_result, resource.read_result,
         (unsigned)ux0, (unsigned)uma0, (unsigned)bxce, (unsigned)ini, (unsigned)gui);
+    vita_debug_log("[SettingsDiag] screen build=%s report_bytes=%u lines=3 ux0=0x%08x uma0=0x%08x",
+        MOONLIGHT_GIT_COMMIT, (unsigned)strlen(s_diagnostic_message), (unsigned)ux0, (unsigned)uma0);
 
     sceMsgDialogParamInit(&s_diagnostic_param);
     memset(&s_diagnostic_user_message, 0, sizeof(s_diagnostic_user_message));
