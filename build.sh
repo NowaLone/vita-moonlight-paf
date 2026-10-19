@@ -36,7 +36,9 @@ echo "[+] CXML compiled successfully"
 echo ""
 echo "[*] Configuring CMake..."
 cd "$BUILD_DIR"
-cmake -DCMAKE_BUILD_TYPE=Release "$PROJECT_DIR"
+# Optional CMake arguments, e.g. -DMOONLIGHT_SYSTEM_APP=ON. The selected value
+# persists in this build directory; pass OFF explicitly to return to normal mode.
+cmake -DCMAKE_BUILD_TYPE=Release "$@" "$PROJECT_DIR"
 
 echo "[*] Building project..."
 make -j$(nproc 2>/dev/null || echo 1)

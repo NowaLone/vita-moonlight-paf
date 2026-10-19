@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "debug.h"
+#include "app/memory_budget.h"
 #include "sps.h"
 #include "vita_video_renderer.h"
 #include "stream_stats_internal.h"
@@ -217,6 +218,7 @@ static int vita_video_setup(
         return -1;
     }
 
+    moonlight_log_memory_budget("video-before-setup");
     s_requested_width = (unsigned int)width;
     s_requested_height = (unsigned int)height;
     vita_video_calculate_output_size(
@@ -281,6 +283,7 @@ static int vita_video_setup(
         "[Video] decoder frameMemSize=0x%08x alloc=0x%08x",
         (unsigned int)decoder_mem_info.frameMemSize,
         (unsigned int)decoder_size);
+    moonlight_log_memory_budget("video-before-physical-allocation");
 
     s_decoder->frameBuf.size = decoder_size;
     s_decoder_memblock = sceKernelAllocMemBlock(
@@ -401,6 +404,7 @@ static int vita_video_setup(
     }
 
     s_active = 1;
+    moonlight_log_memory_budget("video-ready");
     s_decoded_frames = 0;
     s_last_present_time = 0;
     s_stats_generation = moonlight_stats_configure_video(
@@ -453,6 +457,7 @@ fail:
     free(s_decoder_buffer);
     s_decoder_buffer = NULL;
     s_decoder_buffer_size = 0;
+    moonlight_log_memory_budget("video-setup-failed");
     return -1;
 }
 
@@ -532,6 +537,7 @@ static void vita_video_release_frame_buffers_internal(void)
     s_frame_pool_pending_release = 0;
 
     vita_debug_log("[Video] deferred frame buffers released");
+    moonlight_log_memory_budget("video-framebuffers-released");
 }
 
 void moonlight_video_release_frame_buffers(void)

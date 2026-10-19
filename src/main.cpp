@@ -3,6 +3,7 @@
 #include <psp2/kernel/clib.h>
 #include <psp2/sysmodule.h>
 #include <paf.h>
+#include <stdlib.h>
 
 char    sceUserMainThreadName[]          = "vita_moonlight_paf";
 int     sceUserMainThreadPriority        = 0x10000100;
@@ -37,6 +38,11 @@ void operator delete[](void *ptr, unsigned int n) {
 int paf_runtime_main(void);
 
 extern "C" {
+
+#ifdef MOONLIGHT_SYSTEM_APP
+/* Strong C-linkage override consumed by VitaSDK newlib's _init_vita_heap(). */
+unsigned int _newlib_heap_size_user = MOONLIGHT_SYSTEM_NEWLIB_KIB * 1024u;
+#endif
 
 int _start(SceSize args, void *argp) __attribute__((weak, alias("module_start")));
 
@@ -86,7 +92,11 @@ int module_start(SceSize args, void *argp){
 	ScePafInit init_param;
 	SceSysmoduleOpt sysmodule_opt;
 
+#ifdef MOONLIGHT_SYSTEM_APP
+	init_param.global_heap_size = MOONLIGHT_SYSTEM_PAF_KIB * 1024u;
+#else
 	init_param.global_heap_size = 0x1000000;
+#endif
 	init_param.a2               = 0xEA60;
 	init_param.a3               = 0x40000;
 	init_param.cdlg_mode        = 0;
@@ -108,6 +118,19 @@ int module_start(SceSize args, void *argp){
 	_init_vita_reent();
 	_init_vita_malloc();
 	_init_vita_io();
+
+#ifdef MOONLIGHT_SYSTEM_APP
+	/* _init_vita_heap() returns void even on failure. Fail before using the
+	 * frontend if the smaller allocator could not be brought up at all. */
+	void *heap_probe = malloc(1);
+	if (heap_probe == NULL) {
+		sceClibPrintf("[PAF Moonlight] System-mode newlib heap unavailable (%u KiB)\n",
+			(unsigned int)MOONLIGHT_SYSTEM_NEWLIB_KIB);
+		_free_vita_newlib();
+		return SCE_KERNEL_START_FAILED;
+	}
+	free(heap_probe);
+#endif
 
 	paf_runtime_main();
 

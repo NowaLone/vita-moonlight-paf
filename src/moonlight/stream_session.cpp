@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "debug.h"
+#include "app/memory_budget.h"
 #include "vita_video_renderer.h"
 #include "vita_audio_renderer.h"
 #include "vita_input.h"
@@ -510,9 +511,11 @@ static void *stream_thread_main(void *arg)
     int result;
 
     vita_debug_log("[Stream] worker start app=%d", args->application_id);
+    moonlight_log_memory_budget("stream-before-setup");
     result = stream_cancel_requested() ? -7 : run_stream_session(
         args->server, args->unique_path, args->application_id, &args->settings);
     vita_debug_log("[Stream] setup finished app=%d result=%d", args->application_id, result);
+    moonlight_log_memory_budget("stream-after-setup");
 
     if (result != 0) {
         /* LiStartConnection unwinds partial setup itself; no active transport remains. */
@@ -544,6 +547,7 @@ static void *stream_thread_main(void *arg)
     vita_input_stop();
     /* Never run on a Limelight/input thread, and never allocate a thread to reach here. */
     LiStopConnection();
+    moonlight_log_memory_budget("stream-after-stop");
     pthread_mutex_lock(&s_stream_mutex);
     result = s_stream_termination_result;
     pthread_mutex_unlock(&s_stream_mutex);

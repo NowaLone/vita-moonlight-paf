@@ -179,6 +179,33 @@ Full build:
 bash build.sh
 ```
 
+An experimental system application profile is available on `codex/system-app-mode`.
+Maintainer build commands (not executed by the agent):
+
+```bash
+bash build.sh -DMOONLIGHT_SYSTEM_APP=ON
+```
+
+It uses `gdc` packaging, a 32 MiB SELF budget, a 6 MiB newlib heap, a 10 MiB PAF
+heap and PAF application mode. UNSAFE and the existing authority/settings remain.
+These are initial frontend-test allocations, not measured streaming requirements.
+Install the complete VPK through VitaShell, then launch from LiveArea, rather than
+replacing only the SELF, so the changed launch metadata is promoted. Then test
+opening Moonlight with a Vita game suspended and returning to that same game session.
+Streaming coexistence is unverified; physical reservation defaults to zero.
+
+Enable **Debug log** in Settings for `[Memory]` snapshots, including the actual
+AppMgr mode and USER_RW/PHYCONT/CDRAM budgets. The first useful snapshot is emitted
+when Settings applies the logging preference; successful early bootstrap remains
+quiet. The prototype and tuning parameters are documented in
+[docs/SYSTEM_APP_MODE_RESEARCH.md](docs/SYSTEM_APP_MODE_RESEARCH.md#prototype-on-codexsystem-app-mode).
+
+The option persists in the build directory. To return to the ordinary profile:
+
+```bash
+bash build.sh -DMOONLIGHT_SYSTEM_APP=OFF
+```
+
 Outputs:
 
 ```

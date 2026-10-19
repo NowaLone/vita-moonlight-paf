@@ -6,10 +6,19 @@ This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordere
 
 Source research compared BetterHomebrewBrowser's system-mode packaging with Moonlight.
 See [docs/SYSTEM_APP_MODE_RESEARCH.md](docs/SYSTEM_APP_MODE_RESEARCH.md). VitaSDK supports
-explicit SELF budgets, but Moonlight currently requests a default 128 MiB newlib heap;
+explicit SELF budgets, but Moonlight's ordinary profile requests a default 128 MiB newlib heap;
 streaming additionally needs physical-contiguous decoder memory and CDRAM. Changing
-only the SFO category cannot establish coexistence. No runtime/packaging changes or
-agent-run builds/device tests were made.
+only the SFO category cannot establish coexistence.
+
+Source prototype now lives on `codex/system-app-mode`: an opt-in CMake/build-script
+profile supplies `gdc`, a 32 MiB SELF budget, boot attribute `0x08`, bounded newlib/PAF
+heaps and BHBB-style PAF application/pool settings. Physical reservation defaults to
+zero for the frontend-first trial and is configurable after measurement. Sparse
+`[Memory]` diagnostics follow Debug log; default launch settings remain available.
+Non-build checks cover isolated CMake script branches and invalid budgets, source
+grammar/SDK declarations, shell syntax and diff whitespace. No application/resource
+compilation, project configure, packaging or device test was run. Acceptance items
+below remain unchecked.
 
 - [ ] Prototype an opt-in system-mode package with bounded newlib/PAF allocations and
   budget diagnostics; verify the frontend opens without closing a suspended Vita game.

@@ -17,6 +17,13 @@ confirmed the feature works on Vita on 2026-10-19 after commit `85899c5` **[hw, 
 Individual lifecycle/failure-case results were not supplied; the full matrix remains in `ROADMAP.md`
 **[open]**. No build or hardware test was run by the agent.
 
+The opt-in `MOONLIGHT_SYSTEM_APP` prototype switches the PAF runtime to
+`Mode_Application` after `SampleInit()`, with 8 MiB surface and 4 MiB text-surface
+pools, following BHBB **[code]**. It retains `graphics_option=7` and the existing
+CXML/page geometry. This is an experimental runtime profile; native dialogs,
+AppSettings, infobar restoration and streaming presentation need Vita checks
+**[open]**. See [system-mode notes](SYSTEM_APP_MODE_RESEARCH.md#prototype-on-codexsystem-app-mode).
+
 Evidence tags used below:
 
 - **[hw]** verified on a real Vita.

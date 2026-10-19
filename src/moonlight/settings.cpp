@@ -4,6 +4,7 @@
 #include <paf.h>
 
 #include "common.h"
+#include "app/memory_budget.h"
 #include "debug.h"
 #include "moonlight/settings.h"
 #include "vita_input.h"
@@ -127,6 +128,7 @@ static int32_t on_press2(const char *, const char *)
 
 static void on_term(int32_t result)
 {
+    moonlight_log_memory_budget("settings-closed");
     emit(MOONLIGHT_EVENT_SETTINGS_CLOSED, result);
 }
 
@@ -251,7 +253,10 @@ int moonlight_settings_open(void)
     callbacks.onGetStringCb = on_get_string;
     callbacks.onGetSurfaceCb = on_get_surface;
 
-    return iface->Show(&callbacks);
+    moonlight_log_memory_budget("settings-before-show");
+    int result = iface->Show(&callbacks);
+    moonlight_log_memory_budget("settings-after-show");
+    return result;
 }
 
 int moonlight_settings_get_value(MoonlightSettingKey key, int *out_value)
@@ -331,6 +336,9 @@ void moonlight_settings_apply_runtime(void)
 
     moonlight_settings_get_value(MOONLIGHT_SETTING_DEBUG_LOG, &debug_log);
     vita_debug_log_set_enabled(debug_log);
+    if (debug_log) {
+        moonlight_log_memory_budget("settings-applied");
+    }
 
     vita_input_set_runtime(
         settings.jp_layout,

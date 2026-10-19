@@ -28,8 +28,42 @@ add_definitions(-DMOONLIGHT_GIT_COMMIT=\"${VITA_MOONLIGHT_GIT_COMMIT}\")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g3 -Wl,-q -Wall -O0 -fno-inline -fno-builtin -fshort-wchar")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -fno-rtti -fno-exceptions -Wl,-q -Wall -O0 -fno-builtin -fshort-wchar -Wno-unused-function -Wno-sign-compare")
 
+option(MOONLIGHT_SYSTEM_APP "Experiment: launch alongside a suspended Vita game" OFF)
+set(MOONLIGHT_SYSTEM_MEMSIZE_KIB 32768 CACHE STRING "System app total memory budget (KiB)")
+set(MOONLIGHT_SYSTEM_PHYCONT_KIB 0 CACHE STRING "System app physical reservation inside total budget (KiB)")
+set(MOONLIGHT_SYSTEM_NEWLIB_KIB 6144 CACHE STRING "System app newlib heap capacity (KiB)")
+set(MOONLIGHT_SYSTEM_PAF_KIB 10240 CACHE STRING "System app PAF global heap capacity (KiB)")
+
+if(MOONLIGHT_SYSTEM_APP)
+  foreach(budget MEMSIZE PHYCONT NEWLIB PAF)
+    if(NOT "${MOONLIGHT_SYSTEM_${budget}_KIB}" MATCHES "^(0|[1-9][0-9]*)$" OR
+       MOONLIGHT_SYSTEM_${budget}_KIB GREATER 75776)
+      message(FATAL_ERROR "MOONLIGHT_SYSTEM_${budget}_KIB must be an integer from 0 to 75776")
+    endif()
+    math(EXPR budget_remainder "${MOONLIGHT_SYSTEM_${budget}_KIB} % 4")
+    if(NOT budget_remainder EQUAL 0)
+      message(FATAL_ERROR "MOONLIGHT_SYSTEM_${budget}_KIB must be aligned to 4 KiB")
+    endif()
+  endforeach()
+  if(MOONLIGHT_SYSTEM_MEMSIZE_KIB LESS 4096 OR
+     MOONLIGHT_SYSTEM_NEWLIB_KIB LESS 1024 OR MOONLIGHT_SYSTEM_PAF_KIB LESS 1024)
+    message(FATAL_ERROR "System total must be >= 4096 KiB and both heaps >= 1024 KiB")
+  endif()
+  math(EXPR reserved_kib "${MOONLIGHT_SYSTEM_NEWLIB_KIB} + ${MOONLIGHT_SYSTEM_PAF_KIB} + ${MOONLIGHT_SYSTEM_PHYCONT_KIB}")
+  if(NOT reserved_kib LESS MOONLIGHT_SYSTEM_MEMSIZE_KIB)
+    message(FATAL_ERROR "System heaps and physical reservation must leave room inside the total budget")
+  endif()
+  set(moonlight_category gdc)
+  # Physical reservation is part of MEMSIZE, not additional memory. Zero is the
+  # frontend-first trial; set it only after measuring decoder requirements.
+  set(VITA_MAKE_FSELF_FLAGS "${VITA_MAKE_FSELF_FLAGS} -pm ${MOONLIGHT_SYSTEM_PHYCONT_KIB}")
+else()
+  set(moonlight_category gd)
+endif()
+
+# Preserve the current SFO attribute bits while isolating the launch category.
 set(VITA_MKSFOEX_FLAGS
-    "${VITA_MKSFOEX_FLAGS} -d ATTRIBUTE=33472 -d ATTRIBUTE_MINOR=16 -s CATEGORY=gd"
+    "${VITA_MKSFOEX_FLAGS} -d ATTRIBUTE=33472 -d ATTRIBUTE_MINOR=16 -s CATEGORY=${moonlight_category}"
 )
 
 # Match BHBB's native PAF authority. A controlled 3.60 test changing only this
@@ -154,6 +188,17 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight
 )
 
+if(MOONLIGHT_SYSTEM_APP)
+  target_compile_definitions(${PROJECT_NAME} PRIVATE
+    MOONLIGHT_SYSTEM_APP=1
+    MOONLIGHT_SYSTEM_MEMSIZE_KIB=${MOONLIGHT_SYSTEM_MEMSIZE_KIB}
+    MOONLIGHT_SYSTEM_PHYCONT_KIB=${MOONLIGHT_SYSTEM_PHYCONT_KIB}
+    MOONLIGHT_SYSTEM_NEWLIB_KIB=${MOONLIGHT_SYSTEM_NEWLIB_KIB}
+    MOONLIGHT_SYSTEM_PAF_KIB=${MOONLIGHT_SYSTEM_PAF_KIB}
+  )
+  target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/app/memory_budget.cpp)
+endif()
+
 target_link_libraries(${PROJECT_NAME}
   -Wl,--start-group
   -lcurl
@@ -218,8 +263,14 @@ if(NOT EXISTS "${RCO_FILE}")
   message(FATAL_ERROR "Missing vita_moonlight_ui.rco. Run build_cxml.sh before configuring the project.")
 endif()
 
-# UNSAFE omits the safe (-s) flag; ATTRIBUTE matches upstream PS capture packaging.
-vita_create_self(${PROJECT_NAME}.self ${PROJECT_NAME} UNSAFE ATTRIBUTE 0x0E)
+if(MOONLIGHT_SYSTEM_APP)
+  # BHBB-style boot attributes. With nonzero MEMSIZE, -at is actually written.
+  vita_create_self(${PROJECT_NAME}.self ${PROJECT_NAME} UNSAFE
+    MEMSIZE ${MOONLIGHT_SYSTEM_MEMSIZE_KIB} ATTRIBUTE 0x08)
+else()
+  # Preserve the ordinary launch configuration.
+  vita_create_self(${PROJECT_NAME}.self ${PROJECT_NAME} UNSAFE ATTRIBUTE 0x0E)
+endif()
 
 # sce_sys PNGs must stay 8-bit indexed. 24-bit assets fail VPK install with 0x8010113D.
 vita_create_vpk(vita_moonlight_paf.vpk "VLMP00001" ${PROJECT_NAME}.self

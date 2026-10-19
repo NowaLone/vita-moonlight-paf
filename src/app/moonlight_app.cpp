@@ -1,6 +1,7 @@
 #include <paf.h>
 
 #include "app/moonlight_app.h"
+#include "app/memory_budget.h"
 #include "common.h"
 #include "debug.h"
 #include "pages/page_main.h"
@@ -178,6 +179,7 @@ int MoonlightApp::Start(paf::Plugin *plugin)
         return -1;
     }
 
+    moonlight_log_memory_budget("main-ready");
     return 0;
 }
 
@@ -242,6 +244,7 @@ void MoonlightApp::Shutdown()
     }
 
     m_connection.Shutdown();
+    moonlight_log_memory_budget("app-shutdown");
     m_backend.Shutdown();
     m_initialized = false;
 
@@ -380,7 +383,10 @@ void MoonlightApp::ProcessEventTask(void *userdata)
         }
 
         if (event.type == MOONLIGHT_EVENT_CONNECTION_READY) {
+            moonlight_log_memory_budget("connection-ready");
             app->m_connection.ConsumeSuccessEvent();
+        } else if (event.type == MOONLIGHT_EVENT_CONNECTION_FAILED) {
+            moonlight_log_memory_budget("connection-failed");
         }
     }
 }

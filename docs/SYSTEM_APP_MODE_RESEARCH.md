@@ -161,10 +161,67 @@ lifecycle complexity and can still require closing the Vita game when streaming 
 it does not satisfy full coexistence by itself. Prefer proving the single-process
 system-mode option before considering that split.
 
-## Verification status
+## Verification status of the initial investigation
 
 Completed: reference source comparison, installed helper/header inspection, read-only
 SELF/SFO decoding, ELF symbol/disassembly inspection, and framebuffer-size calculation.
 No application/resource compilation, packaging, deployment, or hardware test was run.
 No runtime or packaging settings were changed. All coexistence/streaming acceptance
 checks remain pending; this note records feasibility and blockers only.
+
+## Prototype on `codex/system-app-mode`
+
+The follow-up implements an opt-in `MOONLIGHT_SYSTEM_APP` CMake option, default OFF.
+Maintainer command: `bash build.sh -DMOONLIGHT_SYSTEM_APP=ON`. The build script forwards
+its arguments to CMake; use `-DMOONLIGHT_SYSTEM_APP=OFF` explicitly to clear a cached ON.
+Both profiles retain the same title ID, host identity/storage, AppSettings and authority.
+Installing the experiment updates the existing Moonlight installation, not a second app.
+
+The system profile uses `CATEGORY=gdc`, a nonzero SELF budget and boot `ATTRIBUTE=0x08`.
+SFO `ATTRIBUTE=33472` and `ATTRIBUTE_MINOR=16` are deliberately preserved from Moonlight
+to isolate those changes. This is not a byte-for-byte copy of BHBB's SFO.
+
+The initial CMake cache parameters, all in KiB, are:
+
+- `MOONLIGHT_SYSTEM_MEMSIZE_KIB=32768`: total SELF budget.
+- `MOONLIGHT_SYSTEM_PHYCONT_KIB=0`: physical reservation **inside** that total; zero
+  initially avoids guessing decoder requirements and does not establish streaming support.
+- `MOONLIGHT_SYSTEM_NEWLIB_KIB=6144`: strong C-linkage `_newlib_heap_size_user` override.
+- `MOONLIGHT_SYSTEM_PAF_KIB=10240`: global PAF heap supplied when loading the module.
+
+Values are checked as nonnegative integers, within the signer's documented range and
+aligned to 4 KiB. Total must be at least 4096 KiB, heaps at least 1024 KiB, and heaps
+plus physical reservation must leave space inside total. Passing these checks only
+establishes configuration consistency; it does not prove sufficient runtime memory or
+firmware-specific physical-budget alignment. The experimental values need measurement.
+
+PAF application mode is set after `SampleInit()`, with 8 MiB surface and 4 MiB
+text-surface pools, while retaining `graphics_option=7`. The ordinary profile keeps
+its previous heap/framework/SELF settings. The newlib startup probe catches a wholly
+unavailable heap and returns module-start failure with an existing-style bootstrap
+console error; later allocation pressure still uses the existing failure paths.
+
+`[Memory]` snapshots report configured capacities, actual AppMgr mode, free/total
+USER_RW, PHYCONT, CDRAM and extra memory in KiB. Newlib `mallinfo()` fields separately
+report allocator arena/used/free bytes; they do not describe PAF usage or the entire
+process. A failed budget query is logged without interpreting the zeroed structure.
+Snapshots are at application/connection/settings transitions, stream setup/stop,
+decoder allocation/failure and deferred framebuffer release. No timer, worker or
+per-frame diagnostic was added. Snapshot output uses `vita_debug_log()` and follows
+the Debug log preference; early startup before settings initialization stays quiet.
+
+First acceptance run: install the full VPK, keep a normal-memory Vita game suspended,
+open Moonlight, open Settings and enable Debug log, close Settings, exercise discovery
+and return to the same game. Capture `[Memory] settings-applied` / `settings-closed`.
+Then attempt a stream and capture `[Video] decoder frameMemSize=...`, if available,
+and `[Memory] video-before-physical-allocation` or the preceding failure. Use those
+results to choose a physical reservation and larger total if required; do not assume
+the default zero-reservation frontend trial supports AVC. A positive `-pm` request
+alone still does not prove the necessary mode or CDRAM budget on the target firmware.
+
+Checks performed: isolated execution of the actual CMake option/budget/SELF branches
+in **script mode**, covering ordinary/system/custom profiles and invalid values;
+source grammar checks with installed SDK declarations, `bash -n build.sh`, and diff
+review/whitespace checks. No project configure, application/resource compilation,
+packaging, deployment or hardware test was performed. The previous build artifacts
+were not regenerated; they still describe the ordinary profile from the investigation.
