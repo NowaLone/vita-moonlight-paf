@@ -96,6 +96,14 @@ implementation (`avcodec.skprx.elf`, embedded in the bootimage), or a decrypted
 addresses and import NIDs. No guessed ABI, renderer change, build or device test
 was introduced from this wrapper-only evidence.
 
+The supplied bootimage now provides the SceAvcodec and CodecEngineWrapper
+implementations. Disassembly establishes Nongameapp query/init/create structure
+sizes and shows that automatic allocations still reject a non-game budget.
+The next prototype must use explicit library/decoder contexts through CodecEngine,
+preserve its unmap/remap ownership order, and provide output buffers outside the
+unavailable CDRAM budget. ABI/allocation evidence is recorded in the research document;
+runtime sizes, allocation permissions and full streaming remain to be tested.
+
 - [x] Prototype an opt-in system-mode package with bounded newlib/PAF allocations and
   budget diagnostics; verify the frontend opens without closing a suspended Vita game.
 - [ ] Establish a measured decoder/graphics budget and validate streaming, native Settings,

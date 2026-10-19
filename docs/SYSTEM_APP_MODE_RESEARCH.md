@@ -491,3 +491,58 @@ Checks performed: ELF/program/module metadata decoding, export/import NID matchi
 against the installed VitaSDK databases, Thumb disassembly and byte-shape assertions
 on the fourteen selected wrappers/import stubs. No binary execution, firmware/device
 mutation, application build or hardware test occurred. Streaming remains unverified.
+
+### Bootimage implementation inspection (2026-10-20)
+
+The supplied `bootimage.skprx.elf` has SHA-256
+`708db3136cef67bb86b146733f489d1bda0fd65f74b453cf7bdd5225b85c1843`.
+An embedded ARM ELF at file offset `0x1A8584` identifies itself as SceAvcodec
+(module NID `0xDD0E433A`); its extracted size is 176272 bytes and SHA-256 is
+`c3e267f097ef679e8ade1865eafd46f33c23401ee2977fed0037a2eac0a9b22b`.
+SceCodecEngineWrapper is also present at bootimage offset `0x9E024`.
+Extraction/disassembly output stays outside the repository; no firmware code is executed.
+
+The SceAvcodec user-boundary functions establish these ABI facts:
+
+- `_sceVideodecInitLibraryNongameapp` at `0x810206D1` takes codec in r0 and
+  init-info in r1. It copies **32 bytes**, then calls the Nongameapp implementation
+  at `0x8100DB5C`. That implementation requires the AVC member's size field to be
+  **20**, and reads width/height/reference-count/stream-count at offsets 4/8/12/16.
+  Supply a zeroed `SceVideodecQueryInitInfo` union, not a standalone 20-byte allocation.
+- QueryMemSizeNongameapp at `0x810205C9` takes codec, init-info, output in r0/r1/r2;
+  input copy is 32 bytes and output is one 4-byte memory-size value.
+- QueryDecoderMemSizeNongameapp at `0x81020455` takes codec, query, output;
+  query copy is 12 bytes and output is 4. CreateDecoderNongameapp at `0x810204C9`
+  takes codec, read/write control, query; both structures are 12 bytes, matching
+  VitaSDK's SceAvcdecCtrl/SceAvcdecQueryDecoderInfo. Both creation variants reach
+  the shared implementation at `0x810165EC`.
+- InitLibraryWithUnmapMemNongameapp at `0x8102063D` takes codec, read/write control,
+  init-info. Control copy is 20 bytes, init-info copy 32. Control matches the SDK
+  layout: buffer pointer/size, UID, context address and context size (five words).
+  The backend at `0x8100EA04` consumes context address/size at offsets 12/16.
+
+Merely replacing InitLibrary with InitLibraryNongameapp cannot solve this failure.
+Both eventually call `0x8100BCDC`. With no supplied context that helper calls
+`ksceKernelIsGameBudget` (`0x8100BD7C`) and returns `0x80620840` on false
+(`0x8100BDF8`). Decoder creation has an equivalent game-budget rejection when
+frameBuf.pBuf is zero (`0x81016A58`). Both library and decoder therefore need
+explicit storage in the system profile. The context requires 256 KiB alignment;
+the AVC frame store requires 1 MiB alignment. Nongameapp queries accept aligned
+dimensions up to 1920x1088, unlike the ordinary path's smaller pixel-count bound.
+
+SceCodecEngineWrapper's OpenUnmapMemBlock implementation at `0x81015E84` checks
+the supplied uncached range has one physical span, creates an alias and unmaps
+the original block. Its allocator returns addresses in the original virtual range.
+Close verifies allocations are released, restores the original mapping and frees
+the alias (`0x81015D20`). Never CPU-access the arena while it is open; destroy the
+decoder and terminate the library before freeing their context allocations, close
+the CodecEngine pool, then free the backing memblock. The SDK's PHYCONT allocation
+attribute (`0x00200000`) can request a contiguous USER_MAIN_NC_RW block without
+selecting the separate reserved-PHYCONT memblock type; permission, availability and
+fragmentation in this system profile still need hardware validation.
+
+The ordinary decode entry at `0x81020BE1` uses the existing 12-byte control,
+24-byte access unit and 12-byte output-array layout, then resolves the shared
+decoder instance by handle. Retaining that decode/presentation API with an explicitly
+backed Nongameapp-created instance is a source-based experiment, not a device result.
+No claim of streaming support or all-firmware ABI compatibility follows from this dump.
