@@ -506,3 +506,73 @@ this hypothesis alone.
   Root/build convenience VPKs and the build convenience ELF were refreshed.
 - No device deployment, FIOS query result or compact-dialog display was tested
   by the agent. Runtime root cause beyond inaccessible paths remains open.
+
+
+## Hardware confirms blocking FIOS overlays (2026-10-19)
+
+The user ran the clean-master `fb4fd6a58d05` screen variant without ioPlus.
+GetList02 succeeds and returns 14 rules; the thread-disabled state is zero.
+Ten opaque rules at order 0x80 redirect ud0, tm0, pd0, vs0, vd0, ux0, ur0,
+os0, grw0 and gro0 roots to `invalid:/`. Four order-0x81 rules map two opaque
+storage names, savedata0 and app0 to their PD devices. Read resolution succeeds
+and returns:
+
+```text
+ux0:data/moonlight/ -> invalid:/data/moonlight
+uma0:data/moonlight/ -> uma0:/data/moonlight
+vs0:vsh/common/app_settings.suprx -> invalid:/vsh/common/app_settings.suprx
+vs0:vsh/common/app_settings_plugin.rco -> invalid:/vsh/common/app_settings_plugin.rco
+```
+
+The subsequent stat/open results remain ENODEV, uma0 is selected, and all
+three dependencies load. The confirmed causal chain is blocking overlay ->
+invalid device path -> file access failure. It explains the host-directory
+fallback and makes the native plugin's files unavailable. The creator and
+policy that installs the order-0x80 rules are still unknown. Do not attribute
+them to an exact firmware authority check without a matching implementation
+or controlled runtime experiment. Removing all rules would also disturb
+app0/savedata0 mappings. ThreadSetDisabled does not skip privileged 0x80 rules
+according to upstream vita-headers; it is not a proposed fix.
+
+The compact report logs 147 bytes / three lines and Init=0. This capture ends
+there; it does not prove display success, completion, or absence of a later
+Parameter Error 9. AppSettings was still deliberately bypassed.
+
+### Isolated authority-ID comparison
+
+A new test package uses the **same compiled VELF/runtime code** as the failing
+fb4fd6a screen variant, signed with `0x2200000000000001`. This value is taken
+from [BHBB's VDSuiteSignElf call](https://github.com/Ibrahim778/BetterHomebrewBrowser/blob/master/CMakeLists.txt),
+not asserted to be the correct final authority for our application. BHBB's
+Settings working without ioPlus is user-reported; its toolchain/SFO also differ.
+Only authority is varied in this experiment; normal CMake settings are unchanged.
+
+Command applied to the existing clean snapshot's VELF:
+
+```bash
+vita-make-fself -a 0x2200000000000001 -c -at 0x0E vita_moonlight_paf.velf settings-auth220.self
+```
+
+Local binary verification confirms SELF lengths match and **only two bytes**
+differ, at offsets 0x81 and 0x87 within app-info's authority ID. Repackaging
+changes only `eboot.bin`; all SFO, LiveArea, RCO and other package contents
+are byte-identical. The VPK passes ZIP integrity. Its SHA-256 is
+`3d7fd47bca8e59334eb930e84dacccd2738f4459c410325ca3dabf31be54ae83`.
+The package is repository-root `vita_moonlight_paf-settings-auth220.vpk`;
+`build/settings-auth220-manifest.json` records the comparison. No recompilation
+was needed for this header-only experiment. No deployment/hardware test was
+performed by the agent.
+
+Next device test: install this named variant with ioPlus disabled and collect
+SettingsDiag after selecting Settings. Compare order-0x80 rules, resolved
+paths and file-access results. If access changes, authority is a demonstrated
+causal variable for this device; then test real AppSettings initialization,
+persistence, streaming/input and PS lifecycle separately before adopting it.
+If access does not change, retain the current production authority and investigate
+the launcher/firmware policy. Do not migrate existing uma0 host data for the test.
+
+At the start of this stage the primary checkout had an unfinished user-initiated
+revert of f11f4af and unmerged LiveArea assets; these were left untouched. At final
+verification the revert/conflicts were no longer present, master remained at
+fb4fd6a and only these documentation changes remained. The documentation could
+therefore be committed independently of any user changes.

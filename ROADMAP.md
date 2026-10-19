@@ -91,7 +91,7 @@ occurs **after selecting Settings**, and supplied a textual crash report followe
   BXCE/INI/Common GUI still load successfully. Thus filesystem access explains the
   fallback to uma0 and supplies a concrete prerequisite failure for AppSettings.
   It does not yet identify the firmware policy or prove which PAF instruction calls zero.
-- [ ] Capture the new read-only FIOS `overlays`, `overlay` and `resolve` lines with ioPlus
+- [x] Capture the new read-only FIOS `overlays`, `overlay` and `resolve` lines with ioPlus
   disabled. Diagnostics enumerate only this process and resolve the four probed paths;
   they never add/remove/modify overlays or disable thread filtering. The installed SDK's
   missing 02 declarations are supplied as a local ABI subset from current vita-headers.
@@ -99,6 +99,18 @@ occurs **after selecting Settings**, and supplied a textual crash report followe
   repository-root `vita_moonlight_paf-settings-screen.vpk`; it still bypasses AppSettings.
   If a failed path resolves to `invalid:`, use the matching rule/order to investigate its
   creation and authorization policy before proposing a minimal fix.
+
+- Hardware FIOS result: user capture on fb4fd6a confirms 10 order-0x80 rules
+  redirect physical device roots including ux0/vs0 to `invalid:/`; ResolveSync02
+  returns those invalid paths. The uma0 path remains unchanged. This establishes
+  the access-failure mechanism; the rule-creation policy is still unverified.
+- [ ] Run isolated authority-ID comparison with
+  `vita_moonlight_paf-settings-auth220.vpk` (same diagnostic runtime, BHBB's
+  `0x2200000000000001` authority). Local comparison proves only two authority
+  bytes in SELF changed; only eboot differs in VPK. Normal build is unchanged.
+  Compare rules/resolve/file logs without ioPlus. Real AppSettings/persistence,
+  streaming, PS/Quick Actions checks remain required before adopting any ID.
+  See SETTINGS_CRASH_ANALYSIS for hashes and evidence limits.
 
 
 ## Recent streaming implementation review
