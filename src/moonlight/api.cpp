@@ -778,3 +778,8 @@ MoonlightConnectionState moonlight_api_get_connection_state(void)
 {
     return s_connection_state;
 }
+
+int moonlight_api_get_stream_stats(MoonlightStreamStats *out)
+{
+    return moonlight_stream_get_stats(out);
+}

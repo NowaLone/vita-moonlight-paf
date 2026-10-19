@@ -35,6 +35,7 @@ public:
     virtual int StopApplication();
     virtual int DisconnectHost();
     virtual MoonlightConnectionState GetConnectionState() const;
+    virtual int GetStreamStats(MoonlightStreamStats *out);
 
 private:
     static void OnLegacyEvent(const MoonlightEvent *event, void *userdata);

@@ -19,6 +19,7 @@ public:
     int Disconnect();
 
     MoonlightConnectionState State() const;
+    int GetStreamStats(MoonlightStreamStats *out);
 
 private:
     static void DialogPollTask(void *userdata);

@@ -332,3 +332,7 @@ MoonlightConnectionState ConnectionService::State() const
     return m_backend.GetConnectionState();
 }
 
+int ConnectionService::GetStreamStats(MoonlightStreamStats *out)
+{
+    return m_backend.GetStreamStats(out);
+}

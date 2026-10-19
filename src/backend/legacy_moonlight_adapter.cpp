@@ -245,6 +245,11 @@ MoonlightConnectionState LegacyMoonlightAdapter::GetConnectionState() const
     return m_connection_state;
 }
 
+int LegacyMoonlightAdapter::GetStreamStats(MoonlightStreamStats *out)
+{
+    return moonlight_api_get_stream_stats(out);
+}
+
 void LegacyMoonlightAdapter::OnLegacyEvent(const MoonlightEvent *event, void *userdata)
 {
     LegacyMoonlightAdapter *adapter = (LegacyMoonlightAdapter *)userdata;

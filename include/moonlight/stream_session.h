@@ -1,6 +1,7 @@
 #pragma once
 
 #include "moonlight/types.h"
+#include "moonlight/stream_stats.h"
 #include "legacy_gamestream.h"
 
 #ifdef __cplusplus
@@ -22,6 +23,7 @@ int moonlight_stream_start(
 
 int moonlight_stream_stop(void);
 int moonlight_stream_is_running(void);
+int moonlight_stream_get_stats(MoonlightStreamStats *out);
 
 #ifdef __cplusplus
 }

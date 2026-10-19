@@ -2,6 +2,7 @@
 #define VITA_MOONLIGHT_BACKEND_H
 
 #include "moonlight/types.h"
+#include "moonlight/stream_stats.h"
 
 class MoonlightBackend {
 public:
@@ -34,6 +35,7 @@ public:
     virtual int StopApplication() = 0;
     virtual int DisconnectHost() = 0;
     virtual MoonlightConnectionState GetConnectionState() const = 0;
+    virtual int GetStreamStats(MoonlightStreamStats *out) = 0;
 };
 
 #endif

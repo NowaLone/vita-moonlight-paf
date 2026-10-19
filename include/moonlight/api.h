@@ -2,6 +2,7 @@
 #define VITA_MOONLIGHT_API_H
 
 #include "moonlight/types.h"
+#include "moonlight/stream_stats.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,6 +40,7 @@ int moonlight_api_start_application(int application_id);
 int moonlight_api_stop_application(void);
 int moonlight_api_disconnect_host(void);
 MoonlightConnectionState moonlight_api_get_connection_state(void);
+int moonlight_api_get_stream_stats(MoonlightStreamStats *out);
 
 #ifdef __cplusplus
 }

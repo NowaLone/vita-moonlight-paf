@@ -16,6 +16,7 @@
 #include "vita_video_renderer.h"
 #include "vita_audio_renderer.h"
 #include "vita_input.h"
+#include "stream_stats_internal.h"
 
 namespace {
 
@@ -42,6 +43,18 @@ static pthread_t s_stream_thread;
 static volatile int s_stream_thread_running = 0;
 static volatile int s_stream_stop_requested = 0;
 static volatile int s_stream_cancel_requested = 0;
+
+/* Serialize stats reads with transport retirement; never hold this during LiStopConnection(). */
+static pthread_mutex_t s_stats_transport_mutex = PTHREAD_MUTEX_INITIALIZER;
+static int s_stats_transport_ready = 0;
+
+static void retire_stats_transport(void)
+{
+    pthread_mutex_lock(&s_stats_transport_mutex);
+    s_stats_transport_ready = 0;
+    pthread_mutex_unlock(&s_stats_transport_mutex);
+    moonlight_stats_end();
+}
 
 static size_t write_response(void *contents, size_t size, size_t count, void *userdata)
 {
@@ -105,6 +118,8 @@ static void *stream_stop_thread_main(void *)
 
     vita_debug_log("[Stream] stop worker start");
 
+    retire_stats_transport();
+
     if (s_stream_context.started) {
         vita_input_stop();
     }
@@ -135,6 +150,9 @@ static void on_connection_started(void)
     int stop_result;
 
     s_stream_context.started = 1;
+    pthread_mutex_lock(&s_stats_transport_mutex);
+    s_stats_transport_ready = 1;
+    pthread_mutex_unlock(&s_stats_transport_mutex);
     vita_input_start();
     vita_debug_log("[Stream] connection started");
     emit_event(MOONLIGHT_EVENT_STREAM_STARTED, 0);
@@ -159,6 +177,7 @@ static void on_connection_started(void)
 
 static void on_connection_terminated(int result)
 {
+    retire_stats_transport();
     vita_debug_log(
         "[Stream] connection terminated result=%d",
         result);
@@ -513,6 +532,7 @@ static int run_stream_session(
         0);
 
     if (result != 0) {
+        retire_stats_transport();
         vita_debug_log(
             "[Stream] LiStartConnection failed result=%d",
             result);
@@ -542,6 +562,7 @@ static void *stream_thread_main(void *arg)
         result);
 
     if (result != 0 && !s_stream_context.started) {
+        retire_stats_transport();
         emit_event(MOONLIGHT_EVENT_STREAM_FAILED, result);
     }
 
@@ -616,6 +637,11 @@ extern "C" int moonlight_stream_start(
     s_stream_stop_requested = 0;
     s_stream_cancel_requested = 0;
 
+    pthread_mutex_lock(&s_stats_transport_mutex);
+    s_stats_transport_ready = 0;
+    pthread_mutex_unlock(&s_stats_transport_mutex);
+    moonlight_stats_begin(settings);
+
     s_stream_thread_running = 1;
     result = pthread_create(
         &s_stream_thread,
@@ -624,6 +650,7 @@ extern "C" int moonlight_stream_start(
         args);
     if (result != 0) {
         s_stream_thread_running = 0;
+        retire_stats_transport();
         free(args);
         vita_debug_log(
             "[Stream] pthread_create failed result=%d",
@@ -695,4 +722,17 @@ extern "C" int moonlight_stream_is_running(void)
     return (s_stream_thread_running ||
             s_stream_context.started ||
             s_stream_stop_requested) ? 1 : 0;
+}
+
+extern "C" int moonlight_stream_get_stats(MoonlightStreamStats *out)
+{
+    int result;
+    /* Retirement waits for any in-flight RTT read before common-c frees its mutex/peer. */
+    pthread_mutex_lock(&s_stats_transport_mutex);
+    result = moonlight_stats_snapshot(out);
+    if (result == 0 && out->enabled && out->active && s_stats_transport_ready) {
+        out->rtt_valid = LiGetEstimatedRttInfo(&out->rtt_ms, &out->rtt_variation_ms);
+    }
+    pthread_mutex_unlock(&s_stats_transport_mutex);
+    return result;
 }
