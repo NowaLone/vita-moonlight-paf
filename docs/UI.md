@@ -12,8 +12,10 @@ compare NetStream's AppMgr calls with the Stream lifecycle **[code]**. A valid S
 hidden through `MoonlightApp::HideStreamInfobar()`; its destructor requests visible before returning
 to Apps. `MoonlightApp::Shutdown()` also restores the bar independently of stop-event delivery.
 Failed restores remain pending for the next cleanup request; requests/results use console-only
-`[Infobar]` diagnostics. No per-frame requests or local controls/touch bindings are added. Build and
-Vita validation, including Quick Actions/IME return and restored appearance, remain **[open]**.
+`[Infobar]` diagnostics. No per-frame requests or local controls/touch bindings are added. User
+confirmed the feature works on Vita on 2026-10-19 after commit `85899c5` **[hw, user-reported]**.
+Individual lifecycle/failure-case results were not supplied; the full matrix remains in `ROADMAP.md`
+**[open]**. No build or hardware test was run by the agent.
 
 Evidence tags used below:
 

@@ -157,9 +157,18 @@ add a main-thread reapply on a confirmed return transition only if a device test
 shows it is needed. `SceCommonDialogInfobarParam` configures common dialogs and is
 not a substitute for the normal playback API investigated here.
 
-## Maintainer validation still required [open]
+## User verification (2026-10-19)
 
-Build with the existing toolchain and test on a real Vita:
+After implementation commit `85899c5`, the user confirmed that everything works.
+This records successful user-reported Vita verification of the requested infobar
+hiding/restoration. No individual failure/shutdown-case results, AppMgr return
+logs or firmware/build details were supplied. It is not an agent-run build/test
+or verification across firmware versions.
+
+## Full maintainer validation matrix
+
+The general confirmation above does not establish individual results for every
+case below. Detailed lifecycle/failure coverage remains **[open]**:
 
 1. Record the browsing bar appearance. Start a stream: bar disappears, video
    remains full-screen, FPS overlay follows its own setting, touch still reaches
@@ -178,5 +187,6 @@ Build with the existing toolchain and test on a real Vita:
    with the toggle off is not evidence that no request occurred.
 
 Completed: local source/API/lifecycle review, online VitaSDK API check and source
-implementation. Build, actual AppMgr results and all device outcomes above remain
-unverified.
+implementation, followed by the user's confirmation of working infobar behavior.
+No build or hardware test was run by the agent; detailed matrix results and actual
+AppMgr return codes remain unreported.

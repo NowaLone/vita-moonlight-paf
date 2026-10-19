@@ -12,10 +12,12 @@ Source implementation now uses a small AppMgr adapter in `MoonlightApp`: a valid
 requests hidden and its destructor requests visible. Orderly shutdown also restores visibility
 before disabling event delivery. Failed restores remain pending; transition results are logged
 through `vita_debug_log()`. No per-frame visibility enforcement or input changes were added.
-Non-build source checks only; compilation and device behavior remain unverified.
+User confirmed that everything works on 2026-10-19 after implementation commit `85899c5`.
+This records user-reported Vita verification of the requested infobar behavior, not an agent-run
+build/test or a detailed result for every lifecycle/failure case below.
 
-- [ ] Validate the implemented main-thread hiding/restoration on page entry/exit and orderly
-  application shutdown with a maintainer build and Vita run.
+- [x] User verified the implemented infobar hiding/restoration during streaming on the tested Vita
+  (2026-10-19).
 - [ ] Verify start/stop/reconnect, launch failure, host loss, Quick Actions/return, native keyboard,
   application exit and the restored browsing-bar appearance on Vita.
 
