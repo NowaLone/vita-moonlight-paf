@@ -211,8 +211,22 @@ experimentally; stack sufficiency and later PHYCONT/CDRAM allocations still need
 
 The latest device test passes control-thread creation but stops at decoder initialization:
 `0x80620840` is `SCE_VIDEODEC_ERROR_NOT_GAME_BUDGET`. The standard decoder API rejects
-the system application budget. `Nongameapp` exports exist, but their ABI must be established
-before adapting the renderer; streaming alongside a suspended game remains unsupported.
+automatic allocation with the system application budget. The current prototype uses
+the ABI recovered from the user's firmware dump: explicit library/decoder contexts
+through a CodecEngine pool and contiguous uncached main-RAM output buffers. It logs
+queried sizes and each allocation/init result. This path has not been built or run on Vita.
+
+The 32 MiB browsing profile had only 648 KiB free before video setup. For the next
+streaming experiment, explicitly try a 64 MiB total budget (maintainer command):
+
+```bash
+bash build.sh -DMOONLIGHT_SYSTEM_APP=ON -DMOONLIGHT_SYSTEM_MEMSIZE_KIB=65536 -DMOONLIGHT_SYSTEM_PHYCONT_KIB=0
+```
+
+Install the full VPK and capture `[Video] nongame`/`[Memory]` logs while testing with
+the same Vita game suspended. Permission to allocate contiguous main RAM, actual
+codec sizes, decode/GXM presentation, cleanup, audio/input and resuming the game
+remain unverified. The default stays 32 MiB; the larger cached budget is a test value.
 
 `dev-build-run.sh -DMOONLIGHT_SYSTEM_APP=ON` forwards the option, builds the VPK and
 stops with installation instructions. It deliberately skips SELF-only deployment

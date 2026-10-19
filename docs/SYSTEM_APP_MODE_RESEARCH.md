@@ -546,3 +546,44 @@ The ordinary decode entry at `0x81020BE1` uses the existing 12-byte control,
 decoder instance by handle. Retaining that decode/presentation API with an explicitly
 backed Nongameapp-created instance is a source-based experiment, not a device result.
 No claim of streaming support or all-firmware ABI compatibility follows from this dump.
+
+### Explicit-context system renderer prototype
+
+`src/moonlight/vita_system_video.c` isolates the recovered API declarations and
+ownership; it is compiled/linked with SceCodecEngine_stub only in the system profile.
+It supplies a zeroed 32-byte init union, queries library and decoder sizes, bounds
+rounding arithmetic, then allocates an uncached USER_MAIN_NC_RW arena with SDK
+attributes PHYCONT and HAS_ALIGNMENT. Library storage is rounded/aligned to 256 KiB,
+decoder storage to 1 MiB; one extra MiB covers pool metadata/alignment padding.
+The backing arena is opened as a CodecEngine pool and is never CPU-accessed while
+unmapped. Its two suballocations are passed to InitLibraryWithUnmapMemNongameapp
+and CreateDecoderNongameapp, avoiding their automatic game-only allocation paths.
+Each query/allocation/init stage uses the existing debug logger.
+
+System-profile output buffers use separate contiguous uncached main-RAM blocks
+with the existing GXM mapping and deferred PAF-surface release. The ordinary
+renderer retains its prior reserved-PHYCONT decoder and CDRAM output allocations.
+Decode uses the existing public API and remains an unverified compatibility step.
+
+Teardown deletes the decoder, terminates the library, frees both suballocations,
+closes/remaps the CodecEngine pool, then frees the backing memblock. Setup failure
+uses the same unwind. A failing teardown retains the remaining backing resources
+and prevents a new adapter session; a renderer retaining its old decoder rejects
+restart before allocating another SPS parser/input buffer. Restart the application
+after such a cleanup error. The pool/context memory is never passed to GXM.
+
+No default heap/SELF reservation is increased. The previously tested 32 MiB budget
+has only 648 KiB USER_RW free before video and cannot be assumed to fit this path.
+For the next measurement use the README's explicit 65536 KiB total, PHYCONT zero
+command and install the full VPK. 64 MiB is a headroom experiment within VitaSDK's
+documented system-budget range, not a measured minimum or proof of coexistence.
+Check named query sizes/results, contiguous-arena permission/availability, all three
+output allocations, GXM mapping/presentation and actual decode; then audio/input,
+stop/reconnect, stable post-cleanup budgets and resuming the original game.
+
+Non-build validation interprets the actual adapter C AST with mocked Vita APIs:
+nine setup failures, zero/oversized query outputs, success, repeated teardown and
+five teardown failures exercise ownership/order and retained-resource reuse guards.
+Source selection/linkage and ordinary-profile source preservation are checked
+separately. These checks do not replace VitaSDK compilation or device validation;
+neither was run by the agent.

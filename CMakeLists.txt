@@ -200,10 +200,16 @@ if(MOONLIGHT_SYSTEM_APP)
   )
   target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/app/memory_budget.cpp)
   target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/vita_transport_threads.c)
+  target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/vita_system_video.c)
   # Adapt only common-c's pthread setup; keep its submodule revision unchanged.
   # Its platform layer requests 1 MiB stacks and leaves pthread attributes alive.
   set_property(SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/moonlight-common-c/src/Platform.c
     APPEND_STRING PROPERTY COMPILE_FLAGS " -include moonlight/vita_transport_threads.h")
+endif()
+
+# The system renderer owns a CodecEngine pool for explicit decoder contexts.
+if(MOONLIGHT_SYSTEM_APP)
+  target_link_libraries(${PROJECT_NAME} SceCodecEngine_stub)
 endif()
 
 target_link_libraries(${PROJECT_NAME}

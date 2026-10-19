@@ -104,6 +104,18 @@ preserve its unmap/remap ownership order, and provide output buffers outside the
 unavailable CDRAM budget. ABI/allocation evidence is recorded in the research document;
 runtime sizes, allocation permissions and full streaming remain to be tested.
 
+The system renderer now has an experimental explicit-context adapter. Nongameapp
+queries determine storage sizes before allocation; a contiguous uncached main-RAM
+arena is opened through CodecEngine, then supplies aligned library and decoder
+contexts. Output buffers also use contiguous uncached main RAM instead of CDRAM.
+The ordinary renderer path and default 32 MiB browsing budget remain unchanged.
+For the next device test use an explicit 65536 KiB total budget with physical
+reservation zero; this is headroom for measurement, not a verified requirement.
+Cleanup releases decoder, library, suballocations, pool and backing block in order,
+retaining backing storage and blocking reuse if runtime cleanup fails. Non-build
+failure-path/source-selection checks passed; build and all runtime acceptance
+checks below remain pending.
+
 - [x] Prototype an opt-in system-mode package with bounded newlib/PAF allocations and
   budget diagnostics; verify the frontend opens without closing a suspended Vita game.
 - [ ] Establish a measured decoder/graphics budget and validate streaming, native Settings,
