@@ -41,7 +41,7 @@
 
     <setting_list id="system_settings" title="msg_system_settings" icon="tex_spanner">
       <toggle_switch id="swap_xo" title="msg_swap_xo" key="swap_xo" default_value="0" />
-      <toggle_switch id="show_fps" title="msg_show_fps" key="show_fps" default_value="0" />
+      <toggle_switch id="show_fps" title="msg_show_fps" hint="msg_show_fps_hint" key="show_fps" default_value="0" />
       <toggle_switch id="center_region_only" title="msg_center_region_only" hint="msg_center_region_only_hint" key="center_region_only" default_value="0" />
       <toggle_switch id="debug_log" title="msg_debug_log" hint="msg_debug_log_hint" key="debug_log" default_value="0" />
     </setting_list>

@@ -76,6 +76,7 @@
   <string src="Waits for the Vita display VBlank when presenting video frames. This can reduce tearing, but may affect latency and frame pacing." id="msg_vita_vblank_hint" />
   <string src="Limits presentation to the selected FPS by dropping excess decoded frames when they arrive too quickly." id="msg_frame_pacer_hint" />
   <string src="Keeps game audio on the PC instead of streaming audio to the Vita." id="msg_local_audio_hint" />
+  <string src="Video: resolution, codec, target FPS and video payload bitrate (Mbps). FPS: received, decoded and submitted to PAF; PAF is not the physical display rate. RTT/variation: round-trip network delay and its fluctuation (ms). Drops: frames missing before decoding, skipped by the pacer or replaced in the PAF queue (%). Decode call/PAF queue: average decoder call time and queue wait (ms). Host min/max/avg: PC processing time (ms), when available. Video stalled: no recent frames. Unavailable measurements are hidden." id="msg_show_fps_hint" />
   <string src="When the video aspect ratio does not match the Vita screen, shows the center portion instead of fitting the entire image. Edges may be cropped." id="msg_center_region_only_hint" />
   <string src="Enables diagnostic messages in psp2shell. No log file is written." id="msg_debug_log_hint" />
   <string src="Sends the Vita gyroscope and accelerometer data to the PC as motion input." id="msg_gyro_hint" />

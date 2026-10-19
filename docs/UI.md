@@ -184,6 +184,10 @@ stalled-video state remain. Audio/CPU/stride/window/cumulative-counter details a
 `N/A` rows have been removed after the user's device screenshot showed excessive screen coverage.
 The old 928 x 380 panel is superseded; the compact panel is not yet hardware-verified. PAF FPS
 still measures texture submission, not physical presentation.
+The setting's native AppSettings hint (`msg_show_fps_hint`) explains Video/Mbps, the three FPS
+rates, RTT/variation, missing/pacer/PAF drops, average decode-call/queue timing, optional host
+min/max/average and the stalled-video state. Its text and binding are source-checked; native hint
+layout still needs a Vita check.
 RTT is sampled outside PAF by the existing session owner, which also performs transport cleanup;
 UI snapshots only copy cached statistics. There is no separate RTT thread. Queue timing includes
 waiting to acquire the frame mutex.
