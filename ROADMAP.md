@@ -2,6 +2,37 @@
 
 This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordered by risk reduction and release readiness, not by a promise that every item must be completed before development continues. Keep individual changes small and verify device-specific behavior on real PS Vita hardware.
 
+## Main cold start: one saved PC verified by user (2026-10-19)
+
+User supplied the Vita log:
+
+```text
+[Main] RefreshHosts hosts=1 cells before=1 after_delete=0 after_insert=1 selection=0
+```
+
+In response to the explicit cold-start question, the user confirmed that the PC appears
+immediately without connecting or opening Settings first. This verifies the visible one-host
+cold-start scenario on the tested device/build. The log shows one backend host, complete cell
+deletion and one inserted cell; no duplicate is indicated by these counts.
+
+The installed package revision was not supplied with this result, and the
+`[Main] initial refresh finished ...` line is still absent, so warm-up completion/stability
+cannot be inferred. Empty-storage and multiple-host cold starts remain unverified. Keep the
+full Main acceptance item open; no further InitialRefreshTask change is justified by this result.
+No build or hardware test was run by the agent for this documentation update.
+
+User explicitly reports that the initial-refresh completion line is absent. Source follow-up:
+the line remains in `Main::InitialRefreshTask`, but `src/common.cpp` initializes
+`s_debug_log_enabled` to zero on every process start. The persisted Debug log setting is applied
+by `moonlight_settings_apply_runtime` after lazy AppSettings initialization; the normal Main
+startup path does not initialize it. Initial-refresh diagnostics can therefore be suppressed
+even when Debug log was enabled in the previous process. A later RefreshHosts log can come from
+another refresh after settings become active; it does not establish when startup refresh finished.
+This explains a diagnostic visibility gap in current source, not a reproduced refresh failure.
+The earlier enable-Debug-log-and-restart instruction is insufficient to guarantee startup capture.
+Do not require the user to repeat this successful one-host test just to obtain that line, and do
+not change InitialRefreshTask or force logging on the basis of its absence. No runtime change was made.
+
 ## Settings-open regression: verified resolved on tested Vita (2026-10-19)
 
 **Status:** user verified native Settings open/close and persistence across a complete
@@ -177,7 +208,7 @@ Run the full user journey on a real Vita and record reproducible failures with r
 
 - [ ] Discover a PC on the LAN and save/select it.
 - [ ] Reproduce and fix the Main screen's saved/paired-PC list not loading on entry: the list is empty until the user connects to a PC, opens System Settings, and returns to Main. Trace initial host-store loading, page lifecycle/refresh dispatch, and paired-host filtering; verify cold start and returning to Main without first connecting.
-  - Source review found that `InitialRefreshTask` previously stopped as soon as the backend reported any hosts, without checking whether the PAF `ListView` had created the matching cells. The warm-up now waits for a minimum delay and three consecutive host/cell-count matches (with a bounded timeout). This is a source-level lifecycle fix hypothesis; build and Vita cold-start verification are still required.
+  - Source review found that `InitialRefreshTask` previously stopped as soon as the backend reported any hosts, without checking whether the PAF `ListView` had created the matching cells. The warm-up now waits for a minimum delay and three consecutive host/cell-count matches (with a bounded timeout). User verified immediate visibility with one saved PC on 2026-10-19; the supplied refresh log has `hosts=1 after_delete=0 after_insert=1`. Empty/multiple-host cold starts and the initial-refresh completion log remain outstanding; the full acceptance item is not complete.
 - [ ] Check the PS4 Link style Search PCs and Pairing pages on hardware against the PS4 Link screens: header position and the fading line, the pairing page's flow bar and Back button position, the saved-PC row title and description positions, and that touching the row text still activates the row.
 - [ ] Add a PC manually, including a custom port; verify unsuccessful attempts do not create an incorrect saved-host record.
 - [ ] Pair successfully and verify incorrect-PIN errors are distinguished from transport/protocol failures.
@@ -220,7 +251,7 @@ Source findings and isolated follow-ups (not yet fixed or runtime-verified):
 - [ ] Correct signature-verification return handling/error attribution, then separately design paired-server TLS pinning and certificate renewal behavior (F4). The existing client certificate authenticates the client to Sunshine; it does not authenticate the server to this client.
 - [ ] Run audit tests T1–T10 with recorded Vita/package and Sunshine version/configuration. API methods with no UI caller require a backend-level test trigger; page close alone does not prove DisconnectHost ran (F5).
 
-Current independent work order: the source audit is complete; proceed with F1 as a separate runtime change. The Main cold-start hypothesis in `10c62e1` still awaits new Vita logs/hardware validation; do not modify `Main::InitialRefreshTask()` speculatively. Older chronological notes below retain their original verification status and are superseded by the new audit where protocol conclusions differ.
+Current independent work order: the source audit is complete; proceed with F1 as a separate runtime change. Main cold start now has user verification for immediate visibility with one saved PC (2026-10-19); empty/multiple-host cases and the initial-refresh completion log remain open. The installed revision is not identified by that report, so it does not prove `10c62e1` alone caused the observed improvement. Do not modify `Main::InitialRefreshTask()` speculatively. Older chronological notes below retain their original verification status and are superseded by the new audit where protocol conclusions differ.
 
 **Done when:** the API inventory is checked against source and runtime behavior, required missing client functionality is implemented, and remaining unsupported cases are explicitly documented.
 

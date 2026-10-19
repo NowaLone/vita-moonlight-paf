@@ -589,7 +589,17 @@ First independent implementation task: **F1, preserve transport cleanup ownershi
 termination**, as an isolated change with meaningful lifecycle tests and Vita/Sunshine regression logs.
 F2/F3/F4 are separate follow-ups; F4's small signature check and broader pinning design are distinct work.
 
-The Main cold-start change `10c62e14d66061d3434b3996779e23b28c447bcc` remains a source-level hypothesis.
-`Main::InitialRefreshTask()` was not changed. Await cold-start logs before further changes:
+Main cold-start follow-up (2026-10-19): the user confirmed that one saved PC appears immediately
+after cold start without connecting or opening Settings. The supplied Vita log reports
+`hosts=1 cells before=1 after_delete=0 after_insert=1 selection=0`. This verifies that visible
+one-host scenario on the tested build; the installed revision and initial-refresh completion line
+were not supplied. Empty/multiple-host cold starts remain open, and this result does not isolate
+`10c62e14d66061d3434b3996779e23b28c447bcc` as the causal change. See ROADMAP for the canonical result.
+The user explicitly confirmed the completion line is absent. In current source the logger starts
+disabled in `src/common.cpp`; the saved Debug log preference is applied only on lazy AppSettings
+initialization. Main's startup refresh can finish before logging becomes enabled, so absence of
+that line alone does not demonstrate refresh failure. Enabling Debug log in a previous process
+does not guarantee early-startup capture. No logging or refresh code was changed for this finding.
+`Main::InitialRefreshTask()` was not changed. Analyze any additional cold-start logs before changes:
 `hosts == 0` points below PAF to storage/load; `hosts > 0` with mismatched cells points to ListView
 lifecycle; matching counts with invisible rows points to layout/template/activation state.
