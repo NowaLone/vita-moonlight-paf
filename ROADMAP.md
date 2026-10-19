@@ -37,9 +37,20 @@ occurs **after selecting Settings**, and supplied a textual crash report followe
   AppSettings module. Loader failure is a supported investigation direction, not a proven cause.
   The PAF call-site and runtime import-stub instructions are not captured. Details and evidence
   limits are in [docs/SETTINGS_CRASH_ANALYSIS.md](docs/SETTINGS_CRASH_ANALYSIS.md).
-- Next evidence: confirm firmware/CFW and the installed VPK/ELF pair, then obtain the actual
-  AppSettings module load/start result or matching firmware code around the PAF LR site.
-  Read-only live queries did not provide that evidence; no console files were changed.
+- Device follow-up (2026-10-19): user confirms **3.60 HENkaku** and that restoring **ioPlus**
+  resolves the problem; NetStream/BHBB reportedly open Settings without it. This supports an I/O
+  environment dependency, not a proven category/authority-ID cause. The ux0/uma0 path selection
+  still requires separate verification and actual filesystem error codes if it remains wrong.
+- [ ] Test the isolated `CATEGORY=gd → gdc` packaging experiment without ioPlus. NetStream and
+  BHBB use gdc; our default was gd. Only `VITA_MKSFOEX_FLAGS` changes; authority ID, SELF flags,
+  runtime and storage remain unchanged. `bash build.sh` passed; VPK comparison confirmed that
+  only the SFO CATEGORY value differs and eboot/ELF/resources are byte-identical to the gd control.
+  Artifacts are under `build/category-test/{gd,gdc}/`, with a hash manifest. Full procedure and
+  results are in [docs/SETTINGS_CRASH_ANALYSIS.md](docs/SETTINGS_CRASH_ANALYSIS.md).
+- Next evidence: install the gdc VPK on the known device without ioPlus and test Settings opening,
+  persistence after full app restart, actual host-storage path, then streaming/PS lifecycle.
+  If it fails, obtain the AppSettings load/start result or matching firmware code with an exact
+  VPK/ELF pair. No deployment or new hardware test was performed by the agent.
   Do not change InitialRefreshTask, SELF authorization, storage formats or callback lifetime
   speculatively. SAFE/AppSettings module research remains closed.
 

@@ -110,3 +110,82 @@ the user to open the crashing Settings page to enable diagnostics.
 
 Do not switch authorization IDs, replace Sony Settings, move initialization
 timing, or patch Main refresh based only on these incomplete loader details.
+
+## Device follow-up: ioPlus and isolated category test (2026-10-19)
+
+The user identified the device as firmware **3.60 with HENkaku** and reported
+that restoring **ioPlus** resolved the problem. They also reported that
+NetStream and BetterHomebrewBrowser could open Settings without ioPlus.
+The exact installed packages and loaded ioPlus version were not captured.
+The earlier ux0-to-uma0 observation has not been independently retested or
+explained by a captured mkdir error code. Do not infer corruption of settings
+or a fixed filesystem path from successful Settings opening alone.
+
+This changes the next investigation from an unexplained loader crash to a
+reproducible dependency on the device's I/O environment. The reviewed
+[ioPlus 0.1 implementation](https://github.com/TeamFAPS/PSVita-RE-tools/blob/master/ioPlus/ioPlus-0.1/src/ioplus.c)
+hooks FIOS overlay creation and replaces an `invalid:` source with its
+destination. This supports investigating filesystem restrictions, but does
+not prove the exact denied path or policy in the user's installed version.
+
+Reference packaging differs from ours:
+
+- NetStream `f812de87f739`, `NetStream/param.sfx`, uses `CATEGORY=gdc`.
+- BetterHomebrewBrowser `9e615e9186bf`, `param.sfx`, also uses `CATEGORY=gdc`;
+  its CMake signs with authority ID `0x2200000000000001`.
+- Our baseline at `ea0595c16640` uses the VitaSDK default `CATEGORY=gd` and
+  authority ID `0x2F00000000000101`. The native AppSettings LoadSync pattern
+  matches both references. Category and authority ID are separate variables.
+
+### Change under test
+
+The user authorized an isolated `CATEGORY=gd` to `gdc` experiment. The only
+build behavior change is `-s CATEGORY=gdc` in `VITA_MKSFOEX_FLAGS`.
+Authority ID, SELF generation flags (`UNSAFE ATTRIBUTE 0x0E`), SFO attributes,
+runtime code, initialization timing and storage formats/paths stay identical.
+This is a diagnostic packaging hypothesis, not a proven ioPlus-free fix.
+
+### Local validation
+
+- `bash build.sh` completed successfully using the existing build directory,
+  including CXML, ELF, SELF and VPK generation. This was not a clean build.
+- Both VPK archives passed ZIP integrity checks. Their entry names match,
+  and the only entry with different content is `sce_sys/param.sfo`.
+- Parsed SFO values differ only at `CATEGORY` (`gd` versus `gdc`). Both keep
+  title ID `VLMP00001`, `ATTRIBUTE=0x82c0`, `ATTRIBUTE_MINOR=0x10`.
+- Packaged `eboot.bin` and the comparison/debug ELF are byte-identical
+  between the variants. Parsed SELF authority ID is `0x2F00000000000101`.
+- The gd control artifacts are preserved under `build/category-test/gd/`;
+  the gdc artifacts under `build/category-test/gdc/`. The ordinary
+  `build/vita_moonlight_paf.vpk` is the gdc test build. All are ignored output.
+- `build/category-test/manifest.json` records hashes and pending hardware
+  status. Control VPK SHA-256:
+  `de980c13e035b4e0bbb4fdb191dcd940f1719cc48f6508746c76e04181a7d310`.
+  Test VPK SHA-256:
+  `3e678b233d03abe60bc647868f7363c21171cb3d9485b2817aedbe4a0d9474c1`.
+  Both embed source revision `ea0595c16640`; they were built before committing
+  the packaging experiment, so the About revision alone cannot distinguish
+  them. Identify the VPK by its hash.
+- No deployment, installation, plugin change or new Vita test was performed
+  by the agent.
+
+### Hardware test still required
+
+1. Keep backups of the existing savedata and both moonlight data directories;
+   do not clear or migrate them for this experiment. Install the gdc test VPK
+   over our existing application. Keep other plugins/configuration unchanged.
+2. Disable only the existing ioPlus entry, fully reboot and ensure HENkaku
+   is active. Record which VPK was installed and the plugin configuration.
+3. Open Settings, change a visible setting, close the application completely,
+   relaunch and verify the value persists. Confirm the normal Main UI works.
+4. Check which moonlight directory the application actually uses for a new
+   saved-PC operation and whether it persists after relaunch. Existing files
+   or a write performed by VitaShell do not prove this application's access.
+5. If the basic checks pass, exercise stream start/stop/reconnect, audio/video,
+   input and PS Button/Quick Actions to catch changes in shell behavior.
+
+If Settings still crashes, restore the original ioPlus configuration and
+reboot; record the result without changing another packaging parameter at
+the same time. If it succeeds, report category as verified on this one
+firmware/device only after the persistence checks. Cross-firmware behavior
+and the precise firmware policy remain unverified.
