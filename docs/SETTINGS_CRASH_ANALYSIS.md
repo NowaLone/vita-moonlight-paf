@@ -576,3 +576,66 @@ revert of f11f4af and unmerged LiveArea assets; these were left untouched. At fi
 verification the revert/conflicts were no longer present, master remained at
 fb4fd6a and only these documentation changes remained. The documentation could
 therefore be committed independently of any user changes.
+
+
+## Authority comparison removes blocking rules on hardware (2026-10-19)
+
+The user ran the auth220 screen package without ioPlus. GetList02 succeeds,
+thread-disabled remains zero, and count drops from 14 to four. Only order-0x81
+app0/savedata0/storage mappings remain. Both ux0 and vs0 resolve to their real
+paths; ux0 mkdir returns EEXIST and is selected. Native module/resource stat,
+open and four-byte read succeed with SCE/RCOF headers; dependencies all return
+zero. Since the package comparison changed only two authority-ID bytes, this
+establishes a causal authority-to-overlay/access relationship on this device.
+The exact firmware branch creating the rules is still not identified; no
+claim about every firmware's policy follows from this result.
+
+The screen variant bypasses AppSettings. Its Init=0 log is neither an actual
+Settings-open result nor proof of persistence. It also does not verify PS
+Button/ShellUtil or Quick Actions under the new identity.
+
+### Minimal build correction and remaining regression scope
+
+CMake's final authority argument changes from `0x2F00000000000101` to
+`0x2200000000000001`, matching the tested package and BHBB reference. Runtime
+code, native loader, category gd, UNSAFE, SELF ATTRIBUTE 0x0E, storage paths
+and formats remain unchanged. This corrects the demonstrated packaging input
+that triggers the inaccessible paths; it does not remove/patch overlays at
+runtime or require ioPlus. The previous comment calling the old ID known-working
+was narrowed: past persistence/PS checks did not establish ioPlus-free access.
+
+Normal diagnostics remain OFF by default. The next named test artifact enables
+console SettingsDiag only, with SCREEN=OFF, so OpenSettings uses the real
+moonlight_settings_init -> Plugin::LoadSync -> AppSettings Interface flow.
+No diagnostic message dialog replaces it. The artifact name is
+`vita_moonlight_paf-settings-auth220-live.vpk`. Confirm LoadSync returns and
+found=1, Settings opens/closes, a visible change persists across a complete
+restart, and ux0 host operations work. Do not migrate/delete old uma0 records
+or assume previously hidden ux0 contents are current. Then test streaming,
+reconnect, controller/touch, deliberate PS taps, stop and Quick Actions.
+
+Potential regressions are authority-dependent AppSettings/SaveSafeMemory
+identity/access and ShellUtil/PS behavior. Filesystem access is hardware-verified
+only on the supplied 3.60 HENkaku run; actual Settings and these regressions
+remain pending. No SAFE-mode or other authority survey is reopened.
+
+
+### Local validation of the build correction
+
+- `bash build.sh` completed (CXML, application, ELF, SELF, VPK) with diagnostic
+  options OFF. A separate console diagnostic build with DIAGNOSTICS=ON and
+  SCREEN=OFF also completed. No runtime C/C++ code was changed at this stage.
+- Make reports future timestamps/clock skew on LiveArea assets. Both VPKs were
+  checked against the current source assets byte-for-byte; packaged SELFs match
+  generated outputs, ZIP integrity passes, SFO is gd/VLMP00001 and parsed SELF
+  authority is 0x2200000000000001. No source timestamps were changed to hide it.
+- Both debug ELFs match their extensionless executable. Neither contains the
+  screen replacement heading; only the console variant contains FIOS diagnostic
+  markers. Its compiler flags confirm SCREEN is not defined.
+- The live VPK is copied to the repository root. SHA-256:
+  `b2d115394e23e0974274dad125a288cef06a78ddd3f0fcf94da53aca4f964716`.
+  It embeds parent revision `72819b499d4a`; build-time working changes consist of
+  the authority argument/comment and documentation. The matching ELF and hash
+  manifest are under build/. No generated artifacts are committed.
+- `git diff --check` passed. No installation, actual Settings opening, persistence
+  or PS/stream regression testing was performed by the agent.

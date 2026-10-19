@@ -32,10 +32,10 @@ set(VITA_MKSFOEX_FLAGS
     "${VITA_MKSFOEX_FLAGS} -d ATTRIBUTE=33472 -d ATTRIBUTE_MINOR=16 -s CATEGORY=gd"
 )
 
-# Keep the PAF build's known-working authority ID. Device testing reported that
-# AppSettings persistence works with this ID; upstream's 0x280... ID regressed it.
-# PS Button ShellUtil lock success has also been observed with this ID on-device.
-set(VITA_MAKE_FSELF_FLAGS "${VITA_MAKE_FSELF_FLAGS} -a 0x2F00000000000101")
+# Match BHBB's native PAF authority. A controlled 3.60 test changing only this
+# ID removed the ux0/vs0 invalid:/ overlays seen with 0x2F00000000000101.
+# Actual AppSettings persistence and PS/Quick Actions still need regression tests.
+set(VITA_MAKE_FSELF_FLAGS "${VITA_MAKE_FSELF_FLAGS} -a 0x2200000000000001")
 
 enable_language(CXX ASM)
 

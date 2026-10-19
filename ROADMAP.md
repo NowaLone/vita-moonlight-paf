@@ -104,13 +104,29 @@ occurs **after selecting Settings**, and supplied a textual crash report followe
   redirect physical device roots including ux0/vs0 to `invalid:/`; ResolveSync02
   returns those invalid paths. The uma0 path remains unchanged. This establishes
   the access-failure mechanism; the rule-creation policy is still unverified.
-- [ ] Run isolated authority-ID comparison with
+- [x] Run isolated authority-ID comparison with
   `vita_moonlight_paf-settings-auth220.vpk` (same diagnostic runtime, BHBB's
   `0x2200000000000001` authority). Local comparison proves only two authority
   bytes in SELF changed; only eboot differs in VPK. Normal build is unchanged.
   Compare rules/resolve/file logs without ioPlus. Real AppSettings/persistence,
   streaming, PS/Quick Actions checks remain required before adopting any ID.
   See SETTINGS_CRASH_ANALYSIS for hashes and evidence limits.
+
+- Authority comparison device result: with only SELF authority changed to
+  `0x2200000000000001`, user logs show four 0x81 mappings, no 0x80 blocking rules,
+  successful ux0 selection and readable SCE/RCOF headers for both Settings files.
+  This confirms authority as a causal variable for filesystem access on this 3.60
+  device. It does not yet verify actual AppSettings initialization or persistence.
+- Build now uses the BHBB authority ID above, retaining gd/UNSAFE/SELF attributes
+  and all runtime/storage code. The previous ID's persistence/PS observations were
+  insufficient to establish ioPlus-free access. Normal and console-only diagnostic
+  builds must be tested through real Settings; SCREEN mode is not used for this step.
+- [ ] Install `vita_moonlight_paf-settings-auth220-live.vpk` without ioPlus. Verify
+  Settings opens/closes, change a value and verify it after full application restart.
+  Capture `native plugin LoadSync returned found=1` or any crash/loader output.
+  Then regress stream start/stop/reconnect and PS tap/hold/Quick Actions. A different
+  authority may change AppSettings/SaveSafeMemory or shell permissions. Existing
+  uma0 data is not migrated; record visibility/persistence of hosts under ux0.
 
 
 ## Recent streaming implementation review
