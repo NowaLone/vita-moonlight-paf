@@ -30,7 +30,6 @@ namespace page {
 
 Stream *Stream::s_instance = NULL;
 Stream::Frame Stream::s_pending_frame = { NULL, 0, 0, 0, false, 0, 0 };
-bool Stream::s_task_registered = false;
 unsigned int Stream::s_release_delay = 0;
 
 static void stream_power_tick_task(void *)
@@ -198,8 +197,6 @@ Stream::Stream()
 {
     unsigned int i;
 
-    s_instance = this;
-
     for (i = 0; i < kSurfaceSlotCount; ++i) {
         m_surface_slots[i].buffer = NULL;
         m_surface_slots[i].width = 0;
@@ -209,9 +206,6 @@ Stream::Stream()
     }
 
     if (!root) {
-        if (s_instance == this) {
-            s_instance = NULL;
-        }
         return;
     }
     m_video_plane = static_cast<ui::Plane *>(
@@ -231,6 +225,10 @@ Stream::Stream()
         m_video_plane);
 
     if (m_video_plane) {
+        thread::RMutex::main_thread_mutex.Lock();
+        s_instance = this;
+        s_pending_frame.valid = false;
+        thread::RMutex::main_thread_mutex.Unlock();
         paf::graph::PlaneObj *plane_obj =
             static_cast<paf::graph::PlaneObj *>(
                 m_video_plane->GetDrawObj(paf::ui::Plane::OBJ_PLANE));
@@ -241,6 +239,7 @@ Stream::Stream()
         /* Keep the Vita awake only while the streaming page is active. */
         set_stream_power_tick(true);
         MoonlightApp::Instance()->HideStreamInfobar();
+        common::MainThreadCallList::Register(PresentTask, this);
         MoonlightStreamStats stats;
         if (m_statistics_text && m_statistics_background &&
             MoonlightApp::Instance()->Connection().GetStreamStats(&stats) == 0 && stats.enabled) {
@@ -253,11 +252,15 @@ Stream::Stream()
 
 Stream::~Stream()
 {
+    common::MainThreadCallList::Unregister(PresentTask, this);
     common::MainThreadCallList::Unregister(StatisticsTask, this);
     set_stream_power_tick(false);
+    thread::RMutex::main_thread_mutex.Lock();
     if (s_instance == this) {
         s_instance = NULL;
+        s_pending_frame.valid = false;
     }
+    thread::RMutex::main_thread_mutex.Unlock();
     /*
      * Stop PAF from sampling the external framebuffer before dropping the
      * Surface references. The decoder releases the framebuffer pool only
@@ -295,48 +298,26 @@ Stream *Stream::Instance()
     return s_instance;
 }
 
-void Stream::PresentTask(void *)
+void Stream::PresentTask(void *userdata)
 {
+    Stream *stream = static_cast<Stream *>(userdata);
+    if (!stream || stream != s_instance) {
+        return;
+    }
     Frame frame = { NULL, 0, 0, 0, false, 0, 0 };
 
     thread::RMutex::main_thread_mutex.Lock();
 
-    if (!s_pending_frame.valid) {
-        s_task_registered = false;
-        thread::RMutex::main_thread_mutex.Unlock();
-        return;
-    }
-
-    frame = s_pending_frame;
-    s_pending_frame.valid = false;
-
-    thread::RMutex::main_thread_mutex.Unlock();
-
-    Stream *stream = s_instance;
-    if (stream) {
-        stream->OpenKeyboardIfRequested();
-        if (frame.valid) {
-            stream->PresentFrame(frame);
-        }
-    }
-
-    /*
-     * MainThreadCallList callbacks must return promptly. Keep at most one
-     * callback queued while the decoder continuously produces frames.
-     */
-    bool register_task = false;
-    thread::RMutex::main_thread_mutex.Lock();
-
-    if (s_pending_frame.valid && s_instance != NULL) {
-        register_task = true;
-    } else {
-        s_task_registered = false;
+    if (s_pending_frame.valid) {
+        frame = s_pending_frame;
+        s_pending_frame.valid = false;
     }
 
     thread::RMutex::main_thread_mutex.Unlock();
 
-    if (register_task) {
-        common::MainThreadCallList::Register(PresentTask, NULL);
+    stream->OpenKeyboardIfRequested();
+    if (frame.valid) {
+        stream->PresentFrame(frame);
     }
 }
 
@@ -351,17 +332,16 @@ void Stream::ReleaseFrameBuffersTask(void *userdata)
      */
     if (generation != moonlight_video_get_frame_pool_generation() ||
         s_instance != NULL) {
+        common::MainThreadCallList::Unregister(ReleaseFrameBuffersTask, userdata);
         return;
     }
 
     if (s_release_delay != 0) {
         --s_release_delay;
-        common::MainThreadCallList::Register(
-            ReleaseFrameBuffersTask,
-            userdata);
         return;
     }
 
+    common::MainThreadCallList::Unregister(ReleaseFrameBuffersTask, userdata);
     moonlight_video_release_frame_buffers();
 }
 
@@ -371,6 +351,8 @@ void Stream::ScheduleFrameBufferRelease()
         moonlight_video_get_frame_pool_generation();
 
     s_release_delay = 3;
+    common::MainThreadCallList::Unregister(
+        ReleaseFrameBuffersTask, (void *)(uintptr_t)generation);
     common::MainThreadCallList::Register(
         ReleaseFrameBuffersTask,
         (void *)(uintptr_t)generation);
@@ -520,7 +502,6 @@ void Stream::QueueFrame(
     unsigned int pitch,
     uint32_t stats_generation)
 {
-    bool register_task = false;
     const uint64_t queued_us = stats_generation ? LiGetMicroseconds() : 0;
 
     thread::RMutex::main_thread_mutex.Lock();
@@ -536,20 +517,9 @@ void Stream::QueueFrame(
         s_pending_frame.queued_us = queued_us;
         s_pending_frame.valid = true;
         moonlight_video_note_queued(stats_generation, replaced);
-
-        if (!s_task_registered) {
-            s_task_registered = true;
-            register_task = true;
-        }
     }
 
     thread::RMutex::main_thread_mutex.Unlock();
-
-    if (register_task) {
-        common::MainThreadCallList::Register(
-            PresentTask,
-            NULL);
-    }
 }
 
 void Stream::InvalidateFrame()

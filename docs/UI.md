@@ -251,6 +251,14 @@ the statistics module rejects tokens from older sessions. These hooks measure CP
 queue wait, not GPU completion or physical display. Source implementation only; build/hardware
 validation is pending. Pages read snapshots through `MoonlightApp::Connection().GetStreamStats()`.
 
+`PresentTask` is a persistent call-list entry registered once with the Stream instance and removed
+in its destructor, like NetStream's surface update task. `QueueFrame()` only replaces the pending
+frame; neither it nor the callback registers another entry. The deferred framebuffer release task
+also stays registered while counting down and unregisters on completion or invalidation. PAF call
+lists are persistent, so treating them as one-shot queues accumulated callbacks in the previous
+source. The fix bounds registration count but its effect on the reported resource failure still
+needs a long stream/reconnect check on Vita.
+
 Backend callbacks may arrive on worker threads. `MoonlightApp` queues them and delivers them through
 `MainThreadCallList`, so page callbacks run on the PAF main thread. Only the topmost page owns the event callback; when
 a page is destroyed it hands the callback back to the page below (`RestoreEventCallback()` in `Main`, `Search`, `Apps`,

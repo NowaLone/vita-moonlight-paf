@@ -22,6 +22,12 @@ while RTT remains available, with no decoder errors. The layout is now reduced t
 panel; unavailable rows and audio/CPU/stride/window/cumulative-counter details are omitted.
 This is a source change awaiting another device check, not verification of stream stability.
 
+Source review of that failure found repeated `PresentTask` registration with no corresponding
+unregister. PAF call-list entries are persistent (also demonstrated by NetStream's surface-update
+lifecycle), so registrations could grow throughout streaming. Stream now registers one presentation
+callback for its lifetime; the deferred framebuffer release callback also unregisters explicitly.
+This is a concrete resource-growth defect, not proof that it was the only cause of the user's hang.
+
 - [ ] Implement session-scoped video statistics and safe snapshots: incoming/decoded/PAF-submit
   FPS, host processing latency, estimated missing frames, local drops, ENet RTT/variation,
   decode/queue/CPU-submit timing and video payload bitrate. Label PAF/RTT estimates accurately.
