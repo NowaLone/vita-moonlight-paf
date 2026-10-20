@@ -218,10 +218,11 @@ legacy_device_store_set_host_id updates identity/address without resetting that 
 Moonlight API separately chooses READY versus PAIRED from the live server state, and
 the observed PIN page shows that the cached flag did not bypass pairing.
 
-This attachment stops after app retrieval. It does not include a new process reconnect
-without PIN after this specific re-pair, wrong-PIN rejection/retry, failed final challenge
-or persistence-failure tests. Next verify that fresh-process reconnect. The prior normal
-persisted reconnect test remains valid with its original scope. Exact installed revision,
+This attachment stops after app retrieval. The maintainer subsequently replied “да всё ок”
+to the requested full Moonlight restart and reconnect to Apps without another PIN. Record
+that fresh-process reconnect after this specific re-pair as user-verified on 2026-10-20,
+without a new log. Wrong-PIN rejection/retry, failed final challenge and persistence-failure
+cases remain untested. The prior normal persisted reconnect test retains its original scope. Exact installed revision,
 firmware and Sunshine release/configuration remain unspecified. No runtime code change,
 agent-run build or agent-run device test was needed.
 
@@ -672,8 +673,8 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   restoring the original, connection and authenticated applist (4/4) succeed. User/log verified
   on 2026-10-20; see follow-up above. Normal pairing and persisted reconnect were also user-tested.
   Re-pair after the host-side revocation test is now user/log verified through a new PIN, all
-  phases and authenticated applist (4/4); fresh-process reconnect after this specific re-pair is
-  pending. T3/T9 still need malformed/unreadable pins, live host-cert renewal, damaged credentials,
+  phases and authenticated applist (4/4). Fresh-process reconnect after this specific re-pair is
+  subsequently user-confirmed without another PIN (2026-10-20; no new log). T3/T9 still need malformed/unreadable pins, live host-cert renewal, damaged credentials,
   failed persistence, wrong-PIN/cryptographic errors and the remaining revocation variants.
 
 ### A23 — Protocol / version compatibility — partial
@@ -840,8 +841,8 @@ revoked client, and failed pin writes. The later Vita pin-mismatch test on 2026-
 one of these rejection paths: wrong valid certificate → security result -10; restoring the
 original → connection result 0 and applist count=4 total=4. Normal pairing/persisted reconnect
 were previously user-confirmed. Re-pair after the host-side revocation test is now also user/log
-verified through a new PIN, all phases and app retrieval (4/4), with fresh-process reconnect after
-this specific re-pair still pending. Remaining error cases are not covered by these results.
+verified through a new PIN, all phases and app retrieval (4/4); fresh-process reconnect after
+this specific re-pair is subsequently user-confirmed without another PIN (no new log). Remaining error cases are not covered by these results.
 
 **Root cause:** L3 authenticates the client certificate but disables server certificate verification.
 The verified pairing server certificate is discarded. In `verify_signature`, logical `&&` coerces
@@ -937,8 +938,9 @@ are now user/log verified. F1 established-stream unexpected-control-disconnect c
 resume are also log verified; the maintainer separately confirmed audible audio. TLS rejection
 of a mismatched valid saved server certificate (-10), followed by restored-pin connection and
 authenticated applist (4/4), is now user/log verified. Recovery through PIN pairing after the
-host-side revocation test is also log verified. Next restart Moonlight and verify reconnect
-without a PIN after this specific re-pair. Remaining setup-cancel/race, trust/error and
+host-side revocation test is also log verified; reconnect without a PIN after restarting
+Moonlight is subsequently user-confirmed. Next verify wrong-PIN rejection and a successful
+pairing retry. Remaining setup-cancel/race, trust/error and
 repeated-recovery cases stay open. Complete the remaining T3/T4/T5/T8/T9 error/trust matrix. No
 administrative Sunshine credentials are introduced.
 
