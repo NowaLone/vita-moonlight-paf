@@ -130,6 +130,7 @@ ux0:data/moonlight/
         client.p12
     <storage name>/
         device.ini
+        server.pem
 ```
 
 The `client/` directory contains the single global GameStream client identity. Every PC uses the same client `uniqueid.dat` and RSA certificate/key.
@@ -149,6 +150,18 @@ prefer_external
 `host_id` is the GameStream/Sunshine server UUID obtained from `/serverinfo`. It is the persistent PC identity; the display name and IP address are discovery/connection data, not client-identity storage keys.
 
 Discovery results are temporary. Selecting a discovered PC creates or updates its persistent host record before connection/pairing. The inline manual address input (including a custom port when supplied) is persisted only after a successful GameStream connection. Pairing updates that host record with its paired state and MAC.
+
+The host store resolves the selected record to `<storage name>/server.pem`; this is the public
+Sunshine/GameStream **server** certificate, never the global Vita client certificate or key.
+Only successful PIN proof and a matching final HTTPS pairing challenge establish a pin.
+Subsequent HTTPS requests verify the complete paired leaf certificate. Old records without
+`server.pem` require pairing again. An unreadable/malformed pin or changed server certificate
+fails closed: remove that saved PC locally and add/pair it again to establish new trust.
+Local deletion removes its server pin as part of the host directory; it does not revoke the
+Vita identity on Sunshine. A pin persistence error is logged separately from pairing success;
+trust then lasts only for the current connection and pairing is needed after restart.
+The implementation requires the OpenSSL libcurl backend; compilation and TLS/runtime checks
+by the maintainer remain pending (2026-10-20).
 
 The project does not provide compatibility or migration for the original Vita Moonlight per-host credential layout. Existing per-host `uniqueid.dat`, `client.pem`, `key.pem`, and `client.p12` files are not used by the new global client-identity implementation.
 

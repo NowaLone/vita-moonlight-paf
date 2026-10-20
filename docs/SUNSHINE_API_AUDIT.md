@@ -5,8 +5,8 @@ Audit date: **2026-10-18**. Local baseline: `master`,
 
 This continues [the preliminary audit](../ROADMAP.md#gamestream-client-api-coverage-and-follow-up-2026-10-15)
 and the findings in [REPOSITORY_ANALYSIS.md](../REPOSITORY_ANALYSIS.md). It is a **source-level audit**,
-not a new Vita/Sunshine interoperability test. No runtime code, dependencies, settings or host-storage
-formats were changed. `PROGRESS.md` was absent. The supplied PRD was read as technical context;
+not a new Vita/Sunshine interoperability test. The original inventory changed no runtime code or
+storage; dated source follow-ups below describe later implementation changes (latest: 2026-10-20). `PROGRESS.md` was absent. The supplied PRD was read as technical context;
 current source and Git state determine the findings below.
 
 ## 1. Scope and evidence
@@ -67,6 +67,9 @@ boundary while fixing transport ownership below it. Their player code is not a d
 
 ### Local implementation map
 
+The 2026-10-20 follow-up adds [gamestream_xml.c](../src/moonlight/gamestream_xml.c) for
+shared applist/launch/resume parsing; it does not move protocol logic into PAF pages.
+
 - **L1** — [api.cpp](../src/moonlight/api.cpp): connect, pairing classification, app cache/parser,
   start/stop, deferred disconnect and API state.
 - **L2** — [stream_session.cpp](../src/moonlight/stream_session.cpp): `load_launch_session`,
@@ -102,8 +105,8 @@ HTTPS authorization checks the exact enabled paired X.509 identity. HTTP serveri
 
 XML `<root status_code="..." status_message="...">` is application-level status, independent of
 the HTTP status. A successful libcurl transfer is insufficient. `CURLOPT_FAILONERROR` does not
-validate GameStream XML status. L3 uses Expat for status/fields; L1 app lists and L2 launch use
-separate string scans with weaker checks (F3).
+validate GameStream XML status. L3 uses Expat for status/fields; the F3 follow-up also uses a shared Expat parser for L1 app lists
+and L2 launch/resume. Non-200 status cannot be accepted because a positive marker appears in the body.
 
 ## 3. Scenario matrix
 
@@ -132,11 +135,14 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   HTTP before pairing, paired client certificate for reliable HTTPS status.
 - **Semantics:** XML status 200; required local fields `currentgame`, `PairStatus`, `appversion`,
   `state`; optional UUID, MAC, `HttpsPort`, `GfeVersion`, `ServerCodecModeSupport`.
-- **Current:** L3 `load_server_status/load_server_info` learns HTTPS port through HTTP, tries
-  HTTPS, then falls back to HTTP; L1 connects and persists server UUID. Missing required fields fail.
+- **Current:** L3 learns HTTPS port through HTTP. Without a saved server pin this is unpaired
+  metadata only; a pin permits verified HTTPS. Only authorization status 401 allows a return to
+  unpaired HTTP metadata; a TLS/protocol/transport error does not downgrade. L1 resolves the pin
+  from the selected stored identity before any HTTP response, then persists UUID after connect.
+  Missing required fields fail. Stream start always uses HTTPS, without fallback.
 - **Upstream / Sunshine:** QH/V use serverinfo and BUSY-state normalization; S returns server
-  metadata and process state. This implementation's broad HTTP fallback can hide an HTTPS problem;
-  it must not be interpreted as authenticated status or certificate validation (A22).
+  metadata and process state. QH permits HTTP bootstrap without a pin and a 401 fallback; the
+  current follow-up follows those trust boundaries. HTTP never establishes paired state (A22).
 - **Verified / runtime:** source; T2 covers paired/unpaired, HTTPS denial, malformed response,
   missing optional fields, UUID identity and custom ports.
 
@@ -164,7 +170,7 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Upstream / Sunshine:** V/QP use PIN challenges; S waits for host operator approval.
 - **Verified / runtime:** source; T3 verifies fresh identity, already paired state and UI/job behavior.
 
-### A05 — Pairing handshake — implemented (with authentication gaps in A22/F4)
+### A05 — Pairing handshake — implemented (new pinning runtime acceptance pending)
 
 - **Endpoint / purpose / auth:** HTTP `/pair` phases `getservercert`, `clientchallenge`,
   `serverchallengeresp`, `clientpairingsecret`; HTTPS `/pair?phrase=pairchallenge` proves client trust.
@@ -172,9 +178,11 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   challenges and signed secrets. Gen 7 uses SHA-256, older generations SHA-1. Check XML status and
   `paired=1` at each phase. Host operator supplies the displayed PIN through Sunshine UI.
 - **Current:** L3 performs all phases, RSA-2048/signature-size assumptions, initial wait 300 seconds,
-  later timeout 15 seconds; L1 marks paired and keeps persistence failure distinct from protocol success.
+  later timeout 15 seconds; verifies signed proof before PIN mismatch classification, temporarily pins
+  the authenticated server cert for the final HTTPS challenge, then saves server.pem. A failed final
+  challenge rolls back the temporary pin. L1 keeps persistence failure distinct from protocol success.
 - **Upstream / Sunshine:** QP/V use the same handshake family; S implements phased pairing,
-  expiry and failed-session removal. QP additionally pins the server certificate.
+  expiry and failed-session removal. QP likewise uses a temporary pin before the final HTTPS phase.
 - **Verified / runtime:** source; T3 covers correct PIN, delayed approval, retries/expiry and final
   HTTPS trust. Five-minute timeout is a client setting, not verified responsiveness on Vita.
 
@@ -183,10 +191,10 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Endpoint / purpose / auth:** errors from A05; distinguish PIN mismatch, security, network,
   protocol and local failure without presenting storage failure as bad PIN.
 - **Semantics:** XML rejection/`paired=0` differs from curl failure and cryptographic proof failure.
-- **Current:** L1 `classify_pairing_error` recognizes exact legacy error strings, selected curl
-  errors, and OOM. Other local failures fall through to PROTOCOL. L3 checks challenge hash before
-  signature, whereas QP verifies signature first; corrupted/untrusted proof can be classified too
-  early as PIN mismatch. `verify_signature` also has the return-value issue in F4.
+- **Current:** L1 recognizes PIN/security error strings, explicit certificate security failures,
+  selected curl errors and OOM. Other local failures still fall through to PROTOCOL. The F4 source
+  follow-up checks signature before the PIN-bound hash and accepts only successful EVP return codes.
+  Tests exercise mocked return logic; actual malformed-proof/TLS runtime coverage remains pending.
 - **Upstream / Sunshine:** QP has explicit failed/PIN/in-progress results; S can reject ordering,
   pending capacity, invalid proof or expiry. These are not all incorrect-PIN cases.
 - **Verified / runtime:** source; T3 requires wrong PIN, refused approval, lost network, malformed
@@ -293,13 +301,14 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   client's transport. No new HTTP authorization exchange and no `/cancel`.
 - **Semantics:** stop input, unwind common-c stages/threads, gracefully disconnect ENet control.
   `LiStopConnection` deliberately does not call `connectionTerminated`, so client emits STOPPED.
-- **Current:** L2 stop worker handles an established connection even after setup worker returns;
-  repeated request while stopping is ignored. L7 detaches PAF surfaces and defers framebuffer release.
+- **Current:** L2 persistent session owner consumes mutex-protected stop/termination requests and
+  calls LiStopConnection after setup; repeated stop requests do not create another teardown owner. L7 detaches PAF surfaces and defers framebuffer release.
 - **Upstream / Sunshine:** L6/C stop contract; S/SS observe control disconnect or timeout and
   clean stream workers; host app can remain running. QS separates transport stop and optional quit.
 - **Verified / runtime:** source and historical double-PS stop report; T7/T8 still required for this
   full matrix, including immediate restart and final neutral input. No end-to-end idempotency proof
-  under concurrent callbacks; flags are not synchronized. See F1 for unexpected termination.
+  under concurrent callbacks; L2 ownership flags are synchronized, while broader L1/L4 state races
+  remain F5. F1 has a source owner implementation; full runtime acceptance stays open.
 
 ### A15 — Disconnect while idle/paired — partial
 
@@ -335,9 +344,9 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   network/host termination arrives through common-c callback, with the existing session keys.
 - **Semantics:** both routes need complete transport/resource teardown before reuse. Host-reported
   termination code zero differs from unexpected network/error termination.
-- **Current:** explicit disconnect waits on active/stop flags and defers GameStream free. Involuntary
-  `on_connection_terminated` only stops input, emits STOPPED and clears `started`; no LiStopConnection
-  follows in L1/L4/L7. This is a concrete ownership gap (F1), not verified cleanup.
+- **Current:** explicit disconnect waits for L2 cleanup before freeing GameStream state. Since
+  `0cef1ac`, involuntary termination queues a request for the same persistent session owner, which
+  calls LiStopConnection before releasing ownership. F1 runtime matrix remains pending.
 - **Upstream / Sunshine:** V and QS both call LiStopConnection on termination cleanup; C's callback
   signals termination, it does not perform its caller's stop. SS handles disconnect/timeouts host-side.
 - **Verified / runtime:** source; T7/T8 need network loss, host kill, explicit disconnect and restart.
@@ -348,8 +357,9 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   reuse installation identity but generate new session keys.
 - **Semantics:** wait for prior teardown, refresh host state; app may persist, exit or change while away.
 - **Current:** L1 rejects connect during worker/disconnect activity and refreshes metadata on new
-  ConnectHost; same-host restart without reconnect reuses stale current_game. Unexpected termination
-  can make the running predicate false without cleanup. Cache is also not invalidated (F1/F2/F3).
+  ConnectHost. Follow-ups F1/F2/F3 retain cleanup ownership, refresh HTTPS state before every start
+  and invalidate the app cache at host transitions. Each new connection loads the host server pin;
+  old records without it require pairing. Broader async state risks remain F5.
 - **Upstream / Sunshine:** QS serializes active session cleanup; S retains process independently of
   stream and accepts resume with fresh session material.
 - **Verified / runtime:** source; T8 requires stop→restart, disconnect→connect, network-loss→connect,
@@ -362,7 +372,8 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Semantics:** distinguish pending launch slot, established stream workers, retained application
   process and display/controller state. Releasing one is not proof the others were reset.
 - **Current:** L6 explicit stop gracefully disconnects; pending launch cancellation sends no host
-  request. F1 can prevent that teardown on unexpected termination.
+  request. The F1 session owner also performs transport teardown after unexpected termination;
+  pending launch expiry and host resource release still need runtime observation.
 - **Upstream / Sunshine:** SR discards pending launch events after `ping_timeout`; SS stops on
   control disconnect or ping timeout and joins workers/reset input. It can retain the running app;
   display restore and gamepad retention depend on host configuration/session state.
@@ -415,9 +426,14 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Semantics:** authenticate client to server **and** check the paired server certificate, allowing
   known self-signed identity without accepting arbitrary peers. Certificate replacement/revocation
   must cause re-pair/error, not silent trust.
-- **Current:** L3 creates/loads global identity, supplies SSLCERT/SSLKEY and disables SSL session
-  cache. Both VERIFYHOST and VERIFYPEER are disabled; pairing's plaincert is temporary and never
-  used for subsequent TLS identity checks. No server pin is persisted. F4 applies.
+- **Current:** L3 loads global Vita identity and the selected host's server.pem separately.
+  VERIFYPEER is enabled with an OpenSSL certificate-verification callback comparing the entire
+  leaf certificate to the PIN-authenticated pin. DNS/CA trust is replaced by this exact paired
+  identity; hostname checks remain disabled for LAN IPs/self-signed certificates. HTTPS without
+  a pin is forbidden. Redirects, TLS session caching and connection reuse are disabled.
+  New pins are persisted only after the final authenticated pairing exchange. Missing pin means
+  re-pair; unreadable/malformed pin or mismatch fails closed without HTTP fallback. The explicit
+  recovery is local Delete → Add → PIN pairing; global client credentials remain unchanged.
 - **Upstream / Sunshine:** QP pins the learned certificate and returns it for persistence; QH
   compares peer certificate on SSL errors; S validates the exact enabled client X.509 identity.
 - **Verified / runtime:** source; T3/T9 need certificate mismatch, revoked/disabled client, renewed
@@ -536,7 +552,8 @@ documented older hosts; a malformed modern response must not silently lose encry
 Parser and scalable UI storage should remain separate changes.
 
 **Regression risks / tests:** valid empty list versus failure, legacy optional fields, integer/title
-limits and partial documents; T4/T5. No parser test or code change was performed in this audit.
+limits and partial documents; T4/T5. The original inventory made no parser changes; see the dated
+source follow-up above for implementation and still-unrun C fixtures.
 
 ### F4 — Server TLS identity is not pinned; signature error check is too broad
 
@@ -544,8 +561,36 @@ limits and partial documents; T4/T5. No parser test or code change was performed
 now implemented. Each EVP stage must return 1; a negative final crypto error cannot become boolean
 success. Pairing clears stale attempt errors. The non-build `tests/test_pairing_verification.py`
 interprets the actual C expression AST for 27 mocked EVP combinations and checks ordering; it does
-not run OpenSSL, compile C or verify Vita behavior. TLS pinning remains open. The original finding
-below describes the audit baseline, not the corrected signature-check source.
+not run OpenSSL, compile C or verify Vita behavior. The original finding below describes the
+audit baseline, not the corrected source.
+
+**Server pinning source follow-up, 2026-10-20:** maintainer approved per-host `server.pem` storage.
+The host store supplies the path through the Moonlight API; the selected stored identity is resolved
+before HTTP bootstrap. The final pairing exchange uses a temporary verified pin and rolls it back
+on failure; only success persists it through a temporary file and rename. Write errors do not turn
+protocol success into pairing failure and cannot silently establish persistent trust.
+
+HTTPS uses VERIFYPEER with an exact-leaf OpenSSL verification callback, not ordinary public-CA
+trust. Callback installation/backend support failures reject connection. The inspected VitaSDK
+headers report libcurl 8.17.0 and OpenSSL 1.0.2i; the callback supports both the 1.0.2 public context
+and modern opaque-context accessor. Actual linked library/backend behavior is not established by
+headers. The implementation rejects a non-OpenSSL curl backend rather than disabling verification.
+References: [libcurl SSL context callback](https://curl.se/libcurl/c/CURLOPT_SSL_CTX_FUNCTION.html),
+[OpenSSL custom certificate verification](https://docs.openssl.org/1.1.1/man3/SSL_CTX_set_cert_verify_callback/),
+and QP/QH above. This overrides chain/CA/name/time validation with the paired identity, so the same
+paired certificate remains trusted even if its validity dates expire; a changed certificate needs
+explicit re-pair. Connections are fresh and not reused, preserving callback/pin lifetime.
+
+Pairing and shutdown are mutually excluded to protect client keys and temporary pins across HTTP
+phases. This does not claim to solve every API/service race (F5). Old records without a pin are
+unpaired until PIN proof succeeds; malformed/unreadable pins and TLS mismatch do not downgrade.
+Deleting a host also removes server.pem through existing directory cleanup, without host-side unpair.
+
+Six non-build Python checks now include 12 actual-expression cases for present/absent/equal/unequal
+certificates with mocked X509 comparison, enrollment ordering/rollback and C grammar checks. They
+do not exercise a TLS handshake, file I/O, X509 implementation, compilation or Vita. T3/T9 remain
+required: old record re-pair, persisted trust after restart, changed/malformed/missing pin, two hosts,
+revoked client, and failed pin writes. Source implementation is not runtime acceptance.
 
 **Root cause:** L3 authenticates the client certificate but disables server certificate verification.
 The verified pairing server certificate is discarded. In `verify_signature`, logical `&&` coerces
@@ -616,7 +661,9 @@ file-based stream logs or per-frame diagnostics.
   common-c teardown completed and no stale event/input/framebuffer affects the next session. Include
   Quick Actions and deliberate PS gestures as regressions; do not reopen proven input paths without data.
 - **T9 Trust/optional remote actions:** server certificate replacement, revoked/disabled client and
-  corrupted local credentials; retry/re-pair behavior. Remote Quit/unpair tests require an explicitly
+  corrupted local credentials; retry/re-pair behavior. Test old records without server.pem, new
+  pin persistence across process restart, malformed/unreadable/missing pins, final challenge failure,
+  pin-write failure and two distinct hosts. Confirm mismatch cannot fall back to HTTP or overwrite trust. Remote Quit/unpair tests require an explicitly
   requested feature; ordinary stop must leave other clients/apps unaffected by a `/cancel` request.
 - **T10 Compatibility:** record each actually tested Sunshine release/configuration; exercise
   encryption policy and IPv4 custom ports. Test older GFE only if support is claimed. Do not infer
@@ -630,8 +677,10 @@ Missing ordinary-disconnect HTTP endpoints were not found: the required work is 
 state freshness, parsing and authentication, not adding `/cancel`, `/quit` or admin API calls.
 
 F1 already has a source cleanup owner (`0cef1ac`). F3 XML/cache and F4 signature checks now have
-source follow-ups; runtime acceptance remains pending. F2 now has a source refresh/conflict check. Next implement per-host TLS pinning (F4). The maintainer approved storing `server.pem` in
-the existing host directory on 2026-10-20; old records without a pin require pairing again. No
+source follow-ups; runtime acceptance remains pending. F2 now has a source refresh/conflict check.
+Per-host TLS pinning (F4) now has a source implementation with the maintainer-approved
+`server.pem` contract; old records without a pin require pairing again. The next gate is a
+maintainer build plus the T3/T4/T5/T8/T9 pairing/list/launch/reconnect/certificate matrix. No
 administrative Sunshine credentials are introduced.
 
 Main cold-start follow-up (2026-10-19): the user confirmed that one saved PC appears immediately

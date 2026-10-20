@@ -243,12 +243,13 @@ ux0:data/moonlight/
         client.p12
 ```
 
-Per-host data contains only host metadata:
+Per-host data contains host metadata and the paired server certificate:
 
 ```
 ux0:data/moonlight/
     <storage name>/
         device.ini
+        server.pem
 ```
 
 `host_id` is the GameStream/Sunshine server UUID returned by `/serverinfo`. The client never generates a host identity. Client `uniqueid.dat` and key/certificate material are never stored in a host directory.
@@ -256,6 +257,18 @@ ux0:data/moonlight/
 Discovery results are temporary. Search PC selections are persisted before connection. Add Manually does not persist the entered address up front; a successful GameStream connection stores or updates the host through the server UUID returned by /serverinfo. Failed manual connections therefore do not leave a new saved host entry. Successful pairing updates the same record with paired state and MAC.
 
 Host identity resolution is ordered as `host_id`, MAC, internal/external address, then display name. The stable server UUID is the primary persistent identity once it is known.
+
+The host store resolves the selected record to `<storage name>/server.pem`; this is the public
+Sunshine/GameStream **server** certificate, never the global Vita client certificate or key.
+Only successful PIN proof and a matching final HTTPS pairing challenge establish a pin.
+Subsequent HTTPS requests verify the complete paired leaf certificate. Old records without
+`server.pem` require pairing again. An unreadable/malformed pin or changed server certificate
+fails closed: remove that saved PC locally and add/pair it again to establish new trust.
+Local deletion removes its server pin as part of the host directory; it does not revoke the
+Vita identity on Sunshine. A pin persistence error is logged separately from pairing success;
+trust then lasts only for the current connection and pairing is needed after restart.
+The implementation requires the OpenSSL libcurl backend; compilation and TLS/runtime checks
+by the maintainer remain pending (2026-10-20).
 
 The project does not provide storage compatibility or migration for the original Vita Moonlight per-host credential layout. Old per-host credential files are ignored by the new client-identity code.
 

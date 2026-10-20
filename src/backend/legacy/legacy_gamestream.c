@@ -34,6 +34,7 @@
 #include <openssl/pkcs12.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
+#include <openssl/ssl.h>
 #include <openssl/x509.h>
 
 #include "debug.h"
@@ -63,6 +64,8 @@ static char s_unique_id[UNIQUEID_CHARS + 1];
 static bool s_curl_initialized = false;
 static CURLcode s_last_http_result = CURLE_OK;
 static pthread_mutex_t s_http_mutex = PTHREAD_MUTEX_INITIALIZER;
+/* Pairing uses the client keys between requests and temporarily owns a candidate server pin. */
+static pthread_mutex_t s_pair_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define GAMESTREAM_WORKER_STACK (256 * 1024)
 
@@ -597,6 +600,73 @@ static void http_buffer_free(HttpBuffer *buffer)
     buffer->size = 0;
 }
 
+static int verify_pinned_certificate(X509_STORE_CTX *context, void *expected)
+{
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    X509 *peer = context->cert;
+#else
+    X509 *peer = X509_STORE_CTX_get0_cert(context);
+#endif
+    int matches = expected && peer && X509_cmp(peer, (X509 *)expected) == 0;
+    X509_STORE_CTX_set_error(context, matches ? X509_V_OK : X509_V_ERR_CERT_REJECTED);
+    return matches;
+}
+
+static CURLcode configure_pinned_tls(CURL *curl, void *ssl_context, void *userdata)
+{
+    LegacyGameStreamServer *server = (LegacyGameStreamServer *)userdata;
+    (void)curl;
+    if (!server || !server->server_certificate) return CURLE_PEER_FAILED_VERIFICATION;
+    /* Pairing authenticates the complete self-signed leaf, rather than a public CA/DNS name. */
+    SSL_CTX_set_cert_verify_callback((SSL_CTX *)ssl_context,
+        verify_pinned_certificate, server->server_certificate);
+    return CURLE_OK;
+}
+
+int legacy_gamestream_set_certificate_path(LegacyGameStreamServer *server, const char *path)
+{
+    if (!server || !path || strlen(path) >= sizeof(server->server_certificate_path))
+        return LEGACY_GAMESTREAM_INVALID;
+    strcpy(server->server_certificate_path, path);
+    return LEGACY_GAMESTREAM_OK;
+}
+
+static int load_pinned_certificate(LegacyGameStreamServer *server)
+{
+    if (!server->server_certificate_path[0]) return LEGACY_GAMESTREAM_OK;
+    FILE *file = fopen(server->server_certificate_path, "rb");
+    if (!file) {
+        if (errno == ENOENT) return LEGACY_GAMESTREAM_OK; /* Old host: pairing is required. */
+        set_error("Unable to read saved server certificate");
+        return LEGACY_GAMESTREAM_IO_ERROR;
+    }
+    server->server_certificate = PEM_read_X509(file, NULL, NULL, NULL);
+    fclose(file);
+    if (!server->server_certificate) {
+        set_error("Invalid saved server certificate; remove the PC and pair again");
+        return LEGACY_GAMESTREAM_SECURITY_ERROR;
+    }
+    return LEGACY_GAMESTREAM_OK;
+}
+
+static int save_pinned_certificate(LegacyGameStreamServer *server)
+{
+    char temporary[sizeof(server->server_certificate_path) + 5];
+    if (!server->server_certificate_path[0] || !server->server_certificate)
+        return LEGACY_GAMESTREAM_IO_ERROR;
+    snprintf(temporary, sizeof(temporary), "%s.tmp", server->server_certificate_path);
+    FILE *file = fopen(temporary, "wb");
+    if (!file) return LEGACY_GAMESTREAM_IO_ERROR;
+    int written = PEM_write_X509(file, (X509 *)server->server_certificate) == 1;
+    if (fflush(file) != 0) written = 0;
+    if (fclose(file) != 0) written = 0;
+    if (!written || rename(temporary, server->server_certificate_path) != 0) {
+        remove(temporary);
+        return LEGACY_GAMESTREAM_IO_ERROR;
+    }
+    return LEGACY_GAMESTREAM_OK;
+}
+
 static int http_request(
     LegacyGameStreamServer *server,
     const char *url,
@@ -613,6 +683,12 @@ static int http_request(
     if (!server->curl) {
         pthread_mutex_unlock(&s_http_mutex);
         return LEGACY_GAMESTREAM_INVALID;
+    }
+    if (!strncmp(url, "https://", 8) && !server->server_certificate) {
+        s_last_http_result = CURLE_PEER_FAILED_VERIFICATION;
+        set_error("Server certificate is not paired");
+        pthread_mutex_unlock(&s_http_mutex);
+        return LEGACY_GAMESTREAM_SECURITY_ERROR;
     }
     curl_easy_setopt((CURL *)server->curl, CURLOPT_WRITEFUNCTION, http_write_callback);
     curl_easy_setopt((CURL *)server->curl, CURLOPT_CONNECTTIMEOUT, 10L);
@@ -641,9 +717,15 @@ static int http_request(
     s_last_http_result = CURLE_OK;
     curl_result = curl_easy_perform((CURL *)server->curl);
     s_last_http_result = curl_result;
+    long http_status = 0;
+    curl_easy_getinfo((CURL *)server->curl, CURLINFO_RESPONSE_CODE, &http_status);
     pthread_mutex_unlock(&s_http_mutex);
     if (curl_result != CURLE_OK) {
         set_error(curl_easy_strerror(curl_result));
+        if (curl_result == CURLE_PEER_FAILED_VERIFICATION)
+            return LEGACY_GAMESTREAM_SECURITY_ERROR;
+        if (curl_result == CURLE_HTTP_RETURNED_ERROR && http_status == 401)
+            return LEGACY_GAMESTREAM_NOT_PAIRED;
         return LEGACY_GAMESTREAM_FAILED;
     }
 
@@ -820,7 +902,7 @@ static int xml_status_ok(const char *data, size_t length)
         if (!s_error[0]) {
             set_error("GameStream server returned an error");
         }
-        return LEGACY_GAMESTREAM_FAILED;
+        return context.status == 401 ? LEGACY_GAMESTREAM_NOT_PAIRED : LEGACY_GAMESTREAM_FAILED;
     }
 
     return LEGACY_GAMESTREAM_OK;
@@ -911,7 +993,7 @@ static int load_server_info(LegacyGameStreamServer *server, bool https)
         set_error("Invalid currentgame in serverinfo");
         return LEGACY_GAMESTREAM_INVALID;
     }
-    server->paired = strcmp(paired, "1") == 0;
+    server->paired = https && server->server_certificate && strcmp(paired, "1") == 0;
     server->current_game = (int)active_id;
     strncpy(server->server_info_app_version, app_version, sizeof(server->server_info_app_version) - 1);
     server->server_info_app_version[sizeof(server->server_info_app_version) - 1] = '\0';
@@ -958,9 +1040,13 @@ static int load_server_status(LegacyGameStreamServer *server)
         }
     }
 
-    result = load_server_info(server, true);
-    if (result != LEGACY_GAMESTREAM_OK) {
-        result = load_server_info(server, false);
+    if (server->server_certificate) {
+        result = load_server_info(server, true);
+        /* Revoked client authorization can be repaired by PIN. TLS failures cannot downgrade. */
+        if (result == LEGACY_GAMESTREAM_NOT_PAIRED) result = load_server_info(server, false);
+    } else {
+        server->paired = false;
+        result = LEGACY_GAMESTREAM_OK;
     }
 
     if (result == LEGACY_GAMESTREAM_OK &&
@@ -1573,6 +1659,21 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
 
     vita_debug_log("[GameStream] pairing phase=pairchallenge");
 
+    /* The signature and PIN-bound challenge above have now authenticated plaincert.
+     * Use it temporarily to authenticate the final HTTPS exchange; roll back on failure. */
+    BIO *certificate_bio = BIO_new_mem_buf(plaincert, -1);
+    X509 *candidate = certificate_bio ? PEM_read_bio_X509(certificate_bio, NULL, NULL, NULL) : NULL;
+    BIO_free(certificate_bio);
+    if (!candidate) {
+        http_buffer_free(&response);
+        set_error("Invalid pairing server certificate");
+        return LEGACY_GAMESTREAM_SECURITY_ERROR;
+    }
+    pthread_mutex_lock(&s_http_mutex);
+    X509 *previous = (X509 *)server->server_certificate;
+    server->server_certificate = candidate;
+    pthread_mutex_unlock(&s_http_mutex);
+
     snprintf(
         url,
         sizeof(url),
@@ -1584,6 +1685,10 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
 
     step_result = http_request(server, url, &response, 15L);
     if (step_result != LEGACY_GAMESTREAM_OK) {
+        pthread_mutex_lock(&s_http_mutex);
+        server->server_certificate = previous;
+        X509_free(candidate);
+        pthread_mutex_unlock(&s_http_mutex);
         http_buffer_free(&response);
         return step_result;
     }
@@ -1591,6 +1696,10 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
     if (xml_status_ok(response.memory, response.size) != LEGACY_GAMESTREAM_OK ||
         xml_find_value(response.memory, response.size, "paired", result, sizeof(result)) != LEGACY_GAMESTREAM_OK ||
         strcmp(result, "1") != 0) {
+        pthread_mutex_lock(&s_http_mutex);
+        server->server_certificate = previous;
+        X509_free(candidate);
+        pthread_mutex_unlock(&s_http_mutex);
         http_buffer_free(&response);
         if (!s_error[0]) set_error("GameStream rejected HTTPS pairing challenge");
         return LEGACY_GAMESTREAM_FAILED;
@@ -1598,6 +1707,11 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
 
     http_buffer_free(&response);
 
+    X509_free(previous);
+    if (save_pinned_certificate(server) != LEGACY_GAMESTREAM_OK) {
+        /* Protocol success is independent from persistence, just like device.ini. */
+        vita_debug_log("[GameStream] paired, but server.pem was not saved; re-pair required after restart");
+    }
     server->paired = true;
 
     for (step_result = 0; step_result < 3; ++step_result) {
@@ -1617,6 +1731,7 @@ typedef struct InitArgs {
     const char *address;
     unsigned short http_port;
     const char *client_directory;
+    const char *server_certificate_path;
     int log_level;
     bool unsupported;
 } InitArgs;
@@ -1628,18 +1743,25 @@ int legacy_gamestream_init(
     const char *address,
     unsigned short http_port,
     const char *client_directory,
+    const char *server_certificate_path,
     int log_level,
     bool unsupported)
 {
     InitArgs args;
 
+    if (!server || !address || !address[0] || !client_directory || !client_directory[0])
+        return LEGACY_GAMESTREAM_INVALID;
+
     args.server = server;
     args.address = address;
     args.http_port = http_port;
     args.client_directory = client_directory;
+    args.server_certificate_path = server_certificate_path;
     args.log_level = log_level;
     args.unsupported = unsupported;
-    return run_on_worker(init_worker, &args);
+    int result = run_on_worker(init_worker, &args);
+    if (result != LEGACY_GAMESTREAM_OK) legacy_gamestream_shutdown(server);
+    return result;
 }
 
 static int init_worker(void *argument)
@@ -1667,6 +1789,10 @@ static int init_worker(void *argument)
     server->address[sizeof(server->address) - 1] = '\0';
     server->http_port = http_port ? http_port : 47989;
     server->unsupported = unsupported;
+
+    if (args->server_certificate_path &&
+        legacy_gamestream_set_certificate_path(server, args->server_certificate_path) != LEGACY_GAMESTREAM_OK)
+        return LEGACY_GAMESTREAM_INVALID;
 
     s_error[0] = '\0';
 
@@ -1710,6 +1836,13 @@ static int init_worker(void *argument)
         return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
     }
 
+    const curl_version_info_data *curl_info = curl_version_info(CURLVERSION_NOW);
+    if (!curl_info || !curl_info->ssl_version || strncmp(curl_info->ssl_version, "OpenSSL/", 8)) {
+        curl_easy_cleanup(curl);
+        set_error("Server certificate pinning requires the OpenSSL curl backend");
+        return LEGACY_GAMESTREAM_SECURITY_ERROR;
+    }
+
     vita_debug_log("[GameStream] init %s:%u dir=%s", address, http_port, client_directory);
 
     certificate_path = (char *)malloc(PATH_MAX_LOCAL);
@@ -1726,8 +1859,19 @@ static int init_worker(void *argument)
     snprintf(certificate_path, PATH_MAX_LOCAL, "%s/%s", client_directory, CERTIFICATE_FILE_NAME);
     snprintf(key_path, PATH_MAX_LOCAL, "%s/%s", client_directory, KEY_FILE_NAME);
 
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+    if (curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L) != CURLE_OK ||
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L) != CURLE_OK ||
+        curl_easy_setopt(curl, CURLOPT_CAINFO, NULL) != CURLE_OK ||
+        curl_easy_setopt(curl, CURLOPT_CAPATH, NULL) != CURLE_OK ||
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L) != CURLE_OK ||
+        curl_easy_setopt(curl, CURLOPT_SSL_CTX_FUNCTION, configure_pinned_tls) != CURLE_OK ||
+        curl_easy_setopt(curl, CURLOPT_SSL_CTX_DATA, server) != CURLE_OK) {
+        free(certificate_path);
+        free(key_path);
+        curl_easy_cleanup(curl);
+        set_error("Unable to install server certificate verification");
+        return LEGACY_GAMESTREAM_SECURITY_ERROR;
+    }
     curl_easy_setopt(curl, CURLOPT_SSLCERTTYPE, "PEM");
     curl_easy_setopt(curl, CURLOPT_SSLCERT, certificate_path);
     curl_easy_setopt(curl, CURLOPT_SSLKEYTYPE, "PEM");
@@ -1741,6 +1885,9 @@ static int init_worker(void *argument)
     server->curl = curl;
     free(certificate_path);
     free(key_path);
+
+    int pin_result = load_pinned_certificate(server);
+    if (pin_result != LEGACY_GAMESTREAM_OK) return pin_result;
 
     vita_debug_log("[GameStream] requesting server status");
     return load_server_status(server);
@@ -1764,7 +1911,10 @@ int legacy_gamestream_pair(LegacyGameStreamServer *server, const char *pin)
 
     args.server = server;
     args.pin = pin;
-    return run_on_worker(pair_worker, &args);
+    pthread_mutex_lock(&s_pair_mutex);
+    int result = run_on_worker(pair_worker, &args);
+    pthread_mutex_unlock(&s_pair_mutex);
+    return result;
 }
 
 int legacy_gamestream_get_server_mac(
@@ -1796,10 +1946,16 @@ int legacy_gamestream_get_server_mac(
 
 void legacy_gamestream_shutdown(LegacyGameStreamServer *server)
 {
+    pthread_mutex_lock(&s_pair_mutex);
     pthread_mutex_lock(&s_http_mutex);
     if (server && server->curl) {
         curl_easy_cleanup((CURL *)server->curl);
         server->curl = NULL;
+    }
+    if (server) {
+        X509_free((X509 *)server->server_certificate);
+        server->server_certificate = NULL;
+        server->paired = false;
     }
 
     X509_free(s_cert);
@@ -1814,4 +1970,5 @@ void legacy_gamestream_shutdown(LegacyGameStreamServer *server)
         s_curl_initialized = false;
     }
     pthread_mutex_unlock(&s_http_mutex);
+    pthread_mutex_unlock(&s_pair_mutex);
 }

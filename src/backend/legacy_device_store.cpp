@@ -361,6 +361,22 @@ int legacy_device_store_get_client_directory(
     return ensure_device_directory(client_directory_name) ? 0 : -1;
 }
 
+int legacy_device_store_get_server_certificate_path(
+    const MoonlightHost *host, char *out, size_t size)
+{
+    if (!s_initialized || !out || !size) return -1;
+    out[0] = '\0';
+    device_info_t *stored = find_stored_host(host);
+    if (!stored) return -1;
+    const char *directory = stored->storage_name[0] ? stored->storage_name : stored->name;
+    int length = snprintf(out, size, "%s%s/server.pem", config.key_dir, directory);
+    if (length < 0 || (size_t)length >= size) {
+        out[0] = '\0';
+        return -1;
+    }
+    return 0;
+}
+
 int legacy_device_store_get_client_unique_id_path(
     char *out,
     size_t size)

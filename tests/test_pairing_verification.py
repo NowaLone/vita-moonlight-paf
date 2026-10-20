@@ -16,6 +16,8 @@ SOURCE = (Path(__file__).resolve().parents[1] /
 
 
 def evaluate(node, results):
+    if isinstance(node, c_ast.ID):
+        return results[node.name]
     if isinstance(node, c_ast.Constant):
         return int(node.value)
     if isinstance(node, c_ast.FuncCall):

@@ -5,7 +5,9 @@ Non-build checks (Python 3 and pycparser):
     PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_*.py'
 
 The pairing check interprets the actual verification expression with mocked EVP results.
-It does not execute OpenSSL. C grammar checks are not compilation or type checking.
+The server-trust checks interpret the actual X509 comparison expression with mocked comparison
+results and check enrollment/rollback ordering. They do not execute OpenSSL, TLS or file I/O.
+C grammar checks are not compilation or type checking.
 
 `gamestream_xml_test.c` exercises the actual Expat parser API: entities/UTF-8,
 empty and bounded lists, malformed documents, invalid IDs, root errors, verb

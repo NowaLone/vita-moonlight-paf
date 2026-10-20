@@ -140,7 +140,8 @@ static int classify_pairing_error(int legacy_result)
         return MOONLIGHT_PAIRING_ERROR_INCORRECT_PIN;
     }
 
-    if (error && strcmp(error, "MITM attack detected") == 0) {
+    if (legacy_result == LEGACY_GAMESTREAM_SECURITY_ERROR ||
+        (error && strcmp(error, "MITM attack detected") == 0)) {
         return MOONLIGHT_PAIRING_ERROR_SECURITY;
     }
 
@@ -351,6 +352,7 @@ int moonlight_api_add_host(const char *address, uint16_t port, const char *name)
 int moonlight_api_connect_host(const MoonlightHost *host)
 {
     char client_directory[512];
+    char server_certificate_path[512] = {0};
 
     if (!host || !host->internal[0] || s_disconnect_pending ||
         s_disconnect_worker_running || moonlight_stream_is_running()) {
@@ -375,11 +377,15 @@ int moonlight_api_connect_host(const MoonlightHost *host)
         s_game_stream_initialized = false;
     }
 
+    /* Resolve the selected stored identity before any unauthenticated serverinfo response. */
+    legacy_device_store_get_server_certificate_path(host, server_certificate_path,
+        sizeof(server_certificate_path));
     int result = legacy_gamestream_init(
         &s_server,
         host->internal,
         host->port,
         client_directory,
+        server_certificate_path,
         0,
         true);
 
@@ -388,6 +394,12 @@ int moonlight_api_connect_host(const MoonlightHost *host)
             vita_debug_log(
                 "[GameStream] failed to persist server uniqueid=%s",
                 s_server.unique_id);
+        }
+        /* Manual hosts are saved only after connection; assign the future pairing pin destination. */
+        if (!s_server.server_certificate_path[0] &&
+            legacy_device_store_get_server_certificate_path(host, server_certificate_path,
+                sizeof(server_certificate_path)) == 0) {
+            legacy_gamestream_set_certificate_path(&s_server, server_certificate_path);
         }
     }
 
@@ -472,6 +484,7 @@ int moonlight_api_pair_current_host(const char pin[5])
     }
 
     result = legacy_gamestream_pair(&s_server, pin);
+    if (s_disconnect_pending) return -1;
     if (result != LEGACY_GAMESTREAM_OK) {
         int pairing_result = classify_pairing_error(result);
 
