@@ -143,16 +143,21 @@ without revisiting the completed PIN page **[code]**. Search callback restoratio
 selection guard and restores its list prompt so another PC can be selected **[code]**. If Apps fails
 to open, Pairing stays available with an error **[code]**. User verified Search → successful Pairing →
 Apps → Back → Search and selecting a PC again on 2026-10-19 **[hw, tested Vita]**. The Main/manual path,
-already-paired path, Pairing cancel/failure and stream-event regression checks remain **[open]**.
+already-paired path, Pairing cancel and stream-event regression checks remain **[open]**.
+Pairing failure coverage is recorded below.
 
 Pairing failure ends the current attempt **[code, 2026-10-20]**. After its native OK
 error dialog finishes, Pairing returns to the existing parent PC page. Dismissing an
 error never generates another PIN or queues another handshake; selecting a PC again
 explicitly starts a new attempt. This replaces the previous automatic retry for every
 non-network error, which repeatedly regenerated PINs on duplicate-session rejection.
-Correct-PIN success navigation is unchanged. One-dialog behavior, Search/Main return,
-manual re-entry and successful pairing need Vita validation **[open]**. This does not
-cancel or reset the host's pending pairing session.
+Correct-PIN success navigation is unchanged **[code]**. User/log verified one incorrect-PIN
+error → OK → Search and one duplicate-session error → Search, with new requests only
+after explicit PC selection, on 2026-10-20 **[hw, tested Vita]**. After Sunshine displayed
+its delayed failure, another selection produced a new PIN and waited at getservercert;
+completed pairing/Apps after that recovery is not yet shown. Main return, other error
+types and correct-PIN recovery remain **[open]**. Returning to Search does not cancel
+or reset the host's pending pairing session.
 
 Add PC is an inline control on Main; there is no Add PC page.
 

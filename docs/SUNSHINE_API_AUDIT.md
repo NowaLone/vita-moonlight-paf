@@ -318,6 +318,30 @@ waits for handshake completion or a deadline in pin(), and rejects duplicate uni
 sessions with status 409. This explains a possible delay after the client rejects the
 PIN before clientpairingsecret; the actual second-host version/timing remains unconfirmed.
 
+### Single-dialog Search return after F7 — user/log verified on one Vita, 2026-10-20
+
+The maintainer's follow-up to `8078c62` confirms the following sequence:
+
+1. Enter an incorrect PIN: serverchallengeresp ends with -1001, one error dialog,
+   manual OK and return to Search PCs.
+2. Select that PC again before Sunshine displays its final failure: a new Pairing
+   page/request receives -1003, "A pairing session with this uniqueid already exists".
+   One error dialog ends this explicitly requested attempt and returns to Search again.
+3. Sunshine displays "Pairing Failed: Check if the PIN is typed correctly" after a
+   short delay (user observation, not timestamped in the Vita log). Another explicit
+   PC selection creates a new PIN and reaches getservercert without an immediate error.
+
+Each new pairing request in the supplied log follows another Search selection and
+connection. The previous automatic retry/PIN-changing loop is absent in this tested
+sequence. The second failure is a real host duplicate-session response; returning to
+Search does not cancel that host session. This does not warrant a client retry timer,
+identity rotation, invented cleanup endpoint or Sunshine modification.
+
+The log ends at the third getservercert request. Its response, correct-PIN submission,
+completed pairing and Apps retrieval after this recovery are not shown. Do not count
+waiting with a new PIN as successful pairing. Exact second-host Sunshine version,
+Main/manual entry and other error types remain unverified.
+
 ## 1. Scope and evidence
 
 The client path remains PAF pages → MoonlightApp → services → MoonlightBackend →
@@ -513,7 +537,8 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   visible error/new PIN and a new getservercert request (2026-10-20). The subsequent retry
   after submitting the new PIN fails at getservercert with empty HTTP response/-1002 and page exit (F6), so
   recovery fails in this tested sequence. F6 is accepted as noncritical; no workaround is planned.
-  F7 removes automatic retry after error dismissal; this source change needs Vita validation.
+  F7 single-dialog return to Search and explicit re-entry are now user/log verified on one
+  Vita (2026-10-20); the final correct-PIN recovery after host failure is not yet shown.
   T3 still needs refused approval, lost network, malformed proof and local
   crypto/storage failures; semantic enum presence alone does not establish those paths.
 
@@ -1000,7 +1025,7 @@ removed; no runtime code was changed for F6 at that stage. The later F7 client r
 fix is separate from this server compatibility limitation. Preserve client identity,
 authentication and error classification. Continue independent client API work.
 
-### F7 — Pairing error dismissal starts another attempt — client fix, Vita validation pending
+### F7 — Pairing error dismissal starts another attempt — Search failure flow verified on one Vita
 
 **Root cause:** Pairing::DialogPollTask unconditionally called RetryPairing after every
 non-network error dialog finished. RetryPairing generated another PIN and enqueued Pair.
@@ -1024,7 +1049,9 @@ no application or resource build. On Vita, incorrect PIN and protocol/network/se
 errors should each produce one dialog, then Search/Main, with no new request/PIN while
 idle. Select the PC again to verify explicit re-entry; record any retained host session
 as a server response, without restarting a client loop. Check normal correct-PIN → Apps
-and Back behavior. Build and all new hardware checks remain maintainer-owned and pending.
+and Back behavior. The follow-up above verifies the incorrect-PIN and duplicate-session
+Search returns and explicit re-entry on one Vita; Main/manual paths, other error types
+and correct-PIN recovery still need maintainer tests. No build was run by the agent.
 
 ## 5. Required validation (all new cases pending)
 
@@ -1090,7 +1117,9 @@ Moonlight is subsequently user-confirmed. Wrong-PIN rejection (-1001), error/new
 retry initiation are now user/log verified, but the next request subsequently fails with an
 empty HTTP response/-1002 after submitting the new PIN (F6). The maintainer accepts
 this as noncritical; Sunshine patches and client workarounds are out of scope. The next
-client check is the F7 single-error-dialog flow on Vita. Then continue the independent
+client check is to enter the new PIN correctly after the host has ended its failed
+session and verify completed pairing and Apps retrieval. F7 Search error navigation is
+now verified on one Vita. Then continue the independent
 scalable app-list task (64 backend / 8 UI). Remaining setup-cancel/race, trust/error and
 repeated-recovery cases stay open. Complete the remaining T3/T4/T5/T8/T9 error/trust matrix. No
 administrative Sunshine credentials are introduced.
