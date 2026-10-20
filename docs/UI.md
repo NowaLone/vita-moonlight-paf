@@ -180,8 +180,12 @@ reported older-host wait behind an abandoned pairing request is F8 in the API au
 The `e7e7166ae5db` system-profile log shows active getservercert cancellation (-11/-1006),
 job Finish/destruction and successful subsequent connection/new PIN page
 **[hw, tested Vita]** on 2026-10-20. Wrong-PIN and later empty-reply attempts also finish/release their jobs;
-that empty reply remains accepted F6. Correct-PIN success through Apps on this build,
-queued/later-phase cancellation, shutdown and normal-profile checks remain **[open]**.
+that empty reply remains accepted F6. A second-host trace also verifies local cancellation
+and successful Connect, followed by a real duplicate-session 409 on immediate pairing
+retry **[hw, tested Vita]**. The maintainer separately confirms ordinary correct-PIN
+pairing opens Apps after the cancellation change **[hw, user-reported, 2026-10-20]**;
+its successful phases are not included in that trace. Queued/later-phase cancellation,
+shutdown, stress/alternating-host and normal binary-profile checks remain **[open]**.
 No recurring main-thread heartbeat or changed PIN timeout is introduced.
 
 Add PC is an inline control on Main; there is no Add PC page.

@@ -1218,6 +1218,23 @@ through final HTTPS/Apps on this build, cancellation before Run, later-phase rol
 shutdown, repeated/two-host cycles and normal-profile behavior remain pending.
 The agent did not build or run on hardware.
 
+**Second-host follow-up, 2026-10-20:** the maintainer selects the newer host, leaves
+Pairing and selects it again. Its log shows the first getservercert being locally
+cancelled (-11/-1006), no completion event, Run return, Finish and destruction. The
+next Connect completes with result 0 and is released. Its new pairing request receives
+a real server_status=409 / duplicate uniqueid rejection and also returns/finishes/releases.
+Thus local cancellation/queue release also works in this second-host sequence; it does
+not clear Sunshine's pending pairing session. There is no new launch/version line in
+this fragment. No host cleanup endpoint or client workaround is added for the refusal.
+
+Separately the maintainer explicitly confirms the ordinary correct-PIN flow succeeds
+and opens Apps. This is user-reported regression success for the cancellation work;
+the attached log contains cancellation/409, not the successful PIN/HTTPS/Apps phases.
+It does not prove immediate successful re-pair after cancel or a change to F6. Normal
+binary profile (distinct from an ordinary usage scenario), pre-Run cancellation,
+later-phase rollback, shutdown, stress and alternating-host cases remain pending.
+No runtime code change is needed for this result. Continue Apps >8-row validation.
+
 ## 5. Required validation (all new cases pending)
 
 For every run record client source/package revision, Vita firmware/device, deployed Sunshine version
@@ -1286,8 +1303,9 @@ maintainer now gives qualified user confirmation that the discussed recovery flo
 appears OK, without a new log or separately stated Apps result. F7 Search error navigation
 and the 409 dialog are verified on one Vita. The separate Apps vector change now
 exposes all cached entries in source, up to the unchanged backend bound of 64. Next
-verify normal correct-PIN pairing through Apps on the cancellation build, then validate
-Apps scrolling/selection beyond eight. F8 active-wait cancellation, job release and
+validate Apps scrolling/selection beyond eight. The maintainer now explicitly confirms
+the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
+new trace verifies local cancellation followed by genuine server 409, not PIN success). F8 active-wait cancellation, job release and
 successful reconnect are now log-verified on one Vita/system profile; the remaining
 cancellation matrix stays open. Remaining setup-cancel/race, trust/error and
 repeated-recovery cases stay open. Complete the remaining T3/T4/T5/T8/T9 error/trust matrix. No
