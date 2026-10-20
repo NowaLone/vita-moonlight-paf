@@ -228,7 +228,8 @@ agent-run build or agent-run device test was needed.
 
 ### Wrong PIN → semantic error → fresh retry — user and log verified, 2026-10-20
 
-The maintainer deliberately entered a wrong PIN in Sunshine. Its UI reported
+The maintainer deliberately entered a wrong PIN in Sunshine and subsequently identified
+the installed release as **2025.924.154138**. Its UI reported
 “Success! Please check Moonlight to continue”; Vita displayed an error and a new PIN.
 The supplied client log shows (address, widget pointers and PIN omitted):
 
@@ -250,8 +251,8 @@ The log plus maintainer report verify wrong-PIN rejection, correct classificatio
 error/new PIN and initiation of a new pending request. They do not yet verify successful
 correct-PIN retry, wrong-signature/negative-EVP failures or certificate-file hashes.
 
-The Sunshine message is consistent with older submission-only semantics, not proof of
-completed pairing. In the inspected
+The Sunshine message matches the source of the maintainer-reported release: submission
+success is not proof of completed pairing. In the inspected
 [v2025.924.154138 savePin](https://github.com/LizardByte/Sunshine/blob/v2025.924.154138/src/confighttp.cpp),
 the admin response uses nvhttp::pin; that
 [pin implementation](https://github.com/LizardByte/Sunshine/blob/v2025.924.154138/src/nvhttp.cpp)
@@ -260,10 +261,10 @@ releases getservercert and returns before later cryptographic phases. By contras
 waits for a pairing-completion result, and
 [master savePin](https://github.com/LizardByte/Sunshine/blob/master/src/confighttp.cpp)
 returns that result. These branch URLs are moving references; the original pinned audit
-baseline above is not retroactively changed. The installed Sunshine version was not
-provided, so the explanation is a source-backed compatibility inference, not identification
-of the deployed implementation. Admin UI/API behavior remains reference context, not a
-new Vita admin-client feature. No client runtime change is needed for this successful
+baseline above is not retroactively changed. The maintainer subsequently confirmed the
+installed version as 2025.924.154138, so this explanation is tied to that reported release
+rather than inferred from the UI message alone. The package was not independently inspected.
+Admin UI/API behavior remains reference context, not a new Vita admin-client feature. No client runtime change is needed for this successful
 rejection test. Next submit the new displayed PIN correctly and verify final pairing/Apps.
 
 ## 1. Scope and evidence
@@ -737,6 +738,9 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Verified / runtime:** source; T6/T10 cover pinned/latest deployed Sunshine, custom ports,
   encryption policies, missing/bad metadata and any claimed older GFE support. No release-wide
   compatibility range or mandatory-encryption interoperability is hardware-certified here.
+  For the wrong-PIN run, the maintainer explicitly identified Sunshine 2025.924.154138; the
+  PIN-submission response is compared with that exact release source above. This does not
+  establish support for every configuration or silently identify versions of earlier runs.
 
 ### A24 — App artwork / administrative API — intentionally unsupported / not applicable
 
