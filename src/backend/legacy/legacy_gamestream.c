@@ -668,19 +668,40 @@ static int save_pinned_certificate(LegacyGameStreamServer *server)
     return LEGACY_GAMESTREAM_OK;
 }
 
+static int pairing_progress(void *userdata, curl_off_t download_total, curl_off_t downloaded,
+                            curl_off_t upload_total, curl_off_t uploaded)
+{
+    (void)download_total;
+    (void)downloaded;
+    (void)upload_total;
+    (void)uploaded;
+    return moonlight_is_cancelled((const MoonlightCancellation *)userdata);
+}
+
 static int http_request(
     LegacyGameStreamServer *server,
     const char *url,
     HttpBuffer *response,
-    long timeout_seconds)
+    long timeout_seconds,
+    const MoonlightCancellation *cancel)
 {
     CURLcode curl_result;
+
+    if (moonlight_is_cancelled(cancel)) {
+        set_error("Pairing cancelled locally");
+        return LEGACY_GAMESTREAM_CANCELLED;
+    }
 
     if (!server || !server->curl || !url || !response) {
         return LEGACY_GAMESTREAM_INVALID;
     }
 
     pthread_mutex_lock(&s_http_mutex);
+    if (moonlight_is_cancelled(cancel)) {
+        set_error("Pairing cancelled locally");
+        pthread_mutex_unlock(&s_http_mutex);
+        return LEGACY_GAMESTREAM_CANCELLED;
+    }
     if (!server->curl) {
         pthread_mutex_unlock(&s_http_mutex);
         return LEGACY_GAMESTREAM_INVALID;
@@ -715,12 +736,34 @@ static int http_request(
         return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
     }
 
+    /* Install only for this transfer; clear before the job/token can be released. */
+    CURLcode setup_result = curl_easy_setopt((CURL *)server->curl,
+        CURLOPT_XFERINFOFUNCTION, pairing_progress);
+    if (setup_result == CURLE_OK) setup_result = curl_easy_setopt((CURL *)server->curl,
+        CURLOPT_XFERINFODATA, cancel);
+    if (setup_result == CURLE_OK) setup_result = curl_easy_setopt((CURL *)server->curl,
+        CURLOPT_NOPROGRESS, cancel ? 0L : 1L);
+    if (setup_result != CURLE_OK) {
+        curl_easy_setopt((CURL *)server->curl, CURLOPT_XFERINFODATA, NULL);
+        curl_easy_setopt((CURL *)server->curl, CURLOPT_NOPROGRESS, 1L);
+        curl_easy_setopt((CURL *)server->curl, CURLOPT_XFERINFOFUNCTION, NULL);
+        set_error("Unable to configure cancellable GameStream transfer");
+        pthread_mutex_unlock(&s_http_mutex);
+        return LEGACY_GAMESTREAM_FAILED;
+    }
     s_last_http_result = CURLE_OK;
     curl_result = curl_easy_perform((CURL *)server->curl);
+    curl_easy_setopt((CURL *)server->curl, CURLOPT_NOPROGRESS, 1L);
+    curl_easy_setopt((CURL *)server->curl, CURLOPT_XFERINFODATA, NULL);
+    curl_easy_setopt((CURL *)server->curl, CURLOPT_XFERINFOFUNCTION, NULL);
     s_last_http_result = curl_result;
     long http_status = 0;
     curl_easy_getinfo((CURL *)server->curl, CURLINFO_RESPONSE_CODE, &http_status);
     pthread_mutex_unlock(&s_http_mutex);
+    if (moonlight_is_cancelled(cancel)) {
+        set_error("Pairing cancelled locally");
+        return LEGACY_GAMESTREAM_CANCELLED;
+    }
     if (curl_result != CURLE_OK) {
         set_error(curl_easy_strerror(curl_result));
         if (curl_result == CURLE_PEER_FAILED_VERIFICATION)
@@ -757,7 +800,7 @@ int legacy_gamestream_request(
         return LEGACY_GAMESTREAM_INVALID;
     }
     http_buffer_init(&response);
-    result = http_request(server, url, &response, timeout_seconds);
+    result = http_request(server, url, &response, timeout_seconds, NULL);
     free(url);
     if (result == LEGACY_GAMESTREAM_OK) {
         *body = response.memory;
@@ -921,7 +964,8 @@ static int xml_status_ok(const char *data, size_t length, LegacyGameStreamPairin
     return LEGACY_GAMESTREAM_OK;
 }
 
-static int load_server_info(LegacyGameStreamServer *server, bool https)
+static int load_server_info(LegacyGameStreamServer *server, bool https,
+                            const MoonlightCancellation *cancel)
 {
     char uuid[UUID_STRLEN];
     char url[2048];
@@ -954,7 +998,7 @@ static int load_server_info(LegacyGameStreamServer *server, bool https)
         return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
     }
 
-    result = http_request(server, url, &response, 15L);
+    result = http_request(server, url, &response, 15L, cancel);
     if (result != LEGACY_GAMESTREAM_OK) {
         http_buffer_free(&response);
         return result;
@@ -1034,7 +1078,7 @@ static int load_server_info(LegacyGameStreamServer *server, bool https)
 int legacy_gamestream_refresh_server_info(LegacyGameStreamServer *server)
 {
     if (!server || !server->curl || !server->paired) return LEGACY_GAMESTREAM_WRONG_STATE;
-    int result = load_server_info(server, true);
+    int result = load_server_info(server, true, NULL);
     if (result == LEGACY_GAMESTREAM_OK && !server->paired) {
         set_error("Client is no longer paired");
         return LEGACY_GAMESTREAM_WRONG_STATE;
@@ -1047,16 +1091,16 @@ static int load_server_status(LegacyGameStreamServer *server)
     int result;
 
     if (!server->https_port) {
-        result = load_server_info(server, false);
+        result = load_server_info(server, false, NULL);
         if (result != LEGACY_GAMESTREAM_OK) {
             return result;
         }
     }
 
     if (server->server_certificate) {
-        result = load_server_info(server, true);
+        result = load_server_info(server, true, NULL);
         /* Revoked client authorization can be repaired by PIN. TLS failures cannot downgrade. */
-        if (result == LEGACY_GAMESTREAM_NOT_PAIRED) result = load_server_info(server, false);
+        if (result == LEGACY_GAMESTREAM_NOT_PAIRED) result = load_server_info(server, false, NULL);
     } else {
         server->paired = false;
         result = LEGACY_GAMESTREAM_OK;
@@ -1268,7 +1312,8 @@ static int decrypt_ecb(
     return LEGACY_GAMESTREAM_OK;
 }
 
-static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStreamPairingError *error)
+static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStreamPairingError *error,
+                const MoonlightCancellation *cancel)
 {
     s_error[0] = '\0';
     s_last_http_result = CURLE_OK;
@@ -1350,7 +1395,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
      * pairing-session lifetime instead of the normal HTTP request timeout.
      */
     vita_debug_log("[GameStream] pairing phase=getservercert");
-    step_result = http_request(server, url, &response, 300L);
+    step_result = http_request(server, url, &response, 300L, cancel);
 
     if (step_result != LEGACY_GAMESTREAM_OK) {
         vita_debug_log(
@@ -1423,7 +1468,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
         uuid,
         challenge_hex);
 
-    step_result = http_request(server, url, &response, 15L);
+    step_result = http_request(server, url, &response, 15L, cancel);
     if (step_result != LEGACY_GAMESTREAM_OK) {
         http_buffer_free(&response);
         return step_result;
@@ -1530,7 +1575,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
         uuid,
         challenge_response_hex);
 
-    step_result = http_request(server, url, &response, 15L);
+    step_result = http_request(server, url, &response, 15L, cancel);
     if (step_result != LEGACY_GAMESTREAM_OK) {
         http_buffer_free(&response);
         return step_result;
@@ -1655,7 +1700,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
         uuid,
         client_pairing_secret_hex);
 
-    step_result = http_request(server, url, &response, 15L);
+    step_result = http_request(server, url, &response, 15L, cancel);
     if (step_result != LEGACY_GAMESTREAM_OK) {
         http_buffer_free(&response);
         return step_result;
@@ -1697,7 +1742,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
         s_unique_id,
         uuid);
 
-    step_result = http_request(server, url, &response, 15L);
+    step_result = http_request(server, url, &response, 15L, cancel);
     if (step_result != LEGACY_GAMESTREAM_OK) {
         pthread_mutex_lock(&s_http_mutex);
         server->server_certificate = previous;
@@ -1729,7 +1774,8 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
     server->paired = true;
 
     for (step_result = 0; step_result < 3; ++step_result) {
-        if (load_server_info(server, true) == LEGACY_GAMESTREAM_OK && server->mac[0]) {
+        if (moonlight_is_cancelled(cancel)) return LEGACY_GAMESTREAM_CANCELLED;
+        if (load_server_info(server, true, cancel) == LEGACY_GAMESTREAM_OK && server->mac[0]) {
             vita_debug_log("[GameStream] Paired host MAC: %s", server->mac);
             break;
         }
@@ -1911,23 +1957,26 @@ typedef struct PairArgs {
     LegacyGameStreamServer *server;
     const char *pin;
     LegacyGameStreamPairingError *error;
+    const MoonlightCancellation *cancel;
 } PairArgs;
 
 static int pair_worker(void *argument)
 {
     PairArgs *args = (PairArgs *)argument;
 
-    return pair(args->server, args->pin, args->error);
+    return pair(args->server, args->pin, args->error, args->cancel);
 }
 
 int legacy_gamestream_pair(LegacyGameStreamServer *server, const char *pin,
-                          LegacyGameStreamPairingError *error)
+                          LegacyGameStreamPairingError *error,
+                          const MoonlightCancellation *cancel)
 {
     PairArgs args;
 
     args.server = server;
     args.pin = pin;
     args.error = error;
+    args.cancel = cancel;
     pthread_mutex_lock(&s_pair_mutex);
     int result = run_on_worker(pair_worker, &args);
     pthread_mutex_unlock(&s_pair_mutex);
@@ -1944,7 +1993,7 @@ int legacy_gamestream_get_server_mac(
     }
 
     if (!server->mac[0]) {
-        int result = load_server_info(server, true);
+        int result = load_server_info(server, true, NULL);
         if (result != LEGACY_GAMESTREAM_OK) {
             return result;
         }

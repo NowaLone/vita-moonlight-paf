@@ -117,7 +117,7 @@ MoonlightApp::MoonlightApp()
       m_hosts(m_backend),
       m_discovery(m_backend),
       m_pairing(m_backend),
-      m_connection(m_backend),
+      m_connection(m_backend, m_pairing),
       m_applications(m_backend),
       m_settings(m_backend),
       m_event_callback(NULL),
@@ -243,6 +243,7 @@ void MoonlightApp::Shutdown()
         paf::common::MainThreadCallList::Unregister(ProcessEventTask, this);
     }
 
+    m_pairing.Cancel();
     m_connection.Shutdown();
     moonlight_log_memory_budget("app-shutdown");
     m_backend.Shutdown();

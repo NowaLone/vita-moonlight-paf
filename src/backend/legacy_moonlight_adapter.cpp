@@ -171,13 +171,13 @@ int LegacyMoonlightAdapter::PreparePairing(char out_pin[5])
     return moonlight_api_prepare_pairing(out_pin);
 }
 
-int LegacyMoonlightAdapter::PairCurrentHost(const char pin[5])
+int LegacyMoonlightAdapter::PairCurrentHost(const char pin[5], const MoonlightCancellation *cancel)
 {
     if (!m_has_current_host || !pin) {
         return -1;
     }
 
-    int result = moonlight_api_pair_current_host(pin);
+    int result = moonlight_api_pair_current_host(pin, cancel);
     if (result != 0) {
         return result;
     }

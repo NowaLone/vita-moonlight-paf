@@ -12,12 +12,15 @@ class ServerTrust(unittest.TestCase):
         header = strip_directives((ROOT / 'src/backend/legacy/legacy_gamestream.h').read_text())
         header = header.replace('extern "C" {', '').replace('\n}\n', '\n')
         types = 'typedef unsigned int size_t; typedef int bool; typedef unsigned short uint16_t;'
+        types += 'typedef long long curl_off_t;'
+        types += strip_directives((ROOT / 'include/moonlight/cancellation.h').read_text())
         types += 'typedef int X509, X509_STORE_CTX, SSL_CTX, CURL, CURLcode, FILE, BIO, ASN1_BIT_STRING;'
         types += 'typedef struct { char *memory; size_t size; } HttpBuffer;'
         helpers = SOURCE.split('static int verify_pinned_certificate(', 1)[1]
         helpers = 'static int verify_pinned_certificate(' + helpers.split('static int http_request(', 1)[0]
+        transfer = 'static int http_request(' + SOURCE.split('static int http_request(', 1)[1].split('int legacy_gamestream_request(', 1)[0]
         pair = 'static int pair(' + SOURCE.split('static int pair(', 1)[1].split('typedef struct InitArgs', 1)[0]
-        for source in (helpers, pair):
+        for source in (helpers, transfer, pair):
             c_parser.CParser().parse(types + header + strip_directives(source))
 
     def test_only_present_equal_certificates_are_trusted(self):

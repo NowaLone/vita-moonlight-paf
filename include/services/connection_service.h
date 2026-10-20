@@ -3,9 +3,11 @@
 
 #include "backend/moonlight_backend.h"
 
+class PairingService;
+
 class ConnectionService {
 public:
-    explicit ConnectionService(MoonlightBackend &backend);
+    ConnectionService(MoonlightBackend &backend, PairingService &pairing);
     ~ConnectionService();
 
 
@@ -29,6 +31,7 @@ private:
     void TryShowConnectionError();
 
     MoonlightBackend &m_backend;
+    PairingService &m_pairing;
     bool m_progress_dialog_open;
     bool m_progress_dialog_closing;
     bool m_error_dialog_open;

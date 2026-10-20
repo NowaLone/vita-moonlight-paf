@@ -1145,6 +1145,58 @@ checks pass and source review covers ready-count delivery, SDK vector/name APIs 
 callback/data lifetime. They do not execute PAF. No build or new hardware test was run
 by the agent. F5 shared-cache/event races remain outside this change.
 
+### F8 — Abandoned pairing holds the connection queue — source fix, Vita validation pending
+
+**New runtime evidence (2026-10-20):** on the older Sunshine host the maintainer reports
+incorrect PIN → return to Main → immediate selection of that PC → apparent full app
+freeze. The Vita system still allows minimizing the app. Initially only connection
+`enqueue ... result=0` was available, without ConnectJob::Run. A later fragment shows
+`pairing getservercert failed ... Timeout was reached`, semantic -1002/status 0, then
+ConnectJob::Run immediately starts and finishes successfully, followed by another PIN
+page/getservercert. Thus the queue was occupied by a pending pairing request, rather
+than permanently deadlocked. The fragments do not identify how that particular pending
+attempt outlived its page; the complete first-attempt trace and installed revision are
+not available. Do not attribute an incorrect-PIN crypto failure to this second request.
+
+**Source cause:** PairingService and ConnectionService use the default PAF job queue.
+PairCurrentHost synchronously waits for the worker's getservercert request (up to 300 s),
+and destroying Pairing did not cancel its job or transfer. Connect accepted another
+job and opened the modal WAIT dialog while that earlier operation could still occupy
+the queue. The newer-host single-dialog result F7 did not cover this abandoned-request
+case. This client ownership problem is separate from accepted F6 server compatibility.
+
+**Reference/minimal implementation:** use the documented libcurl
+[CURLOPT_XFERINFOFUNCTION](https://curl.se/libcurl/c/CURLOPT_XFERINFOFUNCTION.html)
+abort mechanism, with NOPROGRESS=0 for a cancellable transfer. Each PairingService job
+owns a distinct monotonic atomic token, retained by the PAF queue during Run/Finish.
+Page destruction, replacement pairing, application shutdown and a new Connect request
+signal cancellation without taking the HTTP mutex or joining a worker on the UI thread.
+Queued cancelled jobs skip the backend; active pairing HTTP phases and the final status
+refresh check the token. Callback/data are detached under the HTTP mutex before a
+transfer returns. Cancellation returns a distinct local result and suppresses obsolete
+completion/error events. The existing final-HTTPS failure path rolls back temporary
+server trust; cancellation after already completed host pairing cannot undo it.
+
+The 300 s allowance remains for an attempt whose page is still open. No new queue,
+shortened PIN-entry timeout, Sunshine patch, identity rotation, /cancel or /unpair is
+added. Cancellation stops local I/O; it does not promise to erase a host pairing session
+or prevent a later genuine 409. Curl progress scheduling (and DNS/connect behavior)
+limits cancellation latency; do not promise instantaneous abort or a fixed duration.
+Console-only job begin/return/Finish/release and cancel markers support the next test.
+The initially prepared main-thread heartbeat was removed after the timeout log clarified
+the queue wait; no recurring heartbeat is added.
+
+**Checks/remaining:** all six non-build Python checks pass; the C grammar check now
+includes the cancellation token, progress callback and HTTP helper. This is neither
+compilation/type checking nor curl execution. Source review covers job/token lifetime,
+callbacks, all pairing requests, error-event suppression and credential rollback. No agent build or hardware verification of the change. On Vita:
+open Pairing and immediately Back → reselect PC; repeat after incorrect PIN on the
+older host; cancel before a queued job starts; check cancel requested → local cancelled
+result → ConnectJob::Run without the multi-minute timeout. Verify one 409/error dialog
+if Sunshine retains its session, normal correct-PIN → Apps/Back, page close during
+later pairing phases, app shutdown and repeated/two-host cycles. Continue checking F5
+for broader queue/event/cache state races; this does not establish universal thread safety.
+
 ## 5. Required validation (all new cases pending)
 
 For every run record client source/package revision, Vita firmware/device, deployed Sunshine version
@@ -1213,7 +1265,8 @@ maintainer now gives qualified user confirmation that the discussed recovery flo
 appears OK, without a new log or separately stated Apps result. F7 Search error navigation
 and the 409 dialog are verified on one Vita. The separate Apps vector change now
 exposes all cached entries in source, up to the unchanged backend bound of 64. Next
-validate its scrolling and selection beyond eight on Vita. Remaining setup-cancel/race, trust/error and
+validate F8 local cancellation/reconnect on Vita after the new multi-minute queue
+wait report, then validate Apps scrolling/selection beyond eight. Remaining setup-cancel/race, trust/error and
 repeated-recovery cases stay open. Complete the remaining T3/T4/T5/T8/T9 error/trust matrix. No
 administrative Sunshine credentials are introduced.
 

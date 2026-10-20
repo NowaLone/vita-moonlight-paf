@@ -2,6 +2,7 @@
 #define VITA_MOONLIGHT_BACKEND_H
 
 #include "moonlight/types.h"
+#include "moonlight/cancellation.h"
 #include "moonlight/stream_stats.h"
 
 class MoonlightBackend {
@@ -28,7 +29,7 @@ public:
 
     virtual int ConnectHost(const MoonlightHost &host) = 0;
     virtual int PreparePairing(char out_pin[5]) = 0;
-    virtual int PairCurrentHost(const char pin[5]) = 0;
+    virtual int PairCurrentHost(const char pin[5], const MoonlightCancellation *cancel) = 0;
 
     virtual int GetApplications(MoonlightApplication *out, int capacity) = 0;
     virtual int StartApplication(int application_id) = 0;

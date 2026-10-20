@@ -47,6 +47,10 @@ Pairing::Pairing(const char pin[5])
 
 Pairing::~Pairing()
 {
+    if (MoonlightApp::Instance()) {
+        MoonlightApp::Instance()->Pairing().Cancel();
+    }
+
     if (m_dialog_task_registered) {
         paf::common::MainThreadCallList::Unregister(DialogPollTask, this);
         m_dialog_task_registered = false;

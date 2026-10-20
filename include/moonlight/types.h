@@ -123,7 +123,8 @@ typedef enum MoonlightPairingResult {
     MOONLIGHT_PAIRING_ERROR_NETWORK = -1002,
     MOONLIGHT_PAIRING_ERROR_PROTOCOL = -1003,
     MOONLIGHT_PAIRING_ERROR_SECURITY = -1004,
-    MOONLIGHT_PAIRING_ERROR_INTERNAL = -1005
+    MOONLIGHT_PAIRING_ERROR_INTERNAL = -1005,
+    MOONLIGHT_PAIRING_CANCELLED = -1006 /* Local cancellation; no failure event/dialog. */
 } MoonlightPairingResult;
 
 typedef struct MoonlightEvent {

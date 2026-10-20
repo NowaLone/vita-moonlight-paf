@@ -5,6 +5,7 @@
 #include <psp2/message_dialog.h>
 
 #include "services/connection_service.h"
+#include "services/pairing_service.h"
 #include "debug.h"
 
 namespace {
@@ -18,20 +19,26 @@ public:
     {
     }
 
-    virtual ~ConnectJob() {}
+    virtual ~ConnectJob()
+    {
+        vita_debug_log("[ConnectionService] job=%p destroyed", (void *)this);
+    }
 
     virtual void Run()
     {
         vita_debug_log(
-            "[ConnectionService] ConnectJob::Run host=%s",
-            m_host.internal);
+            "[ConnectionService] ConnectJob::Run host=%s job=%p",
+            m_host.internal, (void *)this);
         int result = m_backend.ConnectHost(m_host);
         vita_debug_log(
-            "[ConnectionService] ConnectJob::Run result=%d",
-            result);
+            "[ConnectionService] ConnectJob::Run result=%d job=%p",
+            result, (void *)this);
     }
 
-    virtual void Finish() {}
+    virtual void Finish()
+    {
+        vita_debug_log("[ConnectionService] job=%p Finish", (void *)this);
+    }
 
 private:
     MoonlightBackend &m_backend;
@@ -40,8 +47,9 @@ private:
 
 }
 
-ConnectionService::ConnectionService(MoonlightBackend &backend)
+ConnectionService::ConnectionService(MoonlightBackend &backend, PairingService &pairing)
     : m_backend(backend),
+      m_pairing(pairing),
       m_progress_dialog_open(false),
       m_progress_dialog_closing(false),
       m_error_dialog_open(false),
@@ -266,6 +274,9 @@ int ConnectionService::Connect(const MoonlightHost &host)
     if (!host.internal[0]) {
         return -1;
     }
+
+    /* A previous page must not keep the shared queue occupied by an abandoned PIN wait. */
+    m_pairing.Cancel();
 
     m_success_event_pending = false;
     m_success_event_ready = false;

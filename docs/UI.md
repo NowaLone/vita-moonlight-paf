@@ -172,6 +172,14 @@ Error 409 is visible in the Vita dialog on 2026-10-20 **[hw, user-reported]**; t
 supplied log independently confirms server_status=409. Other codes and long/Unicode
 message clipping/layout remain **[open]**. The OK → parent PC page behavior is unchanged.
 
+Pairing page destruction now requests local cancellation through PairingService
+**[code, 2026-10-20]**. A new connection also cancels any prior pairing before enqueue.
+This is nonblocking on the UI thread; queued jobs skip work, and an active HTTP pairing
+wait aborts through curl progress. It does not reset Sunshine's pending session. The
+reported older-host wait behind an abandoned pairing request is F8 in the API audit;
+Back → immediate reselect, wrong-PIN recovery and normal pairing need new Vita checks
+**[open]**. No recurring main-thread heartbeat or changed PIN timeout is introduced.
+
 Add PC is an inline control on Main; there is no Add PC page.
 
 ## 4. Building blocks

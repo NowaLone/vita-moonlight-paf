@@ -478,7 +478,7 @@ int moonlight_api_prepare_pairing(char out_pin[5])
     return 0;
 }
 
-int moonlight_api_pair_current_host(const char pin[5])
+int moonlight_api_pair_current_host(const char pin[5], const MoonlightCancellation *cancel)
 {
     int result;
     LegacyGameStreamPairingError server_error = {0};
@@ -489,7 +489,12 @@ int moonlight_api_pair_current_host(const char pin[5])
         return -1;
     }
 
-    result = legacy_gamestream_pair(&s_server, pin, &server_error);
+    if (moonlight_is_cancelled(cancel)) return MOONLIGHT_PAIRING_CANCELLED;
+    result = legacy_gamestream_pair(&s_server, pin, &server_error, cancel);
+    if (moonlight_is_cancelled(cancel) || result == LEGACY_GAMESTREAM_CANCELLED) {
+        vita_debug_log("[GameStream] pairing cancelled locally; no completion event");
+        return MOONLIGHT_PAIRING_CANCELLED;
+    }
     if (s_disconnect_pending) return -1;
     if (result != LEGACY_GAMESTREAM_OK) {
         int pairing_result = classify_pairing_error(result);
