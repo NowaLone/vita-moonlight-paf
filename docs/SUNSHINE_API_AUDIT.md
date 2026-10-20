@@ -43,6 +43,33 @@ host-app exit/change still need separate tests. Logs show mode=2, total=65536 Ki
 newlib=6144 KiB; installed package revision and Sunshine version were not supplied.
 The two arena samples alone do not establish leak-free repeated failure recovery.
 
+### Same-app resume — user and log verified, 2026-10-20
+
+The maintainer confirmed the expected successful connection to the already running app and
+provided the complete setup log. The supplied evidence includes (LAN address redacted here):
+
+```text
+[GameStream] resume app=1093255277 host=<host>
+[GameStream] launch/resume accepted session=rtspenc://<host>:48010
+[Stream] stage complete 4 (RTSP handshake)
+[Stream] connection started
+[Stream] setup finished app=1093255277 result=0
+[Video] decoded frame=1 number=4
+[Video] decoded frame=901 number=904
+```
+
+All setup stages 1–11 completed, including audio and input establishment. Audio initialized
+at 48000 Hz/stereo; input started with motion=0. The requested stream configuration was
+960×544 at 60 fps, 10000 kbps, SOPS=1; logs identify server protocol appversion 7.1.431.-1
+and codec mask 0x001c0301. This is not a measured sustained frame-rate/bitrate result or an
+independent audible-audio/controller/motion verification. The log ends during playback and
+does not show this session stopping or subsequent resource recovery. It does confirm that
+resume passed HTTP acceptance, RTSP setup, connection startup and actual video decoding.
+The earlier different-app rejection and this same-app resume cover those two T5/F2 branches.
+Host-app exit/change after entering Apps still needs its own fresh-state test. Exact package
+revision, Sunshine release/configuration and firmware remain unspecified. No code change or
+agent-run build/hardware test was needed to record this result.
+
 ## 1. Scope and evidence
 
 The client path remains PAF pages → MoonlightApp → services → MoonlightBackend →
@@ -285,12 +312,15 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   app produces XML 503. Capture/encryption policy may also reject the request.
 - **Current:** L2 chooses resume whenever cached `server->current_game` is nonzero, regardless of
   selected app in the audit baseline. The F2 follow-up now refreshes HTTPS state and rejects a
-  different active ID (-8); it resumes only the selected running app. Runtime acceptance is pending.
+  different active ID (-8); it resumes only the selected running app. Same-app resume and different-app
+  rejection are now user/log verified; host app exit/change remains pending.
 - **Upstream / Sunshine:** S `resume`; QS asserts current app is zero or matches selection; QH
   validates response, V uses resume for a running app.
 - **Verified / runtime:** different-app rejection user/log verified on 2026-10-20 (selected
-  881448767, active 1093255277, result -8; see follow-up above). Same-app resume and app exit/change
-  between connection/start still need T5/T8. Do not label arbitrary selected-app restart implemented.
+  881448767, active 1093255277, result -8; see follow-up above). Same-app resume (1093255277) is
+  also user/log verified through accepted rtspenc URL, completed RTSP/setup, connection started and
+  decoded video. App exit/change between connection/start still needs T5/T8. Arbitrary selected-app
+  restart and the entire reconnect matrix are not established by these two tests.
 
 ### A11 — Active game / session state — partial
 
@@ -544,7 +574,9 @@ resumed or cancelled automatically. Same-app resume and idle launch remain disti
 is checked around the refresh. Current-game numeric input and BUSY suffix are validated. The host
 can still change state after the snapshot; XML errors remain authoritative. Different-app rejection
 is user/log verified on 2026-10-20: selected=881448767, active=1093255277, setup result=-8. Same-app
-resume, app exit/change and the remaining T5/T8 matrix are pending.
+resume is also user/log verified on that date: app=1093255277, accepted rtspenc URL, completed
+RTSP/setup, connection started, setup result=0 and decoded video through frame 901. App exit/change
+and the remaining T5/T8 matrix are pending.
 The root cause below describes the older baseline.
 
 **Root cause:** current_game is read at connect/pair time, then locally overwritten with selected
@@ -718,8 +750,9 @@ source follow-ups; runtime acceptance remains pending. F2 now has a source refre
 Per-host TLS pinning (F4) now has a source implementation with the maintainer-approved
 `server.pem` contract; old records without a pin require pairing again. The user confirmed the
 normal pairing/Apps/restart/reconnect/launch/stop smoke sequence on 2026-10-20, as scoped above.
-Different-app conflict (T5) is now user/log verified. Next verify same-app resume, then complete
-the remaining T3/T4/T5/T8/T9 error/trust matrix. No
+Different-app conflict and same-app resume (T5) are now user/log verified. Next stop the local
+stream, exit the app on the host while keeping Apps open, then select it again: fresh state must
+choose launch rather than stale resume. Complete the remaining T3/T4/T5/T8/T9 error/trust matrix. No
 administrative Sunshine credentials are introduced.
 
 Main cold-start follow-up (2026-10-19): the user confirmed that one saved PC appears immediately
