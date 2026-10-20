@@ -51,7 +51,9 @@ static void emit(MoonlightEventType type,
                  int result,
                  int host_id,
                  int application_id,
-                 const char *address)
+                 const char *address,
+                 int server_status_code = 0,
+                 const char *server_status_message = NULL)
 {
     if (!s_callback) return;
 
@@ -62,6 +64,11 @@ static void emit(MoonlightEventType type,
     event.host_id = host_id;
     event.application_id = application_id;
     event.address = address;
+    event.server_status_code = server_status_code;
+    if (server_status_message) {
+        strncpy(event.server_status_message, server_status_message,
+                sizeof(event.server_status_message) - 1);
+    }
     s_callback(&event, s_userdata);
 }
 
@@ -476,6 +483,7 @@ int moonlight_api_prepare_pairing(char out_pin[5])
 int moonlight_api_pair_current_host(const char pin[5])
 {
     int result;
+    LegacyGameStreamPairingError server_error = {0};
 
     if (!pin || !s_has_current_host ||
         s_connection_state != MOONLIGHT_CONNECTION_READY ||
@@ -483,16 +491,17 @@ int moonlight_api_pair_current_host(const char pin[5])
         return -1;
     }
 
-    result = legacy_gamestream_pair(&s_server, pin);
+    result = legacy_gamestream_pair(&s_server, pin, &server_error);
     if (s_disconnect_pending) return -1;
     if (result != LEGACY_GAMESTREAM_OK) {
         int pairing_result = classify_pairing_error(result);
 
         vita_debug_log(
-            "[GameStream] pairing failed for %s: legacy=%d result=%d (%s)",
+            "[GameStream] pairing failed for %s: legacy=%d result=%d server_status=%d (%s)",
             s_current_host.internal,
             result,
             pairing_result,
+            server_error.status_code,
             legacy_gamestream_error());
 
         emit(
@@ -500,7 +509,9 @@ int moonlight_api_pair_current_host(const char pin[5])
             pairing_result,
             s_current_host.id,
             -1,
-            s_current_host.internal);
+            s_current_host.internal,
+            server_error.status_code,
+            server_error.status_message);
         return pairing_result;
     }
 

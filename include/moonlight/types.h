@@ -130,6 +130,9 @@ typedef struct MoonlightEvent {
     int application_id;
     const char *address;
     char pairing_pin[5];
+    /* Owned response details for pairing failure; zero/empty if no server error. */
+    int server_status_code;
+    char server_status_message[256];
 } MoonlightEvent;
 
 typedef void (*MoonlightEventCallback)(const MoonlightEvent *, void *);

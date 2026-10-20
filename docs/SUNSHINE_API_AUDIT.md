@@ -539,6 +539,8 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   recovery fails in this tested sequence. F6 is accepted as noncritical; no workaround is planned.
   F7 single-dialog return to Search and explicit re-entry are now user/log verified on one
   Vita (2026-10-20); the final correct-PIN recovery after host failure is not yet shown.
+  Server XML status/reason are now copied into pairing-failure events for the native
+  protocol-error dialog (source follow-up below; Vita validation pending).
   T3 still needs refused approval, lost network, malformed proof and local
   crypto/storage failures; semantic enum presence alone does not establish those paths.
 
@@ -1052,6 +1054,42 @@ as a server response, without restarting a client loop. Check normal correct-PIN
 and Back behavior. The follow-up above verifies the incorrect-PIN and duplicate-session
 Search returns and explicit re-entry on one Vita; Main/manual paths, other error types
 and correct-PIN recovery still need maintainer tests. No build was run by the agent.
+
+### Pairing protocol-error details — source follow-up, 2026-10-20
+
+**Trigger/root cause:** the maintainer compared Moonlight Qt's duplicate-session dialog
+with the Vita's generic protocol error. Legacy xml_status_ok read the reason into a
+global error string, but discarded the numeric status; MoonlightEvent conveyed only
+semantic -1003. The UI therefore could not distinguish the server's 409 response from
+other protocol failures. Reading a mutable legacy buffer directly from the UI would
+also violate the queued service/backend boundary.
+
+**Reference:** [Moonlight Qt NvHTTP::verifyResponseStatus](https://github.com/moonlight-stream/moonlight-qt/blob/master/app/backend/nvhttp.cpp)
+extracts XML status_code/status_message and returns them in GfeHttpResponseException.
+Use that diagnostic contract, without copying the legacy GeForce Experience product
+name into a dialog for a Sunshine PC.
+
+**Minimal source change:** legacy pairing returns bounded status/message through a
+caller-owned LegacyGameStreamPairingError. Valid non-200 XML responses fill the details;
+missing/malformed/success responses clear them. XML attribute order does not determine
+whether a message is captured, and truncation preserves UTF-8 code-point boundaries.
+The API copies details into inline MoonlightEvent fields before dispatch. The existing
+adapter/queue copies those fields by value, so the UI never holds a legacy-buffer
+pointer. Settings events are zero-initialized too, to keep the extended event payload
+defined for all producers. The 16-entry queue grows by about 4 KiB.
+
+Protocol dialogs show `The PC returned a pairing error:` plus the host reason and
+`(Error <code>)`. Status without a reason uses a generic reason plus the code; absent
+status keeps the existing generic dialog. Incorrect-PIN/network/security/internal
+classification and messages remain separate. No retry, endpoint or pairing-trust
+change is added. The F7 one-dialog terminal flow remains unchanged.
+
+**Checks/limits:** existing six non-build Python checks pass, plus an ad hoc pycparser
+C grammar check of the changed XML status helpers. Source/diff review covers all five
+pairing phases, initialization, bounded strings and event-copy lifetime. These checks
+do not execute the status parser or PAF. No build or real PAF/HTTP test was run by the agent. Verify 409 text/code, a different
+server error, missing message, wrong PIN, correct PIN and OK → Search/Main on Vita.
+Do not mark the new diagnostic text hardware-verified from the older generic-dialog log.
 
 ## 5. Required validation (all new cases pending)
 

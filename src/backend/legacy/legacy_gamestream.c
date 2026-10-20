@@ -132,6 +132,7 @@ typedef struct XmlFindContext {
 
 typedef struct XmlStatusContext {
     int status;
+    char message[256];
 } XmlStatusContext;
 
 static void set_error(const char *message)
@@ -869,18 +870,28 @@ static void XMLCALL xml_status_start(void *userdata, const char *name, const cha
     for (i = 0; attributes[i]; i += 2) {
         if (strcmp(attributes[i], "status_code") == 0) {
             context->status = atoi(attributes[i + 1]);
-        } else if (strcmp(attributes[i], "status_message") == 0 && context->status != STATUS_OK) {
-            set_error(attributes[i + 1]);
+        } else if (strcmp(attributes[i], "status_message") == 0) {
+            size_t length = strlen(attributes[i + 1]);
+            if (length >= sizeof(context->message)) {
+                length = sizeof(context->message) - 1;
+                /* Do not split a UTF-8 code point in a bounded UI message. */
+                while (length && ((unsigned char)attributes[i + 1][length] & 0xc0) == 0x80) {
+                    --length;
+                }
+            }
+            memcpy(context->message, attributes[i + 1], length);
+            context->message[length] = '\0';
         }
     }
 }
 
-static int xml_status_ok(const char *data, size_t length)
+static int xml_status_ok(const char *data, size_t length, LegacyGameStreamPairingError *error)
 {
     XML_Parser parser;
     XmlStatusContext context;
 
-    context.status = 0;
+    memset(&context, 0, sizeof(context));
+    if (error) memset(error, 0, sizeof(*error));
 
     parser = XML_ParserCreate("UTF-8");
     if (!parser) {
@@ -899,8 +910,10 @@ static int xml_status_ok(const char *data, size_t length)
     XML_ParserFree(parser);
 
     if (context.status != STATUS_OK) {
-        if (!s_error[0]) {
-            set_error("GameStream server returned an error");
+        set_error(context.message[0] ? context.message : "GameStream server returned an error");
+        if (error) {
+            error->status_code = context.status;
+            memcpy(error->status_message, context.message, sizeof(error->status_message));
         }
         return context.status == 401 ? LEGACY_GAMESTREAM_NOT_PAIRED : LEGACY_GAMESTREAM_FAILED;
     }
@@ -947,7 +960,7 @@ static int load_server_info(LegacyGameStreamServer *server, bool https)
         return result;
     }
 
-    result = xml_status_ok(response.memory, response.size);
+    result = xml_status_ok(response.memory, response.size, NULL);
     if (result != LEGACY_GAMESTREAM_OK) {
         http_buffer_free(&response);
         return result;
@@ -1255,10 +1268,11 @@ static int decrypt_ecb(
     return LEGACY_GAMESTREAM_OK;
 }
 
-static int pair(LegacyGameStreamServer *server, const char *pin)
+static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStreamPairingError *error)
 {
     s_error[0] = '\0';
     s_last_http_result = CURLE_OK;
+    if (error) memset(error, 0, sizeof(*error));
 
     unsigned char salt_data[16];
     char salt_hex[sizeof(salt_data) * 2 + 1];
@@ -1349,7 +1363,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
 
     vita_debug_log("[GameStream] pairing phase=getservercert response received");
 
-    if (xml_status_ok(response.memory, response.size) != LEGACY_GAMESTREAM_OK ||
+    if (xml_status_ok(response.memory, response.size, error) != LEGACY_GAMESTREAM_OK ||
         xml_find_value(response.memory, response.size, "paired", result, sizeof(result)) != LEGACY_GAMESTREAM_OK ||
         strcmp(result, "1") != 0 ||
         xml_find_value(response.memory, response.size, "plaincert", result, sizeof(result)) != LEGACY_GAMESTREAM_OK) {
@@ -1415,7 +1429,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
         return step_result;
     }
 
-    if (xml_status_ok(response.memory, response.size) != LEGACY_GAMESTREAM_OK ||
+    if (xml_status_ok(response.memory, response.size, error) != LEGACY_GAMESTREAM_OK ||
         xml_find_value(response.memory, response.size, "paired", result, sizeof(result)) != LEGACY_GAMESTREAM_OK ||
         strcmp(result, "1") != 0 ||
         xml_find_value(response.memory, response.size, "challengeresponse", result, sizeof(result)) != LEGACY_GAMESTREAM_OK) {
@@ -1522,7 +1536,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
         return step_result;
     }
 
-    if (xml_status_ok(response.memory, response.size) != LEGACY_GAMESTREAM_OK ||
+    if (xml_status_ok(response.memory, response.size, error) != LEGACY_GAMESTREAM_OK ||
         xml_find_value(response.memory, response.size, "paired", result, sizeof(result)) != LEGACY_GAMESTREAM_OK ||
         strcmp(result, "1") != 0 ||
         xml_find_value(response.memory, response.size, "pairingsecret", result, sizeof(result)) != LEGACY_GAMESTREAM_OK) {
@@ -1647,7 +1661,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
         return step_result;
     }
 
-    if (xml_status_ok(response.memory, response.size) != LEGACY_GAMESTREAM_OK ||
+    if (xml_status_ok(response.memory, response.size, error) != LEGACY_GAMESTREAM_OK ||
         xml_find_value(response.memory, response.size, "paired", result, sizeof(result)) != LEGACY_GAMESTREAM_OK ||
         strcmp(result, "1") != 0) {
         http_buffer_free(&response);
@@ -1693,7 +1707,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
         return step_result;
     }
 
-    if (xml_status_ok(response.memory, response.size) != LEGACY_GAMESTREAM_OK ||
+    if (xml_status_ok(response.memory, response.size, error) != LEGACY_GAMESTREAM_OK ||
         xml_find_value(response.memory, response.size, "paired", result, sizeof(result)) != LEGACY_GAMESTREAM_OK ||
         strcmp(result, "1") != 0) {
         pthread_mutex_lock(&s_http_mutex);
@@ -1896,21 +1910,24 @@ static int init_worker(void *argument)
 typedef struct PairArgs {
     LegacyGameStreamServer *server;
     const char *pin;
+    LegacyGameStreamPairingError *error;
 } PairArgs;
 
 static int pair_worker(void *argument)
 {
     PairArgs *args = (PairArgs *)argument;
 
-    return pair(args->server, args->pin);
+    return pair(args->server, args->pin, args->error);
 }
 
-int legacy_gamestream_pair(LegacyGameStreamServer *server, const char *pin)
+int legacy_gamestream_pair(LegacyGameStreamServer *server, const char *pin,
+                          LegacyGameStreamPairingError *error)
 {
     PairArgs args;
 
     args.server = server;
     args.pin = pin;
+    args.error = error;
     pthread_mutex_lock(&s_pair_mutex);
     int result = run_on_worker(pair_worker, &args);
     pthread_mutex_unlock(&s_pair_mutex);

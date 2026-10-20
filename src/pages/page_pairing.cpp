@@ -1,4 +1,5 @@
 #include <paf.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "common.h"
@@ -144,7 +145,8 @@ void Pairing::StartPairing()
     }
 }
 
-void Pairing::ShowPairingError(int result)
+void Pairing::ShowPairingError(int result, int server_status_code,
+                              const char *server_status_message)
 {
     const char *message = "Unable to complete pairing.";
 
@@ -180,7 +182,15 @@ void Pairing::ShowPairingError(int result)
 
     strncpy(m_dialog_title, "Pairing failed", sizeof(m_dialog_title) - 1);
     m_dialog_title[sizeof(m_dialog_title) - 1] = '\0';
-    strncpy(m_dialog_message, message, sizeof(m_dialog_message) - 1);
+    if (result == MOONLIGHT_PAIRING_ERROR_PROTOCOL && server_status_code > 0) {
+        snprintf(m_dialog_message, sizeof(m_dialog_message),
+                 "The PC returned a pairing error:\n%s (Error %d)",
+                 server_status_message && server_status_message[0]
+                     ? server_status_message : "The PC rejected the pairing request.",
+                 server_status_code);
+    } else {
+        strncpy(m_dialog_message, message, sizeof(m_dialog_message) - 1);
+    }
     m_dialog_message[sizeof(m_dialog_message) - 1] = '\0';
 
     sceMsgDialogParamInit(&m_dialog_param);
@@ -267,13 +277,15 @@ void Pairing::OnMoonlightEvent(
                 return;
             }
         } else {
-            pairing->ShowPairingError(event->result);
+            pairing->ShowPairingError(event->result, event->server_status_code,
+                                      event->server_status_message);
         }
         break;
 
     case MOONLIGHT_EVENT_PAIRING_FAILED:
         pairing->m_pairing_started = false;
-        pairing->ShowPairingError(event->result);
+        pairing->ShowPairingError(event->result, event->server_status_code,
+                                  event->server_status_message);
         break;
 
     case MOONLIGHT_EVENT_CONNECTION_FAILED:

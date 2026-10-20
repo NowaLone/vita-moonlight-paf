@@ -38,6 +38,11 @@ typedef struct LegacyGameStreamServer {
     void *curl;
 } LegacyGameStreamServer;
 
+typedef struct LegacyGameStreamPairingError {
+    int status_code; /* GameStream XML status, not HTTP transport status; zero if absent. */
+    char status_message[256];
+} LegacyGameStreamPairingError;
+
 int legacy_gamestream_init(
     LegacyGameStreamServer *server,
     const char *address,
@@ -49,7 +54,8 @@ int legacy_gamestream_init(
 
 int legacy_gamestream_pair(
     LegacyGameStreamServer *server,
-    const char *pin);
+    const char *pin,
+    LegacyGameStreamPairingError *error);
 
 /* Authenticated snapshot only; never fall back to plaintext when starting a stream. */
 int legacy_gamestream_refresh_server_info(LegacyGameStreamServer *server);

@@ -86,7 +86,7 @@ static void emit(MoonlightEventType type, int result)
         return;
     }
 
-    MoonlightEvent event;
+    MoonlightEvent event = {};
     event.type = type;
     event.result = result;
     event.host_id = -1;

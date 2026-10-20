@@ -159,6 +159,15 @@ completed pairing/Apps after that recovery is not yet shown. Main return, other 
 types and correct-PIN recovery remain **[open]**. Returning to Search does not cancel
 or reset the host's pending pairing session.
 
+Pairing protocol errors now display the host's GameStream XML `status_message` and
+`status_code` **[code, 2026-10-20]**. For the tested duplicate-session response, the
+native dialog is intended to show: `The PC returned a pairing error:` followed by
+`A pairing session with this uniqueid already exists (Error 409)`. This is a server
+response code, not the semantic pairing result (-1003). Wrong PIN, network, security
+and internal failures retain their specific local messages. Missing server details
+use the generic fallback. Text clipping/layout, status 409 and other codes need Vita
+validation **[open]**; the existing OK → parent PC page behavior is unchanged.
+
 Add PC is an inline control on Main; there is no Add PC page.
 
 ## 4. Building blocks
