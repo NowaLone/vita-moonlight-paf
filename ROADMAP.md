@@ -120,8 +120,10 @@ checks below remain pending.
   budget diagnostics; verify the frontend opens without closing a suspended Vita game.
 - [x] Establish decoder/graphics allocations and verify a basic stream with image,
   sound, controls, stop and return to the suspended game on the tested Vita.
-- [ ] Check longer/repeated streams and settled memory baselines; validate native
-  Settings/dialogs/Quick Actions with the larger budget and broader compatibility.
+- [x] Verify two longer streams, one stop/reconnect cycle and stable sampled
+  post-cleanup memory on the tested Vita with the 64 MiB / 6 MiB configuration.
+- [ ] Validate native Settings/dialogs/Quick Actions with the larger budget and
+  broader device/game compatibility; extend duration/reconnect-cycle coverage.
 
 User validation of `8b5d9a5` with total 65536 KiB, PHYCONT zero, mode A:
 library query 5767168 bytes, decoder query 8388608 bytes, arena 15728640 bytes;
@@ -179,6 +181,18 @@ identity and terminates pthread before releasing newlib. This applies to both
 profiles without changing heap budgets or dependency sources. Actual-bootstrap
 AST checks cover startup/teardown ordering and failure paths. Build and longer/
 repeated streams with settled heap measurements remain pending; no agent build ran.
+
+The user now confirms streaming and reconnect no longer crash. The new capture
+contains two sessions with 22270 and 18008 decoded frames, both explicitly stopped
+by a PS double press with worker result zero. Tracing has zero allocation failures,
+dropped records and replaced pointers. PTE records reach 15 / 2400 bytes and stay
+at that count after both stops, instead of accumulating thousands. After deferred
+frame release, newlib used is 96768 then 96936 bytes (+168), and USER_RW free is
+32952 KiB in both cases. The tested failure and one reconnect cycle are verified;
+this does not establish zero retained bytes over arbitrary reconnect counts.
+The first session also logs overlay enter/return, neutral host input and PS
+suppression clearing; broader native-UI verification remains separate. These are
+maintainer-run device results; the agent only parsed logs and inspected the ELF.
 
 ## Requested: full stream diagnostics overlay (2026-10-19)
 

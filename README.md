@@ -257,7 +257,11 @@ must be investigated before treating the system profile as stable for longer ses
 The subsequent diagnostic run identified repeated pthread thread-record allocations:
 the custom entry point skipped VitaSDK's pthread constructor. Startup now explicitly
 initializes pthread after newlib and verifies stable thread identity before entering
-PAF. This source fix still needs a longer device retest with the same 6 MiB heap.
+PAF. With the same 6 MiB heap, the user's retest completed 22270 decoded frames,
+manual stop, reconnect and another 18008 frames without allocation failure or
+crash. Newlib used returned to 96768 / 96936 bytes after the two stops, and final
+USER_RW free was identical at 32952 KiB. This verifies the reported memory-failure
+fix and one reconnect on the tested device; broader compatibility remains open.
 An optional diagnostic build records allocation call sites (maintainer command):
 
 ```bash

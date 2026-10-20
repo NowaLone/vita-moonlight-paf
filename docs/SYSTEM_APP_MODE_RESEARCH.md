@@ -781,3 +781,58 @@ linking, packaging or hardware test was run by the agent. The maintainer should
 repeat a longer stream and reconnects with tracing, retaining the same 6 MiB heap,
 then compare settled before/after snapshots and confirm the suspended game resumes.
 The source cause is addressed; sustained runtime stability remains unverified.
+
+### User retest: two longer streams and stable sampled memory
+
+The user confirms streaming no longer exits and restarting the stream also works.
+The capture contains two complete sessions at 960x544x60 / 10000 kbps, with system
+budget 65536 KiB, physical reservation zero, newlib 6144 KiB and PAF 10240 KiB.
+The local build flags identify `922f1e92f9d7` with tracing enabled; the capture
+starts after connection to psp2shell and has no new Launch line. ELF wrapper
+address `0x8102a800` and runtime anchor `0x81071801` give RX delta `0x47000`.
+Runtime caller `0x8124d2ef` maps to `pte_new` in this matching local ELF.
+
+The first session decodes 22270 frames and the second 18008 (40278 total).
+Both end after the input log's explicit PS double press; stop workers return zero.
+All eleven setup stages complete twice. Audio drain/release and all six deferred
+GXM unmaps return zero. Control error 4 follows the requested stop and ENet wait
+interruption in each session; it is not an unsolicited connection failure.
+There is no video malloc failure, coredump or failed thread creation in the log.
+No wall-clock duration is recorded, so decoded counts are not exact elapsed times.
+
+Before the first session newlib arena/used is 229376/93104 bytes. After setup,
+used is 678072 bytes. After the first stop it is 97496, then 96768 after deferred
+frame release. The second setup uses 679912 bytes; after stop it is 97672, then
+96936 after frame release. Arena stabilizes at 704512 bytes. The two corresponding
+final USER_RW-free samples are both 32952 KiB; the post-setup samples are both
+10184 KiB. The first run retains 768 KiB more main RAM than the initial pre-stream
+sample, but the second final sample does not decline further. Do not attribute
+that initial difference to a particular cache without allocation evidence.
+
+The PTE call site starts with three blocks / 480 bytes and reaches fifteen / 2400
+bytes, with peak equal to 2400 at both stop snapshots and the same count before
+the reconnect. This verifies that the previous per-call growth into thousands of
+records is absent in these sessions. All sampled trace failure, dropped-entry,
+replaced-pointer and zero-realloc counters are zero. Unknown-free counts are
+41 initially, 127 after the first stop and 213 after the second, so libc-internal
+coverage limitations still apply. Tracked live totals after stops are 78430 and
+78411 bytes; `mallinfo` and wrapper totals remain distinct measurements.
+
+Final newlib used differs by only +168 bytes between sessions. This is evidence
+against the prior multi-megabyte retained growth, not proof of zero leakage over
+arbitrary reconnect counts. Two longer sessions and one reconnect are now user-
+verified on this device/configuration. Longer endurance, more cycles, broader
+firmware/game compatibility and the full native-UI matrix remain open.
+
+The first session also logs system overlay activation, release of host controller
+state, overlay return and PS suppression clearing while decoding continues.
+Five single-frame network-drop messages are followed by recovery and continued
+decode; the user reports no crash. These logs alone do not establish network
+quality or visually verify every Quick Actions behavior. No new confirmation of
+returning to the suspended Vita game is present in this particular report; the
+earlier explicit coexistence confirmation remains the evidence for that path.
+
+Only documentation/checklist status changes follow this retest. The agent parsed
+the supplied log, checked counters/order and resolved the PTE caller in the local
+ELF; it did not build or run the application. Heap tracing can now be disabled
+with `-DMOONLIGHT_HEAP_TRACE=OFF` while retaining the tested budget options.
