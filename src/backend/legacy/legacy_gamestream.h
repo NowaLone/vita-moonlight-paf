@@ -15,6 +15,7 @@ extern "C" {
 #define LEGACY_GAMESTREAM_WRONG_STATE -4
 #define LEGACY_GAMESTREAM_IO_ERROR -5
 #define LEGACY_GAMESTREAM_UNSUPPORTED_VERSION -7
+#define LEGACY_GAMESTREAM_APP_CONFLICT -8
 
 typedef struct LegacyGameStreamServer {
     char address[256];
@@ -44,6 +45,9 @@ int legacy_gamestream_init(
 int legacy_gamestream_pair(
     LegacyGameStreamServer *server,
     const char *pin);
+
+/* Authenticated snapshot only; never fall back to plaintext when starting a stream. */
+int legacy_gamestream_refresh_server_info(LegacyGameStreamServer *server);
 
 /* Caller owns the returned body; timeout and response callback are scoped to the request. */
 int legacy_gamestream_request(

@@ -229,7 +229,7 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Current:** L2 `load_launch_session` sends these values with 10-second connect/20-second total
   timeout; the 2026-10-20 Expat follow-up requires root status 200 **and** gamesession=1.
   A present URL must be valid rtsp/rtspenc and fit the buffer; only an absent URL permits the legacy
-  default-port fallback. Cached app choice still needs the independent F2 fix.
+  default-port fallback. App choice is checked against a fresh HTTPS snapshot (F2).
 - **Upstream / Sunshine:** S refuses launch if an app is running and can report capture/launch errors
   in XML; QH verifies status, V checks status/session result. Qt allows a longer launch timeout (120 s).
 - **Verified / runtime:** source; T5 must cover slow app startup, unsupported mode, failed capture,
@@ -242,7 +242,8 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   S resumes the **already running process**; supplied `appid` does not launch/switch it. No running
   app produces XML 503. Capture/encryption policy may also reject the request.
 - **Current:** L2 chooses resume whenever cached `server->current_game` is nonzero, regardless of
-  selected app; there is no pre-start refresh. It overwrites cached ID with the selected ID (F2).
+  selected app in the audit baseline. The F2 follow-up now refreshes HTTPS state and rejects a
+  different active ID (-8); it resumes only the selected running app. Runtime acceptance is pending.
 - **Upstream / Sunshine:** S `resume`; QS asserts current app is zero or matches selection; QH
   validates response, V uses resume for a running app.
 - **Verified / runtime:** source; T5/T8 require same-app resume, different-app selection, app exit
@@ -485,6 +486,14 @@ success is claimed. Pending launch cancellation fixes already in master should b
 
 ### F2 — Resume can target a different app or stale process state
 
+**Source follow-up, 2026-10-20:** the session worker now fetches HTTPS serverinfo immediately before
+launch/resume, without HTTP fallback, checks pairing and compares the active ID to the selection.
+A different app returns `LEGACY_GAMESTREAM_APP_CONFLICT` (-8) through the stream event; it is never
+resumed or cancelled automatically. Same-app resume and idle launch remain distinct. Cancellation
+is checked around the refresh. Current-game numeric input and BUSY suffix are validated. The host
+can still change state after the snapshot; XML errors remain authoritative. T5/T8 are pending.
+The root cause below describes the older baseline.
+
 **Root cause:** current_game is read at connect/pair time, then locally overwritten with selected
 application_id after start. L2 does not refresh before deciding launch versus resume or compare the
 selection to the host's active ID. S's resume ignores selection for process switching.
@@ -621,8 +630,7 @@ Missing ordinary-disconnect HTTP endpoints were not found: the required work is 
 state freshness, parsing and authentication, not adding `/cancel`, `/quit` or admin API calls.
 
 F1 already has a source cleanup owner (`0cef1ac`). F3 XML/cache and F4 signature checks now have
-source follow-ups; runtime acceptance remains pending. Next implement fresh launch/resume state
-(F2) and per-host TLS pinning (F4), independently. The maintainer approved storing `server.pem` in
+source follow-ups; runtime acceptance remains pending. F2 now has a source refresh/conflict check. Next implement per-host TLS pinning (F4). The maintainer approved storing `server.pem` in
 the existing host directory on 2026-10-20; old records without a pin require pairing again. No
 administrative Sunshine credentials are introduced.
 

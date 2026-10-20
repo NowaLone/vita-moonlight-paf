@@ -285,12 +285,22 @@ static int load_launch_session(
     size_t body_length = 0;
     MoonlightGameStreamResponse response;
     int result;
-    const int resume = server && server->current_game != 0;
 
     if (!server || !server->curl || !unique_path || !settings ||
         !session_url || session_url_size == 0) {
         return -1;
     }
+
+    if (stream_cancel_requested()) return -7;
+    result = legacy_gamestream_refresh_server_info(server);
+    if (result != 0) return result;
+    if (stream_cancel_requested()) return -7;
+    if (server->current_game != 0 && server->current_game != application_id) {
+        vita_debug_log("[GameStream] app conflict selected=%d active=%d",
+            application_id, server->current_game);
+        return LEGACY_GAMESTREAM_APP_CONFLICT;
+    }
+    const int resume = server->current_game != 0;
 
     if (sceKernelGetRandomNumber(remote_key, 16) < 0 ||
         sceKernelGetRandomNumber(remote_iv, 4) < 0) return -3;
@@ -377,7 +387,7 @@ static int run_stream_session(
     memset(remote_key, 0, sizeof(remote_key));
     memset(remote_iv, 0, sizeof(remote_iv));
 
-    if (load_launch_session(
+    result = load_launch_session(
             server,
             unique_path,
             application_id,
@@ -385,9 +395,8 @@ static int run_stream_session(
             session_url,
             sizeof(session_url),
             remote_key,
-            remote_iv) != 0) {
-        return -1;
-    }
+            remote_iv);
+    if (result != 0) return result;
 
     if (stream_cancel_requested()) {
         vita_debug_log("[Stream] launch cancelled before RTSP setup");

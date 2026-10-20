@@ -13,6 +13,7 @@
 #include "legacy_gamestream.h"
 
 #include <errno.h>
+#include <limits.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -901,8 +902,17 @@ static int load_server_info(LegacyGameStreamServer *server, bool https)
         server->mac[0] = '\0';
     }
 
+    char *end;
+    errno = 0;
+    long active_id = strtol(current_game, &end, 10);
+    while (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n') ++end;
+    if (end == current_game || *end || errno == ERANGE || active_id < 0 || active_id > INT_MAX) {
+        http_buffer_free(&response);
+        set_error("Invalid currentgame in serverinfo");
+        return LEGACY_GAMESTREAM_INVALID;
+    }
     server->paired = strcmp(paired, "1") == 0;
-    server->current_game = atoi(current_game);
+    server->current_game = (int)active_id;
     strncpy(server->server_info_app_version, app_version, sizeof(server->server_info_app_version) - 1);
     server->server_info_app_version[sizeof(server->server_info_app_version) - 1] = '\0';
     if (xml_find_value(response.memory, response.size, "GfeVersion", gfe_version, sizeof(gfe_version)) == LEGACY_GAMESTREAM_OK) {
@@ -915,13 +925,26 @@ static int load_server_info(LegacyGameStreamServer *server, bool https)
     } else {
         server->server_codec_mode_support = 0x00000001;
     }
-    if (strstr(state, "_SERVER_BUSY") == NULL) {
+    const char *busy = "_SERVER_BUSY";
+    if (strlen(state) < strlen(busy) ||
+        strcmp(state + strlen(state) - strlen(busy), busy) != 0) {
         server->current_game = 0;
     }
     server->server_major_version = atoi(app_version);
 
     http_buffer_free(&response);
     return LEGACY_GAMESTREAM_OK;
+}
+
+int legacy_gamestream_refresh_server_info(LegacyGameStreamServer *server)
+{
+    if (!server || !server->curl || !server->paired) return LEGACY_GAMESTREAM_WRONG_STATE;
+    int result = load_server_info(server, true);
+    if (result == LEGACY_GAMESTREAM_OK && !server->paired) {
+        set_error("Client is no longer paired");
+        return LEGACY_GAMESTREAM_WRONG_STATE;
+    }
+    return result;
 }
 
 static int load_server_status(LegacyGameStreamServer *server)
