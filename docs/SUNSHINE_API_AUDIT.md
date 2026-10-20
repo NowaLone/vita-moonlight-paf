@@ -226,6 +226,46 @@ cases remain untested. The prior normal persisted reconnect test retains its ori
 firmware and Sunshine release/configuration remain unspecified. No runtime code change,
 agent-run build or agent-run device test was needed.
 
+### Wrong PIN → semantic error → fresh retry — user and log verified, 2026-10-20
+
+The maintainer deliberately entered a wrong PIN in Sunshine. Its UI reported
+“Success! Please check Moonlight to continue”; Vita displayed an error and a new PIN.
+The supplied client log shows (address, widget pointers and PIN omitted):
+
+```text
+[GameStream] pairing phase=getservercert
+[GameStream] pairing phase=getservercert response received
+[GameStream] pairing phase=clientchallenge
+[GameStream] pairing phase=serverchallengeresp
+[GameStream] pairing failed for <host>: legacy=-1 result=-1001 (Incorrect pairing PIN)
+[Pairing] text_pairing_status=... text=Pairing with PC...
+[GameStream] pairing phase=getservercert
+```
+
+Current L3 emits that PIN error only after verifying the signed server secret, when the
+PIN-bound challenge hash differs. It returns before sending clientpairingsecret or
+installing/persisting the candidate server pin. L1 maps it to the semantic wrong-PIN result
+-1001; the PAF error-dialog completion path prepares a fresh PIN and starts pairing again.
+The log plus maintainer report verify wrong-PIN rejection, correct classification, visible
+error/new PIN and initiation of a new pending request. They do not yet verify successful
+correct-PIN retry, wrong-signature/negative-EVP failures or certificate-file hashes.
+
+The Sunshine message is consistent with older submission-only semantics, not proof of
+completed pairing. In the inspected
+[v2025.924.154138 savePin](https://github.com/LizardByte/Sunshine/blob/v2025.924.154138/src/confighttp.cpp),
+the admin response uses nvhttp::pin; that
+[pin implementation](https://github.com/LizardByte/Sunshine/blob/v2025.924.154138/src/nvhttp.cpp)
+releases getservercert and returns before later cryptographic phases. By contrast, the
+[master implementation read on 2026-10-20](https://github.com/LizardByte/Sunshine/blob/master/src/nvhttp.cpp)
+waits for a pairing-completion result, and
+[master savePin](https://github.com/LizardByte/Sunshine/blob/master/src/confighttp.cpp)
+returns that result. These branch URLs are moving references; the original pinned audit
+baseline above is not retroactively changed. The installed Sunshine version was not
+provided, so the explanation is a source-backed compatibility inference, not identification
+of the deployed implementation. Admin UI/API behavior remains reference context, not a
+new Vita admin-client feature. No client runtime change is needed for this successful
+rejection test. Next submit the new displayed PIN correctly and verify final pairing/Apps.
+
 ## 1. Scope and evidence
 
 The client path remains PAF pages → MoonlightApp → services → MoonlightBackend →
@@ -402,7 +442,8 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   expiry and failed-session removal. QP likewise uses a temporary pin before the final HTTPS phase.
 - **Verified / runtime:** normal PIN pairing and re-pair after the host-side revocation test are
   user/log verified on 2026-10-20 through all phases and authenticated applist (4/4). T3 still needs
-  wrong PIN, delayed approval, retries/expiry and final-challenge failure. Five-minute timeout is
+  successful correct-PIN retry after a wrong PIN, delayed approval, expiry and final-challenge
+  failure. Wrong-PIN rejection and a fresh pending retry are now user/log verified. Five-minute timeout is
   a client setting, not verified responsiveness on Vita.
 
 ### A06 — Pairing errors — partial
@@ -416,8 +457,10 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   Tests exercise mocked return logic; actual malformed-proof/TLS runtime coverage remains pending.
 - **Upstream / Sunshine:** QP has explicit failed/PIN/in-progress results; S can reject ordering,
   pending capacity, invalid proof or expiry. These are not all incorrect-PIN cases.
-- **Verified / runtime:** source; T3 requires wrong PIN, refused approval, lost network, malformed
-  proof and local crypto/storage failures. Existing semantic result enum alone does not prove coverage.
+- **Verified / runtime:** user/log verified wrong-PIN result -1001 after serverchallengeresp,
+  visible error/new PIN and a new getservercert request (2026-10-20). Successful correct-PIN retry
+  is not yet shown. T3 still needs refused approval, lost network, malformed proof and local
+  crypto/storage failures; semantic enum presence alone does not establish those paths.
 
 ### A07 — Application list retrieval — partial
 
@@ -675,7 +718,9 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   Re-pair after the host-side revocation test is now user/log verified through a new PIN, all
   phases and authenticated applist (4/4). Fresh-process reconnect after this specific re-pair is
   subsequently user-confirmed without another PIN (2026-10-20; no new log). T3/T9 still need malformed/unreadable pins, live host-cert renewal, damaged credentials,
-  failed persistence, wrong-PIN/cryptographic errors and the remaining revocation variants.
+  failed persistence, successful correct-PIN retry after rejection, malformed-proof/crypto errors
+  and remaining revocation variants. Wrong-PIN rejection with result -1001 and fresh retry
+  initiation is now user/log verified (2026-10-20).
 
 ### A23 — Protocol / version compatibility — partial
 
@@ -939,8 +984,9 @@ resume are also log verified; the maintainer separately confirmed audible audio.
 of a mismatched valid saved server certificate (-10), followed by restored-pin connection and
 authenticated applist (4/4), is now user/log verified. Recovery through PIN pairing after the
 host-side revocation test is also log verified; reconnect without a PIN after restarting
-Moonlight is subsequently user-confirmed. Next verify wrong-PIN rejection and a successful
-pairing retry. Remaining setup-cancel/race, trust/error and
+Moonlight is subsequently user-confirmed. Wrong-PIN rejection (-1001), error/new PIN and fresh
+retry initiation are now user/log verified. Next submit the newly displayed PIN correctly and
+verify successful pairing and Apps retrieval. Remaining setup-cancel/race, trust/error and
 repeated-recovery cases stay open. Complete the remaining T3/T4/T5/T8/T9 error/trust matrix. No
 administrative Sunshine credentials are introduced.
 
