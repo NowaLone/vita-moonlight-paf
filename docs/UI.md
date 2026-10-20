@@ -145,6 +145,15 @@ to open, Pairing stays available with an error **[code]**. User verified Search 
 Apps → Back → Search and selecting a PC again on 2026-10-19 **[hw, tested Vita]**. The Main/manual path,
 already-paired path, Pairing cancel/failure and stream-event regression checks remain **[open]**.
 
+Pairing failure ends the current attempt **[code, 2026-10-20]**. After its native OK
+error dialog finishes, Pairing returns to the existing parent PC page. Dismissing an
+error never generates another PIN or queues another handshake; selecting a PC again
+explicitly starts a new attempt. This replaces the previous automatic retry for every
+non-network error, which repeatedly regenerated PINs on duplicate-session rejection.
+Correct-PIN success navigation is unchanged. One-dialog behavior, Search/Main return,
+manual re-entry and successful pairing need Vita validation **[open]**. This does not
+cancel or reset the host's pending pairing session.
+
 Add PC is an inline control on Main; there is no Add PC page.
 
 ## 4. Building blocks

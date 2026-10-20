@@ -287,6 +287,37 @@ pairing failure trace; it does not independently establish the cause of the empt
 Per maintainer decision, this is an accepted noncritical compatibility limitation (F6),
 with no Sunshine patch or client workaround planned.
 
+### Second PC: repeated errors and PIN replacement — reproduced, source fix pending Vita check
+
+On 2026-10-20 the maintainer supplied another Vita log and reported testing a current
+Sunshine on a second PC. Its exact version has been requested; do not assume the
+original host's 2025.924.154138 version or equate "current" with an upstream commit.
+Normal pairing on this PC completes all five phases and retrieves three apps. A later
+incorrect-PIN attempt shows this separate sequence:
+
+```text
+pairing phase=serverchallengeresp
+pairing failed: legacy=-1 result=-1001 (Incorrect pairing PIN)
+[SceCommonDialog] Starting Init(), type 1
+[SceCommonDialog] Term() completed, type 1
+[Pairing] text_pairing_status=<widget> text=Pairing with PC...
+pairing phase=getservercert
+pairing failed: legacy=-1 result=-1003 (A pairing session with this uniqueid already exists)
+```
+
+The duplicate-session failures, dialog completion and new getservercert requests then
+repeat. The maintainer observes the displayed PIN changing behind repeated error dialogs.
+The log has no timestamps or dialog button results, so it does not establish whether
+acknowledgements were manual or whether a dialog completed without input.
+
+F7 below identifies the client retry loop. This is distinct from accepting the old
+host's F6 compatibility limitation; fixing client failure navigation requires no Sunshine
+patch or protocol workaround. The maintainer also reports delayed Web UI failure.
+Sunshine [v2026.914.233613 nvhttp.cpp](https://github.com/LizardByte/Sunshine/blob/v2026.914.233613/src/nvhttp.cpp)
+waits for handshake completion or a deadline in pin(), and rejects duplicate uniqueid
+sessions with status 409. This explains a possible delay after the client rejects the
+PIN before clientpairingsecret; the actual second-host version/timing remains unconfirmed.
+
 ## 1. Scope and evidence
 
 The client path remains PAF pages → MoonlightApp → services → MoonlightBackend →
@@ -482,6 +513,7 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   visible error/new PIN and a new getservercert request (2026-10-20). The subsequent retry
   after submitting the new PIN fails at getservercert with empty HTTP response/-1002 and page exit (F6), so
   recovery fails in this tested sequence. F6 is accepted as noncritical; no workaround is planned.
+  F7 removes automatic retry after error dismissal; this source change needs Vita validation.
   T3 still needs refused approval, lost network, malformed proof and local
   crypto/storage failures; semantic enum presence alone does not establish those paths.
 
@@ -964,8 +996,35 @@ do not directly prove the exact server-side failure path.
 
 On 2026-10-20 the maintainer explicitly accepted this as noncritical and excluded
 Sunshine fixes and client workarounds. The uncommitted host patch/materials were
-removed; no runtime code was changed for this issue. Preserve client identity,
+removed; no runtime code was changed for F6 at that stage. The later F7 client retry-loop
+fix is separate from this server compatibility limitation. Preserve client identity,
 authentication and error classification. Continue independent client API work.
+
+### F7 — Pairing error dismissal starts another attempt — client fix, Vita validation pending
+
+**Root cause:** Pairing::DialogPollTask unconditionally called RetryPairing after every
+non-network error dialog finished. RetryPairing generated another PIN and enqueued Pair.
+Thus a protocol rejection (including duplicate pairing-session status) could repeatedly
+produce another request, another dialog and another PIN. The new runtime log demonstrates
+that sequence. It does not prove unsolicited dialog completion without user input.
+
+**Reference:** [Moonlight Qt NvPairingManager::pair](https://github.com/moonlight-stream/moonlight-qt/blob/master/app/backend/nvpairingmanager.cpp)
+returns a terminal PIN_WRONG/FAILED result for a failed attempt. Its separate legacy
+/unpair cleanup is not applicable to Sunshine and is not copied here.
+
+**Minimal change:** every failed attempt ends after its existing native OK dialog and
+returns through the Base stack to the parent PC page. Remove RetryPairing and its obsolete
+error-result member; change the incorrect-PIN message to describe explicit PC selection.
+The constructor still starts a user-selected attempt; successful pairing still opens Apps.
+No new endpoint, timer, server patch, authentication change or client identity change.
+This addresses client error navigation and does not promise immediate server retry readiness.
+
+**Regression risks / checks:** non-build diff/call-path review and existing Python checks;
+no application or resource build. On Vita, incorrect PIN and protocol/network/security
+errors should each produce one dialog, then Search/Main, with no new request/PIN while
+idle. Select the PC again to verify explicit re-entry; record any retained host session
+as a server response, without restarting a client loop. Check normal correct-PIN → Apps
+and Back behavior. Build and all new hardware checks remain maintainer-owned and pending.
 
 ## 5. Required validation (all new cases pending)
 
@@ -1031,8 +1090,8 @@ Moonlight is subsequently user-confirmed. Wrong-PIN rejection (-1001), error/new
 retry initiation are now user/log verified, but the next request subsequently fails with an
 empty HTTP response/-1002 after submitting the new PIN (F6). The maintainer accepts
 this as noncritical; Sunshine patches and client workarounds are out of scope. The next
-independent implementation task is scalable app-list presentation (64 backend / 8 UI).
-Remaining setup-cancel/race, trust/error and
+client check is the F7 single-error-dialog flow on Vita. Then continue the independent
+scalable app-list task (64 backend / 8 UI). Remaining setup-cancel/race, trust/error and
 repeated-recovery cases stay open. Complete the remaining T3/T4/T5/T8/T9 error/trust matrix. No
 administrative Sunshine credentials are introduced.
 

@@ -17,7 +17,6 @@ Pairing::Pairing(const char pin[5])
            paf::Plugin::TransitionType_SlideFromBottom,
            paf::Plugin::TransitionType_SlideFromBottom),
       m_pairing_started(false),
-      m_last_error_result(MOONLIGHT_PAIRING_ERROR_INTERNAL),
       m_dialog_open(false),
       m_dialog_task_registered(false)
 {
@@ -147,13 +146,11 @@ void Pairing::StartPairing()
 
 void Pairing::ShowPairingError(int result)
 {
-    m_last_error_result = result;
-
     const char *message = "Unable to complete pairing.";
 
     switch (result) {
     case MOONLIGHT_PAIRING_ERROR_INCORRECT_PIN:
-        message = "Incorrect PIN. Enter the new PIN in the Sunshine Web UI.";
+        message = "Incorrect PIN. Select the PC again to retry pairing.";
         break;
 
     case MOONLIGHT_PAIRING_ERROR_NETWORK:
@@ -229,36 +226,12 @@ void Pairing::DialogPollTask(void *userdata)
         pairing->m_dialog_task_registered = false;
     }
 
-    if (pairing->m_last_error_result == MOONLIGHT_PAIRING_ERROR_NETWORK) {
-        /*
-         * There is no useful automatic retry when the PC/network is
-         * unreachable. Close the pairing page and return to the PC list
-         * instead of restarting the pairing loop every time the dialog ends.
-         */
-        Base::CloseCurrent();
-        return;
-    }
-
-    pairing->RetryPairing();
-}
-
-void Pairing::RetryPairing()
-{
-    MoonlightApp *app = MoonlightApp::Instance();
-    if (!app) {
-        SetStatus("Pairing unavailable.");
-        return;
-    }
-
-    char pin[5] = {0};
-    int result = app->Pairing().Prepare(pin);
-    if (result != 0) {
-        SetStatus("Unable to prepare pairing.");
-        return;
-    }
-
-    SetPin(pin);
-    StartPairing();
+    /*
+     * A failed attempt is terminal. Acknowledging its error must not enqueue
+     * another handshake or replace the PIN while the host finishes the old
+     * attempt. Selecting the PC again explicitly starts a new attempt.
+     */
+    Base::CloseCurrent();
 }
 
 void Pairing::OnMoonlightEvent(
