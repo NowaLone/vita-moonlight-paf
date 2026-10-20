@@ -84,6 +84,9 @@ typedef struct MoonlightApplication {
     char name[256];
 } MoonlightApplication;
 
+/* Shared bound of the backend cache, not a separate page presentation limit. */
+enum { MOONLIGHT_MAX_APPLICATIONS = 64 };
+
 typedef enum MoonlightConnectionState {
     MOONLIGHT_CONNECTION_DISCONNECTED = 0,
     MOONLIGHT_CONNECTION_READY,

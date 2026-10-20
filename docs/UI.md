@@ -274,8 +274,20 @@ Only these `_common_*` names appear in the XML and are known to resolve: `_commo
 - Refresh: `DeleteCell(0, 0, existing)` then `InsertCell(0, 0, count)`. **The third argument of `DeleteCell` is a
   count, not the last index** **[hw on Main]**; `existing - 1` leaves a stale cell behind (a duplicate row). Search and
   Apps use the same call; their hardware check is open.
-- Cells are created lazily by the factory; do not keep widget pointers across a refresh. Row arrays hold at most 8
-  entries.
+- Cells are created lazily by the factory; do not keep widget pointers across a refresh. Main/Search host arrays
+  still hold at most eight entries. Apps now owns a `paf::vector<MoonlightApplication>` sized from the
+  `APPLICATIONS_READY` count, bounded by the backend's shared `MOONLIGHT_MAX_APPLICATIONS` (64), with no
+  separate eight-row cap **[code, 2026-10-20]**. It deletes old cells before replacing data and inserts exactly
+  the copied count. An empty ready result shows the empty state without calling `GetAll(NULL, 0)`, which would
+  start another refresh. An invalid count/cache failure shows a load error.
+- Apps buttons store the application ID in their PAF name. Their callback receives the page and resolves that ID
+  in its current list, following BetterHomebrewBrowser's `EntryCB`/factory pattern. It holds no pointers into
+  vector elements or a fixed callback-context array. Main/Search callbacks are unchanged. The existing
+  `template_list_item_generic`/native ListView scrolling and 80 px row geometry remain in use.
+- `[Apps] ShowApps count=... cells before=... after_delete=... after_insert=...` is emitted once per successful
+  list population through the existing console debug toggle. Verify `after_delete=0`, `after_insert=count`,
+  scrolling and selection beyond row eight, empty/smaller-list re-entry and correct app ID at launch on Vita
+  **[open]**. The source-only change has not been built or device-tested by the agent.
 - Selection mode rebuilds the cells and picks `template_host_list_item_select` instead of `template_host_list_item`.
   The checkbox exists only in the select template.
 

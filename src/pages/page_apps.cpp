@@ -1,7 +1,7 @@
 #include <paf.h>
-#include <string.h>
 
 #include "common.h"
+#include "debug.h"
 
 #include "pages/page_apps.h"
 #include "app/moonlight_app.h"
@@ -12,10 +12,6 @@
 
 namespace page {
 
-namespace {
-static const int kMaxApps = 8;
-}
-
 Apps::Apps()
     : Base("page_apps", "btn_close_apps",
            paf::Plugin::TransitionType_SlideFromBottom,
@@ -25,12 +21,6 @@ Apps::Apps()
       m_launching(false),
       m_list(NULL) {
     if (!IsValid()) return;
-
-    for (int i = 0; i < kMaxApps; ++i) {
-        memset(&m_apps[i], 0, sizeof(m_apps[i]));
-        m_button_contexts[i].page = this;
-        m_button_contexts[i].index = i;
-    }
 
     m_list = static_cast<paf::ui::ListView *>(
         root->FindChild("list_view_generic"));
@@ -104,13 +94,13 @@ paf::ui::ListItem *Apps::CreateListItem(
         return item;
     }
 
-    button->SetName((uint32_t)param.cell_index);
+    const MoonlightApplication &app = m_apps[param.cell_index];
+    button->SetName((uint32_t)app.id);
     button->AddEventCallback(
         paf::ui::ButtonBase::CB_BTN_DECIDE,
         OnAppButton,
-        &m_button_contexts[param.cell_index]);
+        this);
 
-    const MoonlightApplication &app = m_apps[param.cell_index];
     button->SetString(
         paf::common::string_util::ToWString(
             app.name[0] ? app.name : "Application"));
@@ -123,13 +113,19 @@ void Apps::OnAppButton(int32_t type,
                        paf::ui::Event *event,
                        void *userdata) {
     (void)type;
-    (void)self;
     (void)event;
 
-    AppButtonContext *context = (AppButtonContext *)userdata;
-    if (!context || !context->page) return;
+    Apps *apps = static_cast<Apps *>(userdata);
+    paf::ui::Widget *button = static_cast<paf::ui::Widget *>(self);
+    if (!apps || !button) return;
 
-    context->page->SelectApp(context->index);
+    const uint32_t app_id = button->GetName().GetIDHash();
+    for (int i = 0; i < apps->m_app_count; ++i) {
+        if ((uint32_t)apps->m_apps[i].id == app_id) {
+            apps->SelectApp(i);
+            return;
+        }
+    }
 }
 
 void Apps::SelectApp(int index) {
@@ -174,20 +170,36 @@ void Apps::HideStatus() {
     }
 }
 
-void Apps::ShowApps() {
+void Apps::ShowApps(int count) {
     if (!root || !m_list) return;
-
-    m_app_count = MoonlightApp::Instance()->Applications().GetAll(
-        m_apps,
-        kMaxApps);
-
-    if (m_app_count < 0) m_app_count = 0;
-    if (m_app_count > kMaxApps) m_app_count = kMaxApps;
 
     const int existing = m_list->GetCellNum(0);
     if (existing > 0) {
         /* DeleteCell's third argument is a cell count, not the last index. */
         m_list->DeleteCell(0, 0, existing);
+    }
+    const int cells_after_delete = m_list->GetCellNum(0);
+
+    /* Remove the old cells before changing their backing data. */
+    m_app_count = 0;
+    m_apps.clear();
+    if (count < 0 || count > MOONLIGHT_MAX_APPLICATIONS) {
+        SetStatus("Unable to load applications.");
+        return;
+    }
+
+    /* GetAll(NULL, 0) starts a network refresh, so an empty ready result needs no copy. */
+    if (count > 0) {
+        m_apps.resize(count);
+        m_app_count = MoonlightApp::Instance()->Applications().GetAll(
+            m_apps.data(), count);
+        if (m_app_count < 0 || m_app_count > count) {
+            m_app_count = 0;
+            m_apps.clear();
+            SetStatus("Unable to load applications.");
+            return;
+        }
+        m_apps.resize(m_app_count);
     }
 
     if (m_app_count > 0) {
@@ -202,6 +214,9 @@ void Apps::ShowApps() {
     } else {
         SetStatus("No applications available.");
     }
+
+    vita_debug_log("[Apps] ShowApps count=%d cells before=%d after_delete=%d after_insert=%d",
+        m_app_count, existing, cells_after_delete, m_list->GetCellNum(0));
 }
 
 void Apps::OnMoonlightEvent(
@@ -212,7 +227,7 @@ void Apps::OnMoonlightEvent(
 
     switch (event->type) {
     case MOONLIGHT_EVENT_APPLICATIONS_READY:
-        apps->ShowApps();
+        apps->ShowApps(event->result);
         break;
 
     case MOONLIGHT_EVENT_APPLICATIONS_FAILED: {

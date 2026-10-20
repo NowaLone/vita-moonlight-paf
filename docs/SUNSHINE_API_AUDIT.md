@@ -552,7 +552,9 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Current:** L1 reuses authenticated curl handle and refreshes a 64-entry global cache through
   L4 ApplicationService job. The 2026-10-20 source follow-up validates XML status and invalidates
   the cache on connect/disconnect/shutdown and failed refresh. Requests are rejected during stream
-  setup/streaming/disconnect. L7 still displays only eight apps; the backend remains bounded at 64.
+  setup/streaming/disconnect. L7 now owns a vector sized to the ready count and copies all available
+  cached apps, with a shared backend bound of 64. The fixed eight-row/context arrays are removed
+  in the separate 2026-10-20 presentation follow-up; build/Vita verification is pending.
 - **Upstream / Sunshine:** S emits the configured app list; QH `getAppList` verifies status before
   XML parsing; V uses its XML parser.
 - **Verified / runtime:** source; T2/T4 cover revoked client, valid empty list, two hosts with
@@ -910,8 +912,9 @@ older GFE BUSY semantics; T5/T8. Do not introduce a destructive `/cancel` as an 
 root status plus verb-result validation, entity decoding, per-App fields, strict IDs, URL validation
 and cache invalidation. Shared HTTP transfers now reinstall their own callback/buffer/timeout under
 a mutex, including shutdown exclusion; app-list no longer inherits the previous launch callback.
-This fixes request-buffer ownership, not all asynchronous API state races (F5). Backend/UI limits
-remain 64/8. C grammar checks passed; C parser fixtures and Vita/Sunshine tests remain unrun.
+This fixes request-buffer ownership, not all asynchronous API state races (F5). The later separate
+Apps presentation change removes the eight-row limit through a page-owned vector; the backend
+bound remains 64. C grammar checks passed; C parser fixtures and the new UI Vita matrix remain unrun.
 The root cause below describes the audit baseline.
 
 **Root cause:** L1 marks app cache valid after any curl-successful body. L2 accepts an OR of
@@ -1114,6 +1117,34 @@ confirmed by this message. No further runtime change is warranted for the report
 flow; continue the independent app-list presentation task. F6 remains an accepted
 version-specific limitation and the broader T3/T9 matrix stays open.
 
+### Apps presentation beyond eight — separate source follow-up, 2026-10-20
+
+**Root cause:** page Apps requested/clamped to kMaxApps=8 and owned both app and callback
+arrays of eight, despite the API cache already holding 64. Raising the parser limit
+alone could not expose entries 9–64. The PAF resource has no eight-cell restriction.
+
+**Reference:** the locally inspected BetterHomebrewBrowser `9e615e9186bf7ca5fb985dc06c1a5e06c47f24f5`
+[factory and EntryCB](https://github.com/Ibrahim778/BetterHomebrewBrowser/blob/9e615e9186bf7ca5fb985dc06c1a5e06c47f24f5/src/pages/app_browser.cpp)
+use page-owned list data and a widget name containing the entry's identity, with the
+page as callback userdata. Its ClearList uses the full cell count. These are PAF
+ownership references; no streaming/protocol code is moved into Apps.
+
+**Minimal change:** Apps owns a paf::vector sized to APPLICATIONS_READY's stored count.
+A shared MOONLIGHT_MAX_APPLICATIONS=64 expresses the unchanged backend cache bound.
+Old cells are deleted before data replacement; invalid counts/cache-copy errors leave
+an empty list with an error, while a valid zero count shows the empty state without
+issuing another refresh. Rows carry the real application ID and resolve it in the page's
+current snapshot on selection; no callback retains an address in resizable storage.
+The existing ListView/template handle scrolling. One console-only population diagnostic
+reports count and cells before/delete/insert. Main/Search host limits are unchanged.
+
+**Risks/validation:** check 0/1/9/64 apps, 65 configured apps (the API still stores only
+64), select entries 9/64 and compare the launch ID, reopen with a shorter/empty list,
+switch between hosts, and check normal stream return/Back. The existing six non-build
+checks pass and source review covers ready-count delivery, SDK vector/name APIs and
+callback/data lifetime. They do not execute PAF. No build or new hardware test was run
+by the agent. F5 shared-cache/event races remain outside this change.
+
 ## 5. Required validation (all new cases pending)
 
 For every run record client source/package revision, Vita firmware/device, deployed Sunshine version
@@ -1180,8 +1211,9 @@ empty HTTP response/-1002 after submitting the new PIN (F6). The maintainer acce
 this as noncritical; Sunshine patches and client workarounds are out of scope. The
 maintainer now gives qualified user confirmation that the discussed recovery flow
 appears OK, without a new log or separately stated Apps result. F7 Search error navigation
-and the 409 dialog are verified on one Vita. Next continue the independent scalable
-app-list task (64 backend / 8 UI). Remaining setup-cancel/race, trust/error and
+and the 409 dialog are verified on one Vita. The separate Apps vector change now
+exposes all cached entries in source, up to the unchanged backend bound of 64. Next
+validate its scrolling and selection beyond eight on Vita. Remaining setup-cancel/race, trust/error and
 repeated-recovery cases stay open. Complete the remaining T3/T4/T5/T8/T9 error/trust matrix. No
 administrative Sunshine credentials are introduced.
 

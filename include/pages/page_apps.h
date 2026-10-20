@@ -26,23 +26,17 @@ public:
     paf::ui::ListItem *CreateListItem(paf::ui::listview::ItemFactory::CreateParam &param);
 
 private:
-    struct AppButtonContext {
-        Apps *page;
-        int index;
-    };
-
     static void OnAppButton(int32_t type, paf::ui::Handler *self, paf::ui::Event *event, void *userdata);
     static void OnMoonlightEvent(const MoonlightEvent *event, void *userdata);
     void SetStatus(const char *text);
     void HideStatus();
-    void ShowApps();
+    void ShowApps(int count);
     void SelectApp(int index);
 
-    MoonlightApplication m_apps[8];
+    paf::vector<MoonlightApplication> m_apps;
     int m_app_count;
     int m_selected_index;
     bool m_launching;
-    AppButtonContext m_button_contexts[8];
     paf::ui::ListView *m_list;
 
 };
