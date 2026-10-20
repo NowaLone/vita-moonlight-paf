@@ -262,6 +262,9 @@ manual stop, reconnect and another 18008 frames without allocation failure or
 crash. Newlib used returned to 96768 / 96936 bytes after the two stops, and final
 USER_RW free was identical at 32952 KiB. This verifies the reported memory-failure
 fix and one reconnect on the tested device; broader compatibility remains open.
+The user also verified streaming/reconnect, Settings, Quick Actions and returning
+to the suspended game with heap tracing OFF and the same budgets. The ordinary
+profile's regression smoke test after the shared pthread-bootstrap fix is pending.
 An optional diagnostic build records allocation call sites (maintainer command):
 
 ```bash

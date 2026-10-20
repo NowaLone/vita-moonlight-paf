@@ -836,3 +836,15 @@ Only documentation/checklist status changes follow this retest. The agent parsed
 the supplied log, checked counters/order and resolved the PTE caller in the local
 ELF; it did not build or run the application. Heap tracing can now be disabled
 with `-DMOONLIGHT_HEAP_TRACE=OFF` while retaining the tested budget options.
+
+### User confirmation with heap tracing disabled
+
+After the explicit build command with system mode ON, total 65536 KiB, physical
+reservation zero, newlib 6144 KiB and heap tracing OFF, the user reports all
+requested checks passed: streaming, reconnect, Settings, Quick Actions and return
+to the resident Vita game. This extends user validation to the non-tracing build
+on the same device. There is no new log or timing/heap measurement in this reply;
+the quantitative evidence remains the preceding traced run. The ordinary profile
+still needs a regression smoke test of the shared pthread-bootstrap change.
+No runtime source/budget defaults change in this documentation update, and no
+agent build or hardware test was run.

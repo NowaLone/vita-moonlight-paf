@@ -122,8 +122,10 @@ checks below remain pending.
   sound, controls, stop and return to the suspended game on the tested Vita.
 - [x] Verify two longer streams, one stop/reconnect cycle and stable sampled
   post-cleanup memory on the tested Vita with the 64 MiB / 6 MiB configuration.
-- [ ] Validate native Settings/dialogs/Quick Actions with the larger budget and
-  broader device/game compatibility; extend duration/reconnect-cycle coverage.
+- [x] Verify streaming/reconnect, Settings, Quick Actions and return to the
+  suspended game with heap tracing OFF on the tested Vita and 64 MiB budget.
+- [ ] Smoke-test the ordinary profile after the shared pthread-bootstrap fix;
+  broaden dialog/error-path, device/game and endurance coverage.
 
 User validation of `8b5d9a5` with total 65536 KiB, PHYCONT zero, mode A:
 library query 5767168 bytes, decoder query 8388608 bytes, arena 15728640 bytes;
@@ -193,6 +195,13 @@ this does not establish zero retained bytes over arbitrary reconnect counts.
 The first session also logs overlay enter/return, neutral host input and PS
 suppression clearing; broader native-UI verification remains separate. These are
 maintainer-run device results; the agent only parsed logs and inspected the ELF.
+
+The user subsequently reports all requested checks passed with heap tracing OFF:
+streaming, reconnect, Settings, Quick Actions and returning to the resident Vita
+game, using the same 65536/0/6144 KiB total/physical/newlib configuration. This is
+an explicit user result, not a new measured memory log. The ordinary profile still
+needs its regression smoke test because pthread bootstrap is shared. No agent
+build/device test ran; this follow-up changes only verification documentation.
 
 ## Requested: full stream diagnostics overlay (2026-10-19)
 
