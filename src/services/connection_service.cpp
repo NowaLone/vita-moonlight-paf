@@ -116,15 +116,32 @@ int ConnectionService::BeginOperation(ForegroundOperation operation)
 
 int ConnectionService::StartWaitDialog()
 {
+    const char *message;
+    switch (m_operation) {
+    case Operation_Connect:
+        message = "Connecting to PC...";
+        break;
+    case Operation_Applications:
+        message = "Loading applications...";
+        break;
+    case Operation_Launch:
+        message = "Starting stream...";
+        break;
+    default:
+        return -1;
+    }
+
     SceMsgDialogParam param;
-    SceMsgDialogSystemMessageParam system_message;
+    SceMsgDialogUserMessageParam user_message;
     memset(&param, 0, sizeof(param));
-    memset(&system_message, 0, sizeof(system_message));
+    memset(&user_message, 0, sizeof(user_message));
 
     sceMsgDialogParamInit(&param);
-    system_message.sysMsgType = SCE_MSG_DIALOG_SYSMSG_TYPE_WAIT;
-    param.mode = SCE_MSG_DIALOG_MODE_SYSTEM_MSG;
-    param.sysMsgParam = &system_message;
+    user_message.buttonType = SCE_MSG_DIALOG_BUTTON_TYPE_NONE;
+    /* Static messages remain valid until the operation terminates the dialog. */
+    user_message.msg = (const SceChar8 *)message;
+    param.mode = SCE_MSG_DIALOG_MODE_USER_MSG;
+    param.userMsgParam = &user_message;
 
     int result = sceMsgDialogInit(&param);
     if (result < 0) {

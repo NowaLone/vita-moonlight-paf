@@ -1041,6 +1041,14 @@ events lack the job-result fallback. Stop/Disconnect APIs are not serialized by 
 late events, shutdown and broader backend/cache races remain open. No universal F5 closure
 or device verification is claimed. Check `[Workflow]` operation 1/2/3 handoffs on Vita.
 
+**UI follow-up, 2026-10-21:** the maintainer reports the wait window appeared only during
+launch after `e838d91`; Connect/Apps still showed inline progress. The source still had those
+page status calls. They are now removed/hidden for foreground progress; ConnectionService
+shows the operation text in SceMsgDialog USER_MSG/NONE instead of generic system WAIT.
+This changes presentation only, with the same reservation/completion ownership and no
+protocol changes or artificial delay. Earlier short-step dialog visibility is not explained
+by the supplied observation alone. Build, no-button dialog appearance and handoffs remain pending.
+
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.

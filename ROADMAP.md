@@ -611,6 +611,11 @@ ongoing stream threads and main-thread completion delivery remain. This is the t
   wait on the PAF main thread. PIN cancellation and stream cleanup ownership remain separate;
   Stop/Disconnect APIs and broader F5 races remain open. Check Connect → Apps/loading → launch
   WAIT → playback, failure handoffs and repeated activation/Back. No agent build/device test.
+  User feedback 2026-10-21: wait appeared only for launch; Connect/Apps still showed page text.
+  Source follow-up moves the three operation messages into native SceMsgDialog USER_MSG/NONE,
+  hides/removes duplicate page progress, and restores Search status visibility for errors/idle.
+  The visibility cause of the earlier short-step dialogs is unconfirmed; no timed delay added.
+  Follow-up build and Vita appearance/handoff verification remain pending.
 
 Source findings and isolated follow-ups (basic user smoke test passed; full runtime acceptance remains pending):
 

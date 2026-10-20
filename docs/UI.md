@@ -88,7 +88,24 @@ by this three-operation reservation. Pages still own presentation/navigation.
 
 Diagnostics: `[Workflow] begin operation=N` / `complete operation=N ...`, with Connect=1,
 Applications=2, Launch=3. Verify successive WAIT handoffs, failures, blocked Back/repeated
-activation and transition into playback on Vita. No new hardware result is recorded here.
+activation and transition into playback on Vita.
+
+**User feedback / source follow-up, 2026-10-21:** after `e838d91`, the maintainer saw the
+wait window only during stream launch, while Connect/Apps still displayed page status.
+The page calls did still write progress text; they are now removed/hidden for saved/manual
+Connect, Search selection, Apps loading and launch. Pairing success no longer says it is
+loading apps behind the Apps page. Search `SetStatus()` explicitly shows the widget again
+for error/discovery/idle states after hiding it during connection.
+
+ConnectionService's progress dialog now uses native `SceMsgDialog` USER_MSG with
+BUTTON_TYPE_NONE and a static-lifetime message for the current operation: `Connecting to PC...`,
+`Loading applications...`, or `Starting stream...`. It closes automatically on completion
+through the existing Abort/FINISHED/Term handoff; errors/empty lists remain page state and
+the PIN remains visible. The installed VitaSDK header defines this mode and button type;
+this replaces the generic system WAIT text rather than adding a custom PAF dialog.
+No artificial minimum display time is added. The reason for the unseen earlier short-step
+dialogs is not established without logs. This source follow-up still needs build/Vita checks,
+including the no-button dialog's appearance and immediate Connect → Apps handoff.
 
 ## 2. Screen geometry and the layout language
 

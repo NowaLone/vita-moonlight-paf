@@ -40,7 +40,7 @@ Apps::Apps()
             paf::common::string_util::ToWString("Applications"));
     }
 
-    SetStatus("Loading applications...");
+    HideStatus(); /* ApplicationService opens the native progress message. */
 
     int result = MoonlightApp::Instance()->Applications().Refresh();
     if (result != 0) {
@@ -133,7 +133,7 @@ void Apps::SelectApp(int index) {
 
     m_launching = true;
     m_selected_index = index;
-    SetStatus("Launching application...");
+    HideStatus();
 
     int result = MoonlightApp::Instance()->Connection().Start(
         m_apps[index].id);
@@ -146,8 +146,6 @@ void Apps::SelectApp(int index) {
         SetStatus(status.c_str());
         return;
     }
-
-    SetStatus("Waiting for PC...");
 }
 
 void Apps::SetStatus(const char *text) {

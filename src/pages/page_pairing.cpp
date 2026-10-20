@@ -261,7 +261,7 @@ void Pairing::OnMoonlightEvent(
     case MOONLIGHT_EVENT_PAIRING_FINISHED:
         pairing->m_pairing_started = false;
         if (event->result == 0) {
-            pairing->SetStatus("Paired. Loading applications...");
+            pairing->SetStatus("Paired.");
 
             if (!Base::IsOpen("page_apps")) {
                 Apps *apps = new Apps();

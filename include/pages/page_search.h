@@ -35,6 +35,7 @@ private:
     static void OnMoonlightEvent(const MoonlightEvent *event, void *userdata);
     void RefreshHosts();
     void SetStatus(const char *text);
+    void HideStatus();
     void SelectHost(int index);
     void OnConnectionReady();
 

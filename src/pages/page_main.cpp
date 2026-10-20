@@ -573,10 +573,7 @@ void Main::SelectHost(int index)
         list->SetActivate(false);
     }
 
-    paf::string status = paf::common::FormatString(
-        "Connecting to %s...",
-        m_hosts[index].name[0] ? m_hosts[index].name : m_hosts[index].internal);
-    SetStatus(status.c_str());
+    HideStatus(); /* ConnectionService owns the native progress message. */
 
     int result = MoonlightApp::Instance()->Connection().Connect(m_hosts[index]);
     if (result != 0) {
@@ -1079,7 +1076,7 @@ void Main::StartManualConnection(const char *address)
         list->SetActivate(false);
     }
 
-    SetStatus("Connecting to PC...");
+    HideStatus();
 
     int result = MoonlightApp::Instance()->Connection().Connect(host);
     if (result != 0) {

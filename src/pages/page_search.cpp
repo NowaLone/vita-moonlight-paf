@@ -136,7 +136,7 @@ void Search::SelectHost(int index) {
 
     app->Discovery().Stop();
 
-    SetStatus("Saving PC...");
+    HideStatus();
     int add_result = app->Hosts().Add(
         host.internal,
         host.port,
@@ -198,8 +198,6 @@ void Search::SelectHost(int index) {
         saved_count,
         canonical_host.host_id);
 
-    SetStatus("Connecting to PC...");
-
     int connect_result = app->Connection().Connect(canonical_host);
     if (connect_result != 0) {
         paf::string status = paf::common::FormatString(
@@ -220,7 +218,6 @@ void Search::OnConnectionReady() {
     }
 
     if (app->Connection().State() == MOONLIGHT_CONNECTION_PAIRED) {
-        SetStatus("PC is paired. Loading applications...");
         if (!Base::IsOpen("page_apps")) {
             Apps *apps = new Apps();
             if (!apps->IsValid()) {
@@ -259,6 +256,16 @@ void Search::SetStatus(const char *text) {
 
     ((paf::ui::Text *)widget)->SetString(
         paf::common::string_util::ToWString(text));
+    widget->Show(paf::common::transition::Type_Reset);
+}
+
+void Search::HideStatus() {
+    if (!root) return;
+
+    paf::ui::Widget *widget = root->FindChild("text_search_status");
+    if (widget) {
+        widget->Hide(paf::common::transition::Type_Reset);
+    }
 }
 
 void Search::RefreshHosts() {
