@@ -515,6 +515,13 @@ limits and partial documents; T4/T5. No parser test or code change was performed
 
 ### F4 — Server TLS identity is not pinned; signature error check is too broad
 
+**Source follow-up, 2026-10-20:** signature return handling and security-before-PIN ordering are
+now implemented. Each EVP stage must return 1; a negative final crypto error cannot become boolean
+success. Pairing clears stale attempt errors. The non-build `tests/test_pairing_verification.py`
+interprets the actual C expression AST for 27 mocked EVP combinations and checks ordering; it does
+not run OpenSSL, compile C or verify Vita behavior. TLS pinning remains open. The original finding
+below describes the audit baseline, not the corrected signature-check source.
+
 **Root cause:** L3 authenticates the client certificate but disables server certificate verification.
 The verified pairing server certificate is discarded. In `verify_signature`, logical `&&` coerces
 `EVP_DigestVerifyFinal` to boolean, so a negative crypto error also becomes true when prior calls

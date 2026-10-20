@@ -1031,7 +1031,7 @@ static bool verify_signature(
     result =
         EVP_DigestVerifyInit(context, NULL, EVP_sha256(), NULL, public_key) == 1 &&
         EVP_DigestVerifyUpdate(context, data, data_length) == 1 &&
-        EVP_DigestVerifyFinal(context, signature, signature_length);
+        EVP_DigestVerifyFinal(context, signature, signature_length) == 1;
 
     EVP_MD_CTX_destroy(context);
     EVP_PKEY_free(public_key);
@@ -1100,6 +1100,7 @@ static int decrypt_ecb(
 
 static int pair(LegacyGameStreamServer *server, const char *pin)
 {
+    s_error[0] = '\0';
     s_last_http_result = CURLE_OK;
 
     unsigned char salt_data[16];
@@ -1399,6 +1400,18 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
         }
     }
 
+    /* Authenticate the proof before attributing a challenge mismatch to the PIN. */
+    if (!verify_signature(
+            pairing_secret,
+            16,
+            pairing_secret + 16,
+            SIGNATURE_LEN,
+            plaincert)) {
+        http_buffer_free(&response);
+        set_error("MITM attack detected");
+        return LEGACY_GAMESTREAM_FAILED;
+    }
+
     {
         unsigned char server_certificate_signature[SIGNATURE_LEN];
         unsigned char expected_response_input[16 + SIGNATURE_LEN + 16];
@@ -1442,17 +1455,6 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
             set_error("Incorrect pairing PIN");
             return LEGACY_GAMESTREAM_FAILED;
         }
-    }
-
-    if (!verify_signature(
-            pairing_secret,
-            16,
-            pairing_secret + 16,
-            SIGNATURE_LEN,
-            plaincert)) {
-        http_buffer_free(&response);
-        set_error("MITM attack detected");
-        return LEGACY_GAMESTREAM_FAILED;
     }
 
     if (rsa_sign(
