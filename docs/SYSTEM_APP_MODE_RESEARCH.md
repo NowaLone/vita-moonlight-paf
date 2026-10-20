@@ -716,3 +716,68 @@ reproduce the overwrite in the prior source and verify preservation of all four
 wrappers, startup flags and any earlier flags after the fix, with tracing ON/OFF.
 Inspection/checks are distinct from relinking: no build/link command was executed
 by the agent, and the maintainer's successful build and Vita trace remain pending.
+
+### Diagnostic run: skipped pthread initialization and ENet OOM abort
+
+The user's next log identifies `df0792aa9951`, with tracing enabled and the same
+65536/6144 KiB total/newlib budgets. It advances through all eleven setup stages
+and video decoding. Before setup the trace contains 3731 blocks / 75143 bytes;
+after setup it contains 4206 / 664152. At video OOM it reports a failed 1088-byte
+request at runtime caller `0x8107f8e5`. The trace table is full (8192 entries,
+82007 dropped insertions, 53597 unknown frees). Its 1303038 tracked live bytes
+cannot be used as the complete heap usage. There are no replaced-pointer or
+zero-realloc events in this capture.
+
+Read-only inspection uses the matching local unstripped ELF:
+
+- ELF SHA-256: `e058bddace01772f2394891e9d114fdd158d284468e5f6a20313696be3ba4bdf`.
+- Supplied compressed dump SHA-256: `59c515143182de136dee1090c5f6b9313516b8b54e990700b768b8b12f6aa6a9`.
+- ELF `__wrap_malloc` is `0x8102a770`, runtime anchor is `0x81086771`.
+  Clear the Thumb bit before subtracting: RX relocation delta is `0x5c000`.
+- Failure return address maps to `VideoReceiveThreadProc`, VideoStream.c:129.
+- Runtime `0x8126225f` maps to return address `0x8120625e`, `pte_new` immediately
+  after `calloc(1, 160)`. This site holds 4048 tracked blocks / 647680 bytes at
+  failure, versus three blocks before setup. Overflow means this is a lower bound.
+- The numerous approximately 40 KiB sites map to the SPS parser's one-time tables;
+  their captured counts remain unchanged. OpenSSL's default allocator has thousands
+  of much smaller blocks, but this capture's dominant growing tracked site is PTE.
+
+Dump module RX base is `0x8105c000`; RW base is `0x81380000` and has a different
+relocation delta. Do not apply the RX delta to globals. The supplied dump contains
+thread/stack data but does not include the PTE globals' memory, so their runtime
+values were not read or assumed to be observed. The failed thread PC is
+`0x8126fd50` (`_kill_r`, deliberate undefined instruction). Its stack resolves to
+`abort` -> `enet_malloc` (callbacks.c:46), outgoing ENet control queueing and
+encrypted control sending. ENet's default no-memory callback is `abort`. The earlier
+video OOM and failed AsyncTerm creation are ordered in the log before this abort;
+the dump does not indicate a decoder fault or prove a thread stack overflow.
+
+The local ELF has a `.init_array` entry `0x81000021`, `pthread_setup`, whose only
+call initializes pthread. There is no other call to `pthread_init` in the old
+executable. The custom module_start manually initializes newlib but never runs
+that constructor. The linked `pthread_self` calls `pte_new` whenever the self TLS
+key has no value; with an uninitialized NULL key, pthread_getspecific returns
+NULL and pthread_setspecific cannot retain the identity. Repeated pthread API
+use therefore accumulates 160-byte thread records, consistent with this trace.
+The public SDK header declares the required explicit lifecycle functions. Upstream
+[pthread_init.c](https://github.com/vitasdk/pthread-embedded/blob/master/pthread_init.c)
+also documents explicit initialization, creates the self/cleanup keys and returns
+nonzero on success; the local machine code confirms those semantics.
+
+The bootstrap now calls pthread_init after newlib and the system heap probe,
+before entering PAF/application code, in both profiles. Initialization failure,
+NULL identity or unequal successive pthread_self results stop startup and unwind
+newlib. A successful initialization is paired with pthread_terminate after app
+shutdown and before newlib teardown, including later startup-failure cleanup.
+It does not run unrelated constructors, alter vendored protocol/ENet/PTE sources,
+increase heap capacity or suppress the ENet OOM abort. Bootstrap errors use the
+existing early console error path; allocation tracing remains opt-in.
+
+Non-build checks interpret the actual bootstrap C AST for ordinary/system paths:
+initialization and teardown order, nonzero pthread-init success values, init
+failure, NULL/changing identity, PAF module load failure and heap-probe failure.
+ELF symbol/disassembly checks and dump parsing are read-only. No compilation,
+linking, packaging or hardware test was run by the agent. The maintainer should
+repeat a longer stream and reconnects with tracing, retaining the same 6 MiB heap,
+then compare settled before/after snapshots and confirm the suspended game resumes.
+The source cause is addressed; sustained runtime stability remains unverified.

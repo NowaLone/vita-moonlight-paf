@@ -254,6 +254,10 @@ The longer user run stopped after 2732 decoded frames with `Video Receive: mallo
 failed`. After teardown, newlib still reported 5591728 used bytes in its 6 MiB
 heap, while USER_RW had 31412 KiB free. Allocation ownership and fragmentation
 must be investigated before treating the system profile as stable for longer sessions.
+The subsequent diagnostic run identified repeated pthread thread-record allocations:
+the custom entry point skipped VitaSDK's pthread constructor. Startup now explicitly
+initializes pthread after newlib and verifies stable thread identity before entering
+PAF. This source fix still needs a longer device retest with the same 6 MiB heap.
 An optional diagnostic build records allocation call sites (maintainer command):
 
 ```bash

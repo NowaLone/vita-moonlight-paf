@@ -3,6 +3,7 @@
 #include <psp2/kernel/clib.h>
 #include <psp2/sysmodule.h>
 #include <paf.h>
+#include <pthread.h>
 #include <stdlib.h>
 
 char    sceUserMainThreadName[]          = "vita_moonlight_paf";
@@ -55,7 +56,7 @@ typedef struct {
 	int heap_opt_param2;
 } ScePafInit;
 
-/* Custom module_start bypasses VitaSDK crt0, so provide its newlib lifecycle. */
+/* Custom module_start bypasses VitaSDK crt0; own the newlib/pthread lifecycle. */
 void _init_vita_heap(void);
 void _init_vita_reent(void);
 void _init_vita_malloc(void);
@@ -64,6 +65,7 @@ void _free_vita_io(void);
 void _free_vita_malloc(void);
 void _free_vita_reent(void);
 void _free_vita_heap(void);
+static int s_pthreads_initialized;
 
 /*
  * -nostartfiles/-nostdlib removes crti/crtn, which normally provide
@@ -80,6 +82,10 @@ void _fini(void)
 
 void _free_vita_newlib(void)
 {
+	if (s_pthreads_initialized) {
+		pthread_terminate();
+		s_pthreads_initialized = 0;
+	}
 	_free_vita_io();
 	_free_vita_malloc();
 	_free_vita_reent();
@@ -131,6 +137,23 @@ int module_start(SceSize args, void *argp){
 	}
 	free(heap_probe);
 #endif
+
+	/* crt0 would run pthread_setup from .init_array. Without it, pthread_self
+	 * cannot retain its TLS identity and leaks a thread record on every call.
+	 * VitaSDK pthread_init returns nonzero on success (not a POSIX error code).
+	 */
+	if (pthread_init() == 0) {
+		sceClibPrintf("[PAF Moonlight] Failed to initialize pthread runtime\n");
+		_free_vita_newlib();
+		return SCE_KERNEL_START_FAILED;
+	}
+	s_pthreads_initialized = 1;
+	pthread_t main_thread = pthread_self();
+	if (main_thread == 0 || !pthread_equal(main_thread, pthread_self())) {
+		sceClibPrintf("[PAF Moonlight] pthread TLS identity unavailable\n");
+		_free_vita_newlib();
+		return SCE_KERNEL_START_FAILED;
+	}
 
 	paf_runtime_main();
 

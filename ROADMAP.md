@@ -168,6 +168,18 @@ the earlier diagnostic flags. It now appends the Vita startup flags, preserving
 wrapping. Script-mode checks cover both blocks in source order; successful relink
 and the diagnostic device run remain pending. No agent build was run.
 
+The user's `df0792a` diagnostic build links and streams, then hits a 1088-byte
+video-receive allocation failure. ASLR-adjusted ELF addresses identify 4048 live
+160-byte records from pthread's `pte_new`; trace saturation means the 647680
+tracked bytes are a lower bound. The supplied dump ends in ENet's OOM `abort`,
+after the attempted AsyncTerm thread also failed to allocate. The entry point
+manually initialized newlib but skipped the `.init_array` pthread constructor.
+It now calls `pthread_init` before the app starts, verifies stable `pthread_self`
+identity and terminates pthread before releasing newlib. This applies to both
+profiles without changing heap budgets or dependency sources. Actual-bootstrap
+AST checks cover startup/teardown ordering and failure paths. Build and longer/
+repeated streams with settled heap measurements remain pending; no agent build ran.
+
 ## Requested: full stream diagnostics overlay (2026-10-19)
 
 Replace the existing FPS-only display with useful stream diagnostics based on the
