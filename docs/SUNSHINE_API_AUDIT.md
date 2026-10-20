@@ -1105,6 +1105,15 @@ and the broader display/error matrix remain open. No runtime change is justified
 by these two refusals; retry after the host finishes its prior attempt, then verify
 correct-PIN pairing/Apps separately.
 
+**Maintainer follow-up, 2026-10-20:** after the requested retry once the host's prior
+attempt finishes, the maintainer reports "ну теперь вроде всё ок" (qualified user
+confirmation that the discussed flow now appears OK). Record this as a user-reported
+recovery smoke result, without a new runtime trace. Final PIN/HTTPS phases, Apps
+retrieval, repeated recovery and the exact second-host version are not independently
+confirmed by this message. No further runtime change is warranted for the reported
+flow; continue the independent app-list presentation task. F6 remains an accepted
+version-specific limitation and the broader T3/T9 matrix stays open.
+
 ## 5. Required validation (all new cases pending)
 
 For every run record client source/package revision, Vita firmware/device, deployed Sunshine version
@@ -1168,11 +1177,11 @@ host-side revocation test is also log verified; reconnect without a PIN after re
 Moonlight is subsequently user-confirmed. Wrong-PIN rejection (-1001), error/new PIN and fresh
 retry initiation are now user/log verified, but the next request subsequently fails with an
 empty HTTP response/-1002 after submitting the new PIN (F6). The maintainer accepts
-this as noncritical; Sunshine patches and client workarounds are out of scope. The next
-client check is to enter the new PIN correctly after the host has ended its failed
-session and verify completed pairing and Apps retrieval. F7 Search error navigation is
-now verified on one Vita. Then continue the independent
-scalable app-list task (64 backend / 8 UI). Remaining setup-cancel/race, trust/error and
+this as noncritical; Sunshine patches and client workarounds are out of scope. The
+maintainer now gives qualified user confirmation that the discussed recovery flow
+appears OK, without a new log or separately stated Apps result. F7 Search error navigation
+and the 409 dialog are verified on one Vita. Next continue the independent scalable
+app-list task (64 backend / 8 UI). Remaining setup-cancel/race, trust/error and
 repeated-recovery cases stay open. Complete the remaining T3/T4/T5/T8/T9 error/trust matrix. No
 administrative Sunshine credentials are introduced.
 

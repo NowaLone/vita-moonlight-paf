@@ -156,8 +156,10 @@ error → OK → Search and one duplicate-session error → Search, with new req
 after explicit PC selection, on 2026-10-20 **[hw, tested Vita]**. After Sunshine displayed
 its delayed failure, another selection produced a new PIN and waited at getservercert;
 completed pairing/Apps after that recovery is not yet shown. Main return, other error
-types and correct-PIN recovery remain **[open]**. Returning to Search does not cancel
-or reset the host's pending pairing session.
+types and a fully traced correct-PIN recovery remain **[open]**. The maintainer later
+reports the discussed recovery flow now appears OK (2026-10-20, qualified user confirmation;
+no new log or separate Apps result). Returning to Search does not cancel or reset the
+host's pending pairing session.
 
 Pairing protocol errors now display the host's GameStream XML `status_message` and
 `status_code` **[code, 2026-10-20]**. For the tested duplicate-session response, the
