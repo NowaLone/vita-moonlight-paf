@@ -100,8 +100,9 @@ Apps now uses a page-owned `paf::vector` sized to the backend ready count, with 
 64-entry backend bound and ID-based row callbacks. The fixed eight-app/context arrays
 are removed. A later Vita log verifies ten apps copied into ten cells (after_delete=0);
 the maintainer reports the requested >8 check OK. Normal two-PC list switching and return
-are subsequently user-confirmed without a new log. Empty/boundary/in-page refresh and
-concurrent host/cache checks remain pending; see `docs/UI.md` and the API audit.
+are subsequently user-confirmed without a new log, as is the empty-list message without
+repeated requests or a hang. Boundary/in-page refresh and concurrent host/cache checks
+remain pending; see `docs/UI.md` and the API audit.
 Main/Search eight-host limits and their canonicalization issue remain open. No build/hardware run by the agent.
 
 ### 2. Backend/stream state is shared across threads without a real synchronization model

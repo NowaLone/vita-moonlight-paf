@@ -304,10 +304,12 @@ Only these `_common_*` names appear in the XML and are known to resolve: `_commo
   list population through the existing console debug toggle. Verify `after_delete=0`, `after_insert=count`,
   scrolling/selection and correct app ID at launch on Vita. A supplied 2026-10-20 log verifies
   `count=10`, `before=0`, `after_delete=0`, `after_insert=10`; the maintainer reports the requested >8 check OK
-  **[hw, tested Vita; selection user-reported]**. The fragment does not identify a launched app. Empty/smaller
+  **[hw, tested Vita; selection user-reported]**. The fragment does not identify a launched app. Smaller
   nonempty-list rebuild and 64/65 apps remain **[open]**. Normal switching between two PCs with different lists
   and return to the first is user-confirmed on 2026-10-20 **[hw, user-reported; no new log]**: each shows its own
-  apps. This does not validate concurrent host changes or every cache race. No agent build/hardware run.
+  apps. The empty-list state is also user-confirmed on 2026-10-20 **[hw, user-reported; no new log]**:
+  `No applications available.` appears without repeated requests or a hang. These checks do not validate
+  concurrent host changes or every cache race. No agent build/hardware run.
 - Selection mode rebuilds the cells and picks `template_host_list_item_select` instead of `template_host_list_item`.
   The checkbox exists only in the select template.
 

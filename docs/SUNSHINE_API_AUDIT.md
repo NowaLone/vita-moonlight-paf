@@ -560,8 +560,9 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   XML parsing; V uses its XML parser.
 - **Verified / runtime:** ten-app retrieval/population is user/log verified; the requested
   >8 selection check and normal switching between two PCs with different lists and back
-  are user-reported OK (no new switch trace). T2/T4 still require revoked client, a valid
-  empty list, concurrent/stress host changes and the 64/65 boundary. Complete product support
+  are user-reported OK (no new switch trace). The empty-state message without repeated
+  requests or a hang is also user-confirmed. T2/T4 still require revoked client,
+  concurrent/stress host changes and the 64/65 boundary. Complete product support
   is not established by the 64-entry cache.
 
 ### A08 — Application list parsing — partial
@@ -1172,6 +1173,12 @@ visible list isolation; it does not prove concurrent cache/job safety, full back
 DisconnectHost API coverage or all F5 races. Empty-list behavior, nonempty in-page
 rebuild, exact launch-ID checks and the 64/65 boundary remain pending.
 
+**Empty-list follow-up, 2026-10-20:** the maintainer confirms the requested empty-list
+scenario: Apps shows `No applications available.`, without repeated requests or a hang.
+This is a user-reported Vita result, without a new log or raw XML body; it does not
+validate malformed/error responses or every refresh race. The 64/65 boundary, nonempty
+in-page rebuild and exact launch-ID tracing remain pending. No runtime change is needed.
+
 ### F8 — Abandoned pairing holds the connection queue — active-wait cancellation/reconnect verified on one Vita
 
 **New runtime evidence (2026-10-20):** on the older Sunshine host the maintainer reports
@@ -1341,8 +1348,8 @@ and the 409 dialog are verified on one Vita. The separate Apps vector change now
 exposes all cached entries up to the unchanged backend bound of 64. Ten-row population
 is now log-verified and the maintainer reports the requested >8 check OK. Normal
 switching between two PCs with different lists and back is now user-confirmed, without
-a new log. Next validate a valid empty app list; concurrent/stress host changes remain
-open. The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
+a new log. The empty-list message/no-repeat/no-hang scenario is now also user-confirmed.
+Next validate the 64/65-app boundary; concurrent/stress host changes remain open. The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
 cancellation/conflict trace verifies local cancellation followed by genuine server 409,
 not PIN success). A subsequent fragment now verifies pairing Run result 0, job release
 and Apps retrieval/population of ten entries. F8 active-wait cancellation, job release and
