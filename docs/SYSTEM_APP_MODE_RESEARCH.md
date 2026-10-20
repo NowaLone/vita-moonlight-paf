@@ -697,3 +697,22 @@ tracing with the ordinary profile; they do not configure the application.
 No application/resource compilation, packaging, deployment or hardware test was
 run by the agent. Next evidence needed: the diagnostic `[Heap]` snapshots and
 matching ELF; the underlying longer-session failure is still open.
+
+### Diagnostic linker-flag correction
+
+The user's diagnostic build of `18a3264` failed at link. Its generated `link.txt`
+has no `--wrap` switches even though `heap_trace.c.obj` is present and `nm -u`
+shows `__real_malloc`, `__real_calloc`, `__real_realloc` and `__real_free` references.
+Source inspection identifies the ordering error: the trace block appends wrapping
+flags, then a later `set_target_properties(LINK_FLAGS ...)` replaces the property
+with only `-nostartfiles -nostdlib`. The startup-flags block now also appends.
+The compile-property setting and all ordinary-profile options retain their values.
+
+The earlier isolated selection check inspected only the diagnostic block and
+missed this later overwrite. Follow-up CMake script-mode checks exercise the full
+sequence from that block through the startup flags, using real GLOBAL string
+properties in place of target properties without configuring any project. They
+reproduce the overwrite in the prior source and verify preservation of all four
+wrappers, startup flags and any earlier flags after the fix, with tracing ON/OFF.
+Inspection/checks are distinct from relinking: no build/link command was executed
+by the agent, and the maintainer's successful build and Vita trace remain pending.

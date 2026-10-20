@@ -161,6 +161,13 @@ allocation/realloc/failure/saturation checks and isolated CMake selection checks
 passed. Build, runtime overhead and identifying the retained sites require the
 maintainer's next diagnostic run and its matching ELF.
 
+The first diagnostic build failed at link. Read-only inspection of its `link.txt`
+shows all four `--wrap` flags missing, while the compiled tracer references the
+corresponding `__real_*` symbols. A later CMake `LINK_FLAGS` assignment overwrote
+the earlier diagnostic flags. It now appends the Vita startup flags, preserving
+wrapping. Script-mode checks cover both blocks in source order; successful relink
+and the diagnostic device run remain pending. No agent build was run.
+
 ## Requested: full stream diagnostics overlay (2026-10-19)
 
 Replace the existing FPS-only display with useful stream diagnostics based on the

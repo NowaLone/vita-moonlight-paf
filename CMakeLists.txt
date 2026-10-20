@@ -266,9 +266,11 @@ target_link_libraries(${PROJECT_NAME}
   -Wl,--end-group
 )
 
+set_property(TARGET ${PROJECT_NAME} APPEND_STRING PROPERTY LINK_FLAGS
+  " -nostartfiles -nostdlib"
+)
 set_target_properties(${PROJECT_NAME}
-  PROPERTIES LINK_FLAGS "-nostartfiles -nostdlib"
-  COMPILE_FLAGS "'-D__declspec(__v__)=/**/'"
+  PROPERTIES COMPILE_FLAGS "'-D__declspec(__v__)=/**/'"
 )
 
 # VitaSDK's SELF/stub helpers expect the extensionless target path. Keep it and
