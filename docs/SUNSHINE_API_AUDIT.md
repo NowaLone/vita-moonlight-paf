@@ -1145,7 +1145,7 @@ checks pass and source review covers ready-count delivery, SDK vector/name APIs 
 callback/data lifetime. They do not execute PAF. No build or new hardware test was run
 by the agent. F5 shared-cache/event races remain outside this change.
 
-### F8 — Abandoned pairing holds the connection queue — source fix, Vita validation pending
+### F8 — Abandoned pairing holds the connection queue — active-wait cancellation/reconnect verified on one Vita
 
 **New runtime evidence (2026-10-20):** on the older Sunshine host the maintainer reports
 incorrect PIN → return to Main → immediate selection of that PC → apparent full app
@@ -1196,6 +1196,27 @@ result → ConnectJob::Run without the multi-minute timeout. Verify one 409/erro
 if Sunshine retains its session, normal correct-PIN → Apps/Back, page close during
 later pairing phases, app shutdown and repeated/two-host cycles. Continue checking F5
 for broader queue/event/cache state races; this does not establish universal thread safety.
+
+**Vita follow-up, 2026-10-20:** the supplied launch line identifies system profile,
+commit `e7e7166ae5db`. For the previously identified older Sunshine host, the first
+active getservercert wait receives cancel requested, returns legacy -11 (Pairing
+cancelled locally), logs no completion event and semantic result -1006, then Finish
+and destruction. A subsequent explicit connection job runs, returns 0, finishes and
+is destroyed before another Pairing page opens. No preceding 300 s timeout is present
+in this sequence. There are no timestamps, so exact cancellation/reconnect latency
+is not measured. This verifies local active-wait cancellation, job release and
+successful reconnect on this Vita/profile; it does not establish every race/path.
+
+The next attempt reaches serverchallengeresp, rejects the incorrect PIN (-1001),
+returns from Run and finishes. Closing its error releases the already-finished job;
+the later cancel requested marker there is not a second network attempt. Another
+explicit Connect also completes, followed by getservercert returning an empty HTTP
+response (-1002, status 0), then Run return, Finish and destruction. That is the
+already accepted old-host compatibility failure F6, not recurrence of queue starvation.
+No new runtime change is justified from this trace. Successful correct-PIN pairing
+through final HTTPS/Apps on this build, cancellation before Run, later-phase rollback,
+shutdown, repeated/two-host cycles and normal-profile behavior remain pending.
+The agent did not build or run on hardware.
 
 ## 5. Required validation (all new cases pending)
 
@@ -1265,8 +1286,10 @@ maintainer now gives qualified user confirmation that the discussed recovery flo
 appears OK, without a new log or separately stated Apps result. F7 Search error navigation
 and the 409 dialog are verified on one Vita. The separate Apps vector change now
 exposes all cached entries in source, up to the unchanged backend bound of 64. Next
-validate F8 local cancellation/reconnect on Vita after the new multi-minute queue
-wait report, then validate Apps scrolling/selection beyond eight. Remaining setup-cancel/race, trust/error and
+verify normal correct-PIN pairing through Apps on the cancellation build, then validate
+Apps scrolling/selection beyond eight. F8 active-wait cancellation, job release and
+successful reconnect are now log-verified on one Vita/system profile; the remaining
+cancellation matrix stays open. Remaining setup-cancel/race, trust/error and
 repeated-recovery cases stay open. Complete the remaining T3/T4/T5/T8/T9 error/trust matrix. No
 administrative Sunshine credentials are introduced.
 

@@ -176,9 +176,13 @@ Pairing page destruction now requests local cancellation through PairingService
 **[code, 2026-10-20]**. A new connection also cancels any prior pairing before enqueue.
 This is nonblocking on the UI thread; queued jobs skip work, and an active HTTP pairing
 wait aborts through curl progress. It does not reset Sunshine's pending session. The
-reported older-host wait behind an abandoned pairing request is F8 in the API audit;
-Back → immediate reselect, wrong-PIN recovery and normal pairing need new Vita checks
-**[open]**. No recurring main-thread heartbeat or changed PIN timeout is introduced.
+reported older-host wait behind an abandoned pairing request is F8 in the API audit.
+The `e7e7166ae5db` system-profile log shows active getservercert cancellation (-11/-1006),
+job Finish/destruction and successful subsequent connection/new PIN page
+**[hw, tested Vita]** on 2026-10-20. Wrong-PIN and later empty-reply attempts also finish/release their jobs;
+that empty reply remains accepted F6. Correct-PIN success through Apps on this build,
+queued/later-phase cancellation, shutdown and normal-profile checks remain **[open]**.
+No recurring main-thread heartbeat or changed PIN timeout is introduced.
 
 Add PC is an inline control on Main; there is no Add PC page.
 
