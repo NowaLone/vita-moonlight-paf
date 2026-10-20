@@ -33,7 +33,7 @@ option(MOONLIGHT_HEAP_TRACE "Diagnostic: track newlib allocation call sites" OFF
 if(MOONLIGHT_HEAP_TRACE AND NOT MOONLIGHT_SYSTEM_APP)
   message(FATAL_ERROR "MOONLIGHT_HEAP_TRACE requires MOONLIGHT_SYSTEM_APP=ON")
 endif()
-set(MOONLIGHT_SYSTEM_MEMSIZE_KIB 32768 CACHE STRING "System app total memory budget (KiB)")
+set(MOONLIGHT_SYSTEM_MEMSIZE_KIB 65536 CACHE STRING "System app total memory budget (KiB)")
 set(MOONLIGHT_SYSTEM_PHYCONT_KIB 0 CACHE STRING "System app physical reservation inside total budget (KiB)")
 set(MOONLIGHT_SYSTEM_NEWLIB_KIB 6144 CACHE STRING "System app newlib heap capacity (KiB)")
 set(MOONLIGHT_SYSTEM_PAF_KIB 10240 CACHE STRING "System app PAF global heap capacity (KiB)")
@@ -58,8 +58,8 @@ if(MOONLIGHT_SYSTEM_APP)
     message(FATAL_ERROR "System heaps and physical reservation must leave room inside the total budget")
   endif()
   set(moonlight_category gdc)
-  # Physical reservation is part of MEMSIZE, not additional memory. Zero is the
-  # frontend-first trial; set it only after measuring decoder requirements.
+  # Physical reservation is part of MEMSIZE, not additional memory. The nongame
+  # decoder allocates its explicit contiguous arena from main RAM at runtime.
   set(VITA_MAKE_FSELF_FLAGS "${VITA_MAKE_FSELF_FLAGS} -pm ${MOONLIGHT_SYSTEM_PHYCONT_KIB}")
   message(STATUS "Moonlight launch profile: SYSTEM (gdc, ${MOONLIGHT_SYSTEM_MEMSIZE_KIB} KiB, boot attribute 0x08)")
 else()

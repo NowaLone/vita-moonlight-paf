@@ -191,9 +191,9 @@ uses the ordinary profile unless ON is already cached. CMake prints the selected
 `Moonlight launch profile`. With Debug log enabled, Settings also logs `[Launch]`
 with `profile=system` or `profile=normal` and the source revision.
 
-It uses `gdc` packaging, a 32 MiB SELF budget, a 6 MiB newlib heap, a 10 MiB PAF
+It uses `gdc` packaging, a 64 MiB SELF budget, a 6 MiB newlib heap, a 10 MiB PAF
 heap and PAF application mode. UNSAFE and the existing authority/settings remain.
-These are initial frontend-test allocations, not measured streaming requirements.
+These are the device-tested streaming allocations, not an established minimum.
 PAF surface/text pools are 4/1 MiB after the initial 8/4 MiB configuration failed
 with an 8 MiB DDR-main allocation request on startup with a game resident. The
 smaller pools save 7 MiB in requested pool capacity. On `7e20e94`, the user verified
@@ -202,12 +202,12 @@ on the tested device. Streaming with this 32 MiB budget remains unverified.
 Install the complete VPK through VitaShell, then launch from LiveArea, rather than
 replacing only the SELF, so the changed launch metadata is promoted. Then test
 opening Moonlight with a Vita game suspended and returning to that same game session.
-Physical reservation defaults to zero; the streaming test below uses a larger total budget.
+Physical reservation defaults to zero; the decoder supplies its own explicit main-RAM arena.
 
 The system profile bounds common-c transport thread stacks to 128 KiB (the ordinary
 profile requests 1 MiB each). `[Thread]` logs report each thread name, stack bytes
-and creation result. This addresses the reported pre-decoder thread-memory failure
-experimentally; stack sufficiency and later PHYCONT/CDRAM allocations still need Vita tests.
+and creation result. Thread creation and streaming passed the user's two longer
+sessions and reconnect test; broader endurance/compatibility testing remains open.
 
 The earlier device test passed control-thread creation but stopped at decoder initialization:
 `0x80620840` is `SCE_VIDEODEC_ERROR_NOT_GAME_BUDGET`. The standard decoder API rejects
@@ -218,8 +218,10 @@ queried sizes and each allocation/init result. On `8b5d9a5` with a 64 MiB budget
 the user verified image, sound, controls and resuming the suspended Vita game after
 the stream. This is one-device/game validation; broader compatibility remains open.
 
-The 32 MiB browsing profile had only 648 KiB free before video setup. To reproduce
-the tested streaming configuration, use a 64 MiB total budget (maintainer command):
+The initial 32 MiB browsing profile had only 648 KiB free before video setup.
+The system-profile default is now the tested 64 MiB. Existing cached overrides
+are preserved; if an older build directory still has 32768 cached, select the
+tested value explicitly (maintainer command):
 
 ```bash
 bash build.sh -DMOONLIGHT_SYSTEM_APP=ON -DMOONLIGHT_SYSTEM_MEMSIZE_KIB=65536 -DMOONLIGHT_SYSTEM_PHYCONT_KIB=0
@@ -229,10 +231,9 @@ Install the full VPK when changing the launch budget. The tested 960x544 stream
 queried 5.5 MiB for the library and 8 MiB for decoder storage; the adapter allocated
 a 15 MiB arena plus three 2 MiB output buffers. Decoder creation, GXM mapping,
 1088 decoded frames, stream stop and deferred framebuffer release passed in the
-reported run. Longer sessions, repeated reconnect memory baselines and native
-Settings/dialog/Quick Actions coverage with the larger budget remain pending.
-The default stays 32 MiB; the larger cached budget is a tested configuration, not
-an established minimum.
+reported run. Later user tests verified longer sessions, reconnect memory baselines,
+Settings, Quick Actions and returning to the suspended game with tracing disabled.
+Broader device/game, dialog/error-path and endurance coverage remains open.
 
 `dev-build-run.sh -DMOONLIGHT_SYSTEM_APP=ON` forwards the option, builds the VPK and
 stops with installation instructions. It deliberately skips SELF-only deployment
@@ -264,7 +265,9 @@ USER_RW free was identical at 32952 KiB. This verifies the reported memory-failu
 fix and one reconnect on the tested device; broader compatibility remains open.
 The user also verified streaming/reconnect, Settings, Quick Actions and returning
 to the suspended game with heap tracing OFF and the same budgets. The ordinary
-profile's regression smoke test after the shared pthread-bootstrap fix is pending.
+profile also passed the user's launch, Settings, stream and reconnect smoke test
+after the shared pthread-bootstrap fix. Ordinary launch remains the default on a
+fresh build; the 64 MiB budget applies only when system mode is enabled.
 An optional diagnostic build records allocation call sites (maintainer command):
 
 ```bash

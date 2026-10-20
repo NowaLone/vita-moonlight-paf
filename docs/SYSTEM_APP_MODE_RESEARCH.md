@@ -848,3 +848,24 @@ the quantitative evidence remains the preceding traced run. The ordinary profile
 still needs a regression smoke test of the shared pthread-bootstrap change.
 No runtime source/budget defaults change in this documentation update, and no
 agent build or hardware test was run.
+
+### Ordinary-profile confirmation and validated system default
+
+The user next reports all ordinary-profile smoke checks passed with system mode
+OFF and heap tracing OFF: launch, Settings, streaming and reconnect. No new log
+or quantitative memory measurement accompanies that confirmation. This verifies
+the shared pthread-bootstrap change on both launch profiles on the user's Vita.
+
+Fresh system-profile configurations now default to total 65536 KiB, retaining
+physical reservation zero, newlib 6144 KiB and PAF 10240 KiB. This selects the
+already-tested configuration when enabling `MOONLIGHT_SYSTEM_APP`; it does not
+establish a minimum budget. System mode and heap tracing still default OFF.
+Existing cached budget choices are not forced to new values: an old 32768 KiB
+cache needs an explicit `-DMOONLIGHT_SYSTEM_MEMSIZE_KIB=65536` override.
+
+Isolated CMake script-mode checks exercise the actual option/budget and SELF
+selection blocks: fresh ordinary/system defaults, retained explicit overrides,
+invalid-budget rejection and absence of system memory/physical flags in ordinary
+mode. No project configuration, compilation, linking or packaging is run by the
+agent. The runtime budget value has user-run device validation; the new default
+selection has non-build checks. Broader compatibility/endurance remains open.

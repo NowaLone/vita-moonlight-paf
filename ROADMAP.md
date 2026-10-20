@@ -124,8 +124,9 @@ checks below remain pending.
   post-cleanup memory on the tested Vita with the 64 MiB / 6 MiB configuration.
 - [x] Verify streaming/reconnect, Settings, Quick Actions and return to the
   suspended game with heap tracing OFF on the tested Vita and 64 MiB budget.
-- [ ] Smoke-test the ordinary profile after the shared pthread-bootstrap fix;
-  broaden dialog/error-path, device/game and endurance coverage.
+- [x] Smoke-test ordinary-profile launch, Settings, streaming and reconnect after
+  the shared pthread-bootstrap fix, with heap tracing OFF.
+- [ ] Broaden dialog/error-path, device/game and endurance coverage.
 
 User validation of `8b5d9a5` with total 65536 KiB, PHYCONT zero, mode A:
 library query 5767168 bytes, decoder query 8388608 bytes, arena 15728640 bytes;
@@ -202,6 +203,15 @@ game, using the same 65536/0/6144 KiB total/physical/newlib configuration. This 
 an explicit user result, not a new measured memory log. The ordinary profile still
 needs its regression smoke test because pthread bootstrap is shared. No agent
 build/device test ran; this follow-up changes only verification documentation.
+
+The ordinary-profile regression test now passes by explicit user confirmation:
+launch, Settings, streaming and reconnect with system mode OFF and heap tracing
+OFF. Both profiles have passed their requested smoke tests on the user's Vita.
+The fresh system-profile total-budget default is now the tested 65536 KiB;
+physical/newlib/PAF remain 0/6144/10240 KiB. System mode and heap tracing default
+OFF, and ordinary SELF settings remain unchanged. Existing CMake cache overrides
+are preserved. Isolated script-mode checks cover default/override selection and
+both SELF branches without configuring or building the project.
 
 ## Requested: full stream diagnostics overlay (2026-10-19)
 
