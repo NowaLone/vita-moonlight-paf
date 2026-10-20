@@ -143,14 +143,16 @@ memory rises from 27428 KiB after stop to 33612 KiB after deferred framebuffer r
 the next setup completes with 10844 KiB free. These samples support buffer-release ordering,
 not a general leak-free or sustained-performance claim.
 
-**Audio observation requiring clarification:** teardown logs `No audio traffic was ever
-received from the host!`. In local common-c AudioStream.c this is emitted when
+**Audio observation and subsequent user confirmation, 2026-10-20:** teardown logs
+`No audio traffic was ever received from the host!`. In local common-c AudioStream.c this is emitted when
 receivedDataFromPeer is still false; the flag changes on the first receive large enough to
 contain an RTP header. Audio renderer initialization/drain/release do not prove audio packets
 were received or heard.
-Whether the PC was producing sound and whether it was heard on Vita has been asked; until
-answered this is an observation, not a diagnosed audio regression or evidence of working
-audio. The new stream also shows an IDR wait/request followed by resumed video decoding,
+The maintainer subsequently replied “звук есть”, confirming audible sound on Vita. Record this
+as user verification of audible audio on the tested device. It does not identify which session
+the observation concerns, explain the earlier receive flag or prove that warning is erroneous.
+There is no confirmed ongoing audio failure to justify changing the audio path. The new stream
+also shows an IDR wait/request followed by resumed video decoding,
 so its successful restart does not establish error-free media delivery. No runtime code
 was changed for this log; no build or device test was performed by the agent.
 
@@ -852,9 +854,10 @@ Per-host TLS pinning (F4) now has a source implementation with the maintainer-ap
 normal pairing/Apps/restart/reconnect/launch/stop smoke sequence on 2026-10-20, as scoped above.
 Different-app conflict, same-app resume and launch after host-app exit without reconnect (T5/F2)
 are now user/log verified. F1 established-stream unexpected-control-disconnect cleanup and manual
-resume are also log verified. Next clarify the no-audio-traffic observation from that run; remaining
-setup-cancel/race, trust/error and repeated-recovery cases stay open. Complete the remaining
-T3/T4/T5/T8/T9 error/trust matrix. No
+resume are also log verified; the maintainer separately confirmed audible audio. Next verify
+TLS rejection of a mismatched saved server certificate, preserving and restoring the original
+pin. Remaining setup-cancel/race, trust/error and repeated-recovery cases stay open. Complete
+the remaining T3/T4/T5/T8/T9 error/trust matrix. No
 administrative Sunshine credentials are introduced.
 
 Main cold-start follow-up (2026-10-19): the user confirmed that one saved PC appears immediately
