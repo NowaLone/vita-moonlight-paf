@@ -70,6 +70,38 @@ Host-app exit/change after entering Apps still needs its own fresh-state test. E
 revision, Sunshine release/configuration and firmware remain unspecified. No code change or
 agent-run build/hardware test was needed to record this result.
 
+### Host-app exit while Apps remains open — user and log verified, 2026-10-20
+
+The maintainer confirmed stopping the local stream, closing the application on the PC,
+then selecting it again in Apps without reconnecting the host. The new log shows a fresh
+serverinfo response followed by launch rather than stale resume (LAN address redacted):
+
+```text
+[GameStream] launch app=1093255277 host=<host>
+[GameStream] launch/resume accepted session=rtspenc://<host>:48010
+[Stream] stage complete 4 (RTSP handshake)
+[Stream] connection started
+[Stream] setup finished app=1093255277 result=0
+[Video] decoded frame=1 number=3
+[Video] decoded frame=841 number=963
+```
+
+Stages 1–11 completed at the requested 960×544/60 fps, 10000 kbps, SOPS=1 configuration
+(mode=2, 65536 KiB total, 6144 KiB newlib; protocol appversion 7.1.431.-1). Together with
+different-app rejection and same-app resume, this verifies the basic F2 decision regression
+on the tested Vita. Remaining T5/T8 cases include the host changing between the snapshot
+and request, other host-change scenarios and network-loss teardown/reconnect. The exact
+installed revision, Sunshine release/configuration and firmware remain unspecified.
+
+Streaming quality is a separate observation: after the first decoded frame, common-c logs
+`Leaving speculative RFI mode after OOS video data at frame 55`, an IDR wait, consecutive
+drop limit and an IDR request. Decoding then resumes at decoded frame 61 / host frame 183
+and continues through decoded frame 841 / host frame 963. This is recovery evidence, not
+an error-free playback or sustained frame-rate claim. The log does not establish whether
+the trigger was network loss, server output, decoder behavior or another cause. No code
+change is justified by these lines alone. This attachment ends during playback and does
+not contain teardown or unexpected-disconnect recovery.
+
 ## 1. Scope and evidence
 
 The client path remains PAF pages → MoonlightApp → services → MoonlightBackend →
@@ -301,8 +333,10 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   default-port fallback. App choice is checked against a fresh HTTPS snapshot (F2).
 - **Upstream / Sunshine:** S refuses launch if an app is running and can report capture/launch errors
   in XML; QH verifies status, V checks status/session result. Qt allows a longer launch timeout (120 s).
-- **Verified / runtime:** source; T5 must cover slow app startup, unsupported mode, failed capture,
-  XML rejection and custom RTSP port. Timeout difference is a compatibility risk, not a proven defect.
+- **Verified / runtime:** launch after closing the host app without reconnect is user/log verified
+  on 2026-10-20: app=1093255277, accepted rtspenc URL, completed setup result=0 and decoded video
+  through frame 841. T5 still needs slow startup, unsupported mode, failed capture, XML rejection
+  and custom RTSP port. Timeout difference is a compatibility risk, not a proven defect.
 
 ### A10 — Resume — partial
 
@@ -313,14 +347,16 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Current:** L2 chooses resume whenever cached `server->current_game` is nonzero, regardless of
   selected app in the audit baseline. The F2 follow-up now refreshes HTTPS state and rejects a
   different active ID (-8); it resumes only the selected running app. Same-app resume and different-app
-  rejection are now user/log verified; host app exit/change remains pending.
+  rejection are now user/log verified. Host-app exit without reconnect is also verified to select
+  launch; other host-change cases and snapshot/request races remain pending.
 - **Upstream / Sunshine:** S `resume`; QS asserts current app is zero or matches selection; QH
   validates response, V uses resume for a running app.
 - **Verified / runtime:** different-app rejection user/log verified on 2026-10-20 (selected
   881448767, active 1093255277, result -8; see follow-up above). Same-app resume (1093255277) is
   also user/log verified through accepted rtspenc URL, completed RTSP/setup, connection started and
-  decoded video. App exit/change between connection/start still needs T5/T8. Arbitrary selected-app
-  restart and the entire reconnect matrix are not established by these two tests.
+  decoded video. Closing the app on the host while Apps stays open is now also verified to choose
+  launch and decode video (2026-10-20). Other host-change scenarios, snapshot/request races and the
+  full reconnect matrix are not established by these three tests.
 
 ### A11 — Active game / session state — partial
 
@@ -575,8 +611,10 @@ is checked around the refresh. Current-game numeric input and BUSY suffix are va
 can still change state after the snapshot; XML errors remain authoritative. Different-app rejection
 is user/log verified on 2026-10-20: selected=881448767, active=1093255277, setup result=-8. Same-app
 resume is also user/log verified on that date: app=1093255277, accepted rtspenc URL, completed
-RTSP/setup, connection started, setup result=0 and decoded video through frame 901. App exit/change
-and the remaining T5/T8 matrix are pending.
+RTSP/setup, connection started, setup result=0 and decoded video through frame 901. Host-app exit
+without reconnect is additionally verified on that date: launch app=1093255277, accepted rtspenc URL,
+setup result=0 and decoded video through frame 841. The three basic decision branches now pass on
+the tested Vita; other host-change scenarios, snapshot/request races and remaining T5/T8 cases stay open.
 The root cause below describes the older baseline.
 
 **Root cause:** current_game is read at connect/pair time, then locally overwritten with selected
@@ -750,9 +788,9 @@ source follow-ups; runtime acceptance remains pending. F2 now has a source refre
 Per-host TLS pinning (F4) now has a source implementation with the maintainer-approved
 `server.pem` contract; old records without a pin require pairing again. The user confirmed the
 normal pairing/Apps/restart/reconnect/launch/stop smoke sequence on 2026-10-20, as scoped above.
-Different-app conflict and same-app resume (T5) are now user/log verified. Next stop the local
-stream, exit the app on the host while keeping Apps open, then select it again: fresh state must
-choose launch rather than stale resume. Complete the remaining T3/T4/T5/T8/T9 error/trust matrix. No
+Different-app conflict, same-app resume and launch after host-app exit without reconnect (T5/F2)
+are now user/log verified. Next validate F1 unexpected network-loss teardown and successful reconnect
+after cleanup. Complete the remaining T3/T4/T5/T8/T9 error/trust matrix. No
 administrative Sunshine credentials are introduced.
 
 Main cold-start follow-up (2026-10-19): the user confirmed that one saved PC appears immediately
