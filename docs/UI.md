@@ -302,8 +302,10 @@ Only these `_common_*` names appear in the XML and are known to resolve: `_commo
   `template_list_item_generic`/native ListView scrolling and 80 px row geometry remain in use.
 - `[Apps] ShowApps count=... cells before=... after_delete=... after_insert=...` is emitted once per successful
   list population through the existing console debug toggle. Verify `after_delete=0`, `after_insert=count`,
-  scrolling and selection beyond row eight, empty/smaller-list re-entry and correct app ID at launch on Vita
-  **[open]**. The source-only change has not been built or device-tested by the agent.
+  scrolling/selection and correct app ID at launch on Vita. A supplied 2026-10-20 log verifies
+  `count=10`, `before=0`, `after_delete=0`, `after_insert=10`; the maintainer reports the requested >8 check OK
+  **[hw, tested Vita; selection user-reported]**. The fragment does not identify a launched app. Empty/smaller
+  nonempty-list rebuild, 64/65 apps and two-host switching remain **[open]**. No agent build/hardware run.
 - Selection mode rebuilds the cells and picks `template_host_list_item_select` instead of `template_host_list_item`.
   The checkbox exists only in the select template.
 

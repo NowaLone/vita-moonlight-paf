@@ -554,11 +554,14 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   the cache on connect/disconnect/shutdown and failed refresh. Requests are rejected during stream
   setup/streaming/disconnect. L7 now owns a vector sized to the ready count and copies all available
   cached apps, with a shared backend bound of 64. The fixed eight-row/context arrays are removed
-  in the separate 2026-10-20 presentation follow-up; build/Vita verification is pending.
+  in the separate 2026-10-20 presentation follow-up. Ten-row population is now log-verified
+  on Vita; the maintainer reports the requested >8 check OK. The broader T4 matrix is pending.
 - **Upstream / Sunshine:** S emits the configured app list; QH `getAppList` verifies status before
   XML parsing; V uses its XML parser.
-- **Verified / runtime:** source; T2/T4 cover revoked client, valid empty list, two hosts with
-  different lists and >8/>64 entries. Complete product support is not established by the 64-entry cache.
+- **Verified / runtime:** ten-app retrieval/population is user/log verified; the requested
+  >8 selection check is user-reported OK. T2/T4 still require revoked client, valid empty
+  list, two hosts with different lists and the 64/65 boundary. Complete product support
+  is not established by the 64-entry cache.
 
 ### A08 — Application list parsing — partial
 
@@ -914,7 +917,7 @@ and cache invalidation. Shared HTTP transfers now reinstall their own callback/b
 a mutex, including shutdown exclusion; app-list no longer inherits the previous launch callback.
 This fixes request-buffer ownership, not all asynchronous API state races (F5). The later separate
 Apps presentation change removes the eight-row limit through a page-owned vector; the backend
-bound remains 64. C grammar checks passed; C parser fixtures and the new UI Vita matrix remain unrun.
+bound remains 64. C grammar checks passed; C parser fixtures and the broader UI Vita matrix remain pending.
 The root cause below describes the audit baseline.
 
 **Root cause:** L1 marks app cache valid after any curl-successful body. L2 accepts an OR of
@@ -1145,6 +1148,20 @@ checks pass and source review covers ready-count delivery, SDK vector/name APIs 
 callback/data lifetime. They do not execute PAF. No build or new hardware test was run
 by the agent. F5 shared-cache/event races remain outside this change.
 
+**Vita follow-up, 2026-10-20:** the maintainer reports the requested >8-app check OK
+and supplies:
+
+```text
+[GameStream] applist count=10 total=10
+[Apps] ShowApps count=10 cells before=0 after_delete=0 after_insert=10
+```
+
+This verifies copying/populating all ten apps on one Vita, beyond the former eight-row
+limit. The requested scrolling/selection check is user-reported OK; the fragment has
+no selected application ID or launch trace. It starts with an empty ListView, so it
+does not exercise deleting a nonempty list. The 64/65 boundary, empty/smaller-list
+rebuild and two-host cache isolation remain pending. No agent build/hardware test.
+
 ### F8 — Abandoned pairing holds the connection queue — active-wait cancellation/reconnect verified on one Vita
 
 **New runtime evidence (2026-10-20):** on the older Sunshine host the maintainer reports
@@ -1235,6 +1252,15 @@ binary profile (distinct from an ordinary usage scenario), pre-Run cancellation,
 later-phase rollback, shutdown, stress and alternating-host cases remain pending.
 No runtime code change is needed for this result. Continue Apps >8-row validation.
 
+**Normal-pairing follow-up, 2026-10-20:** the same new fragment shows PairingService
+Run returned result=0, "Paired. Loading applications...", cancel requested, Finish and
+job destruction, followed by the ten-app result above. This verifies normal pairing
+completion, job release and Apps retrieval with the cancellation path present. The
+page destructor's cancellation signal after Run already succeeded is not a failed
+pairing result or a new handshake. No launch revision/profile line or phase-by-phase
+TLS trace is included. Queued/later-phase cancellation, rollback, shutdown and repeated
+or cross-profile validation remain open; no runtime change is needed from this result.
+
 ## 5. Required validation (all new cases pending)
 
 For every run record client source/package revision, Vita firmware/device, deployed Sunshine version
@@ -1302,10 +1328,14 @@ this as noncritical; Sunshine patches and client workarounds are out of scope. T
 maintainer now gives qualified user confirmation that the discussed recovery flow
 appears OK, without a new log or separately stated Apps result. F7 Search error navigation
 and the 409 dialog are verified on one Vita. The separate Apps vector change now
-exposes all cached entries in source, up to the unchanged backend bound of 64. Next
-validate Apps scrolling/selection beyond eight. The maintainer now explicitly confirms
+exposes all cached entries up to the unchanged backend bound of 64. Ten-row population
+is now log-verified and the maintainer reports the requested >8 check OK. Next verify
+app-list isolation by switching between two hosts with different lists and back. The
+maintainer now explicitly confirms
 the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
-new trace verifies local cancellation followed by genuine server 409, not PIN success). F8 active-wait cancellation, job release and
+cancellation/conflict trace verifies local cancellation followed by genuine server 409,
+not PIN success). A subsequent fragment now verifies pairing Run result 0, job release
+and Apps retrieval/population of ten entries. F8 active-wait cancellation, job release and
 successful reconnect are now log-verified on one Vita/system profile; the remaining
 cancellation matrix stays open. Remaining setup-cancel/race, trust/error and
 repeated-recovery cases stay open. Complete the remaining T3/T4/T5/T8/T9 error/trust matrix. No
