@@ -269,7 +269,9 @@ Vita identity on Sunshine. A pin persistence error is logged separately from pai
 trust then lasts only for the current connection and pairing is needed after restart.
 The implementation requires the OpenSSL libcurl backend. On 2026-10-20 the maintainer confirmed
 normal PIN pairing, Apps, application restart, reconnect without another PIN and stream launch/stop.
-Certificate-mismatch/error cases and the full TLS/runtime matrix remain pending; see the API audit.
+On the same date a mismatched valid saved server certificate was rejected with security result -10;
+restoring the original allowed connection and retrieval of four apps. Other certificate/error cases
+and the full TLS/runtime matrix remain pending; see the API audit.
 
 The project does not provide storage compatibility or migration for the original Vita Moonlight per-host credential layout. Old per-host credential files are ignored by the new client-identity code.
 

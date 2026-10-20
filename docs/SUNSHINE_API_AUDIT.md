@@ -156,6 +156,41 @@ also shows an IDR wait/request followed by resumed video decoding,
 so its successful restart does not establish error-free media delivery. No runtime code
 was changed for this log; no build or device test was performed by the agent.
 
+### Mismatched server pin rejection and restoration — user and log verified, 2026-10-20
+
+The maintainer tested a valid but incorrect saved server.pem, then restored the original
+certificate. The supplied wrong-certificate attempt reached HTTP serverinfo but failed
+connection with the expected security result (LAN address redacted):
+
+```text
+[GameStream] requesting server status
+[GameStream] init failed for <host>: -10 (SSL peer certificate or SSH remote key was not OK)
+[LegacyAdapter] ConnectHost failed result=-10
+[ConnectionService] ConnectJob::Run result=-10
+```
+
+This is a TLS peer-verification failure, rather than the separate malformed-PEM load error.
+HTTP metadata did not turn it into a successful connection; no app-list success or pairing
+exchange follows in this failure excerpt. The test deliberately replaces the saved trust
+anchor; it does not change Sunshine or exercise renewal of its live certificate.
+
+After the maintainer restored the original pin, the log shows two serverinfo responses,
+host persistence and successful authenticated app retrieval:
+
+```text
+[LegacyAdapter] ConnectHost ready
+[ConnectionService] ConnectJob::Run result=0
+[GameStream] applist count=4 total=4
+```
+
+No new pairing exchange appears in the supplied recovery log. This verifies pin mismatch
+rejection and recovery with the original certificate on the tested Vita. It does not prove
+the saved files were byte-for-byte unchanged by the failed attempt (no file hashes supplied),
+nor cover malformed/unreadable pins, revoked client authorization, pin-write failure, two
+hosts or cryptographic allocation/proof errors. Reported memory mode remains 2 with 65536 KiB
+total and 6144 KiB newlib; installed package revision, firmware and Sunshine release are not
+supplied. No runtime change or agent-run build/hardware test was required.
+
 ## 1. Scope and evidence
 
 The client path remains PAF pages → MoonlightApp → services → MoonlightBackend →
@@ -597,9 +632,11 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   recovery is local Delete → Add → PIN pairing; global client credentials remain unchanged.
 - **Upstream / Sunshine:** QP pins the learned certificate and returns it for persistence; QH
   compares peer certificate on SSL errors; S validates the exact enabled client X.509 identity.
-- **Verified / runtime:** source; T3/T9 need certificate mismatch, revoked/disabled client, renewed
-  host certificate, damaged credentials and ordinary paired requests. TLS transport alone is not
-  proof that the client authenticated the server.
+- **Verified / runtime:** valid-but-mismatched saved server certificate rejected with -10; after
+  restoring the original, connection and authenticated applist (4/4) succeed. User/log verified
+  on 2026-10-20; see follow-up above. Normal pairing and persisted reconnect were also user-tested.
+  T3/T9 still need malformed/unreadable pins, revoked/disabled client, live host-cert renewal,
+  damaged credentials, failed persistence and cryptographic error paths.
 
 ### A23 — Protocol / version compatibility — partial
 
@@ -761,7 +798,10 @@ Six non-build Python checks now include 12 actual-expression cases for present/a
 certificates with mocked X509 comparison, enrollment ordering/rollback and C grammar checks. They
 do not exercise a TLS handshake, file I/O, X509 implementation, compilation or Vita. T3/T9 remain
 required: old record re-pair, persisted trust after restart, changed/malformed/missing pin, two hosts,
-revoked client, and failed pin writes. Source implementation is not runtime acceptance.
+revoked client, and failed pin writes. The later Vita pin-mismatch test on 2026-10-20 now verifies
+one of these rejection paths: wrong valid certificate → security result -10; restoring the
+original → connection result 0 and applist count=4 total=4. Normal pairing/persisted reconnect
+were previously user-confirmed. Remaining cases are not covered by these results.
 
 **Root cause:** L3 authenticates the client certificate but disables server certificate verification.
 The verified pairing server certificate is discarded. In `verify_signature`, logical `&&` coerces
@@ -854,10 +894,11 @@ Per-host TLS pinning (F4) now has a source implementation with the maintainer-ap
 normal pairing/Apps/restart/reconnect/launch/stop smoke sequence on 2026-10-20, as scoped above.
 Different-app conflict, same-app resume and launch after host-app exit without reconnect (T5/F2)
 are now user/log verified. F1 established-stream unexpected-control-disconnect cleanup and manual
-resume are also log verified; the maintainer separately confirmed audible audio. Next verify
-TLS rejection of a mismatched saved server certificate, preserving and restoring the original
-pin. Remaining setup-cancel/race, trust/error and repeated-recovery cases stay open. Complete
-the remaining T3/T4/T5/T8/T9 error/trust matrix. No
+resume are also log verified; the maintainer separately confirmed audible audio. TLS rejection
+of a mismatched valid saved server certificate (-10), followed by restored-pin connection and
+authenticated applist (4/4), is now user/log verified. Next verify host-side revocation of the Vita
+client and recovery through PIN pairing. Remaining setup-cancel/race, trust/error and
+repeated-recovery cases stay open. Complete the remaining T3/T4/T5/T8/T9 error/trust matrix. No
 administrative Sunshine credentials are introduced.
 
 Main cold-start follow-up (2026-10-19): the user confirmed that one saved PC appears immediately
