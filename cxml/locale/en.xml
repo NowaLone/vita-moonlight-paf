@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <stringset>
   <string src="Moonlight" id="msg_moonlight_title" />
-  <string src="No PCs yet" id="msg_no_pcs" />
+  <string src="No PCs registered." id="msg_no_pcs" />
   <string src="Search PCs" id="msg_search_pcs" />
   <string src="Enter PC hostname or IP address" id="msg_add_pc_placeholder" />
   <string src="Settings" id="msg_settings" />
@@ -10,10 +10,11 @@
   <string src="Back" id="msg_back" />
   <string src="Select All" id="msg_select_all" />
   <string src="Search for available PCs on your network." id="msg_search_pcs_description" />
-  <string src="Searching for PCs..." id="msg_searching_pcs" />
+  <string src="No PCs found." id="msg_no_pcs_found" />
   <string src="Apps" id="msg_apps" />
-  <string src="Loading apps..." id="msg_loading_apps" />
-  <string src="Enter this PIN on the PC." id="msg_pairing_enter_pin" />
+  <string src="No applications available." id="msg_no_applications" />
+  <string src="To pair this system with your PC, enter the PIN&#10;shown below in Sunshine." id="msg_pairing_instruction" />
+  <string src="On your PC, open the Sunshine Web UI and select [PIN].&#10;Enter the number shown below, then confirm pairing." id="msg_pairing_steps" />
 
   <string src="Stream" id="msg_stream_settings" />
   <string src="Resolution" id="msg_resolution" />

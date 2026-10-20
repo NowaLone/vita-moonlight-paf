@@ -281,7 +281,7 @@ Main::Main()
             paf::common::string_util::ToWString("Connect to a PC"));
     }
 
-    SetStatus("Select a PC to connect.");
+    HideStatus();
     paf::common::MainThreadCallList::Register(InitialRefreshTask, this);
 }
 
@@ -536,16 +536,8 @@ void Main::RefreshHosts()
 
     if (m_host_count > 0) {
         list->InsertCell(0, 0, m_host_count);
-
-        /*
-         * The status text is centred on the list, so the idle hint would be
-         * drawn over the second row. Rows are the hint; keep the text for the
-         * empty state and for transient messages (connecting, errors, ...).
-         */
-        HideStatus();
-    } else {
-        SetStatus("No PCs registered.");
     }
+    ShowIdleStatus();
 
     /*
      * If after_insert is larger than hosts, DeleteCell() left cells behind and
@@ -578,7 +570,7 @@ void Main::SelectHost(int index)
     int result = MoonlightApp::Instance()->Connection().Connect(m_hosts[index]);
     if (result != 0) {
         m_connecting = false;
-        SetStatus("Unable to start connection.");
+        ShowIdleStatus();
         if (list) list->SetActivate(true);
     }
 }
@@ -741,7 +733,7 @@ void Main::StartDeleteConfirmation()
     memset(&user_message, 0, sizeof(user_message));
 
     sceMsgDialogParamInit(&param);
-    user_message.buttonType = SCE_MSG_DIALOG_BUTTON_TYPE_YESNO;
+    user_message.buttonType = SCE_MSG_DIALOG_BUTTON_TYPE_OK_CANCEL;
     user_message.msg = (const SceChar8 *)m_delete_message;
     user_message.buttonParam = NULL;
     param.mode = SCE_MSG_DIALOG_MODE_USER_MSG;
@@ -768,8 +760,6 @@ void Main::DeleteSelectedHosts()
         return;
     }
 
-    int selected_count = m_selected_count;
-    int deleted_count = 0;
     bool failed = false;
 
     for (int i = 0; i < m_host_count; ++i) {
@@ -777,9 +767,7 @@ void Main::DeleteSelectedHosts()
             continue;
         }
 
-        if (MoonlightApp::Instance()->Hosts().Delete(m_hosts[i]) == 0) {
-            ++deleted_count;
-        } else {
+        if (MoonlightApp::Instance()->Hosts().Delete(m_hosts[i]) != 0) {
             failed = true;
         }
     }
@@ -787,13 +775,7 @@ void Main::DeleteSelectedHosts()
     ExitSelectionMode();
 
     if (failed) {
-        SetStatus("Unable to delete one or more PCs.");
-    } else {
-        paf::string status = paf::common::FormatString(
-            "Deleted %d PC%s.",
-            deleted_count,
-            selected_count == 1 ? "" : "s");
-        SetStatus(status.c_str());
+        MoonlightApp::Instance()->Connection().ShowError("Unable to delete one or more PCs.");
     }
 }
 
@@ -825,10 +807,8 @@ void Main::SelectionDialogPollTask(void *userdata)
         main->m_delete_dialog_task_registered = false;
     }
 
-    if (result.buttonId == SCE_MSG_DIALOG_BUTTON_ID_YES) {
+    if (result.buttonId == SCE_MSG_DIALOG_BUTTON_ID_OK) {
         main->DeleteSelectedHosts();
-    } else {
-        main->SetStatus("Select PCs to delete.");
     }
 }
 
@@ -881,29 +861,13 @@ void Main::OnSelectionSelectAll(
     main->ToggleSelectAll();
 }
 
-void Main::SetStatus(const char *text)
-{
-    if (!root || !text) return;
-
-    paf::ui::Widget *widget = root->FindChild("text_main_status");
-    if (!widget) return;
-
-    ((paf::ui::Text *)widget)->SetString(
-        paf::common::string_util::ToWString(text));
-
-    /* Selection mode keeps the status hidden behind the action bar. */
-    if (!m_selection_mode) {
-        widget->Show(paf::common::transition::Type_Reset);
-    }
-}
-
 void Main::ShowIdleStatus()
 {
-    /* Same rule as RefreshHosts(): the rows are the hint, the text is for the empty state. */
-    if (m_host_count > 0) {
+    if (m_host_count > 0 || m_selection_mode) {
         HideStatus();
-    } else {
-        SetStatus("No PCs registered.");
+    } else if (root) {
+        paf::ui::Widget *widget = root->FindChild("text_main_status");
+        if (widget) widget->Show(paf::common::transition::Type_Reset);
     }
 }
 
@@ -927,7 +891,8 @@ void Main::OpenSearch()
 
 void Main::OpenAddPc()
 {
-    if (m_connecting || m_ime_open || m_ime_retry_pending) {
+    if (m_connecting || m_ime_open || m_ime_retry_pending ||
+        MoonlightApp::Instance()->Connection().IsBusy()) {
         return;
     }
 
@@ -937,7 +902,7 @@ void Main::OpenAddPc()
             vita_debug_log(
                 "[Main] failed to load SceIme: 0x%08X",
                 (unsigned int)result);
-            SetStatus("Unable to open the system keyboard.");
+            MoonlightApp::Instance()->Connection().ShowError("Unable to open the system keyboard.");
             return;
         }
 
@@ -976,19 +941,14 @@ void Main::StartAddPcIme()
     int result = sceImeDialogInit(&m_ime_param);
     if (result < 0) {
         if (result == SCE_COMMON_DIALOG_ERROR_BUSY) {
-            m_ime_retry_pending = true;
-            SetStatus("Opening system keyboard...");
-            if (!m_ime_task_registered) {
-                paf::common::MainThreadCallList::Register(ImePollTask, this);
-                m_ime_task_registered = true;
-            }
+            RetryAddPcIme();
             return;
         }
 
         vita_debug_log(
             "[Main] sceImeDialogInit failed: 0x%08X",
             (unsigned int)result);
-        SetStatus("Unable to open the system keyboard.");
+        MoonlightApp::Instance()->Connection().ShowError("Unable to open the system keyboard.");
         return;
     }
 
@@ -1011,7 +971,7 @@ void Main::HandleAddPcImeResult()
             paf::common::MainThreadCallList::Unregister(ImePollTask, this);
             m_ime_task_registered = false;
         }
-        SetStatus("Unable to read the PC address.");
+        MoonlightApp::Instance()->Connection().ShowError("Unable to read the PC address.");
         return;
     }
 
@@ -1029,14 +989,14 @@ void Main::HandleAddPcImeResult()
     }
 
     if (result.button != SCE_IME_DIALOG_BUTTON_ENTER) {
-        SetStatus("Enter PC hostname or IP address.");
+        MoonlightApp::Instance()->Connection().ShowError("Enter PC hostname or IP address.");
         return;
     }
 
     char address[kMaxHostAddressLength + 1];
     if (!ConvertImeTextToAddress(m_ime_input, address, sizeof(address))) {
-        SetStatus("Enter a valid PC address or host:port.");
-        StartAddPcIme();
+        MoonlightApp::Instance()->Connection().ShowError("Enter a valid PC address or host:port.");
+        RetryAddPcIme();
         return;
     }
 
@@ -1055,8 +1015,8 @@ void Main::StartManualConnection(const char *address)
     }
 
     if (!ParseHostPort(address, host_address, sizeof(host_address), &port)) {
-        SetStatus("Enter a valid PC address or host:port.");
-        StartAddPcIme();
+        MoonlightApp::Instance()->Connection().ShowError("Enter a valid PC address or host:port.");
+        RetryAddPcIme();
         return;
     }
 
@@ -1084,7 +1044,16 @@ void Main::StartManualConnection(const char *address)
         if (list) {
             list->SetActivate(true);
         }
-        SetStatus("Unable to start connection.");
+        ShowIdleStatus();
+    }
+}
+
+void Main::RetryAddPcIme()
+{
+    m_ime_retry_pending = true;
+    if (!m_ime_task_registered) {
+        paf::common::MainThreadCallList::Register(ImePollTask, this);
+        m_ime_task_registered = true;
     }
 }
 
@@ -1096,6 +1065,7 @@ void Main::ImePollTask(void *userdata)
     }
 
     if (main->m_ime_retry_pending && !main->m_ime_open) {
+        if (MoonlightApp::Instance()->Connection().IsBusy()) return;
         main->m_ime_retry_pending = false;
         main->StartAddPcIme();
         return;
@@ -1133,7 +1103,10 @@ void Main::OnMoonlightEvent(const MoonlightEvent *event, void *userdata)
             MOONLIGHT_CONNECTION_PAIRED) {
             if (!Base::IsOpen("page_apps")) {
                 Apps *apps = new Apps();
-                if (!apps->IsValid()) delete apps;
+                if (!apps->IsValid()) {
+                    delete apps;
+                    MoonlightApp::Instance()->Connection().ShowError("Unable to open applications.");
+                }
             }
             break;
         }
@@ -1143,24 +1116,24 @@ void Main::OnMoonlightEvent(const MoonlightEvent *event, void *userdata)
             char pin[5] = {0};
             int prepare_result = MoonlightApp::Instance()->Pairing().Prepare(pin);
             if (prepare_result != 0) {
-                main->SetStatus("Unable to prepare pairing.");
+                MoonlightApp::Instance()->Connection().ShowError("Unable to prepare pairing.", prepare_result);
                 return;
             }
 
             Pairing *pairing = new Pairing(pin);
             if (!pairing || !pairing->IsValid()) {
                 delete pairing;
-                main->SetStatus("Unable to open pairing screen.");
+                MoonlightApp::Instance()->Connection().ShowError("Unable to open pairing screen.");
             }
             return;
         }
 
-        main->SetStatus("Unable to connect to PC.");
+        MoonlightApp::Instance()->Connection().ShowError("Unable to connect to PC.");
         break;
 
     case MOONLIGHT_EVENT_CONNECTION_FAILED:
         main->m_connecting = false;
-        main->SetStatus("Unable to connect to PC.");
+        main->ShowIdleStatus();
 
         {
             paf::ui::ListView *list = static_cast<paf::ui::ListView *>(
@@ -1171,7 +1144,7 @@ void Main::OnMoonlightEvent(const MoonlightEvent *event, void *userdata)
 
     case MOONLIGHT_EVENT_CONNECTION_CLOSED:
         main->m_connecting = false;
-        main->SetStatus("Connection closed.");
+        main->ShowIdleStatus();
         {
             paf::ui::ListView *list = static_cast<paf::ui::ListView *>(
                 main->root->FindChild("list_view_main"));
@@ -1190,7 +1163,7 @@ void Main::OnMoonlightEvent(const MoonlightEvent *event, void *userdata)
          * than silently doing nothing.
          */
         main->m_connecting = false;
-        main->SetStatus("This PC needs pairing. Use Search PCs.");
+        MoonlightApp::Instance()->Connection().ShowError("This PC needs pairing. Use Search PCs.");
         {
             paf::ui::ListView *list = static_cast<paf::ui::ListView *>(
                 main->root->FindChild("list_view_main"));

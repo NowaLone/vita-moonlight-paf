@@ -616,6 +616,12 @@ ongoing stream threads and main-thread completion delivery remain. This is the t
   hides/removes duplicate page progress, and restores Search status visibility for errors/idle.
   The visibility cause of the earlier short-step dialogs is unconfirmed; no timed delay added.
   Follow-up build and Vita appearance/handoff verification remain pending.
+  Text-policy follow-up, 2026-10-21: remove page status APIs; retain static empty-list labels
+  and PS4 Link-style static pairing instructions. Main/Search/Apps errors now reuse the native
+  OK-dialog owner; Pairing keeps its specific error/return path. Dialog failures are Debug Log
+  only. Delete uses OK/Cancel with no success result; IME retry waits for error dismissal.
+  Source review and non-build checks do not verify rendering. Next check Delete Cancel/OK,
+  native error dismissal/retry and pairing text/PIN layout against the supplied PS4 Link image.
 
 Source findings and isolated follow-ups (basic user smoke test passed; full runtime acceptance remains pending):
 

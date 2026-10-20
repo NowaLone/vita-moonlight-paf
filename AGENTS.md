@@ -161,6 +161,16 @@ recipes for common UI changes live in [`docs/UI.md`](docs/UI.md). Read it before
 - In a `style_plane`, the style `color` and its `planeobj` `color` multiply, alpha included: keep the style at `1, 1, 1, 1` and put the real value in the `planeobj`.
 - The PAF coordinate system is center-origin on a 960×544 screen: `(0,0)` is screen center and positive Y points upward. Anchor/align values, `adjust`, the visible-edge inset of buttons and the speech-balloon placement rule are in `docs/UI.md` sections 2 and 5.4.
 - Saved-host Delete uses `SceMessageDialog` for confirmation and removes the selected persistent records through the HostService → backend → legacy device store path.
+- Page text is static content: show the empty-list label only when the corresponding list is empty.
+  Do not restore inline progress, selection prompts, success/result messages or connection/stream-stop
+  status. Long foreground steps use the existing native progress dialog; errors use native OK dialogs.
+  If a dialog cannot be displayed, report through `vita_debug_log()` only; no text fallback on the page.
+- Saved-host Delete confirmation uses native **OK/Cancel**; OK performs deletion, Cancel preserves
+  selection. Successful deletion has no result message. Failure uses a native error dialog.
+- Pairing instructions are static CXML/localized text styled from the PS4 Link reference in `docs/UI.md`.
+  Only the PIN changes with the explicit attempt; do not add `Pairing...` / `Paired` status text or cover
+  the PIN with generic progress. Preserve the specific native pairing error and OK → parent behavior.
+  The opt-in stream statistics/status overlay is separate and remains unchanged.
 - Measured PS4 Link and Photos values (bars, header line, paragraph, rows, popup geometry), the earlier horizontal speech-balloon observation and the Sony vertical-sample reference are in `docs/UI.md` section 5. The selection bar deliberately keeps the Photos values.
 - Do not move streaming implementation into PAF pages.
 

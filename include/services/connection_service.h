@@ -23,6 +23,7 @@ public:
     void FinishUnstartedOperation();
     bool PrepareCompletion(const MoonlightEvent &event);
     bool IsBusy() const;
+    void ShowError(const char *message, int result = 0);
     /* Workers publish only a result; PAF consumes it after Run's backend call returns. */
     void RecordWorkerResult(int result);
     bool GetCompletedJobEvent(MoonlightEvent *event) const;
@@ -41,7 +42,7 @@ private:
     int StartWaitDialog();
     void CloseWaitDialog();
     void ShowConnectionError();
-    void TryShowConnectionError();
+    void TryShowError();
 
     MoonlightBackend &m_backend;
     PairingService &m_pairing;

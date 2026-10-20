@@ -10,7 +10,7 @@
       <template_ref id="template_ref_main_title" template="template_top_title_bar" />
       <template_ref id="template_ref_main_host_list" template="template_list_view_main" />
 
-      <text style="style_text_main_status" label="msg_select_pc" id="text_main_status">
+      <text style="style_text_main_status" label="msg_no_pcs" id="text_main_status">
         <layout_hint anchor="0, 2" align="0, 2" size="760, 0" pos="0, -225" adjust="0, 2" />
       </text>
 
@@ -63,7 +63,7 @@
         <layout_hint anchor="0, 2" align="0, 2" size="960, 2" pos="0, -95" />
       </plane>
 
-      <text style="style_text_header" label="msg_searching_pcs" id="text_search_status">
+      <text style="style_text_header" label="msg_no_pcs_found" id="text_search_status">
         <layout_hint anchor="1, 2" align="1, 2" size="780, 0" pos="64, -47" adjust="0, 2" />
       </text>
 
@@ -79,16 +79,16 @@
         <layout_hint size="960, 544" />
       </plane>
 
-      <text style="style_text_paragraph" label="msg_pairing_enter_pin" id="text_pairing_instruction">
+      <text style="style_text_paragraph" label="msg_pairing_instruction" id="text_pairing_instruction">
         <layout_hint anchor="1, 2" align="1, 2" size="790, 0" pos="64, -88" adjust="0, 2" />
       </text>
 
       <text style="style_text_pin" id="text_pairing_pin">
-        <layout_hint anchor="1, 2" align="1, 2" size="490, 52" pos="64, -168" />
+        <layout_hint anchor="1, 2" align="1, 2" size="490, 68" pos="64, -368" />
       </text>
 
-      <text style="style_text_flow_note" id="text_pairing_status">
-        <layout_hint anchor="1, 2" align="1, 2" size="790, 0" pos="64, -240" adjust="0, 2" />
+      <text style="style_text_paragraph" label="msg_pairing_steps" id="text_pairing_steps">
+        <layout_hint anchor="1, 2" align="1, 2" size="790, 0" pos="64, -208" adjust="0, 2" />
       </text>
 
       <template_ref id="pairing_bar_ref" template="template_flow_bar" />
@@ -121,7 +121,7 @@
       <template_ref id="apps_title_ref" template="template_top_title_bar" />
       <template_ref id="apps_list_ref" template="template_list_view_generic" />
 
-      <text style="style_text_main_status" label="msg_loading_apps" id="text_apps_status">
+      <text style="style_text_main_status" label="msg_no_applications" id="text_apps_status">
         <layout_hint anchor="0, 2" align="0, 2" size="760, 0" pos="0, -220" adjust="0, 2" />
       </text>
 

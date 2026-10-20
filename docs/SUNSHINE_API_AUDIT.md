@@ -1049,6 +1049,16 @@ This changes presentation only, with the same reservation/completion ownership a
 protocol changes or artificial delay. Earlier short-step dialog visibility is not explained
 by the supplied observation alone. Build, no-button dialog appearance and handoffs remain pending.
 
+**Page-text policy follow-up, 2026-10-21; source only:** Main/Search/Apps error notifications
+now use the existing service-owned native OK dialog, with immutable displayed text and
+log-only suppression of concurrent notifications. Connection errors have one service owner;
+the page no longer repeats the failure text. Pairing retains its native semantic/server error
+dialog and OK → parent navigation; failure to show it is log-only. Pages contain static
+empty-state labels and pairing instructions instead of dynamic progress/result/error strings.
+Invalid-address IME retry waits for the native error to close. These changes do not alter
+GameStream endpoints, pairing semantics, cancellation or the stream statistics overlay.
+Native presentation, error handoffs and retry regression tests remain Vita/build pending.
+
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.

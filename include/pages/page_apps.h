@@ -28,7 +28,7 @@ public:
 private:
     static void OnAppButton(int32_t type, paf::ui::Handler *self, paf::ui::Event *event, void *userdata);
     static void OnMoonlightEvent(const MoonlightEvent *event, void *userdata);
-    void SetStatus(const char *text);
+    void ShowEmptyState();
     void HideStatus();
     void ShowApps(int count);
     void SelectApp(int index);

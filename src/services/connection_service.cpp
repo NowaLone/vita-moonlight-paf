@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdio.h>
 
 #include <paf.h>
 
@@ -172,8 +173,21 @@ void ConnectionService::CloseWaitDialog()
 
 void ConnectionService::ShowConnectionError()
 {
-    const char *message = "Unable to connect to PC. Check the address, network connection and Sunshine.";
-    strncpy(m_error_message, message, sizeof(m_error_message) - 1);
+    ShowError("Unable to connect to PC. Check the address, network connection and Sunshine.");
+}
+
+void ConnectionService::ShowError(const char *message, int result)
+{
+    if (!message) return;
+    vita_debug_log("[Dialog] error: %s result=0x%08X", message, (unsigned int)result);
+    /* Keep the displayed message immutable; repeated notifications are log-only. */
+    if (m_error_pending || m_error_dialog_open) return;
+    if (result != 0) {
+        snprintf(m_error_message, sizeof(m_error_message), "%s (0x%08X)",
+                 message, (unsigned int)result);
+    } else {
+        strncpy(m_error_message, message, sizeof(m_error_message) - 1);
+    }
     m_error_message[sizeof(m_error_message) - 1] = '\0';
     m_error_pending = true;
     if (!m_dialog_task_registered) {
@@ -182,7 +196,7 @@ void ConnectionService::ShowConnectionError()
     }
 }
 
-void ConnectionService::TryShowConnectionError()
+void ConnectionService::TryShowError()
 {
     if (!m_error_pending || m_progress_dialog_open ||
         m_progress_dialog_closing || m_error_dialog_open) {
@@ -205,7 +219,7 @@ void ConnectionService::TryShowConnectionError()
     if (result < 0) {
         if (result != SCE_COMMON_DIALOG_ERROR_BUSY) {
             vita_debug_log(
-                "[ConnectionService] connection error dialog init failed: 0x%08X",
+                "[Dialog] error dialog init failed: 0x%08X",
                 (unsigned int)result);
             m_error_pending = false;
         }
@@ -297,7 +311,7 @@ void ConnectionService::DialogPollTask(void *userdata)
     if (service->m_error_pending && !service->m_progress_dialog_open &&
         !service->m_progress_dialog_closing &&
         !service->m_error_dialog_open) {
-        service->TryShowConnectionError();
+        service->TryShowError();
     }
 
     if (service->m_error_dialog_open) {
@@ -361,11 +375,15 @@ void ConnectionService::Shutdown()
 int ConnectionService::Connect(const MoonlightHost &host)
 {
     if (!host.internal[0]) {
+        ShowConnectionError();
         return -1;
     }
 
     int begin_result = BeginOperation(Operation_Connect);
-    if (begin_result != 0) return begin_result;
+    if (begin_result != 0) {
+        if (!IsBusy()) ShowConnectionError();
+        return begin_result;
+    }
     strncpy(m_connect_address, host.internal, sizeof(m_connect_address) - 1);
     m_connect_address[sizeof(m_connect_address) - 1] = '\0';
 

@@ -53,10 +53,10 @@ private:
     paf::ui::ListItem *CreateListItem(paf::ui::listview::ItemFactory::CreateParam &param);
     void RefreshHosts();
     void SelectHost(int index);
-    void SetStatus(const char *text);
     void HideStatus();
     void ShowIdleStatus();
     void StartAddPcIme();
+    void RetryAddPcIme();
     void HandleAddPcImeResult();
     void StartManualConnection(const char *address);
     void ExitSelectionMode();

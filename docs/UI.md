@@ -80,8 +80,8 @@ retains the stream worker and waits for STREAM_STARTED/FAILED/STOPPED, then dial
 Reservation is released before dispatch so Connect → Apps → app-list loading can proceed.
 
 Base blocks page opening and ordinary Back while this owner is busy, including connection
-error dismissal. Connect retains its native error dialog; Apps/load and launch failures retain
-their existing page status after WAIT closes. Enqueue/start failure closes WAIT before releasing
+error dismissal. Connect retains its native error dialog; the later text-policy follow-up below
+moves Apps/load and launch errors into native OK dialogs too. Enqueue/start failure closes WAIT before releasing
 ownership. The interactive pairing page and its explicit Back cancellation remain separate;
 no generic WAIT covers its PIN. Stop/Disconnect APIs and broader lifecycle races are not covered
 by this three-operation reservation. Pages still own presentation/navigation.
@@ -100,12 +100,49 @@ for error/discovery/idle states after hiding it during connection.
 ConnectionService's progress dialog now uses native `SceMsgDialog` USER_MSG with
 BUTTON_TYPE_NONE and a static-lifetime message for the current operation: `Connecting to PC...`,
 `Loading applications...`, or `Starting stream...`. It closes automatically on completion
-through the existing Abort/FINISHED/Term handoff; errors/empty lists remain page state and
+through the existing Abort/FINISHED/Term handoff; at that revision errors/empty lists remained page state and
 the PIN remains visible. The installed VitaSDK header defines this mode and button type;
 this replaces the generic system WAIT text rather than adding a custom PAF dialog.
 No artificial minimum display time is added. The reason for the unseen earlier short-step
 dialogs is not established without logs. This source follow-up still needs build/Vita checks,
 including the no-button dialog's appearance and immediate Connect → Apps handoff.
+
+### Page text and native messages — maintainer decision, 2026-10-21
+
+**[code; build/hardware pending]** Main/Search/Apps now contain static empty-list labels only,
+shown when their list is empty (hidden during foreground progress/selection). No inline
+search/keyboard/connection progress, `Select a PC`, delete-success result, `Connected`, or
+`Stream stopped` text remains. CXML defaults also use empty-state labels; Apps no longer has
+`Loading apps...` as its resource default. Pairing uses static instructions and the PIN only.
+
+Errors use native OK dialogs: ConnectionService reuses its existing persistent message buffer,
+WAIT teardown and dialog poll for Main/Search/Apps errors. Connection failures are owned by
+the service; pages restore their empty-state visibility without showing a duplicate error.
+A displayed/pending message is not overwritten by another error; that notification is logged.
+Busy native dialog initialization waits for the existing dialog to release; other initialization
+failures are log-only. No error text is drawn on a page if dialog initialization fails.
+Invalid manual input waits for the error dialog to close before retrying IME.
+
+Pairing retains its specific error messages/server Error 409 and OK → parent behavior; local
+page-open/internal errors now use that same native dialog path. Failure to initialize it is
+console-only. Instructions never change to `Pairing...` or `Paired`. Stream's opt-in statistics
+and video status overlay are unchanged. Delete confirmation now uses OK/Cancel: OK deletes,
+Cancel keeps selection, success returns to the refreshed list, failure opens a native OK error.
+
+**PS4 Link reference [shot]:** user-supplied 960×544 JPEG, 2026-10-21. Pixel threshold measurement
+of the bright text gives first-line ink y≈98–117, second y≈138–157; the next paragraph starts
+y≈217–237, followed by y≈257–277 and y≈298–317 (descenders/compression add edge pixels).
+Left ink begins x≈65–67, consistent with the existing x=64 text origin. This corroborates
+40 px line spacing and a second paragraph 120 px below the first. The existing shared
+`style_text_paragraph` supplies 26 px regular native PAF text, opaque white, 40 px pitch,
+790 px wrap width. Font family/size cannot be established exactly from JPEG pixels alone;
+the actual Vita rendering still needs comparison with the reference **[open]**.
+
+Pairing uses that same paragraph style at layout origins (64,88) and (64,208), with localized
+Sunshine-specific two-line instructions. PIN moves below the instructions to a 490×68 widget
+at (64,368); the existing 48 px bold PIN style and bottom Back bar remain. Those positions are
+source choices **[code]**, not measurements of Moonlight running on Vita. Validate wrapping,
+PIN/bar separation, no status flicker, dialog error handoffs and Delete OK/Cancel on hardware.
 
 ## 2. Screen geometry and the layout language
 
@@ -176,7 +213,7 @@ Rows are 80 px tall and 960 px wide. The first row's top edge is at y = 96 and d
 | Class (`page::Type`) | XML page | Purpose | Back mechanism |
 |---|---|---|---|
 | `Main` (`Type_Main`) | `page_main` | saved-PC list, inline Add PC / Search PCs, selection mode | none (bottom of the stack) |
-| `Search` (`Type_Search`) | `page_search_pcs` | LAN discovery list; the header text is the status | corner button `btn_close_search` |
+| `Search` (`Type_Search`) | `page_search_pcs` | LAN discovery list; static text only when empty | corner button `btn_close_search` |
 | `Pairing` (`Type_Pairing`) | `page_pairing` | shows the PIN, pairs as soon as it opens | bar button `btn_close_pairing` |
 | `Apps` (`Type_Apps`) | `page_apps` | application list of the connected PC | corner button `btn_close_apps` |
 | `Stream` (`Type_Stream`) | `page_stream` | full-screen video plane, black background, optional statistics overlay; no chrome | none (closed by stream events) |
@@ -190,7 +227,7 @@ Successful Pairing is removed from the existing Base stack only after Apps opens
 Apps then reclaims the event callback that Pairing's destructor temporarily returns to the parent.
 Back from Apps returns to Search when pairing began there, or to Main for a Main/manual connection,
 without revisiting the completed PIN page **[code]**. Search callback restoration clears the previous
-selection guard and restores its list prompt so another PC can be selected **[code]**. If Apps fails
+selection guard and restores empty-state visibility so another PC can be selected **[code]**. If Apps fails
 to open, Pairing stays available with an error **[code]**. User verified Search → successful Pairing →
 Apps → Back → Search and selecting a PC again on 2026-10-19 **[hw, tested Vita]**. The Main/manual path,
 already-paired path, Pairing cancel and stream-event regression checks remain **[open]**.

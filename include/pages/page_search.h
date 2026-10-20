@@ -34,7 +34,7 @@ private:
     static void OnHostButton(int32_t type, paf::ui::Handler *self, paf::ui::Event *event, void *userdata);
     static void OnMoonlightEvent(const MoonlightEvent *event, void *userdata);
     void RefreshHosts();
-    void SetStatus(const char *text);
+    void ShowEmptyState();
     void HideStatus();
     void SelectHost(int index);
     void OnConnectionReady();

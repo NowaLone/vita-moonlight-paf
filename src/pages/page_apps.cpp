@@ -44,7 +44,8 @@ Apps::Apps()
 
     int result = MoonlightApp::Instance()->Applications().Refresh();
     if (result != 0) {
-        SetStatus("Unable to load applications.");
+        MoonlightApp::Instance()->Connection().ShowError("Unable to load applications.", result);
+        ShowEmptyState();
     }
 }
 
@@ -140,23 +141,21 @@ void Apps::SelectApp(int index) {
 
     if (result != 0) {
         m_launching = false;
-        paf::string status = paf::common::FormatString(
-            "Unable to launch application: 0x%08X",
-            (unsigned int)result);
-        SetStatus(status.c_str());
+        MoonlightApp::Instance()->Connection().ShowError("Unable to launch application.", result);
+        ShowEmptyState();
         return;
     }
 }
 
-void Apps::SetStatus(const char *text) {
-    if (!root || !text) return;
-
+void Apps::ShowEmptyState() {
+    if (!root) return;
     paf::ui::Widget *widget = root->FindChild("text_apps_status");
     if (!widget) return;
-
-    ((paf::ui::Text *)widget)->SetString(
-        paf::common::string_util::ToWString(text));
-    widget->Show(paf::common::transition::Type_Reset);
+    if (m_app_count == 0) {
+        widget->Show(paf::common::transition::Type_Reset);
+    } else {
+        widget->Hide(paf::common::transition::Type_Reset);
+    }
 }
 
 void Apps::HideStatus() {
@@ -182,7 +181,8 @@ void Apps::ShowApps(int count) {
     m_app_count = 0;
     m_apps.clear();
     if (count < 0 || count > MOONLIGHT_MAX_APPLICATIONS) {
-        SetStatus("Unable to load applications.");
+        MoonlightApp::Instance()->Connection().ShowError("Unable to load applications.");
+        ShowEmptyState();
         return;
     }
 
@@ -194,7 +194,8 @@ void Apps::ShowApps(int count) {
         if (m_app_count < 0 || m_app_count > count) {
             m_app_count = 0;
             m_apps.clear();
-            SetStatus("Unable to load applications.");
+            MoonlightApp::Instance()->Connection().ShowError("Unable to load applications.");
+            ShowEmptyState();
             return;
         }
         m_apps.resize(m_app_count);
@@ -205,12 +206,11 @@ void Apps::ShowApps(int count) {
 
         /*
          * The status text is centred on the list and was drawn over the second
-         * row. The rows are the hint; keep the text for the empty state and for
-         * transient messages (launching, errors, ...).
+         * row. Keep this static text only for the empty state.
          */
         HideStatus();
     } else {
-        SetStatus("No applications available.");
+        ShowEmptyState();
     }
 
     vita_debug_log("[Apps] ShowApps count=%d cells before=%d after_delete=%d after_insert=%d",
@@ -229,10 +229,8 @@ void Apps::OnMoonlightEvent(
         break;
 
     case MOONLIGHT_EVENT_APPLICATIONS_FAILED: {
-        paf::string status = paf::common::FormatString(
-            "Unable to load applications: 0x%08X",
-            (unsigned int)event->result);
-        apps->SetStatus(status.c_str());
+        MoonlightApp::Instance()->Connection().ShowError("Unable to load applications.", event->result);
+        apps->ShowEmptyState();
         break;
     }
 
@@ -241,10 +239,11 @@ void Apps::OnMoonlightEvent(
             Stream *stream = new Stream();
             if (!stream->IsValid()) {
                 delete stream;
+                MoonlightApp::Instance()->Connection().ShowError("Unable to open the streaming page.");
             }
         }
 
-        apps->SetStatus("Connected.");
+        apps->HideStatus();
         break;
     }
 
@@ -256,15 +255,16 @@ void Apps::OnMoonlightEvent(
 
         Stream::ScheduleFrameBufferRelease();
         apps->m_launching = false;
-        apps->SetStatus("Stream stopped.");
+        apps->ShowEmptyState();
         break;
 
     case MOONLIGHT_EVENT_STREAM_FAILED: {
-        paf::string status = paf::common::FormatString(
-            "Unable to start stream: 0x%08X",
-            (unsigned int)event->result);
+        const bool was_launching = apps->m_launching;
         apps->m_launching = false;
-        apps->SetStatus(status.c_str());
+        if (was_launching) {
+            MoonlightApp::Instance()->Connection().ShowError("Unable to start stream.", event->result);
+        }
+        apps->ShowEmptyState();
         break;
     }
 

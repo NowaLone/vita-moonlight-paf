@@ -24,9 +24,8 @@ private:
     void StartPairing();
     void ShowPairingError(int result, int server_status_code = 0,
                           const char *server_status_message = NULL);
-    void ShowSystemError();
+    void ShowSystemError(const char *message);
     void SetPin(const char pin[5]);
-    void SetStatus(const char *text);
 
     char m_pin[5];
     bool m_pairing_started;
