@@ -562,7 +562,8 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   >8 selection check and normal switching between two PCs with different lists and back
   are user-reported OK (no new switch trace). The empty-state message without repeated
   requests or a hang is also user-confirmed. T2/T4 still require revoked client,
-  concurrent/stress host changes and the 64/65 boundary. Complete product support
+  concurrent/stress host changes; the 64/65 boundary remains unverified and is explicitly
+  deferred by the maintainer (2026-10-20). Complete product support
   is not established by the 64-entry cache.
 
 ### A08 — Application list parsing — partial
@@ -1179,6 +1180,11 @@ This is a user-reported Vita result, without a new log or raw XML body; it does 
 validate malformed/error responses or every refresh race. The 64/65 boundary, nonempty
 in-page rebuild and exact launch-ID tracing remain pending. No runtime change is needed.
 
+**Scope decision, 2026-10-20:** the maintainer explicitly defers the 64/65-app boundary
+test. Keep it unverified; do not run it or treat it as a blocker for the completed basic
+Apps improvement. The backend bound remains 64. Other outstanding tests keep their own
+status; this decision is not acceptance of untested protocol/error or concurrency paths.
+
 ### F8 — Abandoned pairing holds the connection queue — active-wait cancellation/reconnect verified on one Vita
 
 **New runtime evidence (2026-10-20):** on the older Sunshine host the maintainer reports
@@ -1349,7 +1355,8 @@ exposes all cached entries up to the unchanged backend bound of 64. Ten-row popu
 is now log-verified and the maintainer reports the requested >8 check OK. Normal
 switching between two PCs with different lists and back is now user-confirmed, without
 a new log. The empty-list message/no-repeat/no-hang scenario is now also user-confirmed.
-Next validate the 64/65-app boundary; concurrent/stress host changes remain open. The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
+The maintainer explicitly defers the unverified 64/65-app boundary test. Next review
+F5 asynchronous backend state/operation ownership; concurrent/stress host changes remain open. The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
 cancellation/conflict trace verifies local cancellation followed by genuine server 409,
 not PIN success). A subsequent fragment now verifies pairing Run result 0, job release
 and Apps retrieval/population of ten entries. F8 active-wait cancellation, job release and

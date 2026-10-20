@@ -305,7 +305,8 @@ Only these `_common_*` names appear in the XML and are known to resolve: `_commo
   scrolling/selection and correct app ID at launch on Vita. A supplied 2026-10-20 log verifies
   `count=10`, `before=0`, `after_delete=0`, `after_insert=10`; the maintainer reports the requested >8 check OK
   **[hw, tested Vita; selection user-reported]**. The fragment does not identify a launched app. Smaller
-  nonempty-list rebuild and 64/65 apps remain **[open]**. Normal switching between two PCs with different lists
+  nonempty-list rebuild remains **[open]**. The 64/65-app boundary is unverified and explicitly deferred by
+  the maintainer (2026-10-20), rather than required as the next test. Normal switching between PCs with different lists
   and return to the first is user-confirmed on 2026-10-20 **[hw, user-reported; no new log]**: each shows its own
   apps. The empty-list state is also user-confirmed on 2026-10-20 **[hw, user-reported; no new log]**:
   `No applications available.` appears without repeated requests or a hang. These checks do not validate
