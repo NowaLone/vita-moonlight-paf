@@ -1059,6 +1059,18 @@ Invalid-address IME retry waits for the native error to close. These changes do 
 GameStream endpoints, pairing semantics, cancellation or the stream statistics overlay.
 Native presentation, error handoffs and retry regression tests remain Vita/build pending.
 
+**Progress visibility follow-up, 2026-10-21:** maintainer accepts the static pairing layout
+but sees only the stream-start dialog. The supplied log shows successful Init/Term and
+completion for Connect (result 0) and app list (four apps), followed by successful resume/setup.
+It has no timing or presentation evidence for the first two windows. Source review found normal
+completion used unconditionally unchecked Abort. ConnectionService now uses checked native
+Close → FINISHED → checked Term, retrying a close request when initialization has not yet
+reached RUNNING. The installed message-dialog reference samples use normal Close for no-button
+and wait messages; this does not establish visibility behavior on firmware. Open/first-poll/
+close/term elapsed diagnostics were added, without artificial delay or protocol changes.
+The missing presentation root cause and effect remain runtime pending; pairing appearance
+acceptance is not acceptance of these windows. See UI.md for the focused follow-up.
+
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.

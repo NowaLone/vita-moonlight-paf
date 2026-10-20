@@ -99,8 +99,8 @@ for error/discovery/idle states after hiding it during connection.
 
 ConnectionService's progress dialog now uses native `SceMsgDialog` USER_MSG with
 BUTTON_TYPE_NONE and a static-lifetime message for the current operation: `Connecting to PC...`,
-`Loading applications...`, or `Starting stream...`. It closes automatically on completion
-through the existing Abort/FINISHED/Term handoff; at that revision errors/empty lists remained page state and
+`Loading applications...`, or `Starting stream...`. At that revision it closed on completion
+through an Abort/FINISHED/Term handoff (corrected below); errors/empty lists remained page state and
 the PIN remains visible. The installed VitaSDK header defines this mode and button type;
 this replaces the generic system WAIT text rather than adding a custom PAF dialog.
 No artificial minimum display time is added. The reason for the unseen earlier short-step
@@ -143,6 +143,42 @@ Sunshine-specific two-line instructions. PIN moves below the instructions to a 4
 at (64,368); the existing 48 px bold PIN style and bottom Back bar remain. Those positions are
 source choices **[code]**, not measurements of Moonlight running on Vita. Validate wrapping,
 PIN/bar separation, no status flicker, dialog error handoffs and Delete OK/Cancel on hardware.
+
+**Pairing appearance [hw, user-reported, 2026-10-21]:** the maintainer confirms the new
+pairing screen looks excellent on the tested Vita. Keep this layout. No new Moonlight screenshot
+or installed revision/profile is supplied, so this is appearance acceptance on one device,
+not a measured pixel match or verification of every pairing/error state.
+
+### Short progress-dialog investigation — 2026-10-21
+
+The supplied Vita log shows successful native Init → connect result=0 → Term → operation 1
+completion, then Init → applist count=4 → Term → operation 2 completion. Operation 3 reaches
+stream setup/decoded video and the maintainer sees `Starting stream...`; the first two windows
+remain unseen. No init failure is logged. The trace has no timestamps or dialog polling status,
+so it establishes successful API lifetimes, not visible presentation or their durations.
+
+**Source defect / minimal follow-up [code; Vita pending]:** normal operation completion called
+`sceMsgDialogAbort()` unconditionally and ignored its result. The installed VitaSDK exposes
+[`sceMsgDialogClose()`](https://docs.vitasdk.org/group__SceMessageDialogUser.html) separately.
+The local SDK `api_message_dialog/user_message` sample closes BUTTON_TYPE_NONE with Close,
+and the system-message example does the same for its wait dialog. NetStream/BHBB also use
+normal Close for their native PAF CommonGuiDialog waits; that is a different API and is not
+copied into this SceMsgDialog path. These references support normal closing, not a guarantee
+about animation/visibility on this firmware.
+
+ConnectionService now requests Close in RUNNING, waits for FINISHED, checks Term, and retains
+operation ownership until Term succeeds. A request made before RUNNING is retried by the
+existing PAF poll. Close errors remain pending and are logged without repeated identical logs;
+Abort remains only for forced shutdown. Polling is registered at successful Init and retained
+while the window is open. No minimum duration, sleeps, extra UI or protocol changes are added.
+
+Targeted console diagnostics emit `dialog open`, `dialog first poll`, `dialog close` and
+`dialog term` with operation/status/API result and elapsed_ms. There is one first-poll message
+per operation, not a frame heartbeat. These distinguish a short lifetime from a late first PAF
+poll; RUNNING alone still does not prove a frame was displayed. Repeat Connect → Apps → launch
+and collect these lines. The visibility root cause and the effect of normal Close remain
+unverified until that Vita follow-up. Eight existing Python checks do not execute these dialogs;
+no build or hardware run was performed by the agent.
 
 ## 2. Screen geometry and the layout language
 

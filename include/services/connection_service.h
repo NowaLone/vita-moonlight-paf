@@ -48,6 +48,10 @@ private:
     PairingService &m_pairing;
     bool m_progress_dialog_open;
     bool m_progress_dialog_closing;
+    bool m_progress_close_requested;
+    bool m_progress_polled;
+    uint64_t m_progress_started_us;
+    int m_progress_last_error;
     bool m_error_dialog_open;
     bool m_error_pending;
     bool m_dialog_task_registered;

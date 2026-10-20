@@ -165,6 +165,10 @@ recipes for common UI changes live in [`docs/UI.md`](docs/UI.md). Read it before
   Do not restore inline progress, selection prompts, success/result messages or connection/stream-stop
   status. Long foreground steps use the existing native progress dialog; errors use native OK dialogs.
   If a dialog cannot be displayed, report through `vita_debug_log()` only; no text fallback on the page.
+- Complete foreground progress dialogs with native `sceMsgDialogClose()` and release ownership
+  only after FINISHED and successful Term. Reserve Abort for forced teardown. Do not add timed
+  minimum visibility or main-thread sleeps to mask unseen short dialogs; inspect `[Workflow]`
+  open/first-poll/close/term timing and status diagnostics first.
 - Saved-host Delete confirmation uses native **OK/Cancel**; OK performs deletion, Cancel preserves
   selection. Successful deletion has no result message. Failure uses a native error dialog.
 - Pairing instructions are static CXML/localized text styled from the PS4 Link reference in `docs/UI.md`.

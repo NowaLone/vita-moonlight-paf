@@ -622,6 +622,13 @@ ongoing stream threads and main-thread completion delivery remain. This is the t
   only. Delete uses OK/Cancel with no success result; IME retry waits for error dismissal.
   Source review and non-build checks do not verify rendering. Next check Delete Cancel/OK,
   native error dismissal/retry and pairing text/PIN layout against the supplied PS4 Link image.
+  User feedback 2026-10-21 accepts the pairing screen appearance on one Vita; keep that layout.
+  The new log shows native Init/Term success for Connect and four-app loading but those windows
+  are still unseen; only Starting stream is visible. No timing/status evidence was supplied.
+  Source follow-up replaces normal-completion Abort with checked Close → FINISHED → checked
+  Term, retaining the poll while open and recording open/first-poll/close/term elapsed times.
+  No timed display delay. Visibility root cause and this change's effect remain pending a new
+  Vita log; this checkbox stays open. Pairing acceptance does not verify error/Delete dialogs.
 
 Source findings and isolated follow-ups (basic user smoke test passed; full runtime acceptance remains pending):
 

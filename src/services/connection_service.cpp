@@ -4,6 +4,7 @@
 #include <paf.h>
 
 #include <psp2/message_dialog.h>
+#include <psp2/kernel/processmgr.h>
 
 #include "services/connection_service.h"
 #include "services/pairing_service.h"
@@ -75,6 +76,10 @@ ConnectionService::ConnectionService(MoonlightBackend &backend, PairingService &
       m_pairing(pairing),
       m_progress_dialog_open(false),
       m_progress_dialog_closing(false),
+      m_progress_close_requested(false),
+      m_progress_polled(false),
+      m_progress_started_us(0),
+      m_progress_last_error(0),
       m_error_dialog_open(false),
       m_error_pending(false),
       m_dialog_task_registered(false),
@@ -144,6 +149,7 @@ int ConnectionService::StartWaitDialog()
     param.mode = SCE_MSG_DIALOG_MODE_USER_MSG;
     param.userMsgParam = &user_message;
 
+    m_progress_started_us = sceKernelGetProcessTimeWide();
     int result = sceMsgDialogInit(&param);
     if (result < 0) {
         vita_debug_log(
@@ -153,6 +159,15 @@ int ConnectionService::StartWaitDialog()
     }
 
     m_progress_dialog_open = true;
+    m_progress_close_requested = false;
+    m_progress_polled = false;
+    m_progress_last_error = 0;
+    vita_debug_log("[Workflow] dialog open operation=%d status=%d",
+        (int)m_operation, (int)sceMsgDialogGetStatus());
+    if (!m_dialog_task_registered) {
+        paf::common::MainThreadCallList::Register(DialogPollTask, this);
+        m_dialog_task_registered = true;
+    }
     return 0;
 }
 
@@ -160,9 +175,25 @@ void ConnectionService::CloseWaitDialog()
 {
     if (!m_progress_dialog_open && !m_progress_dialog_closing) return;
 
+    const bool first_request = !m_progress_close_requested;
+    m_progress_close_requested = true;
     if (m_progress_dialog_open && !m_progress_dialog_closing) {
-        sceMsgDialogAbort();
-        m_progress_dialog_closing = true;
+        const SceCommonDialogStatus status = sceMsgDialogGetStatus();
+        int result = 0;
+        if (status == SCE_COMMON_DIALOG_STATUS_FINISHED) {
+            m_progress_dialog_closing = true;
+        } else if (status == SCE_COMMON_DIALOG_STATUS_RUNNING) {
+            /* Normal completion must close, not abort, the native message box. */
+            result = sceMsgDialogClose();
+            if (result >= 0) m_progress_dialog_closing = true;
+        }
+        if (first_request || m_progress_dialog_closing || result != m_progress_last_error) {
+            vita_debug_log("[Workflow] dialog close operation=%d status=%d submitted=%d result=0x%08X elapsed_ms=%llu",
+                (int)m_operation, (int)status, m_progress_dialog_closing ? 1 : 0,
+                (unsigned int)result,
+                (unsigned long long)((sceKernelGetProcessTimeWide() - m_progress_started_us) / 1000));
+        }
+        m_progress_last_error = result;
     }
 
     if (!m_dialog_task_registered) {
@@ -293,14 +324,32 @@ void ConnectionService::DialogPollTask(void *userdata)
         return;
     }
 
+    if (service->m_progress_dialog_open && !service->m_progress_polled) {
+        service->m_progress_polled = true;
+        vita_debug_log("[Workflow] dialog first poll operation=%d status=%d elapsed_ms=%llu",
+            (int)service->m_operation, (int)sceMsgDialogGetStatus(),
+            (unsigned long long)((sceKernelGetProcessTimeWide() - service->m_progress_started_us) / 1000));
+    }
+    if (service->m_progress_close_requested && !service->m_progress_dialog_closing) {
+        service->CloseWaitDialog();
+    }
+
     if (service->m_progress_dialog_closing) {
         if (sceMsgDialogGetStatus() != SCE_COMMON_DIALOG_STATUS_FINISHED) {
             return;
         }
 
-        sceMsgDialogTerm();
+        int result = sceMsgDialogTerm();
+        if (result >= 0 || result != service->m_progress_last_error) {
+            vita_debug_log("[Workflow] dialog term operation=%d result=0x%08X elapsed_ms=%llu",
+                (int)service->m_operation, (unsigned int)result,
+                (unsigned long long)((sceKernelGetProcessTimeWide() - service->m_progress_started_us) / 1000));
+        }
+        service->m_progress_last_error = result;
+        if (result < 0) return;
         service->m_progress_dialog_open = false;
         service->m_progress_dialog_closing = false;
+        service->m_progress_close_requested = false;
 
         if (service->m_release_on_dialog_close) {
             service->m_operation = Operation_None;
@@ -328,7 +377,7 @@ void ConnectionService::DialogPollTask(void *userdata)
         service->m_error_message[0] = '\0';
     }
 
-    if (!service->m_progress_dialog_closing &&
+    if (!service->m_progress_dialog_open && !service->m_progress_dialog_closing &&
         !service->m_error_pending &&
         !service->m_error_dialog_open) {
         if (service->m_dialog_task_registered) {
@@ -362,6 +411,7 @@ void ConnectionService::Shutdown()
     }
 
     m_error_pending = false;
+    m_progress_close_requested = false;
     m_operation = Operation_None;
     m_release_on_dialog_close = false;
     m_error_message[0] = '\0';
