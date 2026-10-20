@@ -265,7 +265,27 @@ baseline above is not retroactively changed. The maintainer subsequently confirm
 installed version as 2025.924.154138, so this explanation is tied to that reported release
 rather than inferred from the UI message alone. The package was not independently inspected.
 Admin UI/API behavior remains reference context, not a new Vita admin-client feature. No client runtime change is needed for this successful
-rejection test. Next submit the new displayed PIN correctly and verify final pairing/Apps.
+rejection test. The subsequent retry result is recorded below.
+
+### Failed second request after wrong PIN — runtime failure, 2026-10-20
+
+The next maintainer log supersedes any implication that retry recovery passed:
+
+```text
+[GameStream] pairing failed for <host>: legacy=-1 result=-1001 (Incorrect pairing PIN)
+[GameStream] pairing phase=getservercert
+[GameStream] pairing getservercert failed: -1 (Server returned nothing (no headers, no data))
+[GameStream] pairing failed for <host>: legacy=-1 result=-1002 (Server returned nothing (no headers, no data))
+```
+
+The maintainer reports return to Main. This agrees with CURLE_GOT_NOTHING mapping to
+NETWORK and the existing network-error dialog completion closing Pairing. Wrong-PIN
+rejection remains verified; successful retry is now a reproduced compatibility gap.
+The maintainer confirms this happens after submitting the new PIN in Sunshine. The
+supplied Sunshine log contains UPnP and self-signed-certificate warnings, without a
+pairing failure trace; it does not independently establish the cause of the empty HTTP reply.
+Per maintainer decision, this is an accepted noncritical compatibility limitation (F6),
+with no Sunshine patch or client workaround planned.
 
 ## 1. Scope and evidence
 
@@ -459,8 +479,10 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Upstream / Sunshine:** QP has explicit failed/PIN/in-progress results; S can reject ordering,
   pending capacity, invalid proof or expiry. These are not all incorrect-PIN cases.
 - **Verified / runtime:** user/log verified wrong-PIN result -1001 after serverchallengeresp,
-  visible error/new PIN and a new getservercert request (2026-10-20). Successful correct-PIN retry
-  is not yet shown. T3 still needs refused approval, lost network, malformed proof and local
+  visible error/new PIN and a new getservercert request (2026-10-20). The subsequent retry
+  after submitting the new PIN fails at getservercert with empty HTTP response/-1002 and page exit (F6), so
+  recovery fails in this tested sequence. F6 is accepted as noncritical; no workaround is planned.
+  T3 still needs refused approval, lost network, malformed proof and local
   crypto/storage failures; semantic enum presence alone does not establish those paths.
 
 ### A07 — Application list retrieval — partial
@@ -928,6 +950,23 @@ to make an audit row green. Respect N/B page-lifetime patterns and main-thread d
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.
 
+### F6 — Wrong-PIN retry on Sunshine 2025.924.154138 — accepted noncritical limitation
+
+The Vita rejects the first incorrect PIN with semantic error -1001. After generating a
+new PIN and submitting it in Sunshine, the next HTTP getservercert request receives no
+response bytes, becomes network error -1002, and Pairing returns to Main. Successful
+retry is not verified and must not be reported as supported for this tested sequence.
+
+Source review of [Sunshine v2025.924.154138 pairing](https://github.com/LizardByte/Sunshine/blob/v2025.924.154138/src/nvhttp.cpp)
+found reuse of an existing pairing session for the same client uniqueid after the
+client rejected the PIN. This is consistent with the failure, but the supplied logs
+do not directly prove the exact server-side failure path.
+
+On 2026-10-20 the maintainer explicitly accepted this as noncritical and excluded
+Sunshine fixes and client workarounds. The uncommitted host patch/materials were
+removed; no runtime code was changed for this issue. Preserve client identity,
+authentication and error classification. Continue independent client API work.
+
 ## 5. Required validation (all new cases pending)
 
 For every run record client source/package revision, Vita firmware/device, deployed Sunshine version
@@ -989,8 +1028,11 @@ of a mismatched valid saved server certificate (-10), followed by restored-pin c
 authenticated applist (4/4), is now user/log verified. Recovery through PIN pairing after the
 host-side revocation test is also log verified; reconnect without a PIN after restarting
 Moonlight is subsequently user-confirmed. Wrong-PIN rejection (-1001), error/new PIN and fresh
-retry initiation are now user/log verified. Next submit the newly displayed PIN correctly and
-verify successful pairing and Apps retrieval. Remaining setup-cancel/race, trust/error and
+retry initiation are now user/log verified, but the next request subsequently fails with an
+empty HTTP response/-1002 after submitting the new PIN (F6). The maintainer accepts
+this as noncritical; Sunshine patches and client workarounds are out of scope. The next
+independent implementation task is scalable app-list presentation (64 backend / 8 UI).
+Remaining setup-cancel/race, trust/error and
 repeated-recovery cases stay open. Complete the remaining T3/T4/T5/T8/T9 error/trust matrix. No
 administrative Sunshine credentials are introduced.
 
