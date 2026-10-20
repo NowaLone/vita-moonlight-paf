@@ -559,8 +559,9 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Upstream / Sunshine:** S emits the configured app list; QH `getAppList` verifies status before
   XML parsing; V uses its XML parser.
 - **Verified / runtime:** ten-app retrieval/population is user/log verified; the requested
-  >8 selection check is user-reported OK. T2/T4 still require revoked client, valid empty
-  list, two hosts with different lists and the 64/65 boundary. Complete product support
+  >8 selection check and normal switching between two PCs with different lists and back
+  are user-reported OK (no new switch trace). T2/T4 still require revoked client, a valid
+  empty list, concurrent/stress host changes and the 64/65 boundary. Complete product support
   is not established by the 64-entry cache.
 
 ### A08 — Application list parsing — partial
@@ -724,9 +725,10 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Upstream / Sunshine:** QS serializes active session cleanup; S retains process independently of
   stream and accepts resume with fresh session material.
 - **Verified / runtime:** normal stop/restart, app-exit launch, same-app resume and manual resume
-  after unexpected control disconnect are user/log verified on 2026-10-20. Full host
-  disconnect→connect, two-host cache isolation, repeated failure cycles and the remaining T8
-  cases remain open. No automatic network reconnection is implemented.
+  after unexpected control disconnect are user/log verified on 2026-10-20. Normal two-PC
+  app-list switching and return are subsequently user-confirmed without new logs. Full
+  host disconnect→connect API coverage, concurrent host/cache races, repeated failure
+  cycles and the remaining T8 cases remain open. No automatic network reconnection is implemented.
 
 ### A19 — Host-side session cleanup — partial (end-to-end evidence pending)
 
@@ -1162,6 +1164,14 @@ no selected application ID or launch trace. It starts with an empty ListView, so
 does not exercise deleting a nonempty list. The 64/65 boundary, empty/smaller-list
 rebuild and two-host cache isolation remain pending. No agent build/hardware test.
 
+**Two-PC follow-up, 2026-10-20:** the maintainer confirms the requested sequence of
+switching between two PCs with different app lists and returning to the first: the
+visible lists correspond to the selected PC. This is user-reported normal-flow success
+without a new runtime log or a separately specified package/version. It covers basic
+visible list isolation; it does not prove concurrent cache/job safety, full backend
+DisconnectHost API coverage or all F5 races. Empty-list behavior, nonempty in-page
+rebuild, exact launch-ID checks and the 64/65 boundary remain pending.
+
 ### F8 — Abandoned pairing holds the connection queue — active-wait cancellation/reconnect verified on one Vita
 
 **New runtime evidence (2026-10-20):** on the older Sunshine host the maintainer reports
@@ -1329,10 +1339,10 @@ maintainer now gives qualified user confirmation that the discussed recovery flo
 appears OK, without a new log or separately stated Apps result. F7 Search error navigation
 and the 409 dialog are verified on one Vita. The separate Apps vector change now
 exposes all cached entries up to the unchanged backend bound of 64. Ten-row population
-is now log-verified and the maintainer reports the requested >8 check OK. Next verify
-app-list isolation by switching between two hosts with different lists and back. The
-maintainer now explicitly confirms
-the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
+is now log-verified and the maintainer reports the requested >8 check OK. Normal
+switching between two PCs with different lists and back is now user-confirmed, without
+a new log. Next validate a valid empty app list; concurrent/stress host changes remain
+open. The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
 cancellation/conflict trace verifies local cancellation followed by genuine server 409,
 not PIN success). A subsequent fragment now verifies pairing Run result 0, job release
 and Apps retrieval/population of ten entries. F8 active-wait cancellation, job release and
