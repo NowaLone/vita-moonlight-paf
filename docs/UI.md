@@ -165,8 +165,10 @@ native dialog is intended to show: `The PC returned a pairing error:` followed b
 `A pairing session with this uniqueid already exists (Error 409)`. This is a server
 response code, not the semantic pairing result (-1003). Wrong PIN, network, security
 and internal failures retain their specific local messages. Missing server details
-use the generic fallback. Text clipping/layout, status 409 and other codes need Vita
-validation **[open]**; the existing OK → parent PC page behavior is unchanged.
+use the generic fallback. The maintainer confirms the duplicate-session reason with
+Error 409 is visible in the Vita dialog on 2026-10-20 **[hw, user-reported]**; the
+supplied log independently confirms server_status=409. Other codes and long/Unicode
+message clipping/layout remain **[open]**. The OK → parent PC page behavior is unchanged.
 
 Add PC is an inline control on Main; there is no Add PC page.
 

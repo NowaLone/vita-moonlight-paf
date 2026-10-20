@@ -1091,6 +1091,20 @@ do not execute the status parser or PAF. No build or real PAF/HTTP test was run 
 server error, missing message, wrong PIN, correct PIN and OK → Search/Main on Vita.
 Do not mark the new diagnostic text hardware-verified from the older generic-dialog log.
 
+**Runtime follow-up, 2026-10-20:** a new maintainer log contains two explicit Search
+selections. Both connect successfully, then getservercert immediately responds with
+semantic -1003, server_status=409 and "A pairing session with this uniqueid already
+exists"; neither reaches clientchallenge or PIN verification. This confirms extraction
+of the server code/reason at the API boundary on Vita. It does not identify which prior
+request owns that host session or its remaining lifetime: no server log/timestamps are
+provided. The immediate failure is the host's explicit duplicate-session rejection,
+not evidence that the new display code caused a handshake failure. The maintainer
+subsequently confirms the Vita dialog displays the duplicate-session text with Error 409.
+That verifies this specific diagnostic on one Vita; other codes, long/Unicode messages
+and the broader display/error matrix remain open. No runtime change is justified
+by these two refusals; retry after the host finishes its prior attempt, then verify
+correct-PIN pairing/Apps separately.
+
 ## 5. Required validation (all new cases pending)
 
 For every run record client source/package revision, Vita firmware/device, deployed Sunshine version
