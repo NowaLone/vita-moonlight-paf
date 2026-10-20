@@ -57,6 +57,28 @@ Evidence tags used below:
 7. **Small, reversible changes.** One visual decision per commit; put the measured numbers and their source in the
    commit message and in this guide.
 
+### Sequential foreground workflow — maintainer direction, 2026-10-20
+
+Target: one action → native WAIT during a long step → completed operation/dialog teardown →
+result or next page. Conflicting selection/navigation must stay blocked until success, failure,
+or cancellation with local cleanup. A cancellation request alone does not release the operation.
+Pairing keeps its visible PIN page as the interactive step, with explicit cancellation; a generic
+WAIT must not hide the PIN. Normal stream transport/render/input threads continue during playback.
+
+Blocking control requests run inside the operation's worker/job while the PAF main thread keeps
+dialogs and lifecycle events responsive. Completion events are internal delivery to that thread.
+This implements a sequential user workflow; adding independently overlapping foreground requests
+or a new general-purpose asynchronous subscription architecture is not the target.
+
+**Current source:** ConnectionService already owns a native WAIT and delays CONNECTION_READY
+delivery until its dialog closes. ApplicationService refresh runs in a job, but Apps currently
+shows only `Loading applications...`. Stream start has its own worker, while Apps currently
+shows `Launching application...` / `Waiting for PC...` and guards repeated row activation.
+These are the first gaps to address through a shared foreground-operation owner in the
+application/service layer, with native WAIT for app retrieval and stream setup. Pages retain
+presentation/navigation responsibilities. This section records the target; no runtime change
+is made by this documentation update and the missing WAIT/gating behavior is not verified.
+
 ## 2. Screen geometry and the layout language
 
 ### 2.1 Zones (960 x 544, **[shot]**)

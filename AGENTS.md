@@ -168,6 +168,16 @@ recipes for common UI changes live in [`docs/UI.md`](docs/UI.md). Read it before
 
 - UI should normally use `MoonlightApp` services rather than calling legacy globals directly.
 - `MoonlightApp` owns backend lifecycle and queues backend events for main-thread delivery.
+- Foreground network workflows must be sequential and modal: one user action owns the operation until
+  success, failure or completed cancellation/cleanup. Show native `SceMessageDialog` WAIT for long steps,
+  block conflicting actions, and finish/terminate the wait dialog before navigating or showing an error.
+  This is the maintainer's target workflow (2026-10-20); current coverage/gaps are in `docs/UI.md`.
+- Keep blocking GameStream calls within the operation's worker/job so PAF can update dialogs and process
+  lifecycle/cancellation. Main-thread completion delivery is an internal implementation mechanism; it
+  does not authorize overlapping foreground flows. Preserve the threaded streaming transport/renderers.
+- Pairing is an interactive sequential step: keep the PIN visible and provide explicit cancellation;
+  do not cover the PIN-entry page with a generic WAIT dialog. A new conflicting operation starts only
+  after the previous operation releases its local resources. Host-side pending pairing may still return 409.
 - Asynchronous backend callbacks must not mutate PAF UI directly from worker threads.
 - `LegacyMoonlightAdapter` is the compatibility boundary between the service/backend layer and the legacy Moonlight code.
 - Pairing events use semantic `MoonlightPairingResult` values at the Moonlight API boundary. Only `MOONLIGHT_PAIRING_ERROR_INCORRECT_PIN` means the cryptographic PIN check failed; transport, protocol, security, and local/internal failures remain distinguishable.

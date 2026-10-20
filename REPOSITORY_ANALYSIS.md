@@ -120,6 +120,15 @@ Some flags are `volatile`, but `volatile` is not a thread synchronization primit
 
 The recent lifecycle fixes reduce practical races, but the state model is still fragile. A single lock/state owner per subsystem, or a small message-driven state machine, would make stream disconnect/restart and host-store access substantially safer.
 
+**Maintainer direction, 2026-10-20:** foreground user actions should form sequential modal
+workflows with one active operation and native WAIT during long steps. Blocking GameStream
+calls stay within jobs/workers while PAF processes dialogs and lifecycle events. Centralize
+operation reservation, completion and dialog ownership through the application/services;
+keep the PIN step visible and release cancelled operations after local cleanup. Existing
+completion events and stream transport threads remain implementation infrastructure.
+Connection WAIT already follows part of this pattern; Apps loading/stream setup still
+use status text. This is the next implementation scope, not a completed runtime refactor.
+
 ### 3. Event delivery uses one mutable page callback and a small silent-drop queue
 
 `MoonlightApp` has one active UI callback:

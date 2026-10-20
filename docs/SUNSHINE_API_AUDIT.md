@@ -1003,7 +1003,16 @@ format change. Standard CA-only verification would reject normal paired self-sig
 host certificate renewal and existing host records; T3/T9. The negative-return logic issue is proven
 from source semantics; no exploit or device failure was demonstrated.
 
-### F5 — Async API state and reachability qualify lifecycle coverage
+### F5 — Sequential foreground workflow, operation state and lifecycle coverage
+
+**Maintainer direction, 2026-10-20:** implement sequential user workflows: one foreground
+operation, native WAIT for long steps, no conflicting actions, terminal result/cleanup,
+then the next step. Pairing retains the visible PIN page and explicit cancellation.
+GameStream control calls already block inside jobs/workers; keep PAF main-thread dialog
+and lifecycle processing responsive. Streaming's ongoing transport/render threads remain.
+The async event mechanism is internal completion delivery, not a product requirement for
+parallel foreground workflows. The source-risk findings below still apply to ownership
+and late completion; the proposed direction is a small serialized operation model.
 
 **Root cause:** L4 eagerly changes adapter state on enqueue/stop/disconnect; L1/L2 workers and
 callbacks update globals without a synchronization owner. L7/L4 event delivery can lag and
@@ -1014,6 +1023,15 @@ no page calls it. Closing a PAF page is not necessarily protocol disconnect.
 observable state on actual completion, make important event loss diagnosable, and use a backend-level
 test trigger for currently unreachable disconnect scenarios. Do not add a new disconnect UI only
 to make an audit row green. Respect N/B page-lifetime patterns and main-thread dispatch.
+
+**First implementation scope:** unify foreground operation reservation/completion and native
+WAIT ownership in the application/service layer. Extend the existing connection-style workflow
+to app-list loading and launch/setup, which currently use page text. Reserve before enqueue,
+reject overlapping actions, terminate the dialog before forwarding success/navigation/error,
+and release only after local cleanup on cancellation. A failed WAIT initialization must not
+silently allow an overlapping request. Preserve backend/services boundaries and the existing
+PIN/cancellation and stream-session ownership paths. This is a target, not an implemented or
+hardware-verified change; work in isolated commits and validate dialog handoffs on Vita.
 
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
