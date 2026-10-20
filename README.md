@@ -173,23 +173,35 @@ Typical setup:
 export VITASDK=/usr/local/vitasdk
 ```
 
-Full build:
+Build both application profiles:
 
 ```bash
 bash build.sh
 ```
 
-An experimental system application profile is available on `codex/system-app-mode`.
-Maintainer build commands (not executed by the agent):
+This builds the ordinary profile in `build/normal/` and the system profile in
+`build/system/`, with separate CMake caches and object files. CXML is compiled
+once and copied to both trees. The resulting packages are published as
+`build/vita_moonlight_paf-normal.vpk` and `build/vita_moonlight_paf-system.vpk`.
+Matching debug ELF and SELF files have the same profile suffixes. Both packages
+use title ID `VLMP00001`: installing one replaces the other.
+
+To build only one profile, explicitly select it (maintainer commands):
 
 ```bash
+bash build.sh -DMOONLIGHT_SYSTEM_APP=OFF
 bash build.sh -DMOONLIGHT_SYSTEM_APP=ON
 ```
 
-Switching branches alone does not enable the experiment: a build without this option
-uses the ordinary profile unless ON is already cached. CMake prints the selected
-`Moonlight launch profile`. With Debug log enabled, Settings also logs `[Launch]`
-with `profile=system` or `profile=normal` and the source revision.
+Single-profile builds use the legacy `build/` directory and also publish the
+profile-suffixed files. Script selection follows explicit command-line arguments;
+without a profile argument it always builds both, regardless of an old cache.
+Other CMake arguments are forwarded to both selected builds. Heap tracing is
+explicitly OFF by default for each script invocation; passing
+`-DMOONLIGHT_HEAP_TRACE=ON` in a dual build enables it only for the system profile.
+Direct CMake configuration retains its ordinary default/cached profile behavior.
+CMake prints the selected `Moonlight launch profile`. With Debug log enabled,
+Settings logs `[Launch]` with the profile and source revision.
 
 It uses `gdc` packaging, a 64 MiB SELF budget, a 6 MiB newlib heap, a 10 MiB PAF
 heap and PAF application mode. UNSAFE and the existing authority/settings remain.
@@ -237,8 +249,9 @@ Broader device/game, dialog/error-path and endurance coverage remains open.
 
 `dev-build-run.sh -DMOONLIGHT_SYSTEM_APP=ON` forwards the option, builds the VPK and
 stops with installation instructions. It deliberately skips SELF-only deployment
-for this profile. Its clean rebuild removes any cached selection, so supply ON
-on every system-profile invocation of that script.
+for this profile. Development deployment explicitly selects one profile in
+`build/`, using the ordinary profile unless ON is supplied. Its clean rebuild
+removes any cached selection, so supply ON on each system-profile invocation.
 
 Enable **Debug log** in Settings for `[Memory]` snapshots, including the actual
 AppMgr mode and USER_RW/PHYCONT/CDRAM budgets. The first useful snapshot is emitted
@@ -266,8 +279,9 @@ fix and one reconnect on the tested device; broader compatibility remains open.
 The user also verified streaming/reconnect, Settings, Quick Actions and returning
 to the suspended game with heap tracing OFF and the same budgets. The ordinary
 profile also passed the user's launch, Settings, stream and reconnect smoke test
-after the shared pthread-bootstrap fix. Ordinary launch remains the default on a
-fresh build; the 64 MiB budget applies only when system mode is enabled.
+after the shared pthread-bootstrap fix. Direct CMake configuration defaults to
+ordinary launch; `build.sh` builds both profiles by default. The 64 MiB budget
+applies only when system mode is enabled.
 An optional diagnostic build records allocation call sites (maintainer command):
 
 ```bash
@@ -285,25 +299,30 @@ dropped entries, unknown frees, replaced addresses and ambiguous zero-size reall
 results describe coverage limits. Tracked bytes are not a replacement for `mallinfo`.
 Disable the diagnostic with `-DMOONLIGHT_HEAP_TRACE=OFF` after collecting the log.
 
-The option persists in the build directory. To return to the ordinary profile:
+CMake cache options persist for manual configurations; the script explicitly
+selects profiles and defaults tracing OFF. To build only the ordinary profile:
 
 ```bash
 bash build.sh -DMOONLIGHT_SYSTEM_APP=OFF -DMOONLIGHT_HEAP_TRACE=OFF
 ```
 
-Outputs:
+Default dual-profile outputs:
 
 ```
-build/vita_moonlight_paf.elf
-build/vita_moonlight_paf.self
-build/vita_moonlight_paf.vpk
+build/vita_moonlight_paf-normal.elf
+build/vita_moonlight_paf-normal.self
+build/vita_moonlight_paf-normal.vpk
+build/vita_moonlight_paf-system.elf
+build/vita_moonlight_paf-system.self
+build/vita_moonlight_paf-system.vpk
 ```
 
-`vita_moonlight_paf.elf` is an unstripped copy of the linked executable, with debug
-symbols for tools such as Vita Crash Dump GUI. CMake generates it alongside SELF/VPK,
-including when building manually. Keep it with the corresponding VPK when collecting a
-crash dump. The extensionless `build/vita_moonlight_paf` remains an internal input to
-the VitaSDK packaging helpers.
+Each build tree contains an unstripped `vita_moonlight_paf.elf` with debug symbols
+for tools such as Vita Crash Dump GUI. The script copies it to the matching
+profile-suffixed name above. Keep the ELF with its corresponding VPK when collecting
+a crash dump. Explicit single-profile/manual builds also retain the original
+`build/vita_moonlight_paf.{elf,self,vpk}` paths. The extensionless executable in
+each build tree remains an internal input to VitaSDK packaging helpers.
 
 Rebuild CXML manually:
 

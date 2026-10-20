@@ -1,61 +1,127 @@
 #!/bin/bash
-# Complete build script for Vita Moonlight PAF UI
-# This script handles CXML compilation and CMake build in one shot
+# Build both launch profiles by default, or one explicitly selected profile.
+set -euo pipefail
 
-set -e
+usage() {
+    cat <<'EOF'
+Usage: ./build.sh [CMake arguments]
 
+Without an explicit MOONLIGHT_SYSTEM_APP argument, build both normal and system
+profiles in build/normal and build/system. Copy their VPK/SELF/debug ELF files
+to build/vita_moonlight_paf-{normal,system}.{vpk,self,elf}.
+
+To build a single profile in the legacy build/ directory:
+  ./build.sh -DMOONLIGHT_SYSTEM_APP=OFF
+  ./build.sh -DMOONLIGHT_SYSTEM_APP=ON
+
+Heap tracing defaults OFF for each invocation. In a dual-profile build,
+-DMOONLIGHT_HEAP_TRACE=ON enables tracing only in the system profile.
+Other CMake arguments are forwarded to the selected profile(s).
+EOF
+}
+
+parse_arguments() {
+    BUILD_SELECTION=both
+    CMAKE_ARGS=()
+    local definition value
+    while (( $# )); do
+        case "$1" in
+            -h|--help) usage; exit 0 ;;
+            -D)
+                if (( $# < 2 )); then
+                    echo "ERROR: -D requires a CMake definition." >&2
+                    exit 1
+                fi
+                definition="$2"
+                CMAKE_ARGS+=("$1" "$2")
+                shift 2
+                ;;
+            -D*)
+                definition="${1#-D}"
+                CMAKE_ARGS+=("$1")
+                shift
+                ;;
+            *) CMAKE_ARGS+=("$1"); shift; continue ;;
+        esac
+        if [[ "$definition" =~ ^MOONLIGHT_SYSTEM_APP(:[^=]+)?=(.*)$ ]]; then
+            value="${BASH_REMATCH[2]^^}"
+            # Match CMake's false constants; all other values enable the option.
+            case "$value" in
+                ''|0|OFF|NO|FALSE|N|IGNORE|NOTFOUND|*-NOTFOUND) BUILD_SELECTION=normal ;;
+                *) BUILD_SELECTION=system ;;
+            esac
+        fi
+    done
+}
+
+build_profile() {
+    local profile="$1" build_dir="$2" mode=OFF
+    [[ "$profile" == system ]] && mode=ON
+    local -a profile_args=(-DMOONLIGHT_HEAP_TRACE=OFF "${CMAKE_ARGS[@]}"
+        "-DMOONLIGHT_SYSTEM_APP=$mode")
+    if [[ "$BUILD_SELECTION" == both && "$profile" == normal ]]; then
+        profile_args+=(-DMOONLIGHT_HEAP_TRACE=OFF)
+    fi
+
+    mkdir -p "$build_dir"
+    if [[ "$build_dir" != "$BUILD_ROOT" ]]; then
+        cp "$BUILD_ROOT/vita_moonlight_ui.rco" "$build_dir/vita_moonlight_ui.rco"
+    fi
+    echo "[*] Building $profile profile in $build_dir"
+    (
+        cd "$build_dir"
+        cmake -DCMAKE_BUILD_TYPE=Release "${profile_args[@]}" "$PROJECT_DIR"
+        make -j"$BUILD_JOBS"
+    )
+}
+
+build_selected_profiles() {
+    local profile build_dir extension
+    local -a profiles=(normal system)
+    if [[ "$BUILD_SELECTION" != both ]]; then
+        profiles=("$BUILD_SELECTION")
+    fi
+    for profile in "${profiles[@]}"; do
+        build_dir="$BUILD_ROOT"
+        [[ "$BUILD_SELECTION" == both ]] && build_dir="$BUILD_ROOT/$profile"
+        build_profile "$profile" "$build_dir"
+    done
+
+    # Publish named results only after all requested profiles finish successfully.
+    for profile in "${profiles[@]}"; do
+        build_dir="$BUILD_ROOT"
+        [[ "$BUILD_SELECTION" == both ]] && build_dir="$BUILD_ROOT/$profile"
+        for extension in vpk self elf; do
+            cp "$build_dir/vita_moonlight_paf.$extension" \
+                "$BUILD_ROOT/vita_moonlight_paf-$profile.$extension"
+        done
+        echo "[+] $profile VPK: $BUILD_ROOT/vita_moonlight_paf-$profile.vpk"
+        echo "    Debug ELF: $BUILD_ROOT/vita_moonlight_paf-$profile.elf"
+        echo "    SELF: $BUILD_ROOT/vita_moonlight_paf-$profile.self"
+    done
+}
+
+parse_arguments "$@"
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BUILD_DIR="$PROJECT_DIR/build"
-VITASDK="${VITASDK:=/usr/local/vitasdk}"
+BUILD_ROOT="$PROJECT_DIR/build"
+export VITASDK="${VITASDK:-/usr/local/vitasdk}"
+BUILD_JOBS="$(nproc 2>/dev/null || echo 1)"
 
 echo "[Vita Moonlight PAF UI] Build Script"
-echo "===================================="
-echo ""
 echo "VITASDK: $VITASDK"
 echo "Project: $PROJECT_DIR"
-echo ""
+echo "Profiles: $BUILD_SELECTION"
 
-# Verify VITASDK exists
-if [ ! -d "$VITASDK" ]; then
-    echo "ERROR: VITASDK not found at: $VITASDK"
-    echo "Please set VITASDK environment variable:"
-    echo "  export VITASDK=/path/to/vitasdk"
+if [[ ! -d "$VITASDK" ]]; then
+    echo "ERROR: VITASDK not found at: $VITASDK" >&2
+    echo "Set VITASDK to your SDK path." >&2
     exit 1
 fi
 
-# Create build directory
-if [ ! -d "$BUILD_DIR" ]; then
-    echo "[*] Creating build directory..."
-    mkdir -p "$BUILD_DIR"
-fi
-
-echo "[*] Compiling CXML to RCO..."
+# CXML is identical for both profiles; compile once and copy to each build tree.
+mkdir -p "$BUILD_ROOT"
 bash "$PROJECT_DIR/build_cxml.sh"
-echo "[+] CXML compiled successfully"
+build_selected_profiles
 
-echo ""
-echo "[*] Configuring CMake..."
-cd "$BUILD_DIR"
-# Optional CMake arguments, e.g. -DMOONLIGHT_SYSTEM_APP=ON. The selected value
-# persists in this build directory; pass OFF explicitly to return to normal mode.
-cmake -DCMAKE_BUILD_TYPE=Release "$@" "$PROJECT_DIR"
-
-echo "[*] Building project..."
-make -j$(nproc 2>/dev/null || echo 1)
-
-echo ""
-echo "=================================="
-echo "[+] Build completed successfully!"
-echo "=================================="
-echo ""
-echo "Output files:"
-echo "  - Debug ELF: $BUILD_DIR/vita_moonlight_paf.elf"
-echo "  - SELF: $BUILD_DIR/vita_moonlight_paf.self"
-echo "  - VPK:  $BUILD_DIR/vita_moonlight_paf.vpk"
-echo ""
-echo "Next steps:"
-echo "  1. Deploy VPK to PS Vita (see README.md)"
-echo "  2. To fix RCO compilation, ensure psp2cxml-tool is built:"
-echo "     cd $PROJECT_DIR/../psp2cxml-tool && bash build_linux_macos.sh"
-echo "  3. Then compile CXML: bash build_cxml.sh"
-echo "  4. Finally rebuild: cd build && cmake .. && make"
+echo "[+] All requested profiles built successfully."
+echo "Install the selected VPK through VitaShell. Both profiles use title ID VLMP00001."

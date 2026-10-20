@@ -869,3 +869,23 @@ invalid-budget rejection and absence of system memory/physical flags in ordinary
 mode. No project configuration, compilation, linking or packaging is run by the
 agent. The runtime budget value has user-run device validation; the new default
 selection has non-build checks. Broader compatibility/endurance remains open.
+
+### Dual-profile build-script workflow
+
+At the user's request, `build.sh` now builds both profiles by default using
+separate `build/normal/` and `build/system/` directories. It compiles the shared
+CXML once, copies the RCO to both build trees and publishes profile-suffixed
+VPK/SELF/unstripped ELF files under `build/` after both builds succeed. Existing
+cached profile switches cannot change that selection. Explicit command-line
+MOONLIGHT_SYSTEM_APP ON/OFF still selects one profile in the legacy root build
+tree, with generic paths preserved and named artifact copies added. Development
+deployment passes OFF before user arguments, allowing a later ON override.
+
+The script defaults heap tracing OFF for each invocation. An explicit trace ON
+in a dual build applies only to the system half. Other CMake arguments retain
+their quoting and are forwarded to the selected profile(s). Both VPKs have the
+same title ID, so they are alternatives for installation rather than separate
+installed apps. Syntax and isolated shell-helper checks use stub configure/build
+functions and synthetic files in temporary directories; no real build entry point,
+resource compiler, project configure or packaging runs during agent validation.
+The maintainer must validate the new dual invocation and its resulting packages.

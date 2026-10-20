@@ -2,6 +2,22 @@
 
 This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordered by risk reduction and release readiness, not by a promise that every item must be completed before development continues. Keep individual changes small and verify device-specific behavior on real PS Vita hardware.
 
+## Requested: build both application profiles in one invocation
+
+`build.sh` now defaults to sequential normal/system builds in separate
+`build/normal/` and `build/system/` trees, sharing one compiled RCO. It publishes
+profile-suffixed VPK/SELF/debug ELF files after both builds succeed. Explicit
+system-mode ON/OFF arguments retain single-profile builds in `build/` for existing
+deployment/manual workflows. Development deployment defaults explicitly to OFF.
+Tracing defaults OFF per invocation and can be enabled only for the system half
+of a dual build. Both packages retain the same title ID and replace each other.
+
+Shell syntax and isolated helper tests with stub configure/build commands passed:
+profile selection, argument quoting, separate trees, resource/artifact copies,
+tracing selection, legacy deployment override and failure propagation. Neither
+build entry point nor real compiler/configure/packaging was run by the agent.
+Maintainer validation of the dual build and both resulting VPKs remains pending.
+
 ## Requested: launch alongside an existing Vita application (2026-10-19)
 
 Source research compared BetterHomebrewBrowser's system-mode packaging with Moonlight.

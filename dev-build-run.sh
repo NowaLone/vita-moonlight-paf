@@ -58,7 +58,9 @@ rm -rf "$BUILD_DIR"
 
 log "Running build.sh"
 cd "$ROOT"
-bash "$ROOT/build.sh" "$@"
+# Deployment consumes a single profile in build/. A later explicit ON overrides
+# this default and retains the full-VPK installation path below.
+bash "$ROOT/build.sh" -DMOONLIGHT_SYSTEM_APP=OFF "$@"
 
 # SELF-only deployment does not promote changed SFO/SELF launch metadata.
 # CMake BOOL cache values preserve spellings such as TRUE/YES as well as ON.

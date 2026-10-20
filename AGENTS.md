@@ -93,13 +93,20 @@ Full build:
 bash build.sh
 ```
 
-Outputs:
+By default the script builds both profiles in `build/normal/` and `build/system/`
+and publishes:
 
 ```
-build/vita_moonlight_paf
-build/vita_moonlight_paf.self
-build/vita_moonlight_paf.vpk
+build/vita_moonlight_paf-normal.{vpk,self,elf}
+build/vita_moonlight_paf-system.{vpk,self,elf}
 ```
+
+An explicit `-DMOONLIGHT_SYSTEM_APP=OFF` or `ON` selects a single profile in the
+legacy `build/` directory, preserving generic output paths and adding the named
+copies. Heap tracing defaults OFF per script invocation; in a dual build an
+explicit tracing ON applies only to the system profile. CXML is compiled once
+and copied to both profile trees. Both VPKs share title ID `VLMP00001` and replace
+each other on installation. `dev-build-run.sh` explicitly selects a single profile.
 
 Manual CXML + build:
 
