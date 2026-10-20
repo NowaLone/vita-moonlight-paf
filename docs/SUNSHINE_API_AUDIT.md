@@ -102,6 +102,58 @@ the trigger was network loss, server output, decoder behavior or another cause. 
 change is justified by these lines alone. This attachment ends during playback and does
 not contain teardown or unexpected-disconnect recovery.
 
+### Unexpected control disconnect → cleanup → manual resume — log verified, 2026-10-20
+
+In response to the requested network-loss test, the maintainer supplied a log containing an
+established stream, an unexpected ENet control disconnect, complete local teardown, deferred
+framebuffer release and successful manual stream restart. Key events in supplied order:
+
+```text
+[Limelight] Control stream received unexpected disconnect event
+[Stream] connection terminated result=-1; cleanup requested
+[Stream] stop worker start (session owner)
+[Audio] drain port=6 result=0x00000000
+[Audio] release port=6 result=0x00000000
+[Stream] stop worker finished result=-1
+[Video] frame[0] release unmap result=0x00000000
+[Video] frame[1] release unmap result=0x00000000
+[Video] frame[2] release unmap result=0x00000000
+[Video] deferred frame buffers released
+[LegacyAdapter] StartApplication app=1093255277 has_host=1 state=2
+[Stream] connection started
+[Stream] setup finished app=1093255277 result=0
+[Video] decoded frame=361 number=484
+```
+
+Between the quoted stop-worker events, common-c stops input/audio/video/control and cleans
+input/video/control/audio/platform. Current L2 source invokes LiStopConnection in that owner
+path before its terminal event. The -1 stop result preserves the triggering connection error;
+it is not evidence that teardown itself failed. Deferred framebuffer release finishes before
+the next start. The new start refreshes serverinfo, uses resume for app 1093255277, receives
+an accepted rtspenc URL, completes stages 1–11 and decodes video. This verifies the basic
+established-stream F1 regression on this Vita. The exact network manipulation, installed
+revision, firmware and Sunshine release/configuration are not independently documented.
+
+The second StartApplication has has_host=1/state=2 and the API reports initialized=1. No
+DisconnectHost, CONNECTION_CLOSED or new ConnectHost is shown: this is stream cleanup and
+manual resume with the existing paired host, not proof of the separate host-disconnect API
+or automatic reconnection. Pending-launch cancellation, setup/callback races, full host
+shutdown, repeated failure cycles and the remaining T6–T8 matrix are still open. Free user
+memory rises from 27428 KiB after stop to 33612 KiB after deferred framebuffer release;
+the next setup completes with 10844 KiB free. These samples support buffer-release ordering,
+not a general leak-free or sustained-performance claim.
+
+**Audio observation requiring clarification:** teardown logs `No audio traffic was ever
+received from the host!`. In local common-c AudioStream.c this is emitted when
+receivedDataFromPeer is still false; the flag changes on the first receive large enough to
+contain an RTP header. Audio renderer initialization/drain/release do not prove audio packets
+were received or heard.
+Whether the PC was producing sound and whether it was heard on Vita has been asked; until
+answered this is an observation, not a diagnosed audio regression or evidence of working
+audio. The new stream also shows an IDR wait/request followed by resumed video decoding,
+so its successful restart does not establish error-free media delivery. No runtime code
+was changed for this log; no build or device test was performed by the agent.
+
 ## 1. Scope and evidence
 
 The client path remains PAF pages → MoonlightApp → services → MoonlightBackend →
@@ -447,10 +499,14 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   termination code zero differs from unexpected network/error termination.
 - **Current:** explicit disconnect waits for L2 cleanup before freeing GameStream state. Since
   `0cef1ac`, involuntary termination queues a request for the same persistent session owner, which
-  calls LiStopConnection before releasing ownership. F1 runtime matrix remains pending.
+  calls LiStopConnection before releasing ownership. One established-stream failure/restart is now
+  log verified; the remaining F1 runtime matrix stays open.
 - **Upstream / Sunshine:** V and QS both call LiStopConnection on termination cleanup; C's callback
   signals termination, it does not perform its caller's stop. SS handles disconnect/timeouts host-side.
-- **Verified / runtime:** source; T7/T8 need network loss, host kill, explicit disconnect and restart.
+- **Verified / runtime:** unexpected ENet disconnect, complete owner teardown, deferred buffer
+  release and manual resume with decoded video are log verified on 2026-10-20. This is one
+  established-stream failure/restart, not DisconnectHost/ConnectHost coverage. Host kill, explicit
+  host disconnect, repeated failures and setup races still need T7/T8.
 
 ### A18 — Reconnect — partial
 
@@ -463,8 +519,10 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   old records without it require pairing. Broader async state risks remain F5.
 - **Upstream / Sunshine:** QS serializes active session cleanup; S retains process independently of
   stream and accepts resume with fresh session material.
-- **Verified / runtime:** source; T8 requires stop→restart, disconnect→connect, network-loss→connect,
-  app exit/change on host, and two-host cache isolation. No automatic network reconnection is implemented.
+- **Verified / runtime:** normal stop/restart, app-exit launch, same-app resume and manual resume
+  after unexpected control disconnect are user/log verified on 2026-10-20. Full host
+  disconnect→connect, two-host cache isolation, repeated failure cycles and the remaining T8
+  cases remain open. No automatic network reconnection is implemented.
 
 ### A19 — Host-side session cleanup — partial (end-to-end evidence pending)
 
@@ -572,11 +630,15 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 
 These are source findings, not runtime fixes. Runtime code must be changed as separate, reviewable work.
 
-### F1 — Unexpected termination cleanup ownership (source implemented, runtime matrix pending)
+### F1 — Unexpected termination cleanup ownership (established-stream failure/restart verified)
 
 **Current source, 2026-10-20:** `0cef1ac` already introduced a persistent session owner, mutex-protected
 stop/termination requests and owner-thread `LiStopConnection()`. The finding below records the older
-audit baseline. Do not implement it again. Network-loss/setup-cancel race tests T6–T8 remain pending.
+audit baseline. Do not implement it again. On 2026-10-20 the supplied Vita log verifies established
+control disconnect → owner-thread common-c stop/cleanup → deferred framebuffer release → manual
+resume with successful setup and decoded video. The terminal -1 is the original connection error,
+not a teardown failure. Setup-cancel/race cases, full host disconnect, repeated cycles and other
+T6–T8 failure modes remain pending; see the runtime follow-up above.
 
 **Root cause:** L2 `on_connection_terminated()` calls `vita_input_stop`, emits STREAM_STOPPED,
 then clears `s_stream_context.started`. Once the setup worker has returned,
@@ -789,8 +851,10 @@ Per-host TLS pinning (F4) now has a source implementation with the maintainer-ap
 `server.pem` contract; old records without a pin require pairing again. The user confirmed the
 normal pairing/Apps/restart/reconnect/launch/stop smoke sequence on 2026-10-20, as scoped above.
 Different-app conflict, same-app resume and launch after host-app exit without reconnect (T5/F2)
-are now user/log verified. Next validate F1 unexpected network-loss teardown and successful reconnect
-after cleanup. Complete the remaining T3/T4/T5/T8/T9 error/trust matrix. No
+are now user/log verified. F1 established-stream unexpected-control-disconnect cleanup and manual
+resume are also log verified. Next clarify the no-audio-traffic observation from that run; remaining
+setup-cancel/race, trust/error and repeated-recovery cases stay open. Complete the remaining
+T3/T4/T5/T8/T9 error/trust matrix. No
 administrative Sunshine credentials are introduced.
 
 Main cold-start follow-up (2026-10-19): the user confirmed that one saved PC appears immediately
