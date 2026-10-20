@@ -70,14 +70,25 @@ dialogs and lifecycle events responsive. Completion events are internal delivery
 This implements a sequential user workflow; adding independently overlapping foreground requests
 or a new general-purpose asynchronous subscription architecture is not the target.
 
-**Current source:** ConnectionService already owns a native WAIT and delays CONNECTION_READY
-delivery until its dialog closes. ApplicationService refresh runs in a job, but Apps currently
-shows only `Loading applications...`. Stream start has its own worker, while Apps currently
-shows `Launching application...` / `Waiting for PC...` and guards repeated row activation.
-These are the first gaps to address through a shared foreground-operation owner in the
-application/service layer, with native WAIT for app retrieval and stream setup. Pages retain
-presentation/navigation responsibilities. This section records the target; no runtime change
-is made by this documentation update and the missing WAIT/gating behavior is not verified.
+**Source implementation, 2026-10-21; build/Vita validation pending:** ConnectionService owns
+one foreground operation across Connect, ApplicationService refresh and stream launch/setup.
+It opens native WAIT before starting the operation and rejects overlap or WAIT initialization
+failure. Connect/app-list jobs publish their returned result with release/acquire ordering;
+their completion cannot reach the page until the backend call returns and WAIT terminates.
+The result also supplies a completion if the corresponding queued event was dropped. Launch
+retains the stream worker and waits for STREAM_STARTED/FAILED/STOPPED, then dialog teardown.
+Reservation is released before dispatch so Connect → Apps → app-list loading can proceed.
+
+Base blocks page opening and ordinary Back while this owner is busy, including connection
+error dismissal. Connect retains its native error dialog; Apps/load and launch failures retain
+their existing page status after WAIT closes. Enqueue/start failure closes WAIT before releasing
+ownership. The interactive pairing page and its explicit Back cancellation remain separate;
+no generic WAIT covers its PIN. Stop/Disconnect APIs and broader lifecycle races are not covered
+by this three-operation reservation. Pages still own presentation/navigation.
+
+Diagnostics: `[Workflow] begin operation=N` / `complete operation=N ...`, with Connect=1,
+Applications=2, Launch=3. Verify successive WAIT handoffs, failures, blocked Back/repeated
+activation and transition into playback on Vita. No new hardware result is recorded here.
 
 ## 2. Screen geometry and the layout language
 

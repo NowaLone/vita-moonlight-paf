@@ -10,11 +10,23 @@ public:
     ConnectionService(MoonlightBackend &backend, PairingService &pairing);
     ~ConnectionService();
 
-
     int Connect(const MoonlightHost &host);
-    void FinishConnection(bool success, const char *address);
-    bool IsSuccessEventReady() const { return m_success_event_ready; }
-    void ConsumeSuccessEvent();
+    enum ForegroundOperation {
+        Operation_None,
+        Operation_Connect,
+        Operation_Applications,
+        Operation_Launch
+    };
+
+    /* PAF main thread only: one foreground action owns the native dialog. */
+    int BeginOperation(ForegroundOperation operation);
+    void FinishUnstartedOperation();
+    bool PrepareCompletion(const MoonlightEvent &event);
+    bool IsBusy() const;
+    /* Workers publish only a result; PAF consumes it after Run's backend call returns. */
+    void RecordWorkerResult(int result);
+    bool GetCompletedJobEvent(MoonlightEvent *event) const;
+
     void Shutdown();
     int Start(int application_id);
     int Stop();
@@ -26,8 +38,9 @@ public:
 private:
     static void DialogPollTask(void *userdata);
 
-    void StartConnectionDialog();
-    void ShowConnectionError(const char *address);
+    int StartWaitDialog();
+    void CloseWaitDialog();
+    void ShowConnectionError();
     void TryShowConnectionError();
 
     MoonlightBackend &m_backend;
@@ -37,8 +50,11 @@ private:
     bool m_error_dialog_open;
     bool m_error_pending;
     bool m_dialog_task_registered;
-    bool m_success_event_pending;
-    bool m_success_event_ready;
+    ForegroundOperation m_operation;
+    bool m_release_on_dialog_close;
+    int m_worker_done;
+    int m_worker_result;
+    char m_connect_address[256];
     char m_error_message[512];
 };
 

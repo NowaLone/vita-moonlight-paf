@@ -5,6 +5,7 @@
 #endif
 
 #include "pages/page.h"
+#include "app/moonlight_app.h"
 #include "common.h"
 
 namespace page {
@@ -39,6 +40,9 @@ Base::Base(const char *id, const char *back_id,
     if (!g_plugin || !id || IsOpen(id)) {
         return;
     }
+
+    MoonlightApp *app = MoonlightApp::Instance();
+    if (app->IsInitialized() && app->Connection().IsBusy()) return;
 
     paf::Plugin::PageOpenParam open_param = make_open_param(open_transition);
 
@@ -148,6 +152,8 @@ void Base::DefaultBackButtonCB(int32_t type,
     (void)self;
     (void)event;
     (void)userdata;
+    MoonlightApp *app = MoonlightApp::Instance();
+    if (app->IsInitialized() && app->Connection().IsBusy()) return;
     CloseCurrent();
 }
 

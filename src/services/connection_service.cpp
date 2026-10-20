@@ -10,12 +10,32 @@
 
 namespace {
 
+static bool completes_operation(ConnectionService::ForegroundOperation operation,
+                                MoonlightEventType type)
+{
+    switch (operation) {
+    case ConnectionService::Operation_Connect:
+        return type == MOONLIGHT_EVENT_CONNECTION_READY ||
+               type == MOONLIGHT_EVENT_CONNECTION_FAILED;
+    case ConnectionService::Operation_Applications:
+        return type == MOONLIGHT_EVENT_APPLICATIONS_READY ||
+               type == MOONLIGHT_EVENT_APPLICATIONS_FAILED;
+    case ConnectionService::Operation_Launch:
+        return type == MOONLIGHT_EVENT_STREAM_STARTED ||
+               type == MOONLIGHT_EVENT_STREAM_FAILED ||
+               type == MOONLIGHT_EVENT_STREAM_STOPPED;
+    default:
+        return false;
+    }
+}
+
 class ConnectJob : public paf::job::JobItem {
 public:
-    ConnectJob(MoonlightBackend &backend, const MoonlightHost &host)
+    ConnectJob(MoonlightBackend &backend, const MoonlightHost &host, ConnectionService &connection)
         : paf::job::JobItem("ConnectionService::ConnectJob", NULL),
           m_backend(backend),
-          m_host(host)
+          m_host(host),
+          m_connection(connection)
     {
     }
 
@@ -33,6 +53,7 @@ public:
         vita_debug_log(
             "[ConnectionService] ConnectJob::Run result=%d job=%p",
             result, (void *)this);
+        m_connection.RecordWorkerResult(result);
     }
 
     virtual void Finish()
@@ -43,6 +64,7 @@ public:
 private:
     MoonlightBackend &m_backend;
     MoonlightHost m_host;
+    ConnectionService &m_connection;
 };
 
 }
@@ -55,10 +77,13 @@ ConnectionService::ConnectionService(MoonlightBackend &backend, PairingService &
       m_error_dialog_open(false),
       m_error_pending(false),
       m_dialog_task_registered(false),
-      m_success_event_pending(false),
-      m_success_event_ready(false)
+      m_operation(Operation_None),
+      m_release_on_dialog_close(false),
+      m_worker_done(0),
+      m_worker_result(0)
 {
     m_error_message[0] = '\0';
+    m_connect_address[0] = '\0';
 }
 
 ConnectionService::~ConnectionService()
@@ -66,13 +91,31 @@ ConnectionService::~ConnectionService()
     Shutdown();
 }
 
-void ConnectionService::StartConnectionDialog()
+bool ConnectionService::IsBusy() const
 {
-    if (m_progress_dialog_open || m_progress_dialog_closing ||
-        m_error_dialog_open || m_error_pending) {
-        return;
-    }
+    return m_operation != Operation_None || m_progress_dialog_open ||
+           m_progress_dialog_closing || m_error_dialog_open || m_error_pending;
+}
 
+int ConnectionService::BeginOperation(ForegroundOperation operation)
+{
+    if (operation == Operation_None || IsBusy()) return -1;
+
+    m_operation = operation;
+    m_release_on_dialog_close = false;
+    __atomic_store_n(&m_worker_done, 0, __ATOMIC_RELEASE);
+    m_worker_result = 0;
+    int result = StartWaitDialog();
+    if (result < 0) {
+        m_operation = Operation_None;
+        return result;
+    }
+    vita_debug_log("[Workflow] begin operation=%d", (int)operation);
+    return 0;
+}
+
+int ConnectionService::StartWaitDialog()
+{
     SceMsgDialogParam param;
     SceMsgDialogSystemMessageParam system_message;
     memset(&param, 0, sizeof(param));
@@ -86,19 +129,18 @@ void ConnectionService::StartConnectionDialog()
     int result = sceMsgDialogInit(&param);
     if (result < 0) {
         vita_debug_log(
-            "[ConnectionService] connection dialog init failed: 0x%08X",
-            (unsigned int)result);
-        return;
+            "[Workflow] wait dialog init failed operation=%d result=0x%08X",
+            (int)m_operation, (unsigned int)result);
+        return result;
     }
 
     m_progress_dialog_open = true;
+    return 0;
 }
 
-void ConnectionService::ShowConnectionError(const char *address)
+void ConnectionService::CloseWaitDialog()
 {
-    (void)address;
-
-    m_error_pending = true;
+    if (!m_progress_dialog_open && !m_progress_dialog_closing) return;
 
     if (m_progress_dialog_open && !m_progress_dialog_closing) {
         sceMsgDialogAbort();
@@ -111,18 +153,24 @@ void ConnectionService::ShowConnectionError(const char *address)
     }
 }
 
+void ConnectionService::ShowConnectionError()
+{
+    const char *message = "Unable to connect to PC. Check the address, network connection and Sunshine.";
+    strncpy(m_error_message, message, sizeof(m_error_message) - 1);
+    m_error_message[sizeof(m_error_message) - 1] = '\0';
+    m_error_pending = true;
+    if (!m_dialog_task_registered) {
+        paf::common::MainThreadCallList::Register(DialogPollTask, this);
+        m_dialog_task_registered = true;
+    }
+}
+
 void ConnectionService::TryShowConnectionError()
 {
     if (!m_error_pending || m_progress_dialog_open ||
         m_progress_dialog_closing || m_error_dialog_open) {
         return;
     }
-
-    strncpy(
-        m_error_message,
-        "Unable to connect to PC. Check the address, network connection and Sunshine.",
-        sizeof(m_error_message) - 1);
-    m_error_message[sizeof(m_error_message) - 1] = '\0';
 
     SceMsgDialogParam param;
     SceMsgDialogUserMessageParam user_message;
@@ -142,6 +190,7 @@ void ConnectionService::TryShowConnectionError()
             vita_debug_log(
                 "[ConnectionService] connection error dialog init failed: 0x%08X",
                 (unsigned int)result);
+            m_error_pending = false;
         }
         return;
     }
@@ -150,38 +199,60 @@ void ConnectionService::TryShowConnectionError()
     m_error_dialog_open = true;
 }
 
-void ConnectionService::FinishConnection(bool success, const char *address)
+void ConnectionService::FinishUnstartedOperation()
 {
-    if (success) {
-        if (!m_success_event_pending) {
-            m_success_event_pending = true;
-            m_success_event_ready = false;
-        }
-
-        if (m_progress_dialog_open && !m_progress_dialog_closing) {
-            sceMsgDialogAbort();
-            m_progress_dialog_closing = true;
-            if (!m_dialog_task_registered) {
-                paf::common::MainThreadCallList::Register(DialogPollTask, this);
-                m_dialog_task_registered = true;
-            }
-            return;
-        }
-
-        if (!m_progress_dialog_closing && !m_error_dialog_open &&
-            !m_error_pending) {
-            m_success_event_ready = true;
-        }
-        return;
-    }
-
-    ShowConnectionError(address);
+    /* Enqueue/start failed synchronously: no worker completion event will arrive. */
+    ForegroundOperation operation = m_operation;
+    m_release_on_dialog_close = true;
+    CloseWaitDialog();
+    if (operation == Operation_Connect) ShowConnectionError();
 }
 
-void ConnectionService::ConsumeSuccessEvent()
+bool ConnectionService::PrepareCompletion(const MoonlightEvent &event)
 {
-    m_success_event_pending = false;
-    m_success_event_ready = false;
+    if (!completes_operation(m_operation, event.type)) return true;
+    if (m_operation != Operation_Launch &&
+        !__atomic_load_n(&m_worker_done, __ATOMIC_ACQUIRE)) return false;
+
+    CloseWaitDialog();
+    if (m_progress_dialog_open || m_progress_dialog_closing) return false;
+
+    ForegroundOperation operation = m_operation;
+    m_operation = Operation_None;
+    vita_debug_log("[Workflow] complete operation=%d event=%d result=%d",
+        (int)operation, (int)event.type, event.result);
+
+    if (operation == Operation_Connect && event.type == MOONLIGHT_EVENT_CONNECTION_FAILED) {
+        ShowConnectionError();
+    }
+    /* Release before dispatch: success may immediately start the next step. */
+    return true;
+}
+
+void ConnectionService::RecordWorkerResult(int result)
+{
+    m_worker_result = result;
+    __atomic_store_n(&m_worker_done, 1, __ATOMIC_RELEASE);
+}
+
+bool ConnectionService::GetCompletedJobEvent(MoonlightEvent *event) const
+{
+    if (!event || (m_operation != Operation_Connect && m_operation != Operation_Applications) ||
+        !__atomic_load_n(&m_worker_done, __ATOMIC_ACQUIRE)) return false;
+
+    memset(event, 0, sizeof(*event));
+    event->host_id = -1;
+    event->application_id = -1;
+    event->result = m_worker_result;
+    if (m_operation == Operation_Connect) {
+        event->type = m_worker_result == 0
+            ? MOONLIGHT_EVENT_CONNECTION_READY : MOONLIGHT_EVENT_CONNECTION_FAILED;
+        event->address = m_connect_address;
+    } else {
+        event->type = m_worker_result >= 0
+            ? MOONLIGHT_EVENT_APPLICATIONS_READY : MOONLIGHT_EVENT_APPLICATIONS_FAILED;
+    }
+    return true;
 }
 
 void ConnectionService::DialogPollTask(void *userdata)
@@ -200,8 +271,9 @@ void ConnectionService::DialogPollTask(void *userdata)
         service->m_progress_dialog_open = false;
         service->m_progress_dialog_closing = false;
 
-        if (service->m_success_event_pending) {
-            service->m_success_event_ready = true;
+        if (service->m_release_on_dialog_close) {
+            service->m_operation = Operation_None;
+            service->m_release_on_dialog_close = false;
         }
     }
 
@@ -259,8 +331,8 @@ void ConnectionService::Shutdown()
     }
 
     m_error_pending = false;
-    m_success_event_pending = false;
-    m_success_event_ready = false;
+    m_operation = Operation_None;
+    m_release_on_dialog_close = false;
     m_error_message[0] = '\0';
 
     if (m_dialog_task_registered) {
@@ -275,23 +347,22 @@ int ConnectionService::Connect(const MoonlightHost &host)
         return -1;
     }
 
+    int begin_result = BeginOperation(Operation_Connect);
+    if (begin_result != 0) return begin_result;
+    strncpy(m_connect_address, host.internal, sizeof(m_connect_address) - 1);
+    m_connect_address[sizeof(m_connect_address) - 1] = '\0';
+
     /* A previous page must not keep the shared queue occupied by an abandoned PIN wait. */
     m_pairing.Cancel();
 
-    m_success_event_pending = false;
-    m_success_event_ready = false;
-    m_error_pending = false;
-
-    StartConnectionDialog();
-
     if (paf::job::JobQueue::default_queue == NULL) {
         vita_debug_log("[ConnectionService] Connect: no default job queue");
-        FinishConnection(false, host.internal);
+        FinishUnstartedOperation();
         return -1;
     }
 
     paf::common::SharedPtr<paf::job::JobItem> item(
-        new ConnectJob(m_backend, host)
+        new ConnectJob(m_backend, host, *this)
     );
 
     int result = paf::job::JobQueue::default_queue->Enqueue(item);
@@ -301,7 +372,7 @@ int ConnectionService::Connect(const MoonlightHost &host)
         result);
 
     if (result != 0) {
-        FinishConnection(false, host.internal);
+        FinishUnstartedOperation();
     }
 
     return result;
@@ -312,6 +383,9 @@ int ConnectionService::Start(int application_id)
     vita_debug_log(
         "[ConnectionService] Start app=%d",
         application_id);
+
+    int begin_result = BeginOperation(Operation_Launch);
+    if (begin_result != 0) return begin_result;
 
     /*
      * moonlight_stream_start() creates its own worker thread, so putting the
@@ -325,6 +399,7 @@ int ConnectionService::Start(int application_id)
         application_id,
         result);
 
+    if (result != 0) FinishUnstartedOperation();
     return result;
 }
 

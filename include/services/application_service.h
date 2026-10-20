@@ -3,15 +3,18 @@
 
 #include "backend/moonlight_backend.h"
 
+class ConnectionService;
+
 class ApplicationService {
 public:
-    explicit ApplicationService(MoonlightBackend &backend);
+    ApplicationService(MoonlightBackend &backend, ConnectionService &connection);
 
     int GetAll(MoonlightApplication *out, int capacity);
     int Refresh();
 
 private:
     MoonlightBackend &m_backend;
+    ConnectionService &m_connection;
 };
 
 #endif

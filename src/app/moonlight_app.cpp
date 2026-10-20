@@ -118,7 +118,7 @@ MoonlightApp::MoonlightApp()
       m_discovery(m_backend),
       m_pairing(m_backend),
       m_connection(m_backend, m_pairing),
-      m_applications(m_backend),
+      m_applications(m_backend, m_connection),
       m_settings(m_backend),
       m_event_callback(NULL),
       m_event_userdata(NULL),
@@ -298,6 +298,7 @@ void MoonlightApp::QueueEvent(const MoonlightEvent *event)
     }
 
     if (m_event_count >= kEventQueueCapacity) {
+        vita_debug_log("[Events] queue full: event=%d result=%d", (int)event->type, event->result);
         paf::thread::RMutex::main_thread_mutex.Unlock();
         return;
     }
@@ -339,25 +340,28 @@ void MoonlightApp::ProcessEventTask(void *userdata)
 
         paf::thread::RMutex::main_thread_mutex.Lock();
 
-        if (app->m_event_count == 0) {
+        const bool queued_event = app->m_event_count != 0;
+        if (!queued_event && !app->m_connection.GetCompletedJobEvent(&event)) {
             paf::thread::RMutex::main_thread_mutex.Unlock();
             return;
         }
 
-        QueuedEvent &queued = app->m_events[app->m_event_head];
-        event = queued.event;
+        if (queued_event) {
+            QueuedEvent &queued = app->m_events[app->m_event_head];
+            event = queued.event;
 
-        if (queued.event.address != NULL) {
-            sce_paf_strncpy(
-                address,
-                queued.address,
-                sizeof(address) - 1
-            );
-            address[sizeof(address) - 1] = '\0';
-            event.address = address;
-        } else {
-            address[0] = '\0';
-            event.address = NULL;
+            if (queued.event.address != NULL) {
+                sce_paf_strncpy(
+                    address,
+                    queued.address,
+                    sizeof(address) - 1
+                );
+                address[sizeof(address) - 1] = '\0';
+                event.address = address;
+            } else {
+                address[0] = '\0';
+                event.address = NULL;
+            }
         }
 
         callback = app->m_event_callback;
@@ -365,18 +369,15 @@ void MoonlightApp::ProcessEventTask(void *userdata)
 
         paf::thread::RMutex::main_thread_mutex.Unlock();
 
-        if (event.type == MOONLIGHT_EVENT_CONNECTION_READY) {
-            app->m_connection.FinishConnection(true, event.address);
-            if (!app->m_connection.IsSuccessEventReady()) {
-                return;
-            }
-        } else if (event.type == MOONLIGHT_EVENT_CONNECTION_FAILED) {
-            app->m_connection.FinishConnection(false, event.address);
+        if (!app->m_connection.PrepareCompletion(event)) {
+            return; /* Keep the completion at the head until WAIT has terminated. */
         }
 
         paf::thread::RMutex::main_thread_mutex.Lock();
-        app->m_event_head = (app->m_event_head + 1) % kEventQueueCapacity;
-        app->m_event_count--;
+        if (queued_event) {
+            app->m_event_head = (app->m_event_head + 1) % kEventQueueCapacity;
+            app->m_event_count--;
+        }
         paf::thread::RMutex::main_thread_mutex.Unlock();
 
         if (callback) {
@@ -385,7 +386,6 @@ void MoonlightApp::ProcessEventTask(void *userdata)
 
         if (event.type == MOONLIGHT_EVENT_CONNECTION_READY) {
             moonlight_log_memory_budget("connection-ready");
-            app->m_connection.ConsumeSuccessEvent();
         } else if (event.type == MOONLIGHT_EVENT_CONNECTION_FAILED) {
             moonlight_log_memory_budget("connection-failed");
         }

@@ -1016,7 +1016,7 @@ and late completion; the proposed direction is a small serialized operation mode
 
 **Root cause:** L4 eagerly changes adapter state on enqueue/stop/disconnect; L1/L2 workers and
 callbacks update globals without a synchronization owner. L7/L4 event delivery can lag and
-MoonlightApp's 16-event queue silently drops overflow. ConnectionService exposes Disconnect but
+MoonlightApp's 16-event queue drops overflow (now logged by the follow-up below). ConnectionService exposes Disconnect but
 no page calls it. Closing a PAF page is not necessarily protocol disconnect.
 
 **Minimal direction:** keep durable backend operation state and terminal cleanup ownership, update
@@ -1024,14 +1024,22 @@ observable state on actual completion, make important event loss diagnosable, an
 test trigger for currently unreachable disconnect scenarios. Do not add a new disconnect UI only
 to make an audit row green. Respect N/B page-lifetime patterns and main-thread dispatch.
 
-**First implementation scope:** unify foreground operation reservation/completion and native
-WAIT ownership in the application/service layer. Extend the existing connection-style workflow
-to app-list loading and launch/setup, which currently use page text. Reserve before enqueue,
-reject overlapping actions, terminate the dialog before forwarding success/navigation/error,
-and release only after local cleanup on cancellation. A failed WAIT initialization must not
-silently allow an overlapping request. Preserve backend/services boundaries and the existing
-PIN/cancellation and stream-session ownership paths. This is a target, not an implemented or
-hardware-verified change; work in isolated commits and validate dialog handoffs on Vita.
+**First source implementation, 2026-10-21; build/Vita pending:** ConnectionService now owns
+reservation and native WAIT for Connect, app-list loading and launch/setup. Reserve before
+starting work, reject overlap/WAIT initialization failure, and terminate WAIT before forwarding
+completion to the page. Connect/app-list jobs retain their return result with release/acquire
+publication, preventing completion before the backend call returns and providing a fallback
+when their queued event is lost. Zero apps is a successful result. Ownership is released before
+dispatch so a successful connection may immediately enter Apps/loading. Enqueue/start failures
+close WAIT before releasing the reservation. Base blocks page opening/ordinary Back while busy.
+Connect retains its native error dialog; app-list/launch failures retain their page status.
+
+This reuses the existing native connection WAIT/termination path without changing any endpoint
+or protocol semantics. Pairing keeps its visible PIN/cancellation path and the stream retains
+its own worker/cleanup owner. Queue overflow now logs event/result, but launch/pairing terminal
+events lack the job-result fallback. Stop/Disconnect APIs are not serialized by this gate;
+late events, shutdown and broader backend/cache races remain open. No universal F5 closure
+or device verification is claimed. Check `[Workflow]` operation 1/2/3 handoffs on Vita.
 
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;

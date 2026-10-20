@@ -1,14 +1,15 @@
 #include <paf.h>
 
 #include "services/application_service.h"
+#include "services/connection_service.h"
 
 namespace {
 
 class RefreshAppsJob : public paf::job::JobItem {
 public:
-    explicit RefreshAppsJob(MoonlightBackend &backend)
+    RefreshAppsJob(MoonlightBackend &backend, ConnectionService &connection)
         : paf::job::JobItem("ApplicationService::RefreshAppsJob", NULL),
-          m_backend(backend)
+          m_backend(backend), m_connection(connection)
     {
     }
 
@@ -16,19 +17,21 @@ public:
 
     virtual void Run()
     {
-        m_backend.GetApplications(NULL, 0);
+        int result = m_backend.GetApplications(NULL, 0);
+        m_connection.RecordWorkerResult(result);
     }
 
     virtual void Finish() {}
 
 private:
     MoonlightBackend &m_backend;
+    ConnectionService &m_connection;
 };
 
 }
 
-ApplicationService::ApplicationService(MoonlightBackend &backend)
-    : m_backend(backend)
+ApplicationService::ApplicationService(MoonlightBackend &backend, ConnectionService &connection)
+    : m_backend(backend), m_connection(connection)
 {
 }
 
@@ -43,6 +46,11 @@ int ApplicationService::Refresh()
         return -1;
     }
 
-    paf::common::SharedPtr<paf::job::JobItem> item(new RefreshAppsJob(m_backend));
-    return paf::job::JobQueue::default_queue->Enqueue(item);
+    int result = m_connection.BeginOperation(ConnectionService::Operation_Applications);
+    if (result != 0) return result;
+
+    paf::common::SharedPtr<paf::job::JobItem> item(new RefreshAppsJob(m_backend, m_connection));
+    result = paf::job::JobQueue::default_queue->Enqueue(item);
+    if (result != 0) m_connection.FinishUnstartedOperation();
+    return result;
 }
