@@ -198,8 +198,9 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Semantics:** XML root status plus repeated `<App>` containing `<ID>`, `<AppTitle>` and optional
   capability data; status failure is not an empty successful list.
 - **Current:** L1 reuses authenticated curl handle and refreshes a 64-entry global cache through
-  L4 ApplicationService job. Curl failure clears cache; XML status is not checked. Cache validity
-  is not cleared on host change/disconnect. L7 displays only eight apps.
+  L4 ApplicationService job. The 2026-10-20 source follow-up validates XML status and invalidates
+  the cache on connect/disconnect/shutdown and failed refresh. Requests are rejected during stream
+  setup/streaming/disconnect. L7 still displays only eight apps; the backend remains bounded at 64.
 - **Upstream / Sunshine:** S emits the configured app list; QH `getAppList` verifies status before
   XML parsing; V uses its XML parser.
 - **Verified / runtime:** source; T2/T4 cover revoked client, valid empty list, two hosts with
@@ -210,12 +211,14 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Endpoint / purpose / auth:** A07 response, same paired HTTPS requirements; preserve app identity/title.
 - **Semantics:** XML element boundaries, entity decoding, valid numeric IDs, malformed/truncated
   document rejection; entries must not inherit fields from unrelated/incomplete `<App>` elements.
-- **Current:** L1 `strchr/strstr/atoi` scans tags, commits on `</App>`, truncates titles, does not
-  decode entities, validate full XML/status, or reset fields on each opening `<App>`. Reports cache valid
-  even for an unrecognized/error document.
+- **Current:** `src/moonlight/gamestream_xml.c` uses Expat, checks the complete document/root status,
+  decodes entities, validates integer IDs and requires fields within each App. Titles truncate at a
+  UTF-8 boundary. DTDs, incomplete/malformed entries and duplicate scalar fields are rejected.
+  Invalid output never becomes a valid cache.
 - **Upstream / Sunshine:** QH/V use XML parsing; S serializes app titles as XML, including escaped entities.
-- **Verified / runtime:** source; T4 parser fixtures and Vita list rendering remain unrun. Reuse
-  the already-linked Expat in an isolated parser change; adding another endpoint will not fix this.
+- **Verified / runtime:** C grammar checks passed without compilation. `tests/gamestream_xml_test.c`
+  contains actual-parser fixtures, but compilation/execution by the maintainer and Vita rendering
+  remain pending. See tests/README.md; this is source implementation, not runtime acceptance.
 
 ### A09 — Launch — partial
 
@@ -224,8 +227,9 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   choice, stereo surround info, controller bitmap and `corever=1`; reply has status and
   `gamesession=1`, normally `sessionUrl0`.
 - **Current:** L2 `load_launch_session` sends these values with 10-second connect/20-second total
-  timeout; accepts status-200 text **or** positive session text and invents default RTSP URL if absent.
-  It then sets cached `current_game` to the selection. F2/F3 apply.
+  timeout; the 2026-10-20 Expat follow-up requires root status 200 **and** gamesession=1.
+  A present URL must be valid rtsp/rtspenc and fit the buffer; only an absent URL permits the legacy
+  default-port fallback. Cached app choice still needs the independent F2 fix.
 - **Upstream / Sunshine:** S refuses launch if an app is running and can report capture/launch errors
   in XML; QH verifies status, V checks status/session result. Qt allows a longer launch timeout (120 s).
 - **Verified / runtime:** source; T5 must cover slow app startup, unsupported mode, failed capture,
@@ -450,7 +454,11 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 
 These are source findings, not runtime fixes. Runtime code must be changed as separate, reviewable work.
 
-### F1 — Unexpected termination loses ownership before common-c cleanup (first follow-up)
+### F1 — Unexpected termination cleanup ownership (source implemented, runtime matrix pending)
+
+**Current source, 2026-10-20:** `0cef1ac` already introduced a persistent session owner, mutex-protected
+stop/termination requests and owner-thread `LiStopConnection()`. The finding below records the older
+audit baseline. Do not implement it again. Network-loss/setup-cancel race tests T6–T8 remain pending.
 
 **Root cause:** L2 `on_connection_terminated()` calls `vita_input_stop`, emits STREAM_STOPPED,
 then clears `s_stream_context.started`. Once the setup worker has returned,
@@ -495,6 +503,14 @@ Host state can still change after the snapshot, so preserve XML rejection/error 
 older GFE BUSY semantics; T5/T8. Do not introduce a destructive `/cancel` as an automatic fallback.
 
 ### F3 — XML error responses can become successful list/launch results
+
+**Source follow-up, 2026-10-20:** implemented a shared Expat parser for applist/launch/resume,
+root status plus verb-result validation, entity decoding, per-App fields, strict IDs, URL validation
+and cache invalidation. Shared HTTP transfers now reinstall their own callback/buffer/timeout under
+a mutex, including shutdown exclusion; app-list no longer inherits the previous launch callback.
+This fixes request-buffer ownership, not all asynchronous API state races (F5). Backend/UI limits
+remain 64/8. C grammar checks passed; C parser fixtures and Vita/Sunshine tests remain unrun.
+The root cause below describes the audit baseline.
 
 **Root cause:** L1 marks app cache valid after any curl-successful body. L2 accepts an OR of
 status text/session markers and uses RTSP default if no URL. Malformed XML, non-200 root status
@@ -604,9 +620,11 @@ API compatibility remains **in progress** until the runtime matrix and required 
 Missing ordinary-disconnect HTTP endpoints were not found: the required work is correct ownership,
 state freshness, parsing and authentication, not adding `/cancel`, `/quit` or admin API calls.
 
-First independent implementation task: **F1, preserve transport cleanup ownership on unexpected
-termination**, as an isolated change with meaningful lifecycle tests and Vita/Sunshine regression logs.
-F2/F3/F4 are separate follow-ups; F4's small signature check and broader pinning design are distinct work.
+F1 already has a source cleanup owner (`0cef1ac`). F3 XML/cache and F4 signature checks now have
+source follow-ups; runtime acceptance remains pending. Next implement fresh launch/resume state
+(F2) and per-host TLS pinning (F4), independently. The maintainer approved storing `server.pem` in
+the existing host directory on 2026-10-20; old records without a pin require pairing again. No
+administrative Sunshine credentials are introduced.
 
 Main cold-start follow-up (2026-10-19): the user confirmed that one saved PC appears immediately
 after cold start without connecting or opening Settings. The supplied Vita log reports

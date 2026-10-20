@@ -45,6 +45,11 @@ int legacy_gamestream_pair(
     LegacyGameStreamServer *server,
     const char *pin);
 
+/* Caller owns the returned body; timeout and response callback are scoped to the request. */
+int legacy_gamestream_request(
+    LegacyGameStreamServer *server, const char *endpoint, const char *query,
+    long timeout_seconds, char **body, size_t *length);
+
 int legacy_gamestream_launch(
     LegacyGameStreamServer *server,
     int app_id,

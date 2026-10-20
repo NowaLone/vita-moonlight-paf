@@ -61,6 +61,7 @@ static char s_unique_id[UNIQUEID_CHARS + 1];
 
 static bool s_curl_initialized = false;
 static CURLcode s_last_http_result = CURLE_OK;
+static pthread_mutex_t s_http_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define GAMESTREAM_WORKER_STACK (256 * 1024)
 
@@ -598,7 +599,8 @@ static void http_buffer_free(HttpBuffer *buffer)
 static int http_request(
     LegacyGameStreamServer *server,
     const char *url,
-    HttpBuffer *response)
+    HttpBuffer *response,
+    long timeout_seconds)
 {
     CURLcode curl_result;
 
@@ -606,6 +608,15 @@ static int http_request(
         return LEGACY_GAMESTREAM_INVALID;
     }
 
+    pthread_mutex_lock(&s_http_mutex);
+    if (!server->curl) {
+        pthread_mutex_unlock(&s_http_mutex);
+        return LEGACY_GAMESTREAM_INVALID;
+    }
+    curl_easy_setopt((CURL *)server->curl, CURLOPT_WRITEFUNCTION, http_write_callback);
+    curl_easy_setopt((CURL *)server->curl, CURLOPT_CONNECTTIMEOUT, 10L);
+    curl_easy_setopt((CURL *)server->curl, CURLOPT_TIMEOUT, timeout_seconds);
+    curl_easy_setopt((CURL *)server->curl, CURLOPT_HTTPGET, 1L);
     curl_easy_setopt((CURL *)server->curl, CURLOPT_WRITEDATA, response);
     curl_easy_setopt((CURL *)server->curl, CURLOPT_URL, url);
 
@@ -622,18 +633,55 @@ static int http_request(
     http_buffer_init(response);
 
     if (!response->memory) {
+        pthread_mutex_unlock(&s_http_mutex);
         return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
     }
 
     s_last_http_result = CURLE_OK;
     curl_result = curl_easy_perform((CURL *)server->curl);
     s_last_http_result = curl_result;
+    pthread_mutex_unlock(&s_http_mutex);
     if (curl_result != CURLE_OK) {
         set_error(curl_easy_strerror(curl_result));
         return LEGACY_GAMESTREAM_FAILED;
     }
 
     return LEGACY_GAMESTREAM_OK;
+}
+
+int legacy_gamestream_request(
+    LegacyGameStreamServer *server, const char *endpoint, const char *query,
+    long timeout_seconds, char **body, size_t *length)
+{
+    char uuid[UUID_STRLEN];
+    char *url;
+    HttpBuffer response;
+    int result;
+    if (!server || !endpoint || !body || !length || timeout_seconds <= 0) {
+        return LEGACY_GAMESTREAM_INVALID;
+    }
+    *body = NULL;
+    *length = 0;
+    generate_uuid(uuid);
+    url = (char *)malloc(8192);
+    if (!url) return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
+    int written = snprintf(url, 8192, "https://%s:%u/%s?uniqueid=%s&uuid=%s%s%s",
+        server->address, server->https_port ? server->https_port : 47984,
+        endpoint, s_unique_id, uuid, query && query[0] ? "&" : "", query ? query : "");
+    if (written < 0 || written >= 8192) {
+        free(url);
+        return LEGACY_GAMESTREAM_INVALID;
+    }
+    http_buffer_init(&response);
+    result = http_request(server, url, &response, timeout_seconds);
+    free(url);
+    if (result == LEGACY_GAMESTREAM_OK) {
+        *body = response.memory;
+        *length = response.size;
+    } else {
+        http_buffer_free(&response);
+    }
+    return result;
 }
 
 static void XMLCALL xml_find_start(void *userdata, const char *name, const char **attributes)
@@ -810,7 +858,7 @@ static int load_server_info(LegacyGameStreamServer *server, bool https)
         return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
     }
 
-    result = http_request(server, url, &response);
+    result = http_request(server, url, &response, 15L);
     if (result != LEGACY_GAMESTREAM_OK) {
         http_buffer_free(&response);
         return result;
@@ -1178,16 +1226,8 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
      * enters the PIN in its Web UI. Match Sunshine's five-minute pending
      * pairing-session lifetime instead of the normal HTTP request timeout.
      */
-    curl_easy_setopt((CURL *)server->curl, CURLOPT_TIMEOUT, 300L);
-
     vita_debug_log("[GameStream] pairing phase=getservercert");
-    step_result = http_request(server, url, &response);
-
-    /*
-     * Subsequent pairing phases should complete quickly. Restore the
-     * ordinary request timeout once Sunshine has released the first wait.
-     */
-    curl_easy_setopt((CURL *)server->curl, CURLOPT_TIMEOUT, 15L);
+    step_result = http_request(server, url, &response, 300L);
 
     if (step_result != LEGACY_GAMESTREAM_OK) {
         vita_debug_log(
@@ -1260,7 +1300,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
         uuid,
         challenge_hex);
 
-    step_result = http_request(server, url, &response);
+    step_result = http_request(server, url, &response, 15L);
     if (step_result != LEGACY_GAMESTREAM_OK) {
         http_buffer_free(&response);
         return step_result;
@@ -1367,7 +1407,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
         uuid,
         challenge_response_hex);
 
-    step_result = http_request(server, url, &response);
+    step_result = http_request(server, url, &response, 15L);
     if (step_result != LEGACY_GAMESTREAM_OK) {
         http_buffer_free(&response);
         return step_result;
@@ -1492,7 +1532,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
         uuid,
         client_pairing_secret_hex);
 
-    step_result = http_request(server, url, &response);
+    step_result = http_request(server, url, &response, 15L);
     if (step_result != LEGACY_GAMESTREAM_OK) {
         http_buffer_free(&response);
         return step_result;
@@ -1519,7 +1559,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin)
         s_unique_id,
         uuid);
 
-    step_result = http_request(server, url, &response);
+    step_result = http_request(server, url, &response, 15L);
     if (step_result != LEGACY_GAMESTREAM_OK) {
         http_buffer_free(&response);
         return step_result;
@@ -1733,6 +1773,7 @@ int legacy_gamestream_get_server_mac(
 
 void legacy_gamestream_shutdown(LegacyGameStreamServer *server)
 {
+    pthread_mutex_lock(&s_http_mutex);
     if (server && server->curl) {
         curl_easy_cleanup((CURL *)server->curl);
         server->curl = NULL;
@@ -1749,4 +1790,5 @@ void legacy_gamestream_shutdown(LegacyGameStreamServer *server)
         curl_global_cleanup();
         s_curl_initialized = false;
     }
+    pthread_mutex_unlock(&s_http_mutex);
 }

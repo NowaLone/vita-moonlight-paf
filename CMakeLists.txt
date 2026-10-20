@@ -162,6 +162,7 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/option_menu.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/api.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/stream_session.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/gamestream_xml.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/stream_stats.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/vita_video_renderer.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight/vita_audio_renderer.c

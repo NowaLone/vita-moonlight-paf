@@ -11,6 +11,7 @@
 #include <pthread.h>
 
 #include "moonlight/api.h"
+#include "moonlight/gamestream_xml.h"
 #include "moonlight/settings.h"
 #include "legacy_host_discovery.h"
 #include "backend/legacy_device_store.h"
@@ -38,6 +39,13 @@ static bool s_stream_active = false;
 static bool s_stream_pending = false;
 static bool s_disconnect_pending = false;
 static bool s_disconnect_worker_running = false;
+
+static void invalidate_applications()
+{
+    s_applications_valid = false;
+    s_application_count = 0;
+    memset(s_applications, 0, sizeof(s_applications));
+}
 
 static void emit(MoonlightEventType type,
                  int result,
@@ -241,6 +249,7 @@ static int begin_disconnect_cleanup(void)
 
 int moonlight_api_init(void)
 {
+    invalidate_applications();
     s_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
     s_has_current_host = false;
     s_game_stream_initialized = false;
@@ -262,6 +271,7 @@ void moonlight_api_shutdown(void)
         s_game_stream_initialized = false;
     }
     legacy_host_discovery_shutdown();
+    invalidate_applications();
     s_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
     s_has_current_host = false;
     s_stream_active = false;
@@ -357,6 +367,8 @@ int moonlight_api_connect_host(const MoonlightHost *host)
             host->internal);
         return -1;
     }
+
+    invalidate_applications();
 
     if (s_game_stream_initialized) {
         legacy_gamestream_shutdown(&s_server);
@@ -507,144 +519,41 @@ int moonlight_api_pair_current_host(const char pin[5])
 int moonlight_api_get_applications(MoonlightApplication *out, int capacity)
 {
     if (out && capacity > 0) {
-        int count = s_application_count;
-        if (count > capacity) count = capacity;
-        if (count > 0) {
-            memcpy(out, s_applications, sizeof(MoonlightApplication) * count);
-        }
-        return s_applications_valid ? count : -1;
+        if (!s_applications_valid) return -1;
+        int count = s_application_count < capacity ? s_application_count : capacity;
+        if (count > 0) memcpy(out, s_applications, sizeof(*out) * count);
+        return count;
     }
 
-    if (!s_has_current_host || !s_game_stream_initialized || !s_server.curl ||
-        (s_connection_state != MOONLIGHT_CONNECTION_PAIRED &&
-         s_connection_state != MOONLIGHT_CONNECTION_STREAMING &&
-         s_connection_state != MOONLIGHT_CONNECTION_PAUSED)) {
+    if (!s_has_current_host || !s_game_stream_initialized ||
+        s_disconnect_pending || s_stream_pending || moonlight_stream_is_running() ||
+        s_connection_state != MOONLIGHT_CONNECTION_PAIRED) {
         emit(MOONLIGHT_EVENT_APPLICATIONS_FAILED, -1, s_current_host.id, -1, s_current_host.internal);
         return -1;
     }
 
-    char unique_id[32];
-    char uuid[40];
-    char *url;
-    char *response;
-    unsigned char random_bytes[16];
-    FILE *unique_file;
-    char unique_path[512];
-
-    unique_id[0] = '\0';
-    if (legacy_device_store_get_client_unique_id_path(
-            unique_path,
-            sizeof(unique_path)) != 0) {
-        emit(MOONLIGHT_EVENT_APPLICATIONS_FAILED, -2, s_current_host.id, -1, s_current_host.internal);
-        return -2;
+    invalidate_applications();
+    char *body = NULL;
+    size_t length = 0;
+    int result = legacy_gamestream_request(&s_server, "applist", NULL, 20L, &body, &length);
+    MoonlightGameStreamResponse response;
+    memset(&response, 0, sizeof(response));
+    if (result == 0) {
+        result = moonlight_xml_parse_applications(body, length, s_applications,
+            MAX_APPLICATIONS, &s_application_count, &response);
     }
-
-    unique_file = fopen(unique_path, "rb");
-    if (unique_file) {
-        if (fread(unique_id, 1, 16, unique_file) == 16) {
-            unique_id[16] = '\0';
-        }
-        fclose(unique_file);
+    free(body);
+    if (s_disconnect_pending || s_connection_state != MOONLIGHT_CONNECTION_PAIRED) result = -1;
+    if (result != 0) {
+        invalidate_applications();
+        vita_debug_log("[GameStream] applist failed result=%d status=%d message=%s",
+            result, response.status_code, response.status_message);
+        emit(MOONLIGHT_EVENT_APPLICATIONS_FAILED, result, s_current_host.id, -1, s_current_host.internal);
+        return result;
     }
-
-    if (sceKernelGetRandomNumber(random_bytes, sizeof(random_bytes)) < 0) {
-        emit(MOONLIGHT_EVENT_APPLICATIONS_FAILED, -3, s_current_host.id, -1, s_current_host.internal);
-        return -3;
-    }
-    snprintf(uuid, sizeof(uuid),
-             "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-             random_bytes[0], random_bytes[1], random_bytes[2], random_bytes[3],
-             random_bytes[4], random_bytes[5], random_bytes[6], random_bytes[7],
-             random_bytes[8], random_bytes[9], random_bytes[10], random_bytes[11],
-             random_bytes[12], random_bytes[13], random_bytes[14], random_bytes[15]);
-
-    url = (char *)malloc(2048);
-    response = (char *)malloc(1);
-    if (!url || !response) {
-        free(url);
-        free(response);
-        emit(MOONLIGHT_EVENT_APPLICATIONS_FAILED, -4, s_current_host.id, -1, s_current_host.internal);
-        return -4;
-    }
-    response[0] = '\0';
-
-    snprintf(url, 2048,
-             "https://%s:%u/applist?uniqueid=%s&uuid=%s",
-             s_server.address,
-             s_server.https_port ? s_server.https_port : 47984,
-             unique_id,
-             uuid);
-
-    struct AppListBuffer {
-        char *memory;
-        size_t size;
-    } buffer;
-    buffer.memory = response;
-    buffer.size = 0;
-
-    curl_easy_setopt((CURL *)s_server.curl, CURLOPT_URL, url);
-    curl_easy_setopt((CURL *)s_server.curl, CURLOPT_WRITEDATA, &buffer);
-    curl_easy_setopt((CURL *)s_server.curl, CURLOPT_CONNECTTIMEOUT, 10L);
-    curl_easy_setopt((CURL *)s_server.curl, CURLOPT_TIMEOUT, 20L);
-
-    vita_debug_log("[GameStream] requesting applist %s", s_server.address);
-    CURLcode curl_result = curl_easy_perform((CURL *)s_server.curl);
-    free(url);
-    response = buffer.memory;
-
-    if (curl_result != CURLE_OK || !response) {
-        vita_debug_log("[GameStream] applist failed: %s", curl_easy_strerror(curl_result));
-        free(response);
-        s_applications_valid = false;
-        s_application_count = 0;
-        emit(MOONLIGHT_EVENT_APPLICATIONS_FAILED, (int)curl_result, s_current_host.id, -1, s_current_host.internal);
-        return -1;
-    }
-
-    s_application_count = 0;
-    const char *cursor = response;
-    char title[256];
-    int id = 0;
-    bool have_title = false;
-    bool have_id = false;
-    title[0] = '\0';
-
-    while (cursor && *cursor && s_application_count < MAX_APPLICATIONS) {
-        const char *tag = strchr(cursor, '<');
-        if (!tag) break;
-
-        if (strncmp(tag, "<AppTitle>", 10) == 0) {
-            const char *value = tag + 10;
-            const char *end = strstr(value, "</AppTitle>");
-            size_t length = end ? (size_t)(end - value) : 0;
-            if (length >= sizeof(title)) length = sizeof(title) - 1;
-            memcpy(title, value, length);
-            title[length] = '\0';
-            have_title = true;
-            cursor = end ? end + 11 : value;
-        } else if (strncmp(tag, "<ID>", 4) == 0) {
-            id = atoi(tag + 4);
-            have_id = true;
-            cursor = tag + 4;
-        } else if (strncmp(tag, "</App>", 6) == 0) {
-            if (have_title && have_id) {
-                MoonlightApplication *app = &s_applications[s_application_count++];
-                memset(app, 0, sizeof(*app));
-                app->id = id;
-                strncpy(app->name, title, sizeof(app->name) - 1);
-            }
-            have_title = false;
-            have_id = false;
-            title[0] = '\0';
-            cursor = tag + 6;
-        } else {
-            cursor = tag + 1;
-        }
-    }
-
-    free(response);
     s_applications_valid = true;
-    vita_debug_log("[GameStream] applist count %d", s_application_count);
+    vita_debug_log("[GameStream] applist count=%d total=%d", s_application_count,
+        response.total_applications);
     emit(MOONLIGHT_EVENT_APPLICATIONS_READY, s_application_count, s_current_host.id, -1, s_current_host.internal);
     return s_application_count;
 }
@@ -759,6 +668,7 @@ int moonlight_api_disconnect_host(void)
     if (s_disconnect_pending) return 0;
 
     s_disconnect_pending = true;
+    invalidate_applications();
     if (s_stream_active || s_stream_pending || moonlight_stream_is_running()) {
         result = moonlight_stream_stop();
         if (result != 0) {

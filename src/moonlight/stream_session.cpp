@@ -1,7 +1,7 @@
 #include "moonlight/stream_session.h"
+#include "moonlight/gamestream_xml.h"
 
 #include <arpa/inet.h>
-#include <curl/curl.h>
 #include <psp2/kernel/rng.h>
 #include <pthread.h>
 #include <psp2/kernel/threadmgr.h>
@@ -22,11 +22,6 @@
 #include "stream_stats_internal.h"
 
 namespace {
-
-struct LaunchBuffer {
-    char *memory;
-    size_t size;
-};
 
 struct StreamContext {
     MoonlightStreamEventCallback callback;
@@ -106,25 +101,6 @@ static int stream_cancel_requested(void)
     int cancelled = s_stream_cancel_requested;
     pthread_mutex_unlock(&s_stream_mutex);
     return cancelled;
-}
-
-static size_t write_response(void *contents, size_t size, size_t count, void *userdata)
-{
-    LaunchBuffer *buffer = (LaunchBuffer *)userdata;
-    size_t length = size * count;
-    char *memory = (char *)realloc(
-        buffer->memory,
-        buffer->size + length + 1);
-
-    if (!memory) {
-        return 0;
-    }
-
-    buffer->memory = memory;
-    memcpy(buffer->memory + buffer->size, contents, length);
-    buffer->size += length;
-    buffer->memory[buffer->size] = '\0';
-    return length;
 }
 
 static void emit_event(MoonlightEventType type, int result)
@@ -302,49 +278,23 @@ static int load_launch_session(
     unsigned char remote_key[16],
     unsigned char remote_iv[16])
 {
-    char unique_id[32];
-    char uuid[40];
     char rikey_hex[33];
-    char url[4096];
-    unsigned char uuid_bytes[16];
+    char query[4096];
     unsigned int rikey_id;
-    LaunchBuffer response;
-    FILE *file;
-    CURLcode curl_result;
-    const char *session;
-    const char *session_end;
-    size_t session_length;
-    int accepted;
+    char *body = NULL;
+    size_t body_length = 0;
+    MoonlightGameStreamResponse response;
+    int result;
+    const int resume = server && server->current_game != 0;
 
     if (!server || !server->curl || !unique_path || !settings ||
         !session_url || session_url_size == 0) {
         return -1;
     }
 
-    memset(unique_id, 0, sizeof(unique_id));
-    file = fopen(unique_path, "rb");
-    if (!file || fread(unique_id, 1, 16, file) != 16) {
-        if (file) fclose(file);
-        return -2;
-    }
-    fclose(file);
-    unique_id[16] = '\0';
-
-    if (sceKernelGetRandomNumber(uuid_bytes, sizeof(uuid_bytes)) < 0 ||
-        sceKernelGetRandomNumber(remote_key, 16) < 0 ||
-        sceKernelGetRandomNumber(remote_iv, 4) < 0) {
-        return -3;
-    }
+    if (sceKernelGetRandomNumber(remote_key, 16) < 0 ||
+        sceKernelGetRandomNumber(remote_iv, 4) < 0) return -3;
     memset(remote_iv + 4, 0, 12);
-
-    snprintf(
-        uuid,
-        sizeof(uuid),
-        "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x%02x%02x",
-        uuid_bytes[0], uuid_bytes[1], uuid_bytes[2], uuid_bytes[3],
-        uuid_bytes[4], uuid_bytes[5], uuid_bytes[6], uuid_bytes[7],
-        uuid_bytes[8], uuid_bytes[9], uuid_bytes[10], uuid_bytes[11],
-        uuid_bytes[12], uuid_bytes[13], uuid_bytes[14], uuid_bytes[15]);
 
     if (make_hex(remote_key, 16, rikey_hex, sizeof(rikey_hex)) != 0) {
         return -3;
@@ -357,18 +307,12 @@ static int load_launch_session(
         (unsigned int)remote_iv[3];
 
     snprintf(
-        url,
-        sizeof(url),
-        "https://%s:%u/%s?uniqueid=%s&uuid=%s&appid=%d"
-        "&mode=%dx%dx%d&additionalStates=1&sops=%d"
+        query,
+        sizeof(query),
+        "appid=%d&mode=%dx%dx%d&additionalStates=1&sops=%d"
         "&rikey=%s&rikeyid=%u&localAudioPlayMode=%d"
         "&surroundAudioInfo=%u&remoteControllersBitmap=1&gcmap=1"
         "%s",
-        server->address,
-        server->https_port ? server->https_port : 47984,
-        server->current_game ? "resume" : "launch",
-        unique_id,
-        uuid,
         application_id,
         settings->width,
         settings->height,
@@ -381,71 +325,26 @@ static int load_launch_session(
             AUDIO_CONFIGURATION_STEREO),
         LiGetLaunchUrlQueryParameters());
 
-    response.memory = (char *)malloc(1);
-    response.size = 0;
-    if (!response.memory) {
-        return -4;
-    }
-    response.memory[0] = '\0';
-
-    curl_easy_setopt((CURL *)server->curl, CURLOPT_URL, url);
-    curl_easy_setopt(
-        (CURL *)server->curl,
-        CURLOPT_WRITEFUNCTION,
-        write_response);
-    curl_easy_setopt(
-        (CURL *)server->curl,
-        CURLOPT_WRITEDATA,
-        &response);
-    curl_easy_setopt((CURL *)server->curl, CURLOPT_CONNECTTIMEOUT, 10L);
-    curl_easy_setopt((CURL *)server->curl, CURLOPT_TIMEOUT, 20L);
-
-    vita_debug_log(
-        "[GameStream] launching app %d on %s",
-        application_id,
-        server->address);
-
-    curl_result = curl_easy_perform((CURL *)server->curl);
-    if (curl_result != CURLE_OK) {
-        vita_debug_log(
-            "[GameStream] launch curl failed: %s",
-            curl_easy_strerror(curl_result));
-        free(response.memory);
-        return -5;
+    vita_debug_log("[GameStream] %s app=%d host=%s",
+        resume ? "resume" : "launch", application_id, server->address);
+    result = legacy_gamestream_request(server, resume ? "resume" : "launch", query,
+        20L, &body, &body_length);
+    if (result != 0) return result;
+    result = moonlight_xml_parse_launch(body, body_length, resume, &response);
+    free(body);
+    if (result != MOONLIGHT_XML_OK) {
+        vita_debug_log("[GameStream] launch/resume rejected result=%d status=%d message=%s",
+            result, response.status_code, response.status_message);
+        return result;
     }
 
-    accepted = strstr(response.memory, "status_code=\"200\"") != NULL;
-    if (!accepted &&
-        !strstr(response.memory, "<gamesession>1</gamesession>") &&
-        !strstr(response.memory, "<resume>1</resume>")) {
-        vita_debug_log(
-            "[GameStream] launch rejected: %.180s",
-            response.memory);
-        free(response.memory);
-        return -6;
-    }
-
-    session_url[0] = '\0';
-    session = strstr(response.memory, "<sessionUrl0>");
-    if (session) {
-        session += strlen("<sessionUrl0>");
-        session_end = strstr(session, "</sessionUrl0>");
-        session_length = session_end
-            ? (size_t)(session_end - session)
-            : 0;
-        if (session_length >= session_url_size) {
-            session_length = session_url_size - 1;
-        }
-        memcpy(session_url, session, session_length);
-        session_url[session_length] = '\0';
-    }
-
-    if (!session_url[0]) {
-        snprintf(
-            session_url,
-            session_url_size,
-            "rtsp://%s:48010",
-            server->address);
+    if (response.session_url_present) {
+        if (strlen(response.session_url) >= session_url_size) return -6;
+        memcpy(session_url, response.session_url, strlen(response.session_url) + 1);
+    } else {
+        /* Older GFE/Sunshine may omit the URL; malformed/present URLs never reach this fallback. */
+        int written = snprintf(session_url, session_url_size, "rtsp://%s:48010", server->address);
+        if (written < 0 || (size_t)written >= session_url_size) return -6;
     }
 
     strncpy(
@@ -456,12 +355,7 @@ static int load_launch_session(
         sizeof(server->rtsp_session_url) - 1] = '\0';
     server->current_game = application_id;
 
-    vita_debug_log(
-        "[GameStream] launch %s session %s",
-        accepted ? "ok" : "busy",
-        session_url);
-
-    free(response.memory);
+    vita_debug_log("[GameStream] launch/resume accepted session=%s", session_url);
     return 0;
 }
 
