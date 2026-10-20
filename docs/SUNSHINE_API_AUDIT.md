@@ -9,6 +9,19 @@ not a new Vita/Sunshine interoperability test. The original inventory changed no
 storage; dated source follow-ups below describe later implementation changes (latest: 2026-10-20). `PROGRESS.md` was absent. The supplied PRD was read as technical context;
 current source and Git state determine the findings below.
 
+## User runtime follow-up — 2026-10-20
+
+After the changes through source HEAD `22ff3ae`, the maintainer replied “всё ок” to the
+requested Vita sequence: repeat PIN pairing → Apps → application restart → connect without
+another PIN → launch and stop streaming. This is user-reported success of that normal flow,
+covering parts of T3/T4/T5/T8/T9 and indicating reuse of saved trust after restart. It does
+not prove certificate-mismatch rejection, wrong-PIN handling, malformed XML, different-app
+conflict, same-app resume, two-host isolation, network-loss cleanup or failed pin writes.
+The installed package revision, build log, Sunshine version/configuration, certificate-file
+inspection and TLS trace were not separately supplied. No build or hardware run was performed
+by the agent. Earlier source-only evidence statements below retain their original scope; this
+follow-up adds only the explicitly requested normal-flow smoke result.
+
 ## 1. Scope and evidence
 
 The client path remains PAF pages → MoonlightApp → services → MoonlightBackend →
@@ -170,7 +183,7 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Upstream / Sunshine:** V/QP use PIN challenges; S waits for host operator approval.
 - **Verified / runtime:** source; T3 verifies fresh identity, already paired state and UI/job behavior.
 
-### A05 — Pairing handshake — implemented (new pinning runtime acceptance pending)
+### A05 — Pairing handshake — implemented (normal flow user-tested; error matrix pending)
 
 - **Endpoint / purpose / auth:** HTTP `/pair` phases `getservercert`, `clientchallenge`,
   `serverchallengeresp`, `clientpairingsecret`; HTTPS `/pair?phrase=pairchallenge` proves client trust.
@@ -679,8 +692,9 @@ state freshness, parsing and authentication, not adding `/cancel`, `/quit` or ad
 F1 already has a source cleanup owner (`0cef1ac`). F3 XML/cache and F4 signature checks now have
 source follow-ups; runtime acceptance remains pending. F2 now has a source refresh/conflict check.
 Per-host TLS pinning (F4) now has a source implementation with the maintainer-approved
-`server.pem` contract; old records without a pin require pairing again. The next gate is a
-maintainer build plus the T3/T4/T5/T8/T9 pairing/list/launch/reconnect/certificate matrix. No
+`server.pem` contract; old records without a pin require pairing again. The user confirmed the
+normal pairing/Apps/restart/reconnect/launch/stop smoke sequence on 2026-10-20, as scoped above.
+Next verify different-app conflict (T5), then complete the remaining T3/T4/T5/T8/T9 error/trust matrix. No
 administrative Sunshine credentials are introduced.
 
 Main cold-start follow-up (2026-10-19): the user confirmed that one saved PC appears immediately

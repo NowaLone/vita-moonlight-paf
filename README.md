@@ -160,8 +160,9 @@ fails closed: remove that saved PC locally and add/pair it again to establish ne
 Local deletion removes its server pin as part of the host directory; it does not revoke the
 Vita identity on Sunshine. A pin persistence error is logged separately from pairing success;
 trust then lasts only for the current connection and pairing is needed after restart.
-The implementation requires the OpenSSL libcurl backend; compilation and TLS/runtime checks
-by the maintainer remain pending (2026-10-20).
+The implementation requires the OpenSSL libcurl backend. On 2026-10-20 the maintainer confirmed
+normal PIN pairing, Apps, application restart, reconnect without another PIN and stream launch/stop.
+Certificate-mismatch/error cases and the full TLS/runtime matrix remain pending; see the API audit.
 
 The project does not provide compatibility or migration for the original Vita Moonlight per-host credential layout. Existing per-host `uniqueid.dat`, `client.pem`, `key.pem`, and `client.p12` files are not used by the new global client-identity implementation.
 
