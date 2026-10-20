@@ -22,6 +22,27 @@ inspection and TLS trace were not separately supplied. No build or hardware run 
 by the agent. Earlier source-only evidence statements below retain their original scope; this
 follow-up adds only the explicitly requested normal-flow smoke result.
 
+### Different-app conflict — user and log verified, 2026-10-20
+
+The maintainer confirmed the expected behavior: selecting B while A runs produces an error,
+A keeps running and Vita does not attach to A in place of B. Supplied psp2shell evidence:
+
+```text
+[ConnectionService] Start app=881448767
+[GameStream] server uniqueid=3D7D0EDF-A6A6-F303-0A1C-217868AB07D4
+[GameStream] app conflict selected=881448767 active=1093255277
+[Stream] setup finished app=881448767 result=-8
+```
+
+The fresh serverinfo log precedes conflict detection. Current L2 source returns before the
+launch/resume request and RTSP setup in that branch. The earlier `Start ... result=0` means
+the asynchronous worker was scheduled; it does not mean streaming succeeded. The terminal
+result -8 is the intended conflict failure. No automatic remote Quit is performed.
+This verifies the different-app portion of T5/F2 on the tested Vita; same-app resume and
+host-app exit/change still need separate tests. Logs show mode=2, total=65536 KiB and
+newlib=6144 KiB; installed package revision and Sunshine version were not supplied.
+The two arena samples alone do not establish leak-free repeated failure recovery.
+
 ## 1. Scope and evidence
 
 The client path remains PAF pages → MoonlightApp → services → MoonlightBackend →
@@ -267,8 +288,9 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   different active ID (-8); it resumes only the selected running app. Runtime acceptance is pending.
 - **Upstream / Sunshine:** S `resume`; QS asserts current app is zero or matches selection; QH
   validates response, V uses resume for a running app.
-- **Verified / runtime:** source; T5/T8 require same-app resume, different-app selection, app exit
-  between connection/start and stop/restart. Do not label arbitrary selected-app restart implemented.
+- **Verified / runtime:** different-app rejection user/log verified on 2026-10-20 (selected
+  881448767, active 1093255277, result -8; see follow-up above). Same-app resume and app exit/change
+  between connection/start still need T5/T8. Do not label arbitrary selected-app restart implemented.
 
 ### A11 — Active game / session state — partial
 
@@ -520,7 +542,9 @@ launch/resume, without HTTP fallback, checks pairing and compares the active ID 
 A different app returns `LEGACY_GAMESTREAM_APP_CONFLICT` (-8) through the stream event; it is never
 resumed or cancelled automatically. Same-app resume and idle launch remain distinct. Cancellation
 is checked around the refresh. Current-game numeric input and BUSY suffix are validated. The host
-can still change state after the snapshot; XML errors remain authoritative. T5/T8 are pending.
+can still change state after the snapshot; XML errors remain authoritative. Different-app rejection
+is user/log verified on 2026-10-20: selected=881448767, active=1093255277, setup result=-8. Same-app
+resume, app exit/change and the remaining T5/T8 matrix are pending.
 The root cause below describes the older baseline.
 
 **Root cause:** current_game is read at connect/pair time, then locally overwritten with selected
@@ -694,7 +718,8 @@ source follow-ups; runtime acceptance remains pending. F2 now has a source refre
 Per-host TLS pinning (F4) now has a source implementation with the maintainer-approved
 `server.pem` contract; old records without a pin require pairing again. The user confirmed the
 normal pairing/Apps/restart/reconnect/launch/stop smoke sequence on 2026-10-20, as scoped above.
-Next verify different-app conflict (T5), then complete the remaining T3/T4/T5/T8/T9 error/trust matrix. No
+Different-app conflict (T5) is now user/log verified. Next verify same-app resume, then complete
+the remaining T3/T4/T5/T8/T9 error/trust matrix. No
 administrative Sunshine credentials are introduced.
 
 Main cold-start follow-up (2026-10-19): the user confirmed that one saved PC appears immediately
