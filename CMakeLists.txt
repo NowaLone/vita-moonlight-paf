@@ -29,6 +29,10 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g3 -Wl,-q -Wall -O0 -fno-inline -fno-builti
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -fno-rtti -fno-exceptions -Wl,-q -Wall -O0 -fno-builtin -fshort-wchar -Wno-unused-function -Wno-sign-compare")
 
 option(MOONLIGHT_SYSTEM_APP "Experiment: launch alongside a suspended Vita game" OFF)
+option(MOONLIGHT_HEAP_TRACE "Diagnostic: track newlib allocation call sites" OFF)
+if(MOONLIGHT_HEAP_TRACE AND NOT MOONLIGHT_SYSTEM_APP)
+  message(FATAL_ERROR "MOONLIGHT_HEAP_TRACE requires MOONLIGHT_SYSTEM_APP=ON")
+endif()
 set(MOONLIGHT_SYSTEM_MEMSIZE_KIB 32768 CACHE STRING "System app total memory budget (KiB)")
 set(MOONLIGHT_SYSTEM_PHYCONT_KIB 0 CACHE STRING "System app physical reservation inside total budget (KiB)")
 set(MOONLIGHT_SYSTEM_NEWLIB_KIB 6144 CACHE STRING "System app newlib heap capacity (KiB)")
@@ -210,6 +214,13 @@ endif()
 # The system renderer owns a CodecEngine pool for explicit decoder contexts.
 if(MOONLIGHT_SYSTEM_APP)
   target_link_libraries(${PROJECT_NAME} SceCodecEngine_stub)
+endif()
+
+if(MOONLIGHT_HEAP_TRACE)
+  target_compile_definitions(${PROJECT_NAME} PRIVATE MOONLIGHT_HEAP_TRACE=1)
+  target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/app/heap_trace.c)
+  set_property(TARGET ${PROJECT_NAME} APPEND_STRING PROPERTY LINK_FLAGS
+    " -Wl,--wrap=malloc,--wrap=calloc,--wrap=realloc,--wrap=free")
 endif()
 
 target_link_libraries(${PROJECT_NAME}

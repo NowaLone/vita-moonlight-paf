@@ -15,6 +15,7 @@
 
 #include "debug.h"
 #include "app/memory_budget.h"
+#include "app/heap_trace.h"
 #include "vita_video_renderer.h"
 #include "vita_audio_renderer.h"
 #include "vita_input.h"
@@ -214,6 +215,9 @@ static void on_log_message(const char *format, ...)
     char buffer[512];
     va_list args;
 
+    if (strcmp(format, "Video Receive: malloc() failed\n") == 0) {
+        moonlight_log_heap_trace("video-receive-oom");
+    }
     /* These exact common-c messages occur once per discarded waiting frame. */
     int kind = strcmp(format, "Waiting for IDR frame\n") == 0 ? 0 :
         (strcmp(format, "Waiting for RFI frame\n") == 0 ? 1 : -1);
@@ -580,10 +584,12 @@ static void *stream_thread_main(void *arg)
     reset_recovery_wait_logs();
     vita_debug_log("[Stream] worker start app=%d", args->application_id);
     moonlight_log_memory_budget("stream-before-setup");
+    moonlight_log_heap_trace("stream-before-setup");
     result = stream_cancel_requested() ? -7 : run_stream_session(
         args->server, args->unique_path, args->application_id, &args->settings);
     vita_debug_log("[Stream] setup finished app=%d result=%d", args->application_id, result);
     moonlight_log_memory_budget("stream-after-setup");
+    moonlight_log_heap_trace("stream-after-setup");
 
     if (result != 0) {
         /* LiStartConnection unwinds partial setup itself; no active transport remains. */
@@ -618,6 +624,7 @@ static void *stream_thread_main(void *arg)
     LiStopConnection();
     summarize_recovery_wait_logs();
     moonlight_log_memory_budget("stream-after-stop");
+    moonlight_log_heap_trace("stream-after-stop");
     pthread_mutex_lock(&s_stream_mutex);
     result = s_stream_termination_result;
     pthread_mutex_unlock(&s_stream_mutex);

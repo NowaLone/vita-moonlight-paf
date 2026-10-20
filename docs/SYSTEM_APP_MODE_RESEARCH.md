@@ -642,3 +642,58 @@ boundary, final pending counts, independent IDR/RFI state and session reset.
 Source checks cover callback pass-through, logging outside the lock, teardown
 summary ordering and an unchanged common-c tree. Build and hardware validation of
 this diagnostic change remain pending; it is not claimed to fix the initial loss.
+
+### Longer run: newlib allocation failure (2026-10-20)
+
+The next user capture shows normal decoded-frame progress until 2732 frames,
+then `Video Receive: malloc() failed`. The asynchronous termination worker starts
+successfully and requests cleanup with result -1. The control-stream error 4
+appears during teardown, after video allocation failure, so it is not the trigger
+in this ordered capture. This is neither an initial nongame decoder-budget error
+nor a PS double-press stop.
+
+The 65536 KiB total / 6144 KiB newlib configuration remains active. After transport
+stop, newlib reports arena 6287360, used 5592368, free 694992 bytes. Deferred
+framebuffer release succeeds and increases USER_RW free from 25268 to 31412 KiB;
+newlib used then remains 5591728 bytes. Free main RAM does not automatically
+extend the separate newlib heap cap. Compared with the previous shorter run,
+the retained used-byte count is higher. These samples motivate allocation-owner
+and fragmentation diagnostics; they do not identify a leak site or distinguish
+all persistent allocations from leaked ones. The failed request size is missing.
+
+Source review of video receive/FEC/depacketizer handoff, direct decode completion,
+renderer buffers, SPS parsing and transport cleanup did not establish a specific
+missing free. Rather than change a dependency or raise the heap without that
+evidence, `MOONLIGHT_HEAP_TRACE=ON` enables linker wrappers for malloc, calloc,
+realloc and free. This is an optional system-profile-only diagnostic; it defaults
+OFF and leaves the 6 MiB newlib cap intact. Fixed BSS metadata holds 8192 live
+entries, 1024 hash buckets and 256 call sites (about 136 KiB on Vita); site zero
+aggregates overflow. Pointer records use chained hash buckets and a reusable
+free list. Metadata updates never call the allocator or print, and real allocator
+calls occur outside the lock. Contention yields with `sceKernelDelayThread(1)`
+to allow a preempted lower-priority lock owner to finish.
+
+Snapshots before/after setup, on video receive OOM and after stop print tracked
+live totals, twelve largest live sites, peaks, the last allocation-failure size
+and caller, and coverage counters. Linker wrapping does not cover every libc
+internal allocation/free; dropped entries, unknown frees, replaced pointers and
+NULL zero-size realloc results explicitly flag limitations. These totals must
+be compared with `mallinfo`, not equated to it. No per-frame or per-allocation
+console/file output is added. Diagnostic CPU overhead and stack usage need Vita
+validation; capturing it is not proof that the uninstrumented stream is stable.
+
+Keep the exact diagnostic build's unstripped ELF. For an ASLR-adjusted caller,
+subtract logged runtime `anchor_malloc` and add the ELF symbol address of
+`__wrap_malloc`, using consistent Thumb-bit treatment. Resolve the resulting
+return address with VitaSDK addr2line/objdump; inspect the preceding call when
+the returned line is the instruction after it. The ELF must match the VPK.
+
+Non-build checks interpret the actual tracer C AST: hash collisions, entry/site
+saturation, free-slot reuse, null/overflow allocation, realloc failure restoring
+old ownership, in-place/moving/zero-size realloc, pointer-reuse interleaving and
+snapshot preservation. They verify allocator/logging calls are outside the lock.
+Isolated CMake script checks exercise ON/OFF source/link selection and reject
+tracing with the ordinary profile; they do not configure the application.
+No application/resource compilation, packaging, deployment or hardware test was
+run by the agent. Next evidence needed: the diagnostic `[Heap]` snapshots and
+matching ELF; the underlying longer-session failure is still open.

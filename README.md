@@ -198,11 +198,11 @@ PAF surface/text pools are 4/1 MiB after the initial 8/4 MiB configuration faile
 with an 8 MiB DDR-main allocation request on startup with a game resident. The
 smaller pools save 7 MiB in requested pool capacity. On `7e20e94`, the user verified
 Main/Settings, launch without closing the Vita game, and resuming its existing session
-on the tested device. Streaming in this profile remains unverified.
+on the tested device. Streaming with this 32 MiB budget remains unverified.
 Install the complete VPK through VitaShell, then launch from LiveArea, rather than
 replacing only the SELF, so the changed launch metadata is promoted. Then test
 opening Moonlight with a Vita game suspended and returning to that same game session.
-Streaming coexistence is unverified; physical reservation defaults to zero.
+Physical reservation defaults to zero; the streaming test below uses a larger total budget.
 
 The system profile bounds common-c transport thread stacks to 128 KiB (the ordinary
 profile requests 1 MiB each). `[Thread]` logs report each thread name, stack bytes
@@ -250,10 +250,31 @@ second for each kind, with omitted-message totals reported after transport teard
 IDR requests, recovery/drop-limit events and other logs remain visible. This limits
 console traffic during recovery without changing the transport's recovery behavior.
 
+The longer user run stopped after 2732 decoded frames with `Video Receive: malloc()
+failed`. After teardown, newlib still reported 5591728 used bytes in its 6 MiB
+heap, while USER_RW had 31412 KiB free. Allocation ownership and fragmentation
+must be investigated before treating the system profile as stable for longer sessions.
+An optional diagnostic build records allocation call sites (maintainer command):
+
+```bash
+bash build.sh -DMOONLIGHT_SYSTEM_APP=ON -DMOONLIGHT_SYSTEM_MEMSIZE_KIB=65536 -DMOONLIGHT_SYSTEM_PHYCONT_KIB=0 -DMOONLIGHT_SYSTEM_NEWLIB_KIB=6144 -DMOONLIGHT_HEAP_TRACE=ON
+```
+
+Install this VPK and enable **Debug log**. Keep its corresponding unstripped
+`build/vita_moonlight_paf.elf`. Capture `[Heap]` lines before/after setup, at
+`video-receive-oom`, and after stop; they report the twelve largest tracked live
+allocation sites, failure size and an address anchor for matching the ELF.
+This option defaults to OFF, adds about 136 KiB of fixed BSS metadata and allocation
+tracking overhead, and does not increase the heap. It records references handled
+by linker wrappers; libc-internal allocations/frees may bypass them. Counters for
+dropped entries, unknown frees, replaced addresses and ambiguous zero-size realloc
+results describe coverage limits. Tracked bytes are not a replacement for `mallinfo`.
+Disable the diagnostic with `-DMOONLIGHT_HEAP_TRACE=OFF` after collecting the log.
+
 The option persists in the build directory. To return to the ordinary profile:
 
 ```bash
-bash build.sh -DMOONLIGHT_SYSTEM_APP=OFF
+bash build.sh -DMOONLIGHT_SYSTEM_APP=OFF -DMOONLIGHT_HEAP_TRACE=OFF
 ```
 
 Outputs:

@@ -146,6 +146,21 @@ protocol/recovery behavior; no dependency source was changed. State resets befor
 each session. Interpreted timing/counter checks passed; this logging-only follow-up
 has not been built or hardware-tested by the agent.
 
+The longer user run decoded 2732 frames, then common-c reported `Video Receive:
+malloc() failed` and requested cleanup. Final newlib arena/used/free were
+6287360/5591728/695632 bytes; USER_RW free after deferred frame release was
+31412 KiB out of 65536 KiB. This leaves longer-session stability unresolved.
+The heap is still capped at 6144 KiB; free main RAM does not expand that cap.
+No retained allocation owner is identified by these aggregate counters alone.
+
+An opt-in `MOONLIGHT_HEAP_TRACE` diagnostic now wraps malloc/calloc/realloc/free,
+using fixed BSS metadata and sparse call-site snapshots around setup, video receive
+allocation failure and stop. It defaults off and reports tracking coverage limits;
+it does not change the heap capacity or claim a leak fix. Interpreted actual-source
+allocation/realloc/failure/saturation checks and isolated CMake selection checks
+passed. Build, runtime overhead and identifying the retained sites require the
+maintainer's next diagnostic run and its matching ELF.
+
 ## Requested: full stream diagnostics overlay (2026-10-19)
 
 Replace the existing FPS-only display with useful stream diagnostics based on the
