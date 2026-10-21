@@ -21,6 +21,10 @@ void moonlight_video_note_submitted(uint32_t generation, uint64_t queue_us, uint
 void moonlight_video_invalidate(void);
 void moonlight_video_release_frame_buffers(void);
 unsigned int moonlight_video_get_frame_pool_generation(void);
+#ifdef MOONLIGHT_STARTUP_DISCONNECT_TEST
+/* Test observer only: owner at stage checkpoint, or main thread after CLOSED. */
+int moonlight_video_test_owned_frame_buffers(void);
+#endif
 void moonlight_video_set_stream_options(
     int fps,
     int frame_pacer,

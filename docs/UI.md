@@ -687,6 +687,10 @@ common-c unwind → -7/CLOSED → native error termination → paired recovery/P
 and final normal stop/audio release/three unmaps **[hw, log, 2026-10-21]**. That first cancelled
 setup never allocated video buffers; FAILED cleanup after late-init allocation and the cancelled-
 success race remain **[open]**. The earlier late_start=1 teardown test predates this change.
+The existing startup test now offers stage 10 after video setup **[code, 2026-10-21]**:
+it requires the old framebuffer generation to clear after FAILED/CLOSED before reconnect.
+The [maintainer procedure](../tests/runtime/README.md#after-video-allocation-checkpoint--source-prepared-vita-validation-pending)
+still needs Vita evidence, including successful old-pool unmaps; no UI behavior is changed.
 
 Backend callbacks may arrive on worker threads. `MoonlightApp` queues them and delivers them through
 `MainThreadCallList`, so page callbacks run on the PAF main thread. Only the topmost page owns the event callback; when

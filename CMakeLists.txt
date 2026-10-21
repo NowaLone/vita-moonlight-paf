@@ -34,7 +34,12 @@ option(MOONLIGHT_DISCONNECT_TEST "Test only: disconnect/reconnect once after ope
 option(MOONLIGHT_ACTIVE_DISCONNECT_TEST "Test only: disconnect/reconnect after a selected stream starts" OFF)
 option(MOONLIGHT_PENDING_DISCONNECT_TEST "Test only: disconnect after launch response before RTSP" OFF)
 option(MOONLIGHT_HTTP_DISCONNECT_TEST "Test only: disconnect inside launch/resume HTTPS transfer" OFF)
-option(MOONLIGHT_STARTUP_DISCONNECT_TEST "Test only: disconnect at common-c RTSP stage entry" OFF)
+option(MOONLIGHT_STARTUP_DISCONNECT_TEST "Test only: disconnect during selected common-c startup stage" OFF)
+set(MOONLIGHT_STARTUP_DISCONNECT_STAGE "4" CACHE STRING "Startup disconnect checkpoint: 4=RTSP entry, 10=after video setup")
+set_property(CACHE MOONLIGHT_STARTUP_DISCONNECT_STAGE PROPERTY STRINGS 4 10)
+if(MOONLIGHT_STARTUP_DISCONNECT_TEST AND NOT MOONLIGHT_STARTUP_DISCONNECT_STAGE MATCHES "^(4|10)$")
+  message(FATAL_ERROR "MOONLIGHT_STARTUP_DISCONNECT_STAGE must be 4 or 10")
+endif()
 if((MOONLIGHT_STARTUP_DISCONNECT_TEST AND (MOONLIGHT_DISCONNECT_TEST OR MOONLIGHT_ACTIVE_DISCONNECT_TEST OR MOONLIGHT_PENDING_DISCONNECT_TEST OR MOONLIGHT_HTTP_DISCONNECT_TEST)) OR
    (MOONLIGHT_HTTP_DISCONNECT_TEST AND (MOONLIGHT_DISCONNECT_TEST OR MOONLIGHT_ACTIVE_DISCONNECT_TEST OR MOONLIGHT_PENDING_DISCONNECT_TEST)) OR
    (MOONLIGHT_DISCONNECT_TEST AND MOONLIGHT_ACTIVE_DISCONNECT_TEST) OR
@@ -207,8 +212,9 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 if(MOONLIGHT_STARTUP_DISCONNECT_TEST)
-  message(STATUS "Startup disconnect test enabled: interrupt at RTSP stage entry; expect cancellation error/OK")
-  target_compile_definitions(${PROJECT_NAME} PRIVATE MOONLIGHT_DISCONNECT_TEST=1 MOONLIGHT_STARTUP_DISCONNECT_TEST=1)
+  message(STATUS "Startup disconnect test enabled at stage ${MOONLIGHT_STARTUP_DISCONNECT_STAGE}; expect cancellation error/OK")
+  target_compile_definitions(${PROJECT_NAME} PRIVATE MOONLIGHT_DISCONNECT_TEST=1 MOONLIGHT_STARTUP_DISCONNECT_TEST=1
+    MOONLIGHT_STARTUP_DISCONNECT_STAGE=${MOONLIGHT_STARTUP_DISCONNECT_STAGE})
   target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/disconnect_startup.cpp)
 elseif(MOONLIGHT_HTTP_DISCONNECT_TEST)
   message(STATUS "HTTP disconnect test enabled: cancel inside curl before response; acknowledge expected error")

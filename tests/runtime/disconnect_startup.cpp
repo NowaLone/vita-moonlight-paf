@@ -6,6 +6,7 @@
 #include "app/disconnect_test.h"
 #include "app/moonlight_app.h"
 #include "debug.h"
+#include "vita_video_renderer.h"
 
 namespace {
 
@@ -31,10 +32,12 @@ static bool s_saw_cancelled = false;
 static int s_application_id = -1;
 static uint64_t s_step_started_us = 0;
 static const uint64_t kStepTimeoutUs = 60000000;
+static const int kCheckpointStage = MOONLIGHT_STARTUP_DISCONNECT_STAGE;
 /* Shared with the stream worker. All remaining scenario state is main-thread-only. */
 static int s_checkpoint_used = 0;
-static int s_checkpoint_status = 0; /* 0 absent, 1 waiting, 2 released, -1 timed out */
+static int s_checkpoint_status = 0; /* 0 absent, 1 waiting, 2 released, negative failed */
 static int s_checkpoint_release = 0;
+static unsigned int s_checkpoint_generation = 0;
 
 static void release_checkpoint()
 {
@@ -57,15 +60,27 @@ static void fail(const char *reason, int result)
 
 }
 
-/* Sole LiStartConnection owner: stop at RTSP stage entry after audio/platform init.
+/* Sole LiStartConnection owner: hold the selected startup stage before STARTED.
  * No PAF, stream/control mutex, protocol interruption or production cancel mutation. */
 extern "C" void disconnect_test_startup_checkpoint(int stage)
 {
-    if (stage != STAGE_RTSP_HANDSHAKE) return;
+    if (stage != kCheckpointStage) return;
     if (__atomic_exchange_n(&s_checkpoint_used, 1, __ATOMIC_ACQ_REL)) return;
     if (__atomic_load_n(&s_checkpoint_release, __ATOMIC_ACQUIRE)) return;
+    if (stage == STAGE_AUDIO_STREAM_START) {
+        const int owned = moonlight_video_test_owned_frame_buffers();
+        const unsigned int generation = moonlight_video_get_frame_pool_generation();
+        if (owned != 3 || generation == 0) {
+            __atomic_store_n(&s_checkpoint_status, -2, __ATOMIC_RELEASE);
+            vita_debug_log("[DisconnectStartupTest] FAIL late checkpoint buffers=%d generation=%u", owned, generation);
+            return;
+        }
+        __atomic_store_n(&s_checkpoint_generation, generation, __ATOMIC_RELAXED);
+        vita_debug_log("[DisconnectStartupTest] checkpoint after video setup stage=%d buffers=%d generation=%u", stage, owned, generation);
+    } else {
+        vita_debug_log("[DisconnectStartupTest] checkpoint inside LiStartConnection stage=%d before RTSP handshake", stage);
+    }
     __atomic_store_n(&s_checkpoint_status, 1, __ATOMIC_RELEASE);
-    vita_debug_log("[DisconnectStartupTest] checkpoint inside LiStartConnection stage=%d before RTSP handshake", stage);
     const uint64_t entered_us = sceKernelGetProcessTimeWide();
     while (!__atomic_load_n(&s_checkpoint_release, __ATOMIC_ACQUIRE)) {
         if (sceKernelGetProcessTimeWide() - entered_us > kStepTimeoutUs) {
@@ -108,7 +123,7 @@ void disconnect_test_poll(MoonlightApp &app)
 {
     if (s_phase == AwaitApplications || s_phase == AwaitFirstStart || s_phase == Finished) return;
     if (__atomic_load_n(&s_checkpoint_status, __ATOMIC_ACQUIRE) < 0) {
-        fail("checkpoint timed out", -1);
+        fail("checkpoint failed", __atomic_load_n(&s_checkpoint_status, __ATOMIC_ACQUIRE));
         return;
     }
     /* Expected cancellation uses the ordinary native error dialog. Wait for the user's OK;
@@ -146,6 +161,15 @@ void disconnect_test_poll(MoonlightApp &app)
         if (app.Connection().State() != MOONLIGHT_CONNECTION_DISCONNECTED) {
             fail("state changed before reconnect", (int)app.Connection().State());
             return;
+        }
+        if (kCheckpointStage == STAGE_AUDIO_STREAM_START) {
+            const unsigned int generation = __atomic_load_n(&s_checkpoint_generation, __ATOMIC_ACQUIRE);
+            if (moonlight_video_get_frame_pool_generation() != generation) {
+                fail("frame pool generation changed before old release", -1);
+                return;
+            }
+            if (moonlight_video_test_owned_frame_buffers() != 0) return;
+            vita_debug_log("[DisconnectStartupTest] cancelled video buffers released generation=%u", generation);
         }
         set_phase(AwaitReconnect);
         result = app.Connection().Connect(s_host);
@@ -211,7 +235,7 @@ void disconnect_test_event(MoonlightApp &app, const MoonlightEvent &event)
         }
         if (s_phase == AwaitApplications) {
             set_phase(AwaitFirstStart);
-            vita_debug_log("[DisconnectStartupTest] ready; start one app; expect startup cancellation error/OK");
+            vita_debug_log("[DisconnectStartupTest] ready; start one app; expect startup cancellation error/OK stage=%d", kCheckpointStage);
         } else {
             set_phase(NeedRestart);
             vita_debug_log("[DisconnectStartupTest] refreshed applications count=%d", event.result);
@@ -241,8 +265,8 @@ void disconnect_test_event(MoonlightApp &app, const MoonlightEvent &event)
             return;
         }
         s_phase = Finished;
-        vita_debug_log("[DisconnectStartupTest] PASS startup cancelled -> CLOSED -> reconnect -> stream started app=%d late_start=0",
-                       s_application_id);
+        vita_debug_log("[DisconnectStartupTest] PASS startup cancelled -> CLOSED -> reconnect -> stream started app=%d late_start=0 stage=%d",
+                       s_application_id, kCheckpointStage);
     }
 }
 

@@ -609,6 +609,21 @@ unsigned int moonlight_video_get_frame_pool_generation(void)
     return s_frame_pool_generation;
 }
 
+#ifdef MOONLIGHT_STARTUP_DISCONNECT_TEST
+/* Read only after the owner's allocation checkpoint or completed host teardown.
+ * Count any still-owned slot, including partially cleared allocation/mapping state. */
+int moonlight_video_test_owned_frame_buffers(void)
+{
+    int count = 0;
+    for (int i = 0; i < VITA_VIDEO_FRAME_COUNT; ++i) {
+        if (s_frame_memblocks[i] >= 0 || s_frame_buffers[i] || s_frame_gpu_mapped[i]) {
+            count = count + 1;
+        }
+    }
+    return count;
+}
+#endif
+
 static int vita_video_need_idr(uint32_t generation)
 {
     if (generation) {

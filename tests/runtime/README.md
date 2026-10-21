@@ -393,7 +393,7 @@ prepare a separate RTSP/common-c startup cancellation scenario. Full evidence an
 ## Common-c startup scenario
 
 **Current interrupt follow-up, 2026-10-21; stage-4 Vita result recorded below:** use
-`MOONLIGHT_STARTUP_DISCONNECT_TEST=ON` to hold the sole worker in
+`MOONLIGHT_STARTUP_DISCONNECT_TEST=ON` (default checkpoint stage 4) to hold the sole worker in
 stageStarting(STAGE_RTSP_HANDSHAKE), inside LiStartConnection after platform/name/audio init,
 before handshake I/O begins. The checkpoint is unchanged; the production stop path now requests
 LiInterruptConnection and the test expects no first STARTED. The older late_start=1 result below
@@ -519,3 +519,75 @@ USER_RW free is 33880 KiB initially/after reconnect and 33600 after final buffer
 single run is not a leak diagnosis/proof. No runtime-code change or agent build/device run.
 Next cover cancellation after video allocation; earlier-entry replay, late cancelled-success,
 blocked I/O, shutdown and repeats remain separate.
+
+### After-video-allocation checkpoint — source prepared, Vita validation pending
+
+The same startup mode accepts `MOONLIGHT_STARTUP_DISCONNECT_STAGE=10` (stage 4 remains the
+default). Local and current upstream common-c Connection.c place the audio-start callback
+after successful startVideoStream/stageComplete(9), before startAudioStream and connectionStarted.
+[VideoStream.c](https://github.com/moonlight-stream/moonlight-common-c/blob/master/src/VideoStream.c)
+calls the renderer setup before starting video threads. This boundary exercises actual Vita
+decoder/framebuffer ownership before the first frontend STARTED. It does not simulate an
+allocation failure or cancel inside a blocked renderer call.
+
+Maintainer procedure (no agent build/device run):
+
+1. Build/install the test package:
+
+   ```bash
+   ./build.sh -DMOONLIGHT_SYSTEM_APP=ON -DMOONLIGHT_STARTUP_DISCONNECT_TEST=ON -DMOONLIGHT_STARTUP_DISCONNECT_STAGE=10
+   ```
+
+2. Enable Debug log, connect and start one app. The controller checks three owned framebuffer
+   slots and a nonzero pool generation, then issues the real Disconnect once from the main thread:
+
+   ```text
+   [DisconnectStartupTest] checkpoint after video setup stage=10 buffers=3 generation=...
+   [DisconnectStartupTest] startup disconnect request result=0
+   [Stream] common-c startup cancelled result=...; owner cleanup returned
+   [Stream] setup finished app=... result=-7
+   [DisconnectStartupTest] cancelled setup observed result=-7 app=...
+   [DisconnectStartupTest] CLOSED after cancelled startup; dismiss launch error with OK
+   ```
+
+   No first frontend STREAM_STARTED/STREAM_STOPPED or Stream page is accepted. Common-c's raw
+   return can be an error or success followed by owner stop; do not require a stage-10 error.
+   Audio/input transport stages can run before cooperative cancellation unwinds. Local result -7
+   must follow owner teardown in either path.
+3. Dismiss the ordinary cancellation error with OK. Record any human pause. Existing Apps
+   STREAM_FAILED handling must schedule deferred main-thread buffer release. Before reconnect,
+   require all three old-pool `frame[i] release unmap result=0x00000000` logs and
+   `deferred frame buffers released`, followed by:
+
+   ```text
+   [DisconnectStartupTest] cancelled video buffers released generation=...
+   [DisconnectStartupTest] reconnect enqueue result=0
+   ```
+
+   Unmaps may finish before OK/CLOSED; their required order is after owner cleanup and before
+   reconnect/new pool allocation. The controller reads framebuffer metadata only on the owner
+   at the checkpoint or on the main thread after CLOSED. It waits without blocking PAF until
+   all slots of the captured generation clear; a changed generation or 60-second post-OK step
+   timeout fails without another automated request. Zero metadata alone does not establish
+   native unmap/free success; inspect the real unmap results. Kernel free success is not
+   separately logged by the existing release code.
+4. Require paired reconnect without PIN, fresh Apps and same-app recovery:
+
+   ```text
+   [DisconnectStartupTest] PASS startup cancelled -> CLOSED -> reconnect -> stream started app=... late_start=0 stage=10
+   ```
+
+   Confirm visible image and audible sound, then stop by double PS and capture the final audio/
+   framebuffer cleanup tail. Supply the complete log from `[Launch]`, exact Sunshine version
+   and error-OK timing. A host pending-session/RTSP recovery failure remains separate evidence;
+   no automatic delay/retry, key reuse or remote quit is introduced.
+5. Restore the normal package with `./build.sh -DMOONLIGHT_SYSTEM_APP=ON`.
+
+Both observer and stage gate are test-only; no production cleanup/allocation path or vendored
+dependency changes. build.sh resets the selector to 4 before explicit arguments, preventing a
+cached stage 10 from silently affecting the next stage-4 build. CMake permits only 4 or 10 when
+this mode is enabled. All five test modes remain default OFF and mutually exclusive.
+The 88 Python source checks pass, including stage selection, partial/missing pool rejection,
+release-before-reconnect, changed-generation/timeout rejection and one-shot recovery. The observer
+is interpreted over all 512 combinations of three slots' memblock/pointer/mapping presence.
+These serial mocks do not validate C++ compilation, real atomics, GPU/decoder lifetime or Vita behavior.

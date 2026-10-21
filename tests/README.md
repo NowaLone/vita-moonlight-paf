@@ -76,6 +76,16 @@ checks cover busy admission, wrong/duplicate events, request failure, user-paced
 timeout/shutdown release, the guarded callback and all 32 five-mode Boolean combinations.
 This is not CMake configure or compilation.
 
+The existing startup mode also accepts checkpoint 10 after successful video startup, before
+audio startup/STARTED. Source checks require a complete three-slot pool/nonzero generation
+before cancellation and cleared metadata of the same generation before reconnect. They cover
+partial/absent pools, changed generation, bounded release wait and one-shot recovery. The test-only
+observer's actual C body is interpreted over all 512 combinations of slot memblock/pointer/mapping
+presence (loop increment/declaration normalized for the interpreter). Real allocator, native
+unmap/free results, races and decoder/GPU lifetime are not established by these serial checks.
+Stage 4 remains default; the stage-10 maintainer command and acceptance sequence are in
+[runtime/README.md](runtime/README.md#after-video-allocation-checkpoint--source-prepared-vita-validation-pending).
+
 The production startup-interrupt checks interpret the actual mutex-protected publication,
 stop, connection-ready and finish helpers. They cover cancellation before/after common-c's
 reset, repeated stop/stage publication, success racing an interrupt, STARTED commit before stop,

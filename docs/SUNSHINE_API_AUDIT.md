@@ -1807,6 +1807,40 @@ A16/A18/F5 remain partial. Next target cancellation after video allocation to ex
 deferred-buffer release. No runtime-code change or agent
 build/device run accompanies this evidence record.
 
+**After-video-allocation startup checkpoint prepared, 2026-10-21 — runtime unverified:** the
+stage-4 result cannot validate STREAM_FAILED cleanup of decoder/framebuffer resources because
+it cancels before video setup. The minimal next step is a selectable checkpoint in the existing
+startup test, with no new endpoint or production cancellation change. Use
+`MOONLIGHT_STARTUP_DISCONNECT_TEST=ON` plus `MOONLIGHT_STARTUP_DISCONNECT_STAGE=10` (default 4).
+
+Reference comparison: both local and current upstream
+[Connection.c](https://github.com/moonlight-stream/moonlight-common-c/blob/master/src/Connection.c)
+invoke stageStarting(AUDIO_STREAM_START=10) after successful video startup/stageComplete(9),
+before audio startup/connectionStarted. [VideoStream.c](https://github.com/moonlight-stream/moonlight-common-c/blob/master/src/VideoStream.c)
+performs renderer setup before starting video threads. The worker captures the actual Vita
+three-slot pool generation at this boundary and pauses until the main thread makes the real
+Disconnect request. Missing/partial buffers or a zero generation fail the test. Native cleanup
+can follow either a failed common-c return or a cancelled success stopped by the owner; local
+-7 must precede CLOSED, without an initial frontend STARTED/STOPPED.
+
+After ordinary error OK/CLOSED, the controller waits for the captured generation's metadata
+to clear before reconnect. A changed generation or 60-second post-OK step timeout ends automation.
+No main-thread sleep is added. The test-only observer reads slots on the owner at the checkpoint
+or on the main thread after completed host teardown. Count zero proves only cleared bookkeeping;
+runtime acceptance also requires all three old unmap return codes 0 and the deferred-release
+marker before reconnect/new allocation. The existing release path does not separately log kernel
+free return values. Then require PAIRED without PIN, fresh Apps and actual same-app STARTED/
+PASS late_start=0 stage=10, image/sound confirmation and final manual stop/resource cleanup.
+
+Regression scope: only the opt-in controller, test-only renderer observer and build selector
+change; no production allocation/free/stop behavior, third-party code, Sunshine workaround,
+retry/delay, credentials or UI modification. All five modes remain OFF/exclusive, and build.sh
+resets stage 4 before explicit overrides. All 88 Python source checks pass, including 512 mocked
+slot-presence combinations, release ordering and rejection guards. No configure/build, compiler/
+ABI, actual atomics/concurrency, GPU lifetime or device test. A16/A18/F5 and late-init cancellation
+acceptance remain partial/open. Exact command and log requirements are in
+[the runtime procedure](../tests/runtime/README.md#after-video-allocation-checkpoint--source-prepared-vita-validation-pending).
+
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.
