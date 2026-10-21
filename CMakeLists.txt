@@ -207,7 +207,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 if(MOONLIGHT_STARTUP_DISCONNECT_TEST)
-  message(STATUS "Startup disconnect test enabled: disconnect at RTSP stage entry; observe late STARTED/STOPPED")
+  message(STATUS "Startup disconnect test enabled: interrupt at RTSP stage entry; expect cancellation error/OK")
   target_compile_definitions(${PROJECT_NAME} PRIVATE MOONLIGHT_DISCONNECT_TEST=1 MOONLIGHT_STARTUP_DISCONNECT_TEST=1)
   target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/disconnect_startup.cpp)
 elseif(MOONLIGHT_HTTP_DISCONNECT_TEST)

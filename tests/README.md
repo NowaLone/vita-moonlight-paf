@@ -68,12 +68,21 @@ ABI is tested. The existing C grammar check still covers all trust/transfer/pair
 See the in-flight HTTPS maintainer procedure before claiming device/lifetime acceptance.
 
 
-The startup mode uses a separate controller because stop currently does not interrupt common-c
-startup. Its source checks exercise the actual stage-filtered one-shot worker gate, Disconnect
-while Launch remains busy, late STARTED → owner STOPPED → CLOSED ordering, paired reconnect/
-Apps/same-app recovery, and failure/shutdown/deadline release. Wrong/duplicate events and actual
-setup errors cannot produce PASS. PASS explicitly labels late_start=1; it is a teardown/recovery
-result, not prompt startup cancellation. The checks also inspect the guarded stage callback and
-all 32 combinations of the five CMake option expressions plus per-invocation defaults. This is
-not CMake configure or compilation. All atomics, services, time and threads are mocked; no real
-common-c, RTSP, PAF, allocator, concurrency or hardware validation is performed.
+The startup mode now requires interrupted setup → STREAM_FAILED=-7 → CLOSED → native error OK →
+paired reconnect/fresh Apps/same-app STREAM_STARTED. It rejects a first STARTED/STOPPED and
+reports late_start=0 on PASS. The previous late_start=1 Vita result remains historical evidence,
+not validation of this interruption change. The stage-filtered one-shot worker gate and source
+checks cover busy admission, wrong/duplicate events, request failure, user-paced error OK,
+timeout/shutdown release, the guarded callback and all 32 five-mode Boolean combinations.
+This is not CMake configure or compilation.
+
+The production startup-interrupt checks interpret the actual mutex-protected publication,
+stop, connection-ready and finish helpers. They cover cancellation before/after common-c's
+reset, repeated stop/stage publication, success racing an interrupt, STARTED commit before stop,
+uncancelled failures and validation errors before the first callback. They require no input/
+STARTED after a winning cancel, owner-only stop exactly once for cancelled success, no second
+stop after common-c's failed-init unwind, and owner reservation through terminal bookkeeping.
+An additional actual-source check drives Apps' failure handler into the existing deferred-release
+path, then exercises its three-tick delay, stale generation and active-Stream rejection guards.
+All mutex/interrupt calls, atomics, services and time are mocked/serial. No real threads,
+common-c/RTSP/TLS, PAF surfaces, compiler/ABI or hardware behavior is validated.

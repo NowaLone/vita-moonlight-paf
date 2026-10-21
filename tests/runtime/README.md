@@ -392,18 +392,22 @@ prepare a separate RTSP/common-c startup cancellation scenario. Full evidence an
 
 ## Common-c startup scenario
 
-`MOONLIGHT_STARTUP_DISCONNECT_TEST=ON` selects a separate one-shot controller. It holds the
-sole stream worker in the existing `stageStarting(STAGE_RTSP_HANDSHAKE)` callback, inside
-LiStartConnection after platform/name/audio initialization, before performRtspHandshake begins.
-This is a partial common-c startup ownership test at RTSP stage entry. It does not hold an
-RTSP socket read/send or prove cancellation latency during blocking I/O.
+**Current interrupt follow-up, 2026-10-21; build/Vita pending:** use
+`MOONLIGHT_STARTUP_DISCONNECT_TEST=ON` to hold the sole worker in
+stageStarting(STAGE_RTSP_HANDSHAKE), inside LiStartConnection after platform/name/audio init,
+before handshake I/O begins. The checkpoint is unchanged; the production stop path now requests
+LiInterruptConnection and the test expects no first STARTED. The older late_start=1 result below
+predates this change and must not be counted as its hardware validation.
 
-The existing Vita stop sets local flags and waits for LiStartConnection to return; it does not
-call LiInterruptConnection. With a successful host handshake, STARTED can therefore occur
-after Disconnect, followed by the session owner's LiStopConnection and STOPPED/CLOSED. The
-test records this late start explicitly instead of injecting an interrupt or fabricating -7.
-PASS means this late-start teardown/recovery sequence completed; it does not claim prompt
-startup cancellation. A startup failure preserves its actual error and fails this scenario.
+The first stage callback publishes interrupt-safe entry after common-c resets its interrupt flag,
+replaying any earlier local stop. Stop sends one interrupt only while startup is published and
+STARTED has not committed. The owner closes this scope after LiStartConnection returns. If an
+issued interrupt wins before STARTED, common-c's actual result is logged and the local result is
+-7 after unwind. If common-c nevertheless returns success, input/STARTED is suppressed and the
+same worker calls LiStopConnection before reporting -7. A stop after the STARTED commit uses
+ordinary active teardown. Uncancelled failures and validation failures before first callback keep
+their actual error. This is cooperative interruption; blocked socket/platform calls may still
+wait for existing timeouts. The checkpoint does not test latency inside a blocked RTSP read.
 
 Maintainer procedure (the agent must not build):
 
@@ -415,65 +419,62 @@ Maintainer procedure (the agent must not build):
 
    Install `build/vita_moonlight_paf.vpk`. Only this mode should be enabled; all five options
    default OFF per build.sh invocation and CMake rejects combinations. No new setting exists.
-2. Enable Debug log, connect normally and start one app. Leave Vita controls untouched while
-   the test requests Disconnect, observes startup/owner teardown and reconnects automatically.
-   The first Stream page may open and close briefly. No cancellation-error/OK is expected in
-   the nominal late-start path, unlike the earlier -7 tests.
-3. Capture `[Launch]` and the full log through PASS/FAIL, including:
+2. Enable Debug log, connect normally and start one app. Leave other Vita controls untouched
+   until the expected cancellation error appears. The first Stream page must not open for the
+   targeted stage-4 cancellation. Expected order includes:
 
    ```text
    [Stream] stage start 4 (RTSP handshake)
    [DisconnectStartupTest] checkpoint inside LiStartConnection stage=4 before RTSP handshake
    [DisconnectStartupTest] startup disconnect request result=0
-   [Stream] connection started
-   [DisconnectStartupTest] late STREAM_STARTED after Disconnect; awaiting owner STOPPED app=...
-   [Stream] stop worker start (session owner)
-   [Stream] stop worker finished result=0
-   [DisconnectStartupTest] owner STOPPED observed app=...
-   [DisconnectStartupTest] CLOSED after owner STOPPED; state=DISCONNECTED
-   [DisconnectStartupTest] reconnect ready state=PAIRED
-   [DisconnectStartupTest] refreshed applications count=...
-   [DisconnectStartupTest] restart request app=... result=0
-   [DisconnectStartupTest] PASS startup owner STOPPED -> CLOSED -> reconnect -> stream started app=... late_start=1
+   [Stream] stage failed 4 (RTSP handshake) err=...
+   ... common-c partial audio/platform cleanup ...
+   [Stream] common-c startup cancelled result=...; owner cleanup returned
+   [Stream] setup finished app=... result=-7
+   [DisconnectStartupTest] cancelled setup observed result=-7 app=...
+   [DisconnectStartupTest] CLOSED after cancelled startup; dismiss launch error with OK
    ```
 
-   Main-thread event logs and worker logs can interleave: the worker may finish stop before
-   queued late STARTED is delivered. The required contracts are checkpoint → Disconnect request
-   before worker continuation, STARTED → STOPPED → CLOSED event delivery, and no reconnect until
-   CLOSED/DISCONNECTED and foreground idle. Recovery must use the same host/app, paired trust,
-   fresh Apps and actual STREAM_STARTED/STREAMING. No pause/retry or host-wide quit is inserted.
-4. After PASS, confirm visible image and audible sound, stop normally with double PS and send
-   the remaining log through STOPPED/audio release/frame-buffer unmaps. Include the actual
-   Sunshine version. A setup/transport error, wrong/duplicate event, request rejection, shutdown
-   or 60-second step deadline reports FAIL and stops automatic actions. If a native error opens,
-   dismiss it normally; this controller does not automatically retry after FAIL. Preserve the
-   real error and cleanup tail instead of counting it as successful -7 cancellation.
+   The first STREAM_STARTED/STREAM_STOPPED is a test failure. A timeout/other backend error
+   cannot substitute for -7. On this checkpoint video/hardware audio startup has not occurred,
+   so no first-session video unmaps or hardware audio-port release should be required to
+   claim partial-init unwind. A later-stage cancellation can own those resources; Apps now
+   schedules existing generation-guarded deferred release for STREAM_FAILED too.
+3. Dismiss **Unable to start stream (0xFFFFFFF9)** with OK once. This remains the ordinary
+   native error flow. The test waits for acknowledgement, then reconnects PAIRED without PIN,
+   refreshes Apps and starts the same app. PASS now requires:
+
+   ```text
+   [DisconnectStartupTest] PASS startup cancelled -> CLOSED -> reconnect -> stream started app=... late_start=0
+   ```
+
+   No automatic delay/retry or remote quit is added. The earlier Sunshine pending-session
+   immediate-recovery RTSP failure can remain a separate FAIL; preserve it and the successful
+   -7/CLOSED portion. Record any human pause before OK, not a universal five-second rule.
+4. Capture `[Launch]` and the complete log through PASS/FAIL. After PASS confirm image/sound,
+   stop with double PS and include the cleanup tail (audio release/three video unmaps). Include
+   the actual Sunshine version. If FAIL occurs, dismiss any native error normally; no further
+   automatic actions are issued. Normal cleanup still owns any outstanding operation.
 5. Restore the ordinary package afterward:
 
    ```bash
    ./build.sh -DMOONLIGHT_SYSTEM_APP=ON
    ```
 
-The test only adds guarded callback/Start-capture hooks. It neither replaces frontend callbacks
-nor accesses PAF from the worker, owns no HTTP/stream/control mutex at the checkpoint and never
-calls LiStopConnection or LiInterruptConnection. Failure/shutdown releases the barrier; the
-worker also has a 60-second safety deadline. The existing stream owner remains responsible for
-setup/stop and releasing its running flag before deferred host cleanup. Fresh control requests
-remain blocked until cleanup. Partial-init unwind on actual startup failure, mid-RTSP I/O,
-shutdown/stress and resource lifetime still need separate device evidence. Normal builds exclude
-this controller/hook; earlier idle/active/pending/HTTP modes retain their behavior.
+The test does not inject interrupt/stop itself or replace frontend callbacks. Its bounded stage
+barrier runs without PAF or stream/control/HTTP mutex ownership and releases on request/failure/
+shutdown/worker deadline (60 seconds). The production stop only sends a nonblocking interrupt
+under the short stream mutex; LiStopConnection stays on the stream owner. Host cleanup waits
+for worker completion and terminal-event bookkeeping. Apps uses the existing deferred release
+with pool-generation and active-Stream guards. No vendored protocol, endpoint, credentials,
+HTTP cancellation or Sunshine behavior is changed. Build/Vita are still pending for this revision.
 
-Reference: common-c [Connection.c](https://github.com/moonlight-stream/moonlight-common-c/blob/master/src/Connection.c)
-places the stage callback before the handshake, unwinds failed initialization and documents
-interrupt as asynchronous. Moonlight Qt [Session::interrupt/cleanup](https://github.com/moonlight-stream/moonlight-qt/blob/master/app/streaming/session.cpp)
-uses LiInterruptConnection while retaining deferred cleanup/serialization. These references do
-not justify injecting an interrupt only in the test or freeing state from a second thread.
-A separate production follow-up would need safe entry/publication after common-c resets its
-interrupt flag, plus the existing owner/return-before-reuse contract; this test does not implement it.
-The targeted maintainer runtime result is recorded below; broader acceptance remains open.
+References: [common-c asynchronous interrupt contract](https://github.com/moonlight-stream/moonlight-common-c/blob/master/src/Limelight.h),
+[reset/stage/unwind implementation](https://github.com/moonlight-stream/moonlight-common-c/blob/master/src/Connection.c)
+and [Moonlight Qt interrupt/serialized cleanup](https://github.com/moonlight-stream/moonlight-qt/blob/master/app/streaming/session.cpp).
+The existing stage callback provides the entry boundary without modifying common-c.
 
-
-### Maintainer startup result, 2026-10-21
+### Maintainer startup baseline result, 2026-10-21 (before interrupt follow-up)
 
 The supplied log for host .134/app 1093255277 verifies stage-4 checkpoint → Disconnect=0 →
 late STARTED/setup=0 → session-owner stop result=0 → STOPPED → CLOSED/DISCONNECTED. First-session

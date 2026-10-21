@@ -14,6 +14,7 @@ enum TestPhase {
     AwaitFirstStart,
     AwaitCheckpoint,
     AwaitClosed,
+    AwaitCancelAck,
     NeedReconnect,
     AwaitReconnect,
     NeedRefresh,
@@ -26,8 +27,7 @@ enum TestPhase {
 static TestPhase s_phase = AwaitApplications;
 static MoonlightHost s_host;
 static bool s_have_host = false;
-static bool s_saw_started = false;
-static bool s_saw_stopped = false;
+static bool s_saw_cancelled = false;
 static int s_application_id = -1;
 static uint64_t s_step_started_us = 0;
 static const uint64_t kStepTimeoutUs = 60000000;
@@ -111,6 +111,12 @@ void disconnect_test_poll(MoonlightApp &app)
         fail("checkpoint timed out", -1);
         return;
     }
+    /* Expected cancellation uses the ordinary native error dialog. Wait for the user's OK;
+     * do not change page callbacks or start another foreground operation under that dialog. */
+    if (s_phase == AwaitCancelAck) {
+        if (!app.Connection().IsBusy()) set_phase(NeedReconnect);
+        return;
+    }
     if (sceKernelGetProcessTimeWide() - s_step_started_us > kStepTimeoutUs) {
         fail("step timeout; no further test actions", -1);
         return;
@@ -120,11 +126,10 @@ void disconnect_test_poll(MoonlightApp &app)
     if (s_phase == AwaitCheckpoint) {
         if (__atomic_load_n(&s_checkpoint_status, __ATOMIC_ACQUIRE) != 1) return;
         if (app.Connection().State() != MOONLIGHT_CONNECTION_PAIRED || !app.Connection().IsBusy()) {
-            fail("invalid startup checkpoint/state", -1);
+            fail("invalid pending startup checkpoint/state", -1);
             return;
         }
-        s_saw_started = false;
-        s_saw_stopped = false;
+        s_saw_cancelled = false;
         set_phase(AwaitClosed);
         /* Deliberately call Disconnect while the launch foreground operation is still busy. */
         result = app.Connection().Disconnect();
@@ -174,37 +179,21 @@ void disconnect_test_poll(MoonlightApp &app)
 void disconnect_test_event(MoonlightApp &app, const MoonlightEvent &event)
 {
     if (!s_have_host || s_phase == Finished) return;
-    if (event.type == MOONLIGHT_EVENT_STREAM_STARTED && s_phase == AwaitClosed) {
-        if (s_saw_started || s_saw_stopped || event.result != 0 ||
-            event.application_id != s_application_id || !event.address ||
-            strcmp(event.address, s_host.internal) != 0) {
-            fail("invalid/duplicate late stream start", event.result);
-            return;
-        }
-        /* Adapter state can already be DISCONNECTED while PAF drains queued events. */
-        s_saw_started = true;
-        vita_debug_log("[DisconnectStartupTest] late STREAM_STARTED after Disconnect; awaiting owner STOPPED app=%d", s_application_id);
-        return;
-    }
-    if (event.type == MOONLIGHT_EVENT_STREAM_STOPPED) {
-        if (s_phase != AwaitClosed || !s_saw_started || s_saw_stopped || event.result != 0 ||
-            event.application_id != s_application_id || !event.address ||
-            strcmp(event.address, s_host.internal) != 0) {
-            fail("STOPPED before late start or invalid result/host/app", event.result);
-            return;
-        }
-        s_saw_stopped = true;
-        vita_debug_log("[DisconnectStartupTest] owner STOPPED observed app=%d", s_application_id);
-        return;
-    }
-    /* Real startup errors are failures, never normalized to -7 or successful cancellation. */
     if (event.type == MOONLIGHT_EVENT_STREAM_FAILED) {
-        fail("startup/recovery failed; preserve actual result and cleanup tail", event.result);
+        if (s_phase != AwaitClosed || s_saw_cancelled || event.result != -7 ||
+            event.application_id != s_application_id || !event.address ||
+            strcmp(event.address, s_host.internal) != 0) {
+            fail("unexpected stream failure/result/host/app", event.result);
+            return;
+        }
+        s_saw_cancelled = true;
+        vita_debug_log("[DisconnectStartupTest] cancelled setup observed result=-7 app=%d", s_application_id);
         return;
     }
     if (event.type == MOONLIGHT_EVENT_CONNECTION_FAILED ||
         event.type == MOONLIGHT_EVENT_APPLICATIONS_FAILED ||
-        event.type == MOONLIGHT_EVENT_PAIRING_FAILED) {
+        event.type == MOONLIGHT_EVENT_PAIRING_FAILED ||
+        event.type == MOONLIGHT_EVENT_STREAM_STOPPED) {
         fail("unexpected backend failure/stop", event.result);
         return;
     }
@@ -222,20 +211,20 @@ void disconnect_test_event(MoonlightApp &app, const MoonlightEvent &event)
         }
         if (s_phase == AwaitApplications) {
             set_phase(AwaitFirstStart);
-            vita_debug_log("[DisconnectStartupTest] ready; start one app; late start/owner stop may briefly open Stream");
+            vita_debug_log("[DisconnectStartupTest] ready; start one app; expect startup cancellation error/OK");
         } else {
             set_phase(NeedRestart);
             vita_debug_log("[DisconnectStartupTest] refreshed applications count=%d", event.result);
         }
     } else if (event.type == MOONLIGHT_EVENT_CONNECTION_CLOSED) {
-        if (s_phase != AwaitClosed || !s_saw_started || !s_saw_stopped || event.result != 0 || !event.address ||
+        if (s_phase != AwaitClosed || !s_saw_cancelled || event.result != 0 || !event.address ||
             strcmp(event.address, s_host.internal) != 0 ||
             app.Connection().State() != MOONLIGHT_CONNECTION_DISCONNECTED) {
-            fail("CLOSED before owner STOPPED or invalid host/result/state", event.result);
+            fail("CLOSED before cancelled setup or invalid host/result/state", event.result);
             return;
         }
-        set_phase(NeedReconnect);
-        vita_debug_log("[DisconnectStartupTest] CLOSED after owner STOPPED; state=DISCONNECTED");
+        set_phase(AwaitCancelAck);
+        vita_debug_log("[DisconnectStartupTest] CLOSED after cancelled startup; dismiss launch error with OK");
     } else if (event.type == MOONLIGHT_EVENT_CONNECTION_READY && s_phase == AwaitReconnect) {
         if (event.result != 0 || !event.address || strcmp(event.address, s_host.internal) != 0 ||
             app.Connection().State() != MOONLIGHT_CONNECTION_PAIRED) {
@@ -252,7 +241,7 @@ void disconnect_test_event(MoonlightApp &app, const MoonlightEvent &event)
             return;
         }
         s_phase = Finished;
-        vita_debug_log("[DisconnectStartupTest] PASS startup owner STOPPED -> CLOSED -> reconnect -> stream started app=%d late_start=1",
+        vita_debug_log("[DisconnectStartupTest] PASS startup cancelled -> CLOSED -> reconnect -> stream started app=%d late_start=0",
                        s_application_id);
     }
 }

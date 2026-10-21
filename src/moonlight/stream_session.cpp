@@ -50,6 +50,10 @@ static int s_stream_thread_running = 0;
 static int s_stream_stop_requested = 0;
 static int s_stream_cancel_requested = 0;
 static int s_stream_termination_result = 0;
+/* Published by the first stage callback, after common-c resets its interrupt flag.
+ * These fields and LiInterruptConnection admission are protected by s_stream_mutex. */
+static int s_common_starting = 0;
+static int s_start_interrupt_sent = 0;
 
 struct RecoveryWaitLog {
     uint64_t last_emit_us;
@@ -139,8 +143,47 @@ static void finish_stream_worker(MoonlightEventType type, int result)
     pthread_mutex_unlock(&s_stream_mutex);
 }
 
+/* Nonblocking notification only; never run LiStopConnection from a requesting thread. */
+static void interrupt_common_startup_locked(void)
+{
+    if (s_common_starting && s_stream_cancel_requested &&
+        !s_stream_context.started && !s_start_interrupt_sent) {
+        LiInterruptConnection();
+        s_start_interrupt_sent = 1;
+    }
+}
+
+static void publish_common_startup(void)
+{
+    pthread_mutex_lock(&s_stream_mutex);
+    s_common_starting = 1;
+    /* Replay a stop that arrived between the pre-call check and common-c's reset. */
+    interrupt_common_startup_locked();
+    pthread_mutex_unlock(&s_stream_mutex);
+}
+
+/* Sole LiStartConnection owner, after it returned and unwound any failed setup. */
+static int finish_common_startup(int result)
+{
+    pthread_mutex_lock(&s_stream_mutex);
+    s_common_starting = 0;
+    int cancelled = s_start_interrupt_sent && s_stream_cancel_requested &&
+                    !s_stream_context.started;
+    s_start_interrupt_sent = 0;
+    pthread_mutex_unlock(&s_stream_mutex);
+    if (cancelled) {
+        /* A late interrupt may race the successful return. No STARTED was published;
+         * the owner must stop that successful transport before reporting failure. */
+        if (result == 0) LiStopConnection();
+        vita_debug_log("[Stream] common-c startup cancelled result=%d; owner cleanup returned", result);
+        return -7;
+    }
+    return result;
+}
+
 static void on_stage_start(int stage)
 {
+    publish_common_startup();
     vita_debug_log(
         "[Stream] stage start %d (%s)",
         stage,
@@ -170,12 +213,18 @@ static void on_stage_failed(int stage, int result)
 static void on_connection_started(void)
 {
     pthread_mutex_lock(&s_stream_mutex);
-    s_stream_context.started = 1;
+    s_common_starting = 0;
+    const int cancelled = s_stream_cancel_requested;
+    if (!cancelled) s_stream_context.started = 1;
     pthread_mutex_unlock(&s_stream_mutex);
+    if (cancelled) {
+        vita_debug_log("[Stream] connection ready after cancel; owner cleanup pending");
+        return;
+    }
     vita_input_start();
     vita_debug_log("[Stream] connection started");
     emit_event(MOONLIGHT_EVENT_STREAM_STARTED, 0);
-    /* A pending cancellation is consumed by the owner as soon as LiStartConnection returns. */
+    /* A stop after the started-state commit follows the ordinary active-stream owner path. */
 }
 
 static void on_connection_terminated(int result)
@@ -492,7 +541,7 @@ static int run_stream_session(
             result);
     }
 
-    return result;
+    return finish_common_startup(result);
 }
 
 static void *stream_thread_main(void *arg)
@@ -585,6 +634,8 @@ extern "C" int moonlight_stream_start(
     s_stream_stop_requested = 0;
     s_stream_cancel_requested = 0;
     s_stream_termination_result = 0;
+    s_common_starting = 0;
+    s_start_interrupt_sent = 0;
     s_stream_context.callback = callback;
     s_stream_context.userdata = userdata;
     s_stream_context.started = 0;
@@ -650,6 +701,7 @@ extern "C" int moonlight_stream_stop(void)
     int already_requested = s_stream_stop_requested;
     s_stream_cancel_requested = 1;
     s_stream_stop_requested = 1;
+    interrupt_common_startup_locked();
     pthread_mutex_unlock(&s_stream_mutex);
     if (!already_requested) {
         vita_debug_log("[Stream] stop requested for session owner");

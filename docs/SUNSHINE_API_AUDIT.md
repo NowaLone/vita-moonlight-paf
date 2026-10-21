@@ -697,10 +697,14 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Endpoint / purpose / auth:** local cancellation while paired HTTPS launch/resume is outstanding.
 - **Semantics:** requesting stop cannot retract an HTTP request already accepted by the host.
   Cancel local continuation into RTSP; wait for the worker before freeing its server pointer.
-- **Current:** L2 sets cancel flag and checks after HTTP/before LiStartConnection; L1 deferred
-  disconnect waits for `moonlight_stream_is_running` while keeping new host-control requests out.
-  Curl is not aborted by cancel; a late-cancelled
-  setup may briefly emit STARTED before asynchronous stop. Cancelled setup returns STREAM_FAILED.
+- **Current:** L2 checks local cancellation after HTTP/before common-c. A source follow-up now
+  publishes interrupt-safe entry in the first stage callback after common-c resets its flag,
+  replays early cancel and sends one LiInterruptConnection while startup is pending. Cancellation
+  before the STARTED commit suppresses input/event publication; issued interrupt results map to
+  local -7 after owner unwind (including owner stop if common-c returns success). Actual raw
+  errors are logged; uncancelled/pre-callback validation errors are preserved. L1 waits for the
+  owner before freeing host state. Curl is not aborted. Stop after STARTED commits uses ordinary
+  active teardown. New interrupt behavior remains build/Vita pending; see F5.
 - **Upstream / Sunshine:** C offers `LiInterruptConnection` during pending common-c startup; SR
   expires pending launch session by configured `ping_timeout`. The remote process may still run.
 - **Verified / runtime:** the 2026-10-21 maintainer Vita log verifies post-response/pre-RTSP
@@ -727,7 +731,9 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   RTSP/PASS late_start=1, then sampled decoded frame 301 (F5). The maintainer confirms image,
   audible sound and double-PS stop; recovery audio receipt/final release are not logged. This
   proves late-start teardown/recovery, not prompt cancellation.
-  Never substitute `/cancel` for local cancellation: its scope is host-wide (A20).
+  The later interrupt source follow-up changes the startup-test expectation to -7/no first
+  STARTED/PASS late_start=0; it is not yet device-verified. Never substitute `/cancel` for local
+  cancellation: its scope is host-wide (A20).
 
 ### A17 — Disconnect during active stream — partial
 
@@ -1684,6 +1690,67 @@ startup-interrupt follow-up retaining the entry/reset/owner invariants above. Fi
 resource-release logs remain unprovided. No runtime-code change or agent build/device run
 accompanies this record.
 
+**Safe startup interruption source follow-up, 2026-10-21; build/Vita pending:** the baseline
+late_start=1 trace confirms the root cause: moonlight_stream_stop only sets local flags while
+LiStartConnection continues. Blindly calling interrupt before the call also races common-c's
+ConnectionInterrupted=false reset. The minimal production change stays in L2, with no vendored
+edits. The first existing stage callback publishes an interruptible scope under s_stream_mutex,
+after that reset, and replays a cancel already accepted. Stop under the same mutex issues one
+LiInterruptConnection only inside that scope, before the started-state commit. The native
+interrupt call is nonblocking; no stop/join runs under the mutex or on the requesting thread.
+
+on_connection_started closes the interruptible scope and atomically arbitrates cancellation
+against STARTED publication. A winning cancel skips Vita input startup and STREAM_STARTED.
+The owner closes the scope again after LiStartConnection returns. If an interrupt was issued,
+cancel remains set and STARTED never committed, it reports local -7 after cleanup: failed
+setup has already unwound in common-c; a successful return instead requires one owner-side
+LiStopConnection before -7. The raw result remains logged. This defines local cancel precedence,
+not proof that every simultaneous network error was caused by the interrupt. With no admitted
+interrupt (including validation failure before the first callback), the original error stays.
+A stop after STARTED commits uses the unchanged active-session stop path. The reservation remains
+held through terminal-event/API bookkeeping; deferred host cleanup waits for worker completion,
+preventing interrupt or reuse of a newer session. Flags reset at each new owner reservation.
+
+Related resource root cause: renderer cleanup defers mapped framebuffer release to PAF, but
+Apps previously scheduled that release only on STOPPED. Suppressed STARTED/late-init failure
+can own video buffers yet finish as STREAM_FAILED. Apps now schedules the same existing
+main-thread, pool-generation/active-Stream-guarded release on FAILED as well. It does not free
+GPU memory from the requesting thread or introduce a second transport owner. Native error UI
+and modal completion remain unchanged; docs/UI.md records the lifecycle addition.
+
+Reference comparison, rechecked 2026-10-21: the common-c
+[public API](https://github.com/moonlight-stream/moonlight-common-c/blob/master/src/Limelight.h)
+requires return-before-reuse after asynchronous interrupt. Its
+[Connection.c](https://github.com/moonlight-stream/moonlight-common-c/blob/master/src/Connection.c)
+resets interruption before stageStarting(PLATFORM_INIT), performs failed-init unwind itself and
+can still call connectionStarted on a successful path; the callback cannot return an error.
+Moonlight Qt [Session::interrupt/deferred cleanup](https://github.com/moonlight-stream/moonlight-qt/blob/master/app/streaming/session.cpp)
+uses the native interrupt and serialized cleanup. The Vita adapter adds the local entry/reset
+and event arbitration needed by its own owner model; it does not copy Qt/SDL threading or patch
+Sunshine. HTTP still completes under its original timeout; remote app/pending-session rollback
+and host-wide quit remain outside local cancellation.
+
+The existing startup checkpoint is unchanged and now validates -7 → CLOSED → ordinary error
+OK → paired reconnect/fresh Apps/same-app STREAM_STARTED with PASS late_start=0. A first STARTED
+or STOPPED is a failure; the old late_start=1 Vita success remains historical only. The test
+never calls interrupt itself. Earlier Sunshine pending-session encrypted RTSP recovery failure
+can still occur and must be recorded separately; no delay/retry/key reuse/downgrade is added.
+
+All 82 non-build Python checks pass, including actual production helper interpretation and
+before/reset/after-entry cancel orderings, duplicate requests, success/cancel arbitration,
+owner stop exactly once for cancelled success, no double-stop on failed-init unwind, preserved
+uncancelled/pre-callback errors and owner-release/host-cleanup order. An actual Apps failure/
+deferred-release check covers error scheduling, the existing delay and stale-generation/active-
+Stream guards. Startup-controller checks require user-paced error OK and reject early/duplicate/
+wrong-target events. Mutexes,
+interrupts, native input/events, atomics and scheduling are mocked serially: no C++ type/ABI,
+real concurrency/common-c/RTSP/TLS/PAF, allocator or device proof. bash syntax/diff checks pass;
+no agent build/device run. Regression checks still needed: ordinary startup/active stop, stage-4
+partial unwind, late-stage/success-race buffers, blocked-I/O latency, repeated recovery and
+shutdown. Native interruption is cooperative and does not guarantee immediate cancellation of
+every blocking socket/platform call. A16/A18/F5 remain partial until maintainer evidence exists.
+Next run the [updated startup test](../tests/runtime/README.md#common-c-startup-scenario).
+
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.
@@ -2049,7 +2116,8 @@ CLOSED, successful first-session audio release/three unmaps, paired reconnect/fo
 same-app encrypted RTSP/PASS late_start=1, followed by decoded video through frame 301. The
 maintainer confirms visible image, audible sound and ordinary double-PS stop. Recovery audio
 receipt/final resource release are not logged; current version/revision are unspecified. Next
-prepare isolated safe startup interruption retaining single-owner cleanup and return-before-reuse.
+run the source-updated startup interruption test (-7/CLOSED/error OK/recovery/PASS late_start=0),
+retaining the historical baseline as separate evidence.
 Pending-launch, concurrent/stress host changes and broader shared-state ownership remain open.
 The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
 cancellation/conflict trace verifies local cancellation followed by genuine server 409,

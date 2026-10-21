@@ -668,6 +668,15 @@ lists are persistent, so treating them as one-shot queues accumulated callbacks 
 source. The fix bounds registration count but its effect on the reported resource failure still
 needs a long stream/reconnect check on Vita.
 
+Apps schedules the same generation-guarded deferred framebuffer release for STREAM_FAILED as
+for STREAM_STOPPED **[code, 2026-10-21]**. Failed or cancelled setup can create decoder buffers
+without publishing STARTED/opening Stream. Release remains on the main-thread call list after
+common-c teardown; a pending release never frees a newer pool or a pool still referenced by an
+active Stream page. This also covers a successful common-c return suppressed by a prior local
+cancel, after the owner stops that transport. No new progress/error UI or inline text is added.
+Cancellation and late-init failure hardware checks remain **[open]**; the earlier late-start
+teardown test predates this change.
+
 Backend callbacks may arrive on worker threads. `MoonlightApp` queues them and delivers them through
 `MainThreadCallList`, so page callbacks run on the PAF main thread. Only the topmost page owns the event callback; when
 a page is destroyed it hands the callback back to the page below (`RestoreEventCallback()` in `Main`, `Search`, `Apps`,

@@ -259,6 +259,8 @@ void Apps::OnMoonlightEvent(
         break;
 
     case MOONLIGHT_EVENT_STREAM_FAILED: {
+        /* Failed/cancelled setup may have created buffers without publishing STARTED. */
+        Stream::ScheduleFrameBufferRelease();
         const bool was_launching = apps->m_launching;
         apps->m_launching = false;
         if (was_launching) {

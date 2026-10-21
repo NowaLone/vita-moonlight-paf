@@ -15,7 +15,7 @@ class StartupDisconnectRuntime(ScenarioHarness, unittest.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.values.update(s_saw_started=0, s_saw_stopped=0, s_application_id=-1,
+        self.values.update(s_saw_cancelled=0, s_application_id=-1,
                            s_checkpoint_used=0, s_checkpoint_release=0, s_checkpoint_status=0,
                            STAGE_RTSP_HANDSHAKE=4, __ATOMIC_RELEASE=1, __ATOMIC_ACQUIRE=2,
                            __ATOMIC_ACQ_REL=3)
@@ -53,15 +53,15 @@ class StartupDisconnectRuntime(ScenarioHarness, unittest.TestCase):
         self.run_body('disconnect_test_poll')
 
     def closed(self):
-        # The adapter can already be disconnected while PAF drains STARTED/STOPPED/CLOSED.
+        # The adapter can already be disconnected while PAF drains failure/CLOSED.
         self.values['state'] = self.values['MOONLIGHT_CONNECTION_DISCONNECTED']
-        self.event('STREAM_STARTED')
-        self.event('STREAM_STOPPED')
+        self.event('STREAM_FAILED', -7)
         self.event('CONNECTION_CLOSED')
 
     def recover(self):
         self.closed()
         self.values['busy'] = 0
+        self.run_body('disconnect_test_poll')
         self.run_body('disconnect_test_poll')
         self.values['state'] = self.values['MOONLIGHT_CONNECTION_PAIRED']
         self.event('CONNECTION_READY')
@@ -105,20 +105,19 @@ class StartupDisconnectRuntime(ScenarioHarness, unittest.TestCase):
         self.assertEqual(self.calls, ['disconnect'])
         self.assertNotIn('FAIL', self.logs[-1])
 
-    def test_late_started_owner_stopped_closed_then_paired_recovery_and_actual_pass(self):
+    def test_cancelled_setup_closed_error_ack_and_actual_restarted_event_required(self):
         self.request_disconnect()
         self.values['state'] = self.values['MOONLIGHT_CONNECTION_DISCONNECTED']
-        self.event('STREAM_STARTED')
-        self.run_body('disconnect_test_poll')
-        self.assertEqual(self.calls, ['disconnect'])
-        self.assertIn('late STREAM_STARTED', self.logs[-1])
-        self.event('STREAM_STOPPED')
+        self.event('STREAM_FAILED', -7)
         self.run_body('disconnect_test_poll')
         self.assertEqual(self.calls, ['disconnect'])
         self.event('CONNECTION_CLOSED')
-        self.run_body('disconnect_test_poll')  # Foreground busy still defers reconnect.
+        self.values['now'] += self.timeout * 2
+        self.run_body('disconnect_test_poll')  # Ordinary native error/OK is user paced.
         self.assertEqual(self.calls, ['disconnect'])
+        self.assertNotIn('FAIL', self.logs[-1])
         self.values['busy'] = 0
+        self.run_body('disconnect_test_poll')
         self.run_body('disconnect_test_poll')
         self.assertEqual(self.targets, [{'internal': 'test-host', 'port': 47989}])
         self.values['state'] = self.values['MOONLIGHT_CONNECTION_PAIRED']
@@ -132,50 +131,46 @@ class StartupDisconnectRuntime(ScenarioHarness, unittest.TestCase):
         self.run_body('disconnect_test_capture_start', application_id=42, result=0)
         self.values['state'] = self.values['MOONLIGHT_CONNECTION_STREAMING']
         self.event('STREAM_STARTED')
-        self.assertIn('PASS startup owner STOPPED', self.logs[-1])
-        self.assertIn('late_start=1', self.logs[-1])
+        self.assertIn('PASS startup cancelled', self.logs[-1])
+        self.assertIn('late_start=0', self.logs[-1])
         self.values['now'] += self.timeout * 2
         self.event('STREAM_STOPPED')
         self.run_body('disconnect_test_poll')
         self.assertEqual(len(self.calls), 4)
         self.assertIn('PASS', self.logs[-1])
 
-    def test_closed_before_owner_stopped_or_stop_before_late_start_cannot_pass(self):
+    def test_closed_before_cancel_or_duplicate_failure_cannot_pass(self):
         for sequence in (('CONNECTION_CLOSED',), ('STREAM_STOPPED',),
-                         ('STREAM_STARTED', 'CONNECTION_CLOSED'),
-                         ('STREAM_STARTED', 'STREAM_STARTED'),
-                         ('STREAM_STARTED', 'STREAM_STOPPED', 'STREAM_STOPPED')):
+                         ('STREAM_STARTED',), ('STREAM_FAILED', 'STREAM_FAILED')):
             with self.subTest(sequence=sequence):
                 self.setUp()
                 self.request_disconnect()
                 self.values['state'] = self.values['MOONLIGHT_CONNECTION_DISCONNECTED']
                 for event in sequence:
-                    self.event(event)
+                    self.event(event, -7 if event == 'STREAM_FAILED' else 0)
                 self.run_body('disconnect_test_poll')
                 self.assertIn('FAIL', self.logs[-1])
                 self.assertEqual(self.calls, ['disconnect'])
 
-    def test_wrong_start_stop_or_closed_target_result_rejects_recovery(self):
+    def test_wrong_cancel_or_closed_target_result_rejects_recovery(self):
         for event, kwargs in (
-                ('STREAM_STARTED', dict(app_id=43)), ('STREAM_STARTED', dict(address='other')),
-                ('STREAM_STARTED', dict(result=-1)), ('STREAM_STOPPED', dict(app_id=43)),
-                ('STREAM_STOPPED', dict(result=-1)), ('CONNECTION_CLOSED', dict(address='other')),
+                ('STREAM_FAILED', dict(result=-7, app_id=43)),
+                ('STREAM_FAILED', dict(result=-7, address='other')),
+                ('CONNECTION_CLOSED', dict(address='other')),
                 ('CONNECTION_CLOSED', dict(result=-1))):
             with self.subTest(event=event, kwargs=kwargs):
                 self.setUp()
                 self.request_disconnect()
                 self.values['state'] = self.values['MOONLIGHT_CONNECTION_DISCONNECTED']
-                if event != 'STREAM_STARTED':
-                    self.event('STREAM_STARTED')
                 if event == 'CONNECTION_CLOSED':
-                    self.event('STREAM_STOPPED')
+                    self.event('STREAM_FAILED', -7)
                 self.event(event, **kwargs)
                 self.run_body('disconnect_test_poll')
                 self.assertIn('FAIL', self.logs[-1])
                 self.assertEqual(self.calls, ['disconnect'])
 
-    def test_real_setup_failures_are_preserved_not_normalized_to_cancel_or_pass(self):
-        for result in (-1, -7, -10, 123):
+    def test_real_non_cancel_failures_are_not_accepted_as_successful_cancellation(self):
+        for result in (-1, -10, 123):
             with self.subTest(result=result):
                 self.setUp()
                 self.request_disconnect()
@@ -240,6 +235,7 @@ class StartupDisconnectRuntime(ScenarioHarness, unittest.TestCase):
                     self.closed()
                     self.values['busy'] = 0
                     self.run_body('disconnect_test_poll')
+                    self.run_body('disconnect_test_poll')
                     self.values['state'] = self.values['MOONLIGHT_CONNECTION_READY']
                     self.event('CONNECTION_READY', address='other' if failure == 'host' else 'test-host')
                 else:
@@ -256,18 +252,19 @@ class StartupDisconnectRuntime(ScenarioHarness, unittest.TestCase):
                 self.assertIn('FAIL', self.logs[-1])
                 self.assertFalse(any('PASS' in line for line in self.logs))
 
-    def test_actual_stage_callback_is_test_guarded_and_does_not_interrupt_common_c(self):
+    def test_actual_stage_callback_publishes_before_test_and_never_injects_interrupt(self):
         source = (ROOT / 'src/moonlight/stream_session.cpp').read_text()
         callback = source.split('static void on_stage_start(int stage)', 1)[1].split('static void on_stage_complete', 1)[0]
         self.assertIn('#ifdef MOONLIGHT_STARTUP_DISCONNECT_TEST\n    disconnect_test_startup_checkpoint(stage);\n#endif', callback)
         unit = c_parser.CParser().parse('void on_stage_start(int stage)' + strip_directives(callback))
         called = []
         values = dict(stage=4, LiGetStageName=lambda stage: 'RTSP handshake',
+                      publish_common_startup=lambda: called.append('publish'),
                       disconnect_test_startup_checkpoint=lambda stage: called.append(stage))
         execute(unit.ext[0].body, values)
-        self.assertEqual(called, [4])
+        self.assertEqual(called, ['publish', 4])
         runtime = (ROOT / 'tests/runtime' / self.source_name).read_text()
-        self.assertNotIn('LiInterruptConnection(', runtime + source)
+        self.assertNotIn('LiInterruptConnection(', runtime)
         self.assertNotIn('LiStopConnection(', runtime)
         common = (ROOT / 'third_party/moonlight-common-c/src/Connection.c').read_text()
         audio_init = common.index('ListenerCallbacks.stageComplete(STAGE_AUDIO_STREAM_INIT);')
