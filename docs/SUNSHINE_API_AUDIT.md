@@ -673,7 +673,7 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   under concurrent callbacks; L2 ownership flags are synchronized, while broader L1/L4 state races
   remain F5. F1 has a source owner implementation; full runtime acceptance stays open.
 
-### A15 — Disconnect while idle/paired — partial
+### A15 — Disconnect while idle/paired — implemented (normal idle cycle verified)
 
 - **Endpoint / purpose / auth:** local DisconnectHost; drop local host connection/credentials handle;
   no remote quit/unpair request.
@@ -686,8 +686,11 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   closing Apps only restores the previous page callback. See the F5 source correction.
 - **Upstream / Sunshine:** QS/V distinguish local termination from quit; S needs no special HTTP
   disconnect for an idle client. This is an API capability, not a tested UI disconnect feature.
-- **Verified / runtime:** source; T7 needs a backend-level trigger, repeat-disconnect and reconnect
-  after CLOSED, including cleanup worker creation failure.
+- **Verified / runtime:** maintainer Vita log on 2026-10-21 verifies direct idle disconnect result 0,
+  CLOSED/DISCONNECTED, reconnect to the same host without PIN, PAIRED and authenticated applist
+  count=4. Apps rebuild removes all four old cells and inserts four. See F5 evidence below.
+  Repeated/duplicate requests, admission races and cleanup worker creation failure still need T7;
+  this single normal cycle does not close the failure matrix.
 
 ### A16 — Disconnect during pending launch — partial
 
@@ -734,8 +737,10 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   stream and accepts resume with fresh session material.
 - **Verified / runtime:** normal stop/restart, app-exit launch, same-app resume and manual resume
   after unexpected control disconnect are user/log verified on 2026-10-20. Normal two-PC
-  app-list switching and return are subsequently user-confirmed without new logs. Full
-  host disconnect→connect API coverage, concurrent host/cache races, repeated failure
+  app-list switching and return are subsequently user-confirmed without new logs. Direct idle
+  DisconnectHost → CLOSED/DISCONNECTED → ConnectHost/PAIRED → fresh applist count=4 is also
+  maintainer-log verified on 2026-10-21 (F5). Pending/active host disconnect→connect API coverage,
+  concurrent host/cache races, repeated failure
   cycles and the remaining T8 cases remain open. No automatic network reconnection is implemented.
 
 ### A19 — Host-side session cleanup — partial (end-to-end evidence pending)
@@ -1227,7 +1232,7 @@ a new log, installed revision marker or enumerated steps. It does not establish 
 DisconnectHost execution (no current UI caller), pending/active disconnect, rollback or shutdown
 coverage. Keep A15–A18/F5 runtime requirements open; no runtime code changes accompany this record.
 
-**Idle runtime trigger prepared; unbuilt/unrun:** `MOONLIGHT_DISCONNECT_TEST=ON` adds a one-shot
+**Idle runtime trigger source follow-up:** `MOONLIGHT_DISCONNECT_TEST=ON` adds a one-shot
 scenario after the first selected host's Apps response. It calls ConnectionService::Disconnect,
 requires CLOSED/DISCONNECTED, reconnects to the captured host/port through the normal Connect
 job and requires PAIRED plus a fresh application-list response. Hooks run only on the main
@@ -1240,6 +1245,26 @@ scenario's further actions. See [maintainer steps](../tests/runtime/README.md) f
 build command and console sequence. Build, transfer and Vita execution remain maintainer work.
 This supplies the previously missing idle trigger; pending/active disconnect and the broader
 F5 matrix remain open, and preparation of a trigger is not runtime acceptance.
+
+**Idle runtime acceptance, 2026-10-21 (maintainer Vita log):** the opt-in scenario now reports
+PASS. The captured target is 192.168.1.134:47989. After the first authenticated four-app list,
+Disconnect returns 0, CLOSED is observed with adapter state DISCONNECTED, and reconnect to
+the same target returns PAIRED without another PIN exchange. A separately enqueued app refresh
+returns count=4 and the test reports `PASS idle CLOSED -> reconnect -> applications count=4`.
+The normal Apps callback then logs `before=4 after_delete=0 after_insert=4`, confirming the
+nonempty list rebuild as well. No FAIL or backend error appears in the supplied sequence.
+
+Memory samples identify AppMgr mode=2 with total=65536 KiB, newlib=6144 KiB and PAF=10240 KiB;
+USER_RW free is 33876 KiB at both connection-ready samples. Newlib used changes from 94352 to
+93944 bytes while its arena grows from 221184 to 245760 bytes. One cycle does not establish
+absence of leaks. The fragment contains no launch revision/profile marker or Sunshine version;
+those exact installed versions are not independently established by this evidence.
+
+This closes the normal direct idle disconnect/reconnect check on one Vita. Pending-launch and
+active-stream disconnect, duplicate/admission races, rollback, shutdown and repeated/stress
+cycles remain unverified. No runtime code change or agent-run build/device test accompanies
+this acceptance. The next separate scenario is explicit DisconnectHost during an active stream,
+with owner teardown before CLOSED and reconnect/resume afterward.
 
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
@@ -1585,8 +1610,10 @@ The maintainer explicitly defers the unverified 64/65-app boundary test. F5 fore
 handoffs now have the scoped Vita evidence above; adapter Start/Stop eager-state writes are
 source-corrected with ordering checks and user-reported smoke success. Pending-disconnect
 admission and post-cleanup adapter state now have a separate source implementation with mock
-ordering checks. Next validate direct DisconnectHost lifecycle with a backend-level trigger;
-concurrent/stress host changes and broader shared-state ownership remain open.
+ordering checks. The normal direct idle disconnect/CLOSED/reconnect/Apps cycle is now
+maintainer-log verified on one Vita (2026-10-21). Next prepare a separate active-stream
+DisconnectHost trigger; pending-launch, concurrent/stress host changes and broader shared-state
+ownership remain open.
 The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
 cancellation/conflict trace verifies local cancellation followed by genuine server 409,
 not PIN success). A subsequent fragment now verifies pairing Run result 0, job release

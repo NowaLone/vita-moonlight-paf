@@ -65,6 +65,13 @@ Changing PCs during the active test aborts it. Ordinary builds contain no test l
 
 PASS establishes the observed idle CLOSED → paired reconnect → authenticated application-list
 sequence only. It does not establish absence of leaks, exact animation timing, streamed teardown,
-hardware input behavior, API thread safety or the full F5 matrix. No Vita build/device result has
-yet been supplied for this test mode. Python source-interpretation checks mock service calls and
-time; they do not compile C++ or execute PAF/network operations.
+hardware input behavior, API thread safety or the full F5 matrix.
+
+The maintainer supplied a successful Vita log on 2026-10-21: disconnect result=0,
+CLOSED/DISCONNECTED, same-target reconnect/PAIRED without PIN, a fresh four-app list and PASS.
+The following Apps callback logs `before=4 after_delete=0 after_insert=4`. This verifies one
+normal idle cycle and nonempty list rebuild; repeat/failure/pending/active/shutdown cases remain
+open. The fragment has no launch revision/profile or Sunshine version marker. See
+[API audit F5](../../docs/SUNSHINE_API_AUDIT.md#f5--sequential-foreground-workflow-operation-state-and-lifecycle-coverage)
+for evidence and limits. No build/device test was run by the agent. Python source-interpretation
+checks mock service calls and time; they do not compile C++ or execute PAF/network operations.
