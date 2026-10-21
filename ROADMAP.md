@@ -664,6 +664,15 @@ ongoing stream threads and main-thread completion delivery remain. This is the t
   Next validate Connect → Apps → launch and native error handoffs without the former retry
   delay; native animation completion is not inferred from logical slot release. Evidence/hash
   details and immediate-start-failure/shutdown risks are in docs/UI.md. F5 remains open.
+  Maintainer follow-up trace, 2026-10-21: Connect/Apps/setup use slots 0/1/2 with exactly one
+  close-request line each at 1767/1547/5187 ms, followed by completion results 0/4/0.
+  Apps inserts four rows; same-app resume/RTSP/setup reaches StreamPage. This verifies the
+  normal three-step logical handoff without return-based retry on the tested Vita; exact
+  visible presentation, errors, unstarted-job failure, shutdown and repeats remain unverified.
+  PS double press stops the owner with result 0 and all three buffers unmap successfully.
+  Playback quality is not accepted from this trace: 42 frames, subsequent IDR waiting/request,
+  no logged recovery and no audio traffic reported. Await user observation before attributing
+  a playback symptom or making runtime changes. No revision marker or agent build/device run.
 
 Source findings and isolated follow-ups (basic user smoke test passed; full runtime acceptance remains pending):
 

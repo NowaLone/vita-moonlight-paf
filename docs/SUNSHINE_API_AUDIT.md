@@ -1104,6 +1104,18 @@ BHBB/NetStream; the negative-result retry is removed. No GameStream protocol cod
 See docs/UI.md for file hash, export/import mapping, return paths and regression risks.
 Eight existing non-build checks pass; build and Vita handoffs/errors/shutdown remain pending.
 
+**Post-correction Vita trace, 2026-10-21:** all three normal foreground steps now have exactly
+one close-request line before completion: Connect slot 0 at 1767 ms/result 0, Apps slot 1 at
+1547 ms/result 4, setup slot 2 at 5187 ms/result 0. Four app rows are inserted; same-app resume
+and RTSP/setup succeed, then StreamPage opens. This verifies the normal logical handoffs on
+one Vita without the former return-based retry. It does not measure visual animation completion
+or cover error dialogs, failed job start, shutdown, repeated sessions or broader F5 races.
+The trace has no build-revision marker. Explicit PS-double-press stop completes result 0,
+restores the infobar and unmaps all three video buffers successfully. Sustained playback is
+not verified: 42 decoded frames, subsequent IDR wait/request and no audio traffic reported;
+user observation is needed before diagnosing a playback issue. No runtime code, build or
+agent device test accompanies this documentation update.
+
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.

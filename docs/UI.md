@@ -323,6 +323,33 @@ remain necessary for Connect → Apps → launch, failure-to-OK handoff, immedia
 and shutdown. Expect one close-request log per opened slot and no return-based retry; appearance
 acceptance from the earlier run does not verify this new handoff behavior.
 
+**Post-correction device trace [hw, user/log-reported, 2026-10-21]:** the new maintainer
+log contains all three operations with the revised `close requested` diagnostics:
+
+- Connect, slot 0: open at 2 ms, first poll at 15 ms, one close request at 1767 ms,
+  then completion event 9/result 0.
+- Applications, slot 1: open at 2 ms, first poll at 3 ms, one close request at 1547 ms,
+  then event 15/result 4 and four rows (`after_delete=0`, `after_insert=4`).
+- Stream setup, slot 2: open at 2 ms, first poll at 14 ms, one close request at 5187 ms,
+  then event 12/result 0 and StreamPage. This run uses same-app resume, accepted RTSP,
+  successful setup and the nongame decoder path in AppMgr mode 2.
+
+There is exactly one close-request line per opened slot and no return-based close retry
+in the supplied trace. This verifies the normal three-step logical handoff on the tested Vita;
+the log alone does not measure visible opening/closing frames. It includes no build-revision
+marker, failure-to-OK handoff, immediate job-start failure, application shutdown or repeat cycle.
+These remaining checks and broader F5 races are not closed by this run.
+
+PS double press requests stop; the owner finishes with result 0, the infobar is restored and
+all three video buffers unmap with result 0. Playback quality is a separate open observation:
+42 frames decode, followed by IDR waiting/drop-limit/request messages, and common-c reports no
+audio traffic received. The trace contains no later decoded-frame recovery or audible-output
+confirmation. Do not infer sustained video/audio success or a dialog-related cause. The ENet
+interruption/control error 4 appears after explicit stop and is consistent with common-c's
+`ConnectionInterrupted` → `EINTR` path (`Misc.c` / `ControlStream.c`), not evidence by itself
+of an earlier network disconnect. This record changes documentation only; no agent build or
+device test was run.
+
 ## 2. Screen geometry and the layout language
 
 ### 2.1 Zones (960 x 544, **[shot]**)
