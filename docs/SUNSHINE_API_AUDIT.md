@@ -709,6 +709,11 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   Sunshine 2025.924.154138 logs a matching RTSP tag-verification failure. See F5 for source
   analysis and remaining uncertainty. T7 must additionally trigger during HTTP wait and inside
   common-c startup; immediate recovery and the full cancellation/lifetime matrix stay open.
+  A second host now has a log-verified PASS after a maintainer-reported approximately five-second
+  pause before error OK: paired reconnect, same-app resume/RTSP, audio packets, 404 decoded frames
+  and final stop/release on maintainer-reported Sunshine 2026.914.233613. Timing is unmeasured;
+  see F5. This does
+  not erase the immediate-retry failure or prove five seconds is sufficient generally.
   Never substitute `/cancel` for local cancellation: its scope is host-wide (A20).
 
 ### A17 — Disconnect during active stream — partial
@@ -1447,6 +1452,39 @@ If customized, wait longer than the actual configured timeout. Record resume/RTS
 this is a diagnostic check, not an implemented timed retry. No build, runtime-code change or
 new hardware run was performed by the agent.
 
+**Delayed error-OK recovery, 2026-10-21 (second-host maintainer log):** the maintainer reports
+analogous behavior on the latest Sunshine, then a successful restart after waiting about five
+seconds before pressing the first cancellation error's OK. The supplied successful trace uses
+another host, 192.168.1.154 / server UUID 166F8DA0-16E7-2A25-7E83-62FF30CC202C, with one app,
+2072647516. The maintainer subsequently identifies Sunshine **2026.914.233613**. The client
+Launch revision is absent. “Latest” is the user's description, not independently established
+release data. The immediate-failure behavior on this host is user-reported; this trace contains the delayed
+successful run. It is not the earlier proposed manual selection after a completed FAIL.
+
+The first accepted resume reaches the checkpoint, Disconnect returns 0, and setup returns -7
+before RTSP. The test observes cancellation then CLOSED. After error dismissal, reconnect
+returns PAIRED without PIN, applist count=1 and Apps rebuild `before=1 after_delete=0 after_insert=1`.
+The automatic second Start uses the same app and explicitly logs resume, accepted rtspenc URL,
+completed RTSP stage 4, setup result=0 and PASS. Audio packets arrive; video decodes 404 frames.
+IDR waiting/drop/recovery appears and decoding resumes afterward; this is not an acceptance
+of sustained stream quality. Double-PS stop finishes owner cleanup with result=0, audio drain/
+release result=0 and three successful framebuffer unmaps. No test FAIL appears in this run.
+The maintainer calls the restart successful; visible/audible playback is not separately itemized.
+
+USER_RW free is 33880 KiB at both connection-ready samples and 33600 KiB after final deferred
+release; this single cycle does not establish leak freedom. The delay is approximate and
+reported by the maintainer, not measured from timestamped logs. Other setup/network/dialog
+time adds to the pending-session age. The host identity/version also changed, so these runs
+are not a controlled timing-only comparison. Success is consistent with pending-session expiry,
+but neither exact expiry time nor five seconds as a safe universal threshold is established.
+
+Record this narrow delayed-OK cancellation/reconnect/resume cycle as passed on the second
+host. Preserve the immediate-recovery FAIL and its tag-mismatch analysis; A16/A18/F5 remain
+partial. No hardcoded wait/retry, key/encryption change, Sunshine patch or runtime-code change
+is added. The earlier post-FAIL explicit retry remains unrun. Next independent A16 coverage is
+cancellation while the HTTPS request is outstanding, separately from this post-response hook.
+No build/device run was performed by the agent.
+
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.
@@ -1799,7 +1837,11 @@ confirms visible image and audible sound after reconnect for that active-stream 
 separate post-response/pre-RTSP pending test now verifies -7/CLOSED/error-OK/paired reconnect/
 Apps, but immediate recovery fails at encrypted RTSP OPTIONS (-1). Sunshine 2025.924.154138
 reports request-tag failure; versioned source supports a retained pending-session/key mismatch.
-Next distinguish pending-session expiry and a new explicit start; recovery remains unverified.
+The second-host trace now verifies delayed error-OK recovery through resume/RTSP/PASS, audio
+packets, 404 decoded frames and final stop/release. Its roughly five-second pause is user-reported;
+Sunshine is reported as 2026.914.233613; exact timing/client revision remain unspecified and
+immediate recovery remains unresolved. Next cover
+cancellation during the outstanding HTTPS request as a separate A16 scenario.
 Pending-launch, concurrent/stress host changes and broader shared-state ownership remain open.
 The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
 cancellation/conflict trace verifies local cancellation followed by genuine server 409,

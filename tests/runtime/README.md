@@ -237,9 +237,9 @@ time and serial interleavings, plus the real post-response cancel-check fragment
 busy-launch disconnect, -7/CLOSED ordering, wrong app/host/state/result, no early STARTED, wait
 for error dismissal, request failures, worker/main timeout, shutdown release and a single
 same-app recovery. They do not compile C++, validate atomic memory ordering or real scheduling,
-run curl/RTSP or prove absence of use-after-free. Remaining acceptance is scoped by the actual
-failed Vita result below. Other A16 stages, duplicate requests, rollback, shutdown/stress and
-broader T7/T8 coverage remain separate.
+run curl/RTSP or prove absence of use-after-free. Remaining acceptance is scoped by the failed
+immediate-recovery and successful delayed-OK Vita results below. Other A16 stages, duplicate
+requests, rollback, shutdown/stress and broader T7/T8 coverage remain separate.
 
 ### Maintainer result — 2026-10-21: FAIL during recovery RTSP
 
@@ -266,3 +266,24 @@ wait at least 15 seconds after FAIL and select the same app once. With a custom 
 longer than its configured value. Do not relaunch Moonlight for this check: this one-shot test
 is already Finished, so the explicit new start bypasses its checkpoint. Capture resume/RTSP
 and playback/stop logs. This is an unrun diagnostic follow-up, not a client retry workaround.
+
+### Maintainer follow-up — 2026-10-21: delayed error OK succeeds on a second host
+
+The maintainer identifies Sunshine 2026.914.233613, describes it as the latest version and
+reports analogous immediate-retry behavior. For the supplied PASS run they waited roughly
+five seconds before pressing the cancellation error's OK. The log uses
+host .154, another server UUID and app=2072647516, with no Launch revision marker.
+
+The trace verifies -7 before RTSP → CLOSED → error dismissal → paired reconnect without PIN
+→ fresh one-app list/rebuild → same-app resume → successful RTSP/setup → PASS. Audio packets
+arrive and 404 frames decode; final double-PS stop completes owner cleanup and three framebuffer
+unmaps with result=0. The maintainer reports successful restart; visible/audible playback is not
+separately itemized. Video recovery events occur before continued decoding, so sustained stream
+quality is not established by this test.
+
+The pause is approximate and has no timestamped measurement. Other operations add elapsed time;
+host/version also differ from the preceding failing trace. This supports the pending-expiry
+explanation but is not a controlled timing-only experiment or a universal five-second rule.
+It is delayed OK before automatic recovery, not the proposed explicit retry after a finished
+FAIL. Preserve both results; immediate recovery and other A16/F5 cases remain open. No fixed
+wait/retry or runtime-code change is introduced. See API audit F5 for the complete evidence.
