@@ -1,5 +1,6 @@
 """Shared source interpreter and checks for the opt-in idle runtime scenario."""
 import re
+import json
 import unittest
 
 from pycparser import c_ast, c_parser
@@ -10,10 +11,14 @@ from test_xml_source import ROOT, strip_directives
 class ScenarioHarness:
     source_name = 'disconnect_smoke.cpp'
     extra_functions = ()
+    log_prefix = '[DisconnectPendingTest]'
+    checkpoint_description = 'after launch response before RTSP'
 
     @classmethod
     def setUpClass(cls):
         source = (ROOT / 'tests/runtime' / cls.source_name).read_text()
+        source = source.replace('DISCONNECT_TEST_LOG_PREFIX ', json.dumps(cls.log_prefix) + ' ')
+        source = source.replace('DISCONNECT_CHECKPOINT_DESCRIPTION ', json.dumps(cls.checkpoint_description) + ' ')
         types = (ROOT / 'include/moonlight/types.h').read_text()
         enums = re.search(r'enum TestPhase\s*{.*?};', source, re.S).group()
         enums += 'typedef enum TestPhase TestPhase;'

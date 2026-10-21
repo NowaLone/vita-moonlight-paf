@@ -6,6 +6,14 @@
 #include "app/moonlight_app.h"
 #include "debug.h"
 
+#ifdef MOONLIGHT_HTTP_DISCONNECT_TEST
+#define DISCONNECT_TEST_LOG_PREFIX "[DisconnectHttpTest]"
+#define DISCONNECT_CHECKPOINT_DESCRIPTION "during curl before response"
+#else
+#define DISCONNECT_TEST_LOG_PREFIX "[DisconnectPendingTest]"
+#define DISCONNECT_CHECKPOINT_DESCRIPTION "after launch response before RTSP"
+#endif
+
 namespace {
 
 enum TestPhase {
@@ -50,27 +58,35 @@ static void set_phase(TestPhase phase)
 static void fail(const char *reason, int result)
 {
     release_checkpoint();
-    vita_debug_log("[DisconnectPendingTest] FAIL phase=%d reason=%s result=%d",
+    vita_debug_log(DISCONNECT_TEST_LOG_PREFIX " FAIL phase=%d reason=%s result=%d",
                    (int)s_phase, reason, result);
     s_phase = Finished;
 }
 
 }
 
-/* Worker-only: hold the first accepted launch/resume before the existing cancel check.
- * No PAF/UI access. Holds no stream/control mutex and never mutates cancellation state. */
+#ifdef MOONLIGHT_HTTP_DISCONNECT_TEST
+extern "C" int disconnect_test_pending_checkpoint_available(void)
+{
+    return !__atomic_load_n(&s_checkpoint_used, __ATOMIC_ACQUIRE) &&
+           !__atomic_load_n(&s_checkpoint_release, __ATOMIC_ACQUIRE);
+}
+#endif
+
+/* Worker-only: hold the first selected checkpoint; never mutate cancellation state.
+ * HTTP mode is inside curl under its transfer mutex. No PAF or stream/control mutex. */
 extern "C" void disconnect_test_pending_checkpoint(int application_id)
 {
     if (__atomic_exchange_n(&s_checkpoint_used, 1, __ATOMIC_ACQ_REL)) return;
     if (__atomic_load_n(&s_checkpoint_release, __ATOMIC_ACQUIRE)) return;
     __atomic_store_n(&s_checkpoint_app, application_id, __ATOMIC_RELAXED);
     __atomic_store_n(&s_checkpoint_status, 1, __ATOMIC_RELEASE);
-    vita_debug_log("[DisconnectPendingTest] checkpoint after launch response before RTSP app=%d", application_id);
+    vita_debug_log(DISCONNECT_TEST_LOG_PREFIX " checkpoint " DISCONNECT_CHECKPOINT_DESCRIPTION " app=%d", application_id);
     const uint64_t entered_us = sceKernelGetProcessTimeWide();
     while (!__atomic_load_n(&s_checkpoint_release, __ATOMIC_ACQUIRE)) {
         if (sceKernelGetProcessTimeWide() - entered_us > kStepTimeoutUs) {
             __atomic_store_n(&s_checkpoint_status, -1, __ATOMIC_RELEASE);
-            vita_debug_log("[DisconnectPendingTest] FAIL checkpoint timeout; worker released");
+            vita_debug_log(DISCONNECT_TEST_LOG_PREFIX " FAIL checkpoint timeout; worker released");
             return;
         }
         sceKernelDelayThread(10000);
@@ -89,7 +105,7 @@ void disconnect_test_capture_host(const MoonlightHost &host)
     }
     s_host = host;
     s_have_host = true;
-    vita_debug_log("[DisconnectPendingTest] armed host=%s port=%u", host.internal, host.port);
+    vita_debug_log(DISCONNECT_TEST_LOG_PREFIX " armed host=%s port=%u", host.internal, host.port);
 }
 
 void disconnect_test_capture_start(int application_id, int result)
@@ -98,7 +114,7 @@ void disconnect_test_capture_start(int application_id, int result)
     if (s_phase == AwaitFirstStart && result == 0 && application_id >= 0) {
         s_application_id = application_id;
         set_phase(AwaitCheckpoint);
-        vita_debug_log("[DisconnectPendingTest] start accepted app=%d; awaiting checkpoint", application_id);
+        vita_debug_log(DISCONNECT_TEST_LOG_PREFIX " start accepted app=%d; awaiting checkpoint", application_id);
     } else if (s_phase != AwaitRestarted || application_id != s_application_id || result != 0) {
         fail("unexpected/rejected Start", result);
     }
@@ -134,7 +150,7 @@ void disconnect_test_poll(MoonlightApp &app)
         set_phase(AwaitClosed);
         /* Deliberately call Disconnect while the launch foreground operation is still busy. */
         result = app.Connection().Disconnect();
-        vita_debug_log("[DisconnectPendingTest] pending disconnect request result=%d", result);
+        vita_debug_log(DISCONNECT_TEST_LOG_PREFIX " pending disconnect request result=%d", result);
         if (result != 0) fail("disconnect rejected", result);
         /* A successful request has set the real stream cancel flag before releasing the worker. */
         release_checkpoint();
@@ -150,14 +166,14 @@ void disconnect_test_poll(MoonlightApp &app)
         }
         set_phase(AwaitReconnect);
         result = app.Connection().Connect(s_host);
-        vita_debug_log("[DisconnectPendingTest] reconnect enqueue result=%d", result);
+        vita_debug_log(DISCONNECT_TEST_LOG_PREFIX " reconnect enqueue result=%d", result);
         if (result != 0) fail("reconnect rejected", result);
         break;
 
     case NeedRefresh:
         set_phase(AwaitRefresh);
         result = app.Applications().Refresh();
-        vita_debug_log("[DisconnectPendingTest] refresh enqueue result=%d", result);
+        vita_debug_log(DISCONNECT_TEST_LOG_PREFIX " refresh enqueue result=%d", result);
         if (result != 0) fail("refresh rejected", result);
         break;
 
@@ -168,7 +184,7 @@ void disconnect_test_poll(MoonlightApp &app)
         }
         set_phase(AwaitRestarted);
         result = app.Connection().Start(s_application_id);
-        vita_debug_log("[DisconnectPendingTest] restart request app=%d result=%d", s_application_id, result);
+        vita_debug_log(DISCONNECT_TEST_LOG_PREFIX " restart request app=%d result=%d", s_application_id, result);
         if (result != 0) fail("restart rejected", result);
         break;
 
@@ -188,7 +204,7 @@ void disconnect_test_event(MoonlightApp &app, const MoonlightEvent &event)
             return;
         }
         s_saw_cancelled = true;
-        vita_debug_log("[DisconnectPendingTest] cancelled setup observed result=-7 app=%d", s_application_id);
+        vita_debug_log(DISCONNECT_TEST_LOG_PREFIX " cancelled setup observed result=-7 app=%d", s_application_id);
         return;
     }
     if (event.type == MOONLIGHT_EVENT_CONNECTION_FAILED ||
@@ -212,10 +228,10 @@ void disconnect_test_event(MoonlightApp &app, const MoonlightEvent &event)
         }
         if (s_phase == AwaitApplications) {
             set_phase(AwaitFirstStart);
-            vita_debug_log("[DisconnectPendingTest] ready; start one app; expect one cancellation error/OK");
+            vita_debug_log(DISCONNECT_TEST_LOG_PREFIX " ready; start one app; expect one cancellation error/OK");
         } else {
             set_phase(NeedRestart);
-            vita_debug_log("[DisconnectPendingTest] refreshed applications count=%d", event.result);
+            vita_debug_log(DISCONNECT_TEST_LOG_PREFIX " refreshed applications count=%d", event.result);
         }
     } else if (event.type == MOONLIGHT_EVENT_CONNECTION_CLOSED) {
         if (s_phase != AwaitClosed || !s_saw_cancelled || event.result != 0 || !event.address ||
@@ -225,7 +241,7 @@ void disconnect_test_event(MoonlightApp &app, const MoonlightEvent &event)
             return;
         }
         set_phase(AwaitCancelAck);
-        vita_debug_log("[DisconnectPendingTest] CLOSED after cancelled setup; dismiss launch error with OK");
+        vita_debug_log(DISCONNECT_TEST_LOG_PREFIX " CLOSED after cancelled setup; dismiss launch error with OK");
     } else if (event.type == MOONLIGHT_EVENT_CONNECTION_READY && s_phase == AwaitReconnect) {
         if (event.result != 0 || !event.address || strcmp(event.address, s_host.internal) != 0 ||
             app.Connection().State() != MOONLIGHT_CONNECTION_PAIRED) {
@@ -233,7 +249,7 @@ void disconnect_test_event(MoonlightApp &app, const MoonlightEvent &event)
             return;
         }
         set_phase(NeedRefresh);
-        vita_debug_log("[DisconnectPendingTest] reconnect ready state=PAIRED");
+        vita_debug_log(DISCONNECT_TEST_LOG_PREFIX " reconnect ready state=PAIRED");
     } else if (event.type == MOONLIGHT_EVENT_STREAM_STARTED) {
         if (s_phase != AwaitRestarted || event.result != 0 || event.application_id != s_application_id ||
             !event.address || strcmp(event.address, s_host.internal) != 0 ||
@@ -242,7 +258,7 @@ void disconnect_test_event(MoonlightApp &app, const MoonlightEvent &event)
             return;
         }
         s_phase = Finished;
-        vita_debug_log("[DisconnectPendingTest] PASS pending cancelled -> CLOSED -> reconnect -> stream started app=%d",
+        vita_debug_log(DISCONNECT_TEST_LOG_PREFIX " PASS pending cancelled -> CLOSED -> reconnect -> stream started app=%d",
                        s_application_id);
     }
 }

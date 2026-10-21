@@ -11,6 +11,9 @@
  */
 
 #include "legacy_gamestream.h"
+#ifdef MOONLIGHT_HTTP_DISCONNECT_TEST
+#include "moonlight/http_disconnect_test.h"
+#endif
 
 #include <errno.h>
 #include <limits.h>
@@ -751,8 +754,23 @@ static int http_request(
         pthread_mutex_unlock(&s_http_mutex);
         return LEGACY_GAMESTREAM_FAILED;
     }
+#ifdef MOONLIGHT_HTTP_DISCONNECT_TEST
+    MoonlightHttpTestTransfer http_test;
+    setup_result = (CURLcode)disconnect_http_test_begin(server->curl, url, &http_test);
+    if (setup_result != CURLE_OK) {
+        curl_easy_setopt((CURL *)server->curl, CURLOPT_NOPROGRESS, 1L);
+        curl_easy_setopt((CURL *)server->curl, CURLOPT_XFERINFODATA, NULL);
+        curl_easy_setopt((CURL *)server->curl, CURLOPT_XFERINFOFUNCTION, NULL);
+        set_error("Unable to configure HTTP disconnect test");
+        pthread_mutex_unlock(&s_http_mutex);
+        return LEGACY_GAMESTREAM_FAILED;
+    }
+#endif
     s_last_http_result = CURLE_OK;
     curl_result = curl_easy_perform((CURL *)server->curl);
+#ifdef MOONLIGHT_HTTP_DISCONNECT_TEST
+    disconnect_http_test_end(server->curl, &http_test, (int)curl_result);
+#endif
     curl_easy_setopt((CURL *)server->curl, CURLOPT_NOPROGRESS, 1L);
     curl_easy_setopt((CURL *)server->curl, CURLOPT_XFERINFODATA, NULL);
     curl_easy_setopt((CURL *)server->curl, CURLOPT_XFERINFOFUNCTION, NULL);

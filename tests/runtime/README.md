@@ -54,7 +54,8 @@ duplicate/admission races, failure rollback and shutdown remain separate tests.
 
    `build.sh` explicitly defaults all test modes OFF on each invocation. Direct CMake users
    must pass `-DMOONLIGHT_DISCONNECT_TEST=OFF`, `-DMOONLIGHT_ACTIVE_DISCONNECT_TEST=OFF` and
-   `-DMOONLIGHT_PENDING_DISCONNECT_TEST=OFF` to clear previously enabled cache entries.
+   `-DMOONLIGHT_PENDING_DISCONNECT_TEST=OFF`, `-DMOONLIGHT_HTTP_DISCONNECT_TEST=OFF` to clear
+   previously enabled cache entries.
 
 ### Scope and implementation
 
@@ -98,8 +99,8 @@ Maintainer procedure:
    ./build.sh -DMOONLIGHT_SYSTEM_APP=ON -DMOONLIGHT_ACTIVE_DISCONNECT_TEST=ON
    ```
 
-   Install `build/vita_moonlight_paf.vpk`. Enable only one of idle, active or pending setup;
-   CMake rejects combined test modes. build.sh resets all three OFF before explicit arguments,
+   Install `build/vita_moonlight_paf.vpk`. Enable only one of idle, active, pending setup or HTTP;
+   CMake rejects combined test modes. build.sh resets all four OFF before explicit arguments,
    including when replacing an earlier test cache.
 2. Open Settings, enable Debug log, return and connect to the PC normally. Start one application
    from Apps. Keep the PC app running and leave Vita controls untouched during the automatic
@@ -287,3 +288,82 @@ explanation but is not a controlled timing-only experiment or a universal five-s
 It is delayed OK before automatic recovery, not the proposed explicit retry after a finished
 FAIL. Preserve both results; immediate recovery and other A16/F5 cases remain open. No fixed
 wait/retry or runtime-code change is introduced. See API audit F5 for the complete evidence.
+
+
+## In-flight HTTPS scenario (source prepared; Vita validation pending)
+
+This fourth mode reuses the pending test's main-thread state machine and one-shot barrier with
+`[DisconnectHttpTest]` markers. Its checkpoint is inside curl_easy_perform for the selected
+HTTPS launch/resume, at outgoing GET headers ending in CRLFCRLF, before response headers are
+processed. The former post-response hook is excluded in this mode. This exercises a live curl
+handle/response buffer and the HTTP mutex during Disconnect, unlike the earlier completed-HTTP
+checkpoint. It does not require a slow host, inject network failures or fabricate a response.
+
+Maintainer procedure (the agent must not build):
+
+1. Build/install:
+
+   ```bash
+   ./build.sh -DMOONLIGHT_SYSTEM_APP=ON -DMOONLIGHT_HTTP_DISCONNECT_TEST=ON
+   ```
+
+   Install `build/vita_moonlight_paf.vpk`. Do not explicitly enable another disconnect option;
+   all four default OFF per script invocation. No new persistent setting is added.
+2. Open Settings, enable Debug log, return, connect and start one app. Leave other controls
+   untouched during the automatic steps except the expected cancellation error's OK.
+3. Capture `[Launch]` and all logs through PASS or FAIL. The critical lifetime ordering is:
+
+   ```text
+   [DisconnectHttpTest] request headers sent; curl active before response app=...
+   [DisconnectHttpTest] checkpoint during curl before response app=...
+   [DisconnectHttpTest] pending disconnect request result=0
+   [DisconnectHttpTest] response headers received
+   [DisconnectHttpTest] transfer end result=0 checkpoint=1 response_headers=1
+   [Stream] launch/resume accepted session=...
+   [Stream] launch cancelled before RTSP setup
+   [Stream] setup finished app=... result=-7
+   [DisconnectHttpTest] cancelled setup observed result=-7 app=...
+   [DisconnectHttpTest] CLOSED after cancelled setup; dismiss launch error with OK
+   ```
+
+   Start-acceptance messages may interleave with the worker. In the normal targeted transfer,
+   response/transfer-end must follow the disconnect request and precede failed setup/CLOSED.
+   A transfer error/timeout remains its actual backend error and does not count as this success.
+   A missing checkpoint, non-target request, mismatched host/app/state or first STREAM_STARTED
+   cannot produce PASS. Copy the actual log if the callback is not reached; do not move the
+   hook to after the response and claim in-flight coverage.
+4. The ordinary **Unable to start stream (0xFFFFFFF9)** dialog is the expected -7 result.
+   Dismiss it once. The test waits for OK, then performs paired reconnect, a fresh app list and
+   Start for the same app. PASS is:
+
+   ```text
+   [DisconnectHttpTest] PASS pending cancelled -> CLOSED -> reconnect -> stream started app=...
+   ```
+
+   Confirm image/sound and normal final stop. As in the earlier pending test, immediate
+   recovery can separately fail at RTSP while Sunshine retains an older pending session.
+   Preserve that FAIL; the successful -7/CLOSED part alone is not full recovery acceptance.
+   Record any user pause before OK; no wait/retry is injected by the client. A human delay
+   must not be presented as a universal required/sufficient five-second interval.
+5. Restore the ordinary package with `./build.sh -DMOONLIGHT_SYSTEM_APP=ON` afterward.
+
+The test installs a private curl debug sink only for the first armed HTTPS launch/resume.
+It inspects the fixed request-line prefix and header terminator only: no curl trace data,
+URL/query, certificate or session key is printed/copied. Internal curl handles and other verbs
+cannot trigger the checkpoint. Debug verbosity is enabled only after the sink/data are installed
+and disabled before clearing them, including setup failure. Cleanup occurs before releasing
+http_request's HTTP mutex and before its stack context expires. Existing pairing progress,
+TLS pinning, HTTP timeouts and write callbacks are unchanged.
+
+Official [curl debug API](https://curl.se/libcurl/c/CURLOPT_DEBUGFUNCTION.html) describes HEADER_OUT
+as outgoing header data; [curl 8.17.0 request.c](https://github.com/curl/curl/blob/curl-8_17_0/lib/request.c#L201-L208)
+issues it after the send call. Installed VitaSDK headers report 8.17.0; the actual linked/runtime
+library and callback behavior still need the maintainer build/device test. The checkpoint holds
+the HTTP transfer mutex, but no stream/API control mutex; main-thread Disconnect only requests
+stop and queues cleanup. The owner retains curl/response until perform returns. The barrier is
+released by the request, failure/shutdown or its 60-second worker deadline. The existing stream
+cancel flag is checked after HTTP; this mode does not abort curl or add cancellable HTTP support.
+Thus the response may already be buffered at the peer/OS while the callback is held. It tests
+client-side in-flight lifetime, not a proven server processing delay or TCP retransmission wait.
+Unrecognized fragmented request-line/terminator callbacks can miss the checkpoint; that is an
+incomplete test, not cancellation coverage. No runtime-result acceptance is recorded yet.

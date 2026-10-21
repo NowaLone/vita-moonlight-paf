@@ -33,9 +33,11 @@ option(MOONLIGHT_HEAP_TRACE "Diagnostic: track newlib allocation call sites" OFF
 option(MOONLIGHT_DISCONNECT_TEST "Test only: disconnect/reconnect once after opening Apps" OFF)
 option(MOONLIGHT_ACTIVE_DISCONNECT_TEST "Test only: disconnect/reconnect after a selected stream starts" OFF)
 option(MOONLIGHT_PENDING_DISCONNECT_TEST "Test only: disconnect after launch response before RTSP" OFF)
-if((MOONLIGHT_DISCONNECT_TEST AND MOONLIGHT_ACTIVE_DISCONNECT_TEST) OR
+option(MOONLIGHT_HTTP_DISCONNECT_TEST "Test only: disconnect inside launch/resume HTTPS transfer" OFF)
+if((MOONLIGHT_HTTP_DISCONNECT_TEST AND (MOONLIGHT_DISCONNECT_TEST OR MOONLIGHT_ACTIVE_DISCONNECT_TEST OR MOONLIGHT_PENDING_DISCONNECT_TEST)) OR
+   (MOONLIGHT_DISCONNECT_TEST AND MOONLIGHT_ACTIVE_DISCONNECT_TEST) OR
    (MOONLIGHT_PENDING_DISCONNECT_TEST AND (MOONLIGHT_DISCONNECT_TEST OR MOONLIGHT_ACTIVE_DISCONNECT_TEST)))
-  message(FATAL_ERROR "Select only one disconnect test: idle, active stream or pending setup")
+  message(FATAL_ERROR "Select only one disconnect test: idle, active stream, pending setup or HTTP")
 endif()
 if(MOONLIGHT_HEAP_TRACE AND NOT MOONLIGHT_SYSTEM_APP)
   message(FATAL_ERROR "MOONLIGHT_HEAP_TRACE requires MOONLIGHT_SYSTEM_APP=ON")
@@ -202,7 +204,14 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight
 )
 
-if(MOONLIGHT_PENDING_DISCONNECT_TEST)
+if(MOONLIGHT_HTTP_DISCONNECT_TEST)
+  message(STATUS "HTTP disconnect test enabled: cancel inside curl before response; acknowledge expected error")
+  target_compile_definitions(${PROJECT_NAME} PRIVATE
+    MOONLIGHT_DISCONNECT_TEST=1 MOONLIGHT_PENDING_DISCONNECT_TEST=1 MOONLIGHT_HTTP_DISCONNECT_TEST=1)
+  target_sources(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/disconnect_pending.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/disconnect_http.c)
+elseif(MOONLIGHT_PENDING_DISCONNECT_TEST)
   message(STATUS "Pending disconnect test enabled: cancel after launch response before RTSP; acknowledge expected error")
   target_compile_definitions(${PROJECT_NAME} PRIVATE MOONLIGHT_DISCONNECT_TEST=1 MOONLIGHT_PENDING_DISCONNECT_TEST=1)
   target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/disconnect_pending.cpp)

@@ -20,8 +20,10 @@ class ServerTrust(unittest.TestCase):
         helpers = 'static int verify_pinned_certificate(' + helpers.split('static int http_request(', 1)[0]
         transfer = 'static int http_request(' + SOURCE.split('static int http_request(', 1)[1].split('int legacy_gamestream_request(', 1)[0]
         pair = 'static int pair(' + SOURCE.split('static int pair(', 1)[1].split('typedef struct InitArgs', 1)[0]
+        test_header = strip_directives((ROOT / 'include/moonlight/http_disconnect_test.h').read_text())
+        test_header = test_header.replace('extern "C" {', '').replace('\n}\n', '\n')
         for source in (helpers, transfer, pair):
-            c_parser.CParser().parse(types + header + strip_directives(source))
+            c_parser.CParser().parse(types + header + test_header + strip_directives(source))
 
     def test_only_present_equal_certificates_are_trusted(self):
         body = SOURCE.split('static int verify_pinned_certificate(', 1)[1]

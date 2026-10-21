@@ -714,7 +714,10 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   and final stop/release on maintainer-reported Sunshine 2026.914.233613. Timing is unmeasured;
   see F5. This does
   not erase the immediate-retry failure or prove five seconds is sufficient generally.
-  Never substitute `/cancel` for local cancellation: its scope is host-wide (A20).
+  A fourth opt-in in-flight curl test is source-prepared, not device-verified (F5); it holds the
+  selected outgoing-header callback before response processing and requires transfer completion
+  before -7/CLOSED. It does not add curl abortion. Never substitute `/cancel` for local
+  cancellation: its scope is host-wide (A20).
 
 ### A17 — Disconnect during active stream — partial
 
@@ -1485,6 +1488,54 @@ is added. The earlier post-FAIL explicit retry remains unrun. Next independent A
 cancellation while the HTTPS request is outstanding, separately from this post-response hook.
 No build/device run was performed by the agent.
 
+**In-flight HTTPS trigger source follow-up, 2026-10-21; build/Vita pending:** the outstanding
+A16 gap is cancellation while curl still owns the HTTP transfer, distinct from the prior
+post-response checkpoint. MOONLIGHT_HTTP_DISCONNECT_TEST=ON reuses the pending main-thread
+controller/barrier with an HTTP-specific log prefix and callback adapter. The earlier
+post-response hook is excluded in this mode. The runtime edits are guarded test hooks only;
+no new endpoint, protocol cancellation mechanism, user-facing UI or storage change.
+
+L2 arms the selected app immediately before HTTPS launch/resume. Under L3's HTTP mutex, the
+adapter installs a private curl debug sink only for that armed operation. A matching outgoing
+GET header ending in CRLFCRLF enters the checkpoint before response-header processing; other
+verbs, internal handles, recovery attempts and a response observed before the checkpoint cannot
+trigger it. The main poll requests the real service Disconnect while foreground Launch remains
+busy and the transfer/buffer/mutex are live, then releases the worker. Curl completes naturally;
+existing parse/cancel logic must report -7, then the owner exits and deferred host cleanup emits
+CLOSED. The user dismisses the ordinary -7 error, followed by paired reconnect/Apps/same-app
+Start. No automatic delay or retry is added to hide the known pending-session RTSP failure.
+
+The debug sink reads only fixed request-line/header-end markers and records metadata; trace
+buffers/URLs/keys are never printed or retained. It is installed before enabling verbosity;
+verbosity is disabled before callback/data removal on completion or setup failure, while the
+HTTP mutex still protects the curl handle and stack context. Body/write callbacks, pairing
+progress, TLS trust and timeouts remain unchanged. This exercises HTTP ownership, not immediate
+wire-level cancellation. A timeout/transport error keeps its actual failure and cannot count
+as a successful -7/recovery sequence. The common worker gate still has failure/shutdown release
+and a 60-second safety deadline; user app selection and error OK remain user-paced.
+
+Reference: [curl DEBUGFUNCTION contract](https://curl.se/libcurl/c/CURLOPT_DEBUGFUNCTION.html) and
+[8.17.0 request send/HEADER_OUT order](https://github.com/curl/curl/blob/curl-8_17_0/lib/request.c#L201-L208).
+Installed SDK headers identify 8.17.0; callback ABI/behavior in the actual linked library is
+unverified. This is a libcurl callback test seam, not a copied Moonlight/Sunshine cancellation
+API. Existing C/QS/V/S ownership references still apply: await the old worker before reuse;
+local Disconnect does not roll back an accepted remote launch or invoke host-wide quit.
+The peer may already have generated/buffered its response while the client is held. The test
+therefore covers client-side in-flight ownership before response processing, not a measured
+server delay or loss/retransmission case. Split/unrecognized callback markers may miss the
+checkpoint and fail/incomplete the test; they cannot substitute post-response coverage.
+
+All 62 non-build Python checks pass: shared controller in both modes, interpreted C callback/
+option handling, wrong verb/handle, no early response coverage, one-shot availability, setup
+failure cleanup and actual hook ordering. C grammar checks include all original trust/HTTP/
+pairing fragments plus the new adapter/header. Atomics, buffers, options, services and scheduling
+are mocked/serial: no real curl/TLS, C/C++ type/ABI, concurrency, hardware or leak proof. No
+build/device run by the agent. All four test modes default OFF and are exclusive; normal builds
+exclude the adapter and hooks. See the exact
+[HTTP test procedure](../tests/runtime/README.md#in-flight-https-scenario-source-prepared-vita-validation-pending).
+A16/A18/F5 remain partial; real in-flight cleanup, transport failures, recovery playback,
+RTSP/common-c cancellation and broader repeated/shutdown cases still need device evidence.
+
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.
@@ -1841,7 +1892,8 @@ The second-host trace now verifies delayed error-OK recovery through resume/RTSP
 packets, 404 decoded frames and final stop/release. Its roughly five-second pause is user-reported;
 Sunshine is reported as 2026.914.233613; exact timing/client revision remain unspecified and
 immediate recovery remains unresolved. Next cover
-cancellation during the outstanding HTTPS request as a separate A16 scenario.
+the source-prepared in-flight HTTPS A16 scenario: verify header checkpoint, disconnect,
+transfer completion before -7/CLOSED and recovery separately on Vita.
 Pending-launch, concurrent/stress host changes and broader shared-state ownership remain open.
 The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
 cancellation/conflict trace verifies local cancellation followed by genuine server 409,

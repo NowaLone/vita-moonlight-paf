@@ -3,6 +3,9 @@
 #ifdef MOONLIGHT_PENDING_DISCONNECT_TEST
 #include "app/disconnect_test.h"
 #endif
+#ifdef MOONLIGHT_HTTP_DISCONNECT_TEST
+#include "moonlight/http_disconnect_test.h"
+#endif
 
 #include <arpa/inet.h>
 #include <psp2/kernel/rng.h>
@@ -340,6 +343,9 @@ static int load_launch_session(
 
     vita_debug_log("[GameStream] %s app=%d host=%s",
         resume ? "resume" : "launch", application_id, server->address);
+#ifdef MOONLIGHT_HTTP_DISCONNECT_TEST
+    disconnect_http_test_arm(application_id);
+#endif
     result = legacy_gamestream_request(server, resume ? "resume" : "launch", query,
         20L, &body, &body_length);
     if (result != 0) return result;
@@ -401,7 +407,7 @@ static int run_stream_session(
             remote_iv);
     if (result != 0) return result;
 
-#ifdef MOONLIGHT_PENDING_DISCONNECT_TEST
+#if defined(MOONLIGHT_PENDING_DISCONNECT_TEST) && !defined(MOONLIGHT_HTTP_DISCONNECT_TEST)
     disconnect_test_pending_checkpoint(application_id);
 #endif
 

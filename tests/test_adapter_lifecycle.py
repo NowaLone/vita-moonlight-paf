@@ -60,6 +60,8 @@ def expression(node, values):
             return int(left >= right)
         if node.op == '<':
             return int(left < right)
+        if node.op == '+':
+            return left + right
         if node.op == '-':
             return left - right
     if isinstance(node, c_ast.FuncCall):
@@ -83,8 +85,13 @@ def execute(node, values):
     elif isinstance(node, c_ast.Decl):
         values[node.name] = expression(node.init, values) if node.init else None
     elif isinstance(node, c_ast.Assignment):
-        assert node.op == '=' and isinstance(node.lvalue, c_ast.ID)
-        values[node.lvalue.name] = expression(node.rvalue, values)
+        assert node.op == '='
+        if isinstance(node.lvalue, c_ast.ID):
+            values[node.lvalue.name] = expression(node.rvalue, values)
+        elif isinstance(node.lvalue, c_ast.StructRef):
+            expression(node.lvalue.name, values)[node.lvalue.field.name] = expression(node.rvalue, values)
+        else:
+            raise AssertionError(f'Unsupported assignment: {node}')
     elif isinstance(node, c_ast.If):
         execute(node.iftrue if expression(node.cond, values) else node.iffalse, values)
     elif isinstance(node, c_ast.Return):

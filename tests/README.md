@@ -39,8 +39,8 @@ the agent has not compiled or executed them. Example desktop command for the mai
 These checks do not establish Vita networking, pairing or stream compatibility.
 
 The opt-in [Vita disconnect/reconnect scenarios](runtime/README.md) give the maintainer
-separate idle, active-stream and post-launch/pre-RTSP pending-setup DisconnectHost triggers
-through existing UI selection. All are excluded by default and are mutually exclusive. The active scenario waits for a
+separate idle, active-stream, post-launch/pre-RTSP and in-flight HTTPS DisconnectHost triggers
+through existing UI selection. All four are excluded by default and are mutually exclusive. The active scenario waits for a
 user-selected stream, requires STOPPED before CLOSED, and restarts the same app only after
 paired reconnect and fresh Apps. Its checks include timer/busy gating, no restart before
 closure, queued STOPPED after the adapter already reports DISCONNECTED, wrong host/app/state,
@@ -56,3 +56,12 @@ A separate check interprets the actual post-response/pre-RTSP cancel fragment: f
 responses bypass the hook, cancellation returns -7, and an uncancelled path continues. These
 checks do not compile C++ or establish actual memory ordering, real-thread/curl lifetime,
 Vita error presentation or recovery playback. See runtime/README.md for maintainer steps.
+
+
+The HTTP mode reuses the pending controller checks with its own log prefix and checkpoint label.
+Additional actual-source C checks exercise callback filtering/complete headers, response-before-
+checkpoint rejection, internal-handle isolation, no trace-data output, one-shot availability,
+curl option setup-failure cleanup and removal of stack userdata before unlock. Mocked pointer
+arithmetic/struct writes are used; no real curl, TLS, memory ordering, thread scheduling or C/C++
+ABI is tested. The existing C grammar check still covers all trust/transfer/pairing fragments.
+See the in-flight HTTPS maintainer procedure before claiming device/lifetime acceptance.
