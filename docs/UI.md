@@ -38,6 +38,15 @@ Evidence tags used below:
 - **[code]** read from the source; not a claim about how it looks.
 - **[open]** not verified; do not treat as fact.
 
+LiveArea packaging follow-up (2026-10-21): `CMakeLists.txt` now includes the seven
+`sce_sys/livearea/contents/frame*.png` images referenced by the `a5` template and
+the four `sce_sys/manual/` pages **[code]**. `frame1.png` uses an 8-bit palette with
+identical decoded RGB pixels; template content/frame revisions are 2 **[code]**.
+The maintainer reports only the icon appears after installing the full system VPK.
+Missing frame files were confirmed in the earlier local packages, but whether this
+explains the missing background/gate is unproven. Rebuild/full VPK installation and
+Vita verification remain pending **[open]**; layout and image content are unchanged.
+
 ## 1. Principles
 
 1. **Look like a native Vita system app.** PAF + CXML for pages, `SceAppSettings` for settings, `SceImeDialog` for

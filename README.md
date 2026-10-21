@@ -359,6 +359,12 @@ The deployment script uses title ID `VLMP00001`.
 
 LiveArea images under `sce_sys/` must be 8-bit indexed PNG (color type 3). A 24-bit or 32-bit PNG installs as far as 99% and then fails with `0x8010113D`. `icon0.png` is 128×128 with no alpha. `pic0.png` is 960×544. `livearea/contents/bg0.png` is 840×500. `startup.png` is 280×158 and is the only one that may use palette transparency (`tRNS`). Re-exporting these from a normal editor without quantizing them will break installation again.
 
+`vita_create_vpk()` explicitly includes all seven LiveArea frame images and all four
+manual pages; adding a file under `sce_sys/` alone does not include it in the VPK.
+Install the full rebuilt VPK when changing these assets. The template content/frame
+revisions are now 2. Packaging completeness and lossless palette conversion were
+checked without a build; the reported icon-only LiveArea still needs Vita validation.
+
 The CXML build is fail-fast: if `psp2cxml-tool` is not available, the build stops instead of using an unrelated fallback resource.
 
 ## Runtime Validation

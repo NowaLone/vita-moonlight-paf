@@ -345,5 +345,16 @@ vita_create_vpk(vita_moonlight_paf.vpk "VLMP00001" ${PROJECT_NAME}.self
   FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/livearea/contents/bg0.png sce_sys/livearea/contents/bg0.png
   FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/livearea/contents/startup.png sce_sys/livearea/contents/startup.png
   FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/livearea/contents/template.xml sce_sys/livearea/contents/template.xml
+  FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/livearea/contents/frame1.png sce_sys/livearea/contents/frame1.png
+  FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/livearea/contents/frame2.png sce_sys/livearea/contents/frame2.png
+  FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/livearea/contents/frame3.png sce_sys/livearea/contents/frame3.png
+  FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/livearea/contents/frame4.png sce_sys/livearea/contents/frame4.png
+  FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/livearea/contents/frame5.png sce_sys/livearea/contents/frame5.png
+  FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/livearea/contents/frame6.png sce_sys/livearea/contents/frame6.png
+  FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/livearea/contents/frame7.png sce_sys/livearea/contents/frame7.png
+  FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/manual/001.png sce_sys/manual/001.png
+  FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/manual/002.png sce_sys/manual/002.png
+  FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/manual/003.png sce_sys/manual/003.png
+  FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/manual/004.png sce_sys/manual/004.png
 )
 vita_create_stubs(stubs_${PROJECT_NAME} ${PROJECT_NAME} exports.yml)
