@@ -78,15 +78,12 @@ ConnectionService::ConnectionService(MoonlightBackend &backend, PairingService &
     : m_backend(backend),
       m_pairing(pairing),
       m_progress_dialog_slot(-1),
-      m_progress_close_requested(false),
       m_progress_polled(false),
       m_progress_started_us(0),
-      m_progress_last_error(0),
       m_error_dialog_open(false),
       m_error_pending(false),
       m_dialog_task_registered(false),
       m_operation(Operation_None),
-      m_release_on_dialog_close(false),
       m_worker_done(0),
       m_worker_result(0)
 {
@@ -110,7 +107,6 @@ int ConnectionService::BeginOperation(ForegroundOperation operation)
     if (operation == Operation_None || IsBusy()) return -1;
 
     m_operation = operation;
-    m_release_on_dialog_close = false;
     __atomic_store_n(&m_worker_done, 0, __ATOMIC_RELEASE);
     m_worker_result = 0;
     int result = StartWaitDialog();
@@ -167,9 +163,7 @@ int ConnectionService::StartWaitDialog()
     }
 
     m_progress_dialog_slot = slot;
-    m_progress_close_requested = false;
     m_progress_polled = false;
-    m_progress_last_error = 0;
     vita_debug_log("[Workflow] PAF busy dialog open operation=%d slot=%d elapsed_ms=%llu",
         (int)m_operation, (int)slot,
         (unsigned long long)((sceKernelGetProcessTimeWide() - m_progress_started_us) / 1000));
@@ -184,26 +178,15 @@ void ConnectionService::CloseWaitDialog()
 {
     if (m_progress_dialog_slot < 0) return;
 
-    const bool first_request = !m_progress_close_requested;
-    m_progress_close_requested = true;
     const int32_t slot = m_progress_dialog_slot;
-    int result = sce::CommonGuiDialog::Dialog::Close(slot);
-    if (first_request || result >= 0 || result != m_progress_last_error) {
-        vita_debug_log("[Workflow] PAF busy dialog close operation=%d slot=%d result=0x%08X elapsed_ms=%llu",
-            (int)m_operation, (int)slot, (unsigned int)result,
-            (unsigned long long)((sceKernelGetProcessTimeWide() - m_progress_started_us) / 1000));
-    }
-    m_progress_last_error = result;
-    if (result < 0) return; /* Keep ownership; the PAF poll retries without blocking. */
-
-    /* BHBB releases its logical slot after Close. PAF owns widget/animation cleanup;
-     * this API has no SceMsgDialog FINISHED/Term lifecycle to poll. */
+    /* The inspected native Close leaves internal values (including the stack guard)
+     * in r0, not a status code. Match BHBB/NetStream: call once, discard the return
+     * and release our slot. PAF owns the remaining widget/animation cleanup. */
+    (void)sce::CommonGuiDialog::Dialog::Close(slot);
+    vita_debug_log("[Workflow] PAF busy dialog close requested operation=%d slot=%d elapsed_ms=%llu",
+        (int)m_operation, (int)slot,
+        (unsigned long long)((sceKernelGetProcessTimeWide() - m_progress_started_us) / 1000));
     m_progress_dialog_slot = -1;
-    m_progress_close_requested = false;
-    if (m_release_on_dialog_close) {
-        m_operation = Operation_None;
-        m_release_on_dialog_close = false;
-    }
 }
 
 void ConnectionService::ShowConnectionError()
@@ -268,8 +251,8 @@ void ConnectionService::FinishUnstartedOperation()
 {
     /* Enqueue/start failed synchronously: no worker completion event will arrive. */
     ForegroundOperation operation = m_operation;
-    m_release_on_dialog_close = true;
     CloseWaitDialog();
+    m_operation = Operation_None;
     if (operation == Operation_Connect) ShowConnectionError();
 }
 
@@ -280,7 +263,6 @@ bool ConnectionService::PrepareCompletion(const MoonlightEvent &event)
         !__atomic_load_n(&m_worker_done, __ATOMIC_ACQUIRE)) return false;
 
     CloseWaitDialog();
-    if (m_progress_dialog_slot >= 0) return false;
 
     ForegroundOperation operation = m_operation;
     m_operation = Operation_None;
@@ -333,9 +315,6 @@ void ConnectionService::DialogPollTask(void *userdata)
             (int)service->m_operation, (int)service->m_progress_dialog_slot,
             (unsigned long long)((sceKernelGetProcessTimeWide() - service->m_progress_started_us) / 1000));
     }
-    if (service->m_progress_close_requested) {
-        service->CloseWaitDialog();
-    }
 
     if (service->m_error_pending && service->m_progress_dialog_slot < 0 &&
         !service->m_error_dialog_open) {
@@ -379,9 +358,7 @@ void ConnectionService::Shutdown()
     }
 
     m_error_pending = false;
-    m_progress_close_requested = false;
     m_operation = Operation_None;
-    m_release_on_dialog_close = false;
     m_error_message[0] = '\0';
 
     if (m_dialog_task_registered) {

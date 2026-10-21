@@ -1076,8 +1076,9 @@ poll at 15/2 ms, close requests at 1750/1531 ms and Term at 2602/2383 ms for Con
 The maintainer still sees late/brief windows and selects BHBB's native `s_dialogTextSmallBusy`.
 ConnectionService now checks/loads CommonGuiDialog and owns a PAF Show/Close slot for the three
 foreground steps. Backend result ownership and event dispatch remain; no GameStream request,
-pairing or streaming protocol is changed. The project releases the logical slot on a nonnegative
-PAF Close return; BHBB itself does not check the return. Native PAF owns visual cleanup,
+pairing or streaming protocol is changed. The initial implementation released the logical slot
+on a nonnegative PAF Close return; this incorrect interpretation is corrected below.
+BHBB itself does not check the return. Native PAF owns visual cleanup,
 without SceMsgDialog FINISHED/Term polling. Errors/Delete
 still use SceMsgDialog. Pending checks include native appearance/latency, input blocking,
 success/error handoffs and shutdown on Vita. No automatic visibility or speed claim is made.
@@ -1092,12 +1093,16 @@ Connect/Apps dialog trace, failure/shutdown/normal-profile matrix or build trans
 inclusion of the later header fix cannot be inferred from that embedded revision. F5 remains
 open beyond the accepted appearance/launch-stop path. Runtime code is unchanged for this record.
 
-**Close-contract investigation, 2026-10-21:** source/header and binary-metadata checks do not
-establish the meaning of the return. ScePaf-RE declares int32_t without result semantics;
-BHBB/NetStream call once and ignore it. Our negative-result retry remains a project assumption.
-The two available core dumps omit the function body; a decrypted native module is needed to
-inspect it. See docs/UI.md for exact reference revisions and export details. No GameStream or
-runtime code was changed, and no build/device test was run for this investigation.
+**Close-contract investigation, 2026-10-21:** initial source/header and binary-metadata checks
+did not establish the meaning of the return. ScePaf-RE declares int32_t without result semantics;
+BHBB/NetStream call once and ignore it. Our negative-result retry was a project assumption.
+The two available core dumps omit the function body; that stage required a decrypted native
+module and made no runtime changes. The subsequently supplied ELF establishes that Close
+leaves internal register values, including a stack guard, rather than a signed status code.
+The client now calls Close once, discards the return and releases its logical slot, matching
+BHBB/NetStream; the negative-result retry is removed. No GameStream protocol code changes.
+See docs/UI.md for file hash, export/import mapping, return paths and regression risks.
+Eight existing non-build checks pass; build and Vita handoffs/errors/shutdown remain pending.
 
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;

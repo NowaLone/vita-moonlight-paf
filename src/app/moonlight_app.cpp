@@ -370,7 +370,7 @@ void MoonlightApp::ProcessEventTask(void *userdata)
         paf::thread::RMutex::main_thread_mutex.Unlock();
 
         if (!app->m_connection.PrepareCompletion(event)) {
-            return; /* Keep the completion at the head until WAIT has terminated. */
+            return; /* Keep the completion at the head until the backend call returns. */
         }
 
         paf::thread::RMutex::main_thread_mutex.Lock();

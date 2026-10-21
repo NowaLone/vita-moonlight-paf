@@ -42,6 +42,8 @@ public:
     static int32_t Show(paf::Plugin *work_plugin, paf::wstring *title,
                         paf::wstring *message, Param *param,
                         void (*button_cb)(int32_t, DIALOG_CB, void *), void *userdata);
+    /* Keep upstream's declaration, but discard the return: the inspected native
+     * implementation does not produce a status code. See docs/UI.md. */
     static int32_t Close(int32_t instance_slot);
 };
 

@@ -654,8 +654,16 @@ ongoing stream threads and main-thread completion delivery remain. This is the t
   declare int32_t without result semantics. BHBB/NetStream ignore the return and clear the slot
   after one call; our negative-result retry is an unverified project assumption. Stub/NID
   inspection establishes the export only. Both available core dumps omit the Close body.
-  Exact semantics require a decrypted common_gui_dialog.suprx.elf; runtime remains unchanged.
-  Evidence/revision details are recorded in docs/UI.md. This investigation does not close F5.
+  At that stage the missing input was a decrypted common_gui_dialog.suprx.elf; runtime was unchanged.
+  Subsequent supplied-ELF inspection establishes the Close export at text offset 0x2b6c:
+  it leaves internal values in r0, including the closing helper's stack guard, rather than a
+  status code. This explains why treating 0xEE251690 as a failure and retrying was invalid.
+  Source correction now calls Close once, discards the return and releases the logical slot,
+  matching BHBB/NetStream. Retry state is removed; upstream int32_t declaration is retained.
+  Diff/lifetime review and eight non-build Python checks pass. No agent build/device test.
+  Next validate Connect → Apps → launch and native error handoffs without the former retry
+  delay; native animation completion is not inferred from logical slot release. Evidence/hash
+  details and immediate-start-failure/shutdown risks are in docs/UI.md. F5 remains open.
 
 Source findings and isolated follow-ups (basic user smoke test passed; full runtime acceptance remains pending):
 

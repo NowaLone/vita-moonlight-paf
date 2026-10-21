@@ -77,9 +77,9 @@ or a new general-purpose asynchronous subscription architecture is not the targe
 one foreground operation across Connect, ApplicationService refresh and stream launch/setup.
 It opens native WAIT before starting the operation and rejects overlap or WAIT initialization
 failure. Connect/app-list jobs publish their returned result with release/acquire ordering;
-their completion cannot reach the page until the backend call returns and WAIT terminates.
+their completion cannot reach the page until the backend call returns and WAIT close is requested.
 The result also supplies a completion if the corresponding queued event was dropped. Launch
-retains the stream worker and waits for STREAM_STARTED/FAILED/STOPPED, then dialog teardown.
+retains the stream worker and waits for STREAM_STARTED/FAILED/STOPPED, then requests dialog close.
 Reservation is released before dispatch so Connect → Apps → app-list loading can proceed.
 
 Base blocks page opening and ordinary Back while this owner is busy, including connection
@@ -208,11 +208,11 @@ error instead of suggesting a PC/network failure. The existing reservation, work
 result publication and main-thread event delivery remain. Messages still describe Connect,
 Apps and stream start; no custom CXML imitation or minimum display duration is introduced.
 
-The service retains its slot while busy and calls the native PAF `Dialog::Close(slot)` at
-completion. The current code treats a nonnegative return as success and releases the logical
-slot; a negative return retains ownership and is retried by the existing PAF poll, logging
-repeated identical values once. This return-value interpretation is a project assumption,
-not established by BHBB or a documented native contract (see the investigation below).
+The service retains its slot while busy and calls the native PAF `Dialog::Close(slot)` once at
+completion, discarding its return and releasing the logical slot, as in BHBB/NetStream.
+The supplied native implementation does not produce a status code (see the ELF investigation
+below); the earlier negative-result retry has been removed. PAF owns visual cleanup/animation;
+logical slot release does not establish that the final closing frame has been presented.
 This API does not expose SceMsgDialog's FINISHED/Term contract, so do not poll it using
 SceMsgDialogGetStatus or invent an animation-ready condition.
 Next-step dispatch occurs only after backend completion (Connect/apps) and logical slot release.
@@ -252,7 +252,7 @@ log-verified. This is one system-profile run, not normal-profile, failure, shutd
 coverage. Its embedded revision does not establish inclusion of `279d35e` (the header fix);
 no configure/build transcript is supplied. No new build or device test was run by the agent.
 
-**Close return-contract investigation [source/binary metadata; unresolved, 2026-10-21]:**
+**Initial Close investigation [source/binary metadata; superseded below, 2026-10-21]:**
 the installed ScePaf-RE header, pinned by vitasdk-paf-component to
 [`b76d6ae`](https://github.com/GrapheneCt/ScePaf-RE/blob/b76d6ae00516b107d37e7e8a1a16211e3b729a07/include/common_gui_dialog.h),
 and the newer locally available upstream revision
@@ -277,10 +277,51 @@ cover only the tail of the module. No decrypted native module was found in the i
 references. Read-only header/history, reference-wrapper, stub/NID and core-segment inspection
 therefore cannot explain `0xEE251690` or justify changing the runtime return handling.
 
-**Next evidence:** a decrypted `common_gui_dialog.suprx.elf` containing NID `0xBC311DC0`
-would allow inspection of the actual return paths and any close-state checks. Until then,
-keep the return semantics explicitly unresolved; no runtime change, build or new device test
-was made for this investigation.
+At this stage a decrypted native module was required; the following supplied-ELF inspection
+supersedes that unresolved conclusion. No runtime change was made in the metadata-only stage.
+
+**Supplied ELF / minimal correction [binary/source; build/Vita pending, 2026-10-21]:**
+the maintainer supplied `common_gui_dialog.suprx.elf`, SHA-256
+`e7c0cf0fc184f00930c345cc0d8bef7d730923da47ed82a0e529042e516efede`.
+It is an ARM EABI5 ELF with executable PT_LOAD at VA `0x81000000`, file offset `0xe0`,
+size `0xe66c`. The export table independently maps library `0x4B4AAE97`, function
+`0xBC311DC0` to Thumb entry `0x81002b6d` (code offset `0x2b6c`). No firmware version
+was supplied; these binary findings apply to this module, not every firmware.
+
+Read-only disassembly establishes these return paths:
+
+- Close at `0x81002b6c..0x81002ba6` looks up the slot through `0x810055ec`.
+  A missing/invalid slot returns the lookup's zero, without a distinct error status.
+- For an existing slot it calls `0x81006a50`, then decrements the positive internal counter
+  at object offset `+8`. If the counter stays nonzero, it returns without normalizing `r0`.
+- With the counter zero it updates widget state, calls the closing helper at `0x81005676`,
+  and returns directly. That helper's normal epilogue at `0x81005904..0x81005914` loads the
+  stack-guard value into `r0`, compares it to the saved guard and returns without replacing it.
+  The mismatch path calls the fail stub at `0x8100a0d8`. Import tables identify
+  `__stack_chk_guard` (SceLibKernel NID `0x93B8AA67`, referenced through `0x8100b460`) and
+  `__stack_chk_fail` (NID `0x37691BF8`), matching the installed VitaSDK NID database.
+
+Thus this Close implementation exposes internal register residue, not a meaningful signed
+success/error result. The earlier `0xEE251690` is consistent with the stack-guard return path;
+its exact runtime value was not independently captured from the guard. A later zero can mean
+the slot is already absent. Neither return establishes visual teardown completion, and an
+extra call can decrement the internal counter again if the object still exists. The previous
+`result < 0` check/retry was a client defect, not evidence of a native close failure.
+
+ConnectionService now calls Close once per owned slot and discards the return; it removes
+the retry/error fields and releases unstarted operations immediately after requesting close.
+The narrow header retains upstream's int32_t declaration with a discard-return warning.
+Logs say `PAF busy dialog close requested` without reporting register residue as a result.
+Backend-result gating, operation reservation, Show/module error checks, first-poll diagnostics,
+native error/Delete dialogs and pairing layout are unchanged. No minimum delay or guessed
+animation/status API is added, and the supplied native binary is not stored in the repository.
+
+Diff/lifetime review and all eight existing non-build Python checks passed. Those checks do
+not execute ARM code or PAF. Regression risk: the next step/error can now start after the
+first close request, without the former accidental retry delay. Maintainer build/Vita checks
+remain necessary for Connect → Apps → launch, failure-to-OK handoff, immediate job-start failure
+and shutdown. Expect one close-request log per opened slot and no return-based retry; appearance
+acceptance from the earlier run does not verify this new handoff behavior.
 
 ## 2. Screen geometry and the layout language
 
