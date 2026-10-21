@@ -3,6 +3,7 @@
 #include <psp2/kernel/clib.h>
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/promoterutil.h>
+#include <psp2/sysmodule.h>
 
 #include <errno.h>
 #include <stdarg.h>
@@ -229,7 +230,7 @@ void log_launch_event(void)
     const int received = sceAppUtilReceiveAppEvent(&event);
     probe_log("[LiveAreaProbe] receive type=%u result=0x%08x",
               (unsigned int)event.type, (unsigned int)received);
-    if (received < 0) {
+    if (received < 0 || event.type == 0) {
         probe_log("[LiveAreaProbe] no launch event");
         return;
     }
@@ -284,38 +285,59 @@ int prepare_payload(int rev, char *xml, int length)
 
 int run_promoter(void)
 {
+    /* The stub faults if ScePromoterUtil is not loaded. PAF is already up;
+     * load only the promoter module, then unload it before any common dialog. */
+    const int already = sceSysmoduleIsLoadedInternal(SCE_SYSMODULE_INTERNAL_PROMOTER_UTIL);
+    probe_log("[LiveAreaProbe] promoter loaded=0x%08x", (unsigned int)already);
+    int loaded_by_us = 0;
+    if (already < 0) {
+        const int load = sceSysmoduleLoadModuleInternal(SCE_SYSMODULE_INTERNAL_PROMOTER_UTIL);
+        probe_log("[LiveAreaProbe] promoter load=0x%08x", (unsigned int)load);
+        if (load < 0) {
+            return 0;
+        }
+        loaded_by_us = 1;
+    }
+
+    probe_log("[LiveAreaProbe] promoter init call");
     const int init = scePromoterUtilityInit();
     probe_log("[LiveAreaProbe] promoter init=0x%08x", (unsigned int)init);
-    if (init < 0) {
-        return 0;
-    }
 
-    ScePromoterUtilityLAUpdate args;
-    memset(&args, 0, sizeof(args));
-    strncpy(args.titleid, kTitleId, sizeof(args.titleid) - 1);
-    strncpy(args.path, kPayload, sizeof(args.path) - 1);
+    int ok = 0;
+    if (init >= 0) {
+        ScePromoterUtilityLAUpdate args;
+        memset(&args, 0, sizeof(args));
+        strncpy(args.titleid, kTitleId, sizeof(args.titleid) - 1);
+        strncpy(args.path, kPayload, sizeof(args.path) - 1);
 
-    const int update = scePromoterUtilityUpdateLiveArea(&args);
-    int state = -1;
-    int state_call = -1;
-    int waits = 0;
-    if (update == 0) {
-        for (; waits < 50; ++waits) {
-            state_call = scePromoterUtilityGetState(&state);
-            if (state_call < 0 || state == 0) {
-                break;
+        probe_log("[LiveAreaProbe] promoter update call");
+        const int update = scePromoterUtilityUpdateLiveArea(&args);
+        int state = -1;
+        int state_call = -1;
+        int waits = 0;
+        if (update == 0) {
+            for (; waits < 50; ++waits) {
+                state_call = scePromoterUtilityGetState(&state);
+                if (state_call < 0 || state == 0) {
+                    break;
+                }
+                sceKernelDelayThread(100 * 1000);
             }
-            sceKernelDelayThread(100 * 1000);
         }
-    }
-    int result = -1;
-    const int result_call = scePromoterUtilityGetResult(&result);
-    scePromoterUtilityExit();
+        int result = -1;
+        const int result_call = scePromoterUtilityGetResult(&result);
+        scePromoterUtilityExit();
 
-    const int ok = update == 0 && result_call == 0 && result == 0 && state == 0;
-    probe_log("[LiveAreaProbe] promoter update=0x%08x state_call=0x%08x state=%d waits=%d result_call=0x%08x result=0x%08x ok=%d path=%s",
-              (unsigned int)update, (unsigned int)state_call, state, waits,
-              (unsigned int)result_call, (unsigned int)result, ok, args.path);
+        ok = update == 0 && result_call == 0 && result == 0 && state == 0;
+        probe_log("[LiveAreaProbe] promoter update=0x%08x state_call=0x%08x state=%d waits=%d result_call=0x%08x result=0x%08x ok=%d path=%s",
+                  (unsigned int)update, (unsigned int)state_call, state, waits,
+                  (unsigned int)result_call, (unsigned int)result, ok, args.path);
+    }
+
+    if (loaded_by_us) {
+        const int unload = sceSysmoduleUnloadModuleInternal(SCE_SYSMODULE_INTERNAL_PROMOTER_UTIL);
+        probe_log("[LiveAreaProbe] promoter unload=0x%08x", (unsigned int)unload);
+    }
     return ok;
 }
 

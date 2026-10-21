@@ -60,3 +60,8 @@ shell displayed the text. The visible `Test PC N` label is the display check.
 
 `assets copied` must be `9/9` before trusting a promoter failure: the payload directory is
 `ux0:data/moonlight/la` and contains `sce_sys/livearea/contents`.
+
+The promoter module is not resident. The probe loads `SCE_SYSMODULE_INTERNAL_PROMOTER_UTIL`
+for the call and unloads it before the UI starts. A gate launch has event type 0; that is not a
+LiveArea target, and it is not parsed. A type 0 parse returns `0x80100600` and prints
+`SceAppUtil Parameter Error`.

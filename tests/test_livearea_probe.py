@@ -47,6 +47,9 @@ class LiveAreaProbe(unittest.TestCase):
         run = source.split('void livearea_probe_run(void)', 1)[1]
         self.assertLess(run.index('log_launch_event();'), run.index('next_revision();'))
         self.assertLess(run.index('prepare_payload('), run.index('run_promoter();'))
+        self.assertIn('event.type == 0', source)
+        self.assertIn('sceSysmoduleLoadModuleInternal(SCE_SYSMODULE_INTERNAL_PROMOTER_UTIL)', source)
+        self.assertIn('sceSysmoduleUnloadModuleInternal(SCE_SYSMODULE_INTERNAL_PROMOTER_UTIL)', source)
         self.assertIn('fallback skipped; promoter reported success', source)
         self.assertIn('ux0:app/VLMP00001/sce_sys/livearea/contents/template.xml', source)
         self.assertIn('ux0:appmeta/VLMP00001/livearea/contents/template.xml', source)
