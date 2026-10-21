@@ -22,6 +22,7 @@ scenario uses -DMOONLIGHT_ACTIVE_DISCONNECT_TEST=ON instead; pending setup uses
 -DMOONLIGHT_PENDING_DISCONNECT_TEST=ON. In-flight HTTPS uses -DMOONLIGHT_HTTP_DISCONNECT_TEST=ON.
 Common-c RTSP stage entry uses -DMOONLIGHT_STARTUP_DISCONNECT_TEST=ON.
 All five default OFF and are mutually exclusive.
+The LiveArea text probe defaults OFF; enable it with -DMOONLIGHT_LIVEAREA_PROBE=ON.
 Other CMake arguments are forwarded to the selected profile(s).
 EOF
 }
@@ -65,7 +66,8 @@ build_profile() {
     [[ "$profile" == system ]] && mode=ON
     local -a profile_args=(-DMOONLIGHT_HEAP_TRACE=OFF -DMOONLIGHT_DISCONNECT_TEST=OFF
         -DMOONLIGHT_ACTIVE_DISCONNECT_TEST=OFF -DMOONLIGHT_PENDING_DISCONNECT_TEST=OFF
-        -DMOONLIGHT_HTTP_DISCONNECT_TEST=OFF -DMOONLIGHT_STARTUP_DISCONNECT_TEST=OFF "${CMAKE_ARGS[@]}"
+        -DMOONLIGHT_HTTP_DISCONNECT_TEST=OFF -DMOONLIGHT_STARTUP_DISCONNECT_TEST=OFF
+        -DMOONLIGHT_LIVEAREA_PROBE=OFF "${CMAKE_ARGS[@]}"
         "-DMOONLIGHT_SYSTEM_APP=$mode")
     if [[ "$BUILD_SELECTION" == both && "$profile" == normal ]]; then
         profile_args+=(-DMOONLIGHT_HEAP_TRACE=OFF)

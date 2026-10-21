@@ -14,6 +14,10 @@
 #include <psp2/net/netctl.h>
 #include <psp2/sysmodule.h>
 
+#ifdef MOONLIGHT_LIVEAREA_PROBE
+extern "C" void livearea_probe_run(void);
+#endif
+
 namespace {
 MoonlightApp *s_app = NULL;
 
@@ -168,6 +172,10 @@ int MoonlightApp::Start(paf::Plugin *plugin)
         ShutdownNetwork();
         return result;
     }
+
+#ifdef MOONLIGHT_LIVEAREA_PROBE
+    livearea_probe_run();
+#endif
 
     result = Initialize();
     if (result != 0) {

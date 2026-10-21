@@ -35,11 +35,15 @@ option(MOONLIGHT_ACTIVE_DISCONNECT_TEST "Test only: disconnect/reconnect after a
 option(MOONLIGHT_PENDING_DISCONNECT_TEST "Test only: disconnect after launch response before RTSP" OFF)
 option(MOONLIGHT_HTTP_DISCONNECT_TEST "Test only: disconnect inside launch/resume HTTPS transfer" OFF)
 option(MOONLIGHT_STARTUP_DISCONNECT_TEST "Test only: disconnect at common-c RTSP stage entry" OFF)
+option(MOONLIGHT_LIVEAREA_PROBE "Test only: publish LiveArea text and record the tapped frame target" OFF)
 if((MOONLIGHT_STARTUP_DISCONNECT_TEST AND (MOONLIGHT_DISCONNECT_TEST OR MOONLIGHT_ACTIVE_DISCONNECT_TEST OR MOONLIGHT_PENDING_DISCONNECT_TEST OR MOONLIGHT_HTTP_DISCONNECT_TEST)) OR
    (MOONLIGHT_HTTP_DISCONNECT_TEST AND (MOONLIGHT_DISCONNECT_TEST OR MOONLIGHT_ACTIVE_DISCONNECT_TEST OR MOONLIGHT_PENDING_DISCONNECT_TEST)) OR
    (MOONLIGHT_DISCONNECT_TEST AND MOONLIGHT_ACTIVE_DISCONNECT_TEST) OR
    (MOONLIGHT_PENDING_DISCONNECT_TEST AND (MOONLIGHT_DISCONNECT_TEST OR MOONLIGHT_ACTIVE_DISCONNECT_TEST)))
   message(FATAL_ERROR "Select only one disconnect test: idle, active stream, pending setup, HTTP or startup")
+endif()
+if(MOONLIGHT_LIVEAREA_PROBE AND (MOONLIGHT_DISCONNECT_TEST OR MOONLIGHT_ACTIVE_DISCONNECT_TEST OR MOONLIGHT_PENDING_DISCONNECT_TEST OR MOONLIGHT_HTTP_DISCONNECT_TEST OR MOONLIGHT_STARTUP_DISCONNECT_TEST))
+  message(FATAL_ERROR "LiveArea probe cannot be combined with a disconnect test")
 endif()
 if(MOONLIGHT_HEAP_TRACE AND NOT MOONLIGHT_SYSTEM_APP)
   message(FATAL_ERROR "MOONLIGHT_HEAP_TRACE requires MOONLIGHT_SYSTEM_APP=ON")
@@ -231,6 +235,15 @@ elseif(MOONLIGHT_DISCONNECT_TEST)
   target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/disconnect_smoke.cpp)
 endif()
 
+if(MOONLIGHT_LIVEAREA_PROBE)
+  message(STATUS "LiveArea text probe enabled: startup publishes VLMP00001 labels and logs the launch target")
+  target_compile_definitions(${PROJECT_NAME} PRIVATE MOONLIGHT_LIVEAREA_PROBE=1)
+  target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/livearea_probe.cpp)
+  set(MOONLIGHT_PROBE_STUB ScePromoterUtil_stub)
+else()
+  set(MOONLIGHT_PROBE_STUB "")
+endif()
+
 if(MOONLIGHT_SYSTEM_APP)
   target_compile_definitions(${PROJECT_NAME} PRIVATE
     MOONLIGHT_SYSTEM_APP=1
@@ -297,6 +310,7 @@ target_link_libraries(${PROJECT_NAME}
   ScePaf_stub_weak
   SceAppSettings_stub
   SceAppUtil_stub
+  ${MOONLIGHT_PROBE_STUB}
   SceCommonDialog_stub
   SceCommonGuiDialog_stub
   SceIme_stub
