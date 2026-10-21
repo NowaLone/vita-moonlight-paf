@@ -650,6 +650,12 @@ ongoing stream threads and main-thread completion delivery remain. This is the t
   traces, errors, input blocking, shutdown and normal profile remain pending. The embedded
   revision does not establish inclusion of header fix 279d35e; no build transcript supplied.
   Do not broadly close F5 or change dialog timing based on the unexplained return alone.
+  Close-contract investigation, 2026-10-21: installed/pinned and newer local ScePaf-RE headers
+  declare int32_t without result semantics. BHBB/NetStream ignore the return and clear the slot
+  after one call; our negative-result retry is an unverified project assumption. Stub/NID
+  inspection establishes the export only. Both available core dumps omit the Close body.
+  Exact semantics require a decrypted common_gui_dialog.suprx.elf; runtime remains unchanged.
+  Evidence/revision details are recorded in docs/UI.md. This investigation does not close F5.
 
 Source findings and isolated follow-ups (basic user smoke test passed; full runtime acceptance remains pending):
 

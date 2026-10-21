@@ -209,11 +209,13 @@ result publication and main-thread event delivery remain. Messages still describ
 Apps and stream start; no custom CXML imitation or minimum display duration is introduced.
 
 The service retains its slot while busy and calls the native PAF `Dialog::Close(slot)` at
-completion. On successful Close it releases the logical slot, following BHBB; PAF owns remaining
-widget/animation cleanup. This API does not expose SceMsgDialog's FINISHED/Term contract, so
-do not poll it using SceMsgDialogGetStatus or invent an animation-ready condition. A Close error
-keeps ownership and is retried by the existing PAF poll, logging repeated identical errors once.
-Next-step dispatch occurs only after backend completion (Connect/apps) and successful slot close.
+completion. The current code treats a nonnegative return as success and releases the logical
+slot; a negative return retains ownership and is retried by the existing PAF poll, logging
+repeated identical values once. This return-value interpretation is a project assumption,
+not established by BHBB or a documented native contract (see the investigation below).
+This API does not expose SceMsgDialog's FINISHED/Term contract, so do not poll it using
+SceMsgDialogGetStatus or invent an animation-ready condition.
+Next-step dispatch occurs only after backend completion (Connect/apps) and logical slot release.
 Shutdown also closes the owned PAF slot. No callback is attached to this noninteractive wait.
 
 Native SceMsgDialog OK errors and Delete OK/Cancel, the accepted static pairing layout and
@@ -249,6 +251,36 @@ trace omits Connect/Apps dialog open/close lines, so their full handoffs/latency
 log-verified. This is one system-profile run, not normal-profile, failure, shutdown or stress
 coverage. Its embedded revision does not establish inclusion of `279d35e` (the header fix);
 no configure/build transcript is supplied. No new build or device test was run by the agent.
+
+**Close return-contract investigation [source/binary metadata; unresolved, 2026-10-21]:**
+the installed ScePaf-RE header, pinned by vitasdk-paf-component to
+[`b76d6ae`](https://github.com/GrapheneCt/ScePaf-RE/blob/b76d6ae00516b107d37e7e8a1a16211e3b729a07/include/common_gui_dialog.h),
+and the newer locally available upstream revision
+[`7b1d3b6`](https://github.com/GrapheneCt/ScePaf-RE/blob/7b1d3b6aca81131fd90c65b81f317909e4feda1c/include/common_gui_dialog.h)
+both declare `static int32_t Close(int32_t instanceSlot)`. Neither specifies result codes or
+whether another call is required. The project's narrow declaration matches that return type.
+
+BHBB at the revision linked above and
+[NetStream `f812de8`, `source/dialog.cpp`](https://github.com/GrapheneCt/NetStream/blob/f812de87f739a740ae71fa1c23cd5c788084530c/NetStream/source/dialog.cpp)
+call Close once and clear their current slot without inspecting its result. This establishes
+their usage, but does not prove that the native function returns void or that every negative
+value can safely be ignored. The import metadata maps Close to NID `0xBC311DC0` in
+SceCommonGuiDialog (library NID `0x4B4AAE97`); the installed stub confirms the symbol
+`_ZN3sce15CommonGuiDialog6Dialog5CloseEi`. A stub contains no native implementation, and
+[ordinary non-template C++ symbol names omit the return type](https://itanium-cxx-abi.github.io/cxx-abi/abi.html#mangling-function).
+Thus symbol matching alone cannot verify the return contract.
+
+Two available Vita core dumps contain that export at Thumb addresses `0xe01d4ced` and
+`0xe052412d` (both text offset `0x2b6c` after clearing the Thumb bit), but neither includes
+the memory page containing the function body. Their included CommonGuiDialog text pages
+cover only the tail of the module. No decrypted native module was found in the inspected local
+references. Read-only header/history, reference-wrapper, stub/NID and core-segment inspection
+therefore cannot explain `0xEE251690` or justify changing the runtime return handling.
+
+**Next evidence:** a decrypted `common_gui_dialog.suprx.elf` containing NID `0xBC311DC0`
+would allow inspection of the actual return paths and any close-state checks. Until then,
+keep the return semantics explicitly unresolved; no runtime change, build or new device test
+was made for this investigation.
 
 ## 2. Screen geometry and the layout language
 

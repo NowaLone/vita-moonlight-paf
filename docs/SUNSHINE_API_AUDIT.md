@@ -1076,8 +1076,9 @@ poll at 15/2 ms, close requests at 1750/1531 ms and Term at 2602/2383 ms for Con
 The maintainer still sees late/brief windows and selects BHBB's native `s_dialogTextSmallBusy`.
 ConnectionService now checks/loads CommonGuiDialog and owns a PAF Show/Close slot for the three
 foreground steps. Backend result ownership and event dispatch remain; no GameStream request,
-pairing or streaming protocol is changed. PAF Close success releases the logical slot as in
-BHBB; native PAF owns visual cleanup, without SceMsgDialog FINISHED/Term polling. Errors/Delete
+pairing or streaming protocol is changed. The project releases the logical slot on a nonnegative
+PAF Close return; BHBB itself does not check the return. Native PAF owns visual cleanup,
+without SceMsgDialog FINISHED/Term polling. Errors/Delete
 still use SceMsgDialog. Pending checks include native appearance/latency, input blocking,
 success/error handoffs and shutdown on Vita. No automatic visibility or speed claim is made.
 
@@ -1090,6 +1091,13 @@ Do not decode it as a known SCE error or claim the retry proves a permanent fix.
 Connect/Apps dialog trace, failure/shutdown/normal-profile matrix or build transcript is supplied;
 inclusion of the later header fix cannot be inferred from that embedded revision. F5 remains
 open beyond the accepted appearance/launch-stop path. Runtime code is unchanged for this record.
+
+**Close-contract investigation, 2026-10-21:** source/header and binary-metadata checks do not
+establish the meaning of the return. ScePaf-RE declares int32_t without result semantics;
+BHBB/NetStream call once and ignore it. Our negative-result retry remains a project assumption.
+The two available core dumps omit the function body; a decrypted native module is needed to
+inspect it. See docs/UI.md for exact reference revisions and export details. No GameStream or
+runtime code was changed, and no build/device test was run for this investigation.
 
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
