@@ -2,6 +2,13 @@
 
 Source-level audit date: 2026-10-16
 
+**Current follow-up, 2026-10-21:** this is a dated architecture baseline. Use
+[the consolidated API decision](docs/SUNSHINE_API_AUDIT.md#6-completion-and-next-work) and
+ROADMAP's current work decision for implementation priorities. XML parsing/cache invalidation,
+Apps storage, TLS pinning and several transport/foreground ownership fixes have since landed;
+their scoped evidence is in the API audit. Next implementation is reliable pairing/stream
+completion delivery on event-ring overflow, before more routine teardown test variants.
+
 ## Scope
 
 This document reviews the current `master` branch of `NowaLone/vita-moonlight-paf` as a PAF/system-UI port of Vita Moonlight. The implementation was compared with the relevant patterns in:
@@ -161,6 +168,16 @@ completion of a serialized foreground step. Do not expand subscriptions merely t
 parallel foreground workflows. Stream/pairing terminal delivery and low-value discovery-event
 coalescing still need focused ownership/overflow review.
 
+**Consolidation check, 2026-10-21:** QueueEvent still logs then drops any event at capacity 16.
+ConnectionService::GetCompletedJobEvent retains only Connect/Applications results; Launch is
+excluded, and PairingService does not retain its terminal result. Lost STREAM_STARTED/FAILED
+can therefore prevent PrepareCompletion from closing the launch busy dialog; lost STOPPED can
+prevent page/buffer cleanup, and lost pairing completion can leave the PIN page waiting.
+The actual overflow branch was interpreted at counts 15/16/17 for seven lifecycle event kinds
+(21 serial cases); it drops all kinds at full capacity. No saturation was reproduced on Vita.
+Keep this as a concrete next source correction, with bounded completion ownership/order checks,
+not a broad event-bus rewrite or another protocol endpoint.
+
 ### 4. Persistence APIs can report success even when the file was not saved
 
 `save_device_info()` returns `void`. If `fopen()` fails it only logs and returns.
@@ -203,15 +220,28 @@ Network/sysmodule cleanup is explicit, so AppUtil should receive the same treatm
 
 ### Application cache should be invalidated on host/session transitions
 
-The application cache is global. Connecting/disconnecting a host does not explicitly clear `s_applications_valid` / `s_application_count`.
+At the audit baseline the global application cache survived host transitions.
 
-The current Apps page normally waits for a fresh refresh event, so stale data is not usually displayed, but the API itself can return a previous host's cached list if queried before refresh. Clear the cache when changing hosts and on shutdown/disconnect.
+The baseline Apps page normally waited for a fresh refresh event, but the API could still return
+a previous host's cached list if queried before refresh. The recommendation was to clear the
+cache when changing hosts and on shutdown/disconnect.
+
+**Source follow-up, rechecked 2026-10-21:** invalidate_applications now clears count/valid/data
+at connect, disconnect, shutdown and failed refresh. This baseline finding is source-addressed;
+concurrent host/event races remain separate, and the API audit records the tested two-host flow.
 
 ### Application-list parsing is ad-hoc despite Expat already being available
 
-`moonlight_api_get_applications()` scans XML with `strchr()`, `strstr()`, and `atoi()`. It does not provide robust malformed-document handling or XML entity decoding.
+At the audit baseline `moonlight_api_get_applications()` scanned XML with `strchr()`, `strstr()`,
+and `atoi()`, without robust document validation/entity handling.
 
-The project already links Expat and `legacy_gamestream.c` already has XML parser patterns. Reusing Expat for `/applist` would remove a class of parser edge cases and make >8-app tests easier to write.
+The baseline recommendation was to reuse the already linked Expat and legacy XML parsing
+patterns for `/applist`, rather than adding another parser dependency.
+
+**Source follow-up, rechecked 2026-10-21:** shared gamestream_xml.c now uses Expat for applist
+and launch/resume status/results; invalid refreshes do not populate the cache. Actual-parser
+C fixtures exist but remain uncompiled/unrun by the agent. That verification gap is distinct
+from the old missing parser implementation; see API audit A08/F3.
 
 ### Full Vita Moonlight mapping support has not been ported
 
