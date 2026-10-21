@@ -363,7 +363,10 @@ LiveArea images under `sce_sys/` must be 8-bit indexed PNG (color type 3). A 24-
 manual pages; adding a file under `sce_sys/` alone does not include it in the VPK.
 Install the full rebuilt VPK when changing these assets. The template content/frame
 revisions are now 2. Packaging completeness and lossless palette conversion were
-checked without a build; the reported icon-only LiveArea still needs Vita validation.
+checked without an agent-run build. On 2026-10-21, the maintainer confirmed the
+LiveArea assets appeared after deleting the old app and installing the full VPK
+again. Installation over the existing app had retained the default appearance;
+the cause and a reliable update-in-place procedure remain unverified.
 
 The CXML build is fail-fast: if `psp2cxml-tool` is not available, the build stops instead of using an unrelated fallback resource.
 

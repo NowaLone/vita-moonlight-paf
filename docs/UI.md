@@ -42,10 +42,17 @@ LiveArea packaging follow-up (2026-10-21): `CMakeLists.txt` now includes the sev
 `sce_sys/livearea/contents/frame*.png` images referenced by the `a5` template and
 the four `sce_sys/manual/` pages **[code]**. `frame1.png` uses an 8-bit palette with
 identical decoded RGB pixels; template content/frame revisions are 2 **[code]**.
-The maintainer reports only the icon appears after installing the full system VPK.
-Missing frame files were confirmed in the earlier local packages, but whether this
-explains the missing background/gate is unproven. Rebuild/full VPK installation and
-Vita verification remain pending **[open]**; layout and image content are unchanged.
+Missing frame files were confirmed in the earlier local packages. After installing
+the full updated system VPK over the existing app, the maintainer's screenshot still
+showed the standard background/gate while the Guide button appeared **[shot]**.
+The maintainer reported `a1` in the installed app's template and no template at the
+checked `ur0:appmeta` path; the supplied archive XML matched packaged `a5` revision 2
+**[code]**. After deleting the old app and installing again, the maintainer confirms
+the requested LiveArea assets appeared **[hw, user-reported, tested Vita]**. This
+supports stale installation/registration state, but does not establish which step
+preserved it. Updating LiveArea in place remains unverified **[open]**; clean removal
+is a recovery observed on this device, not a required general update procedure.
+Layout and image content are unchanged.
 
 ## 1. Principles
 
