@@ -209,7 +209,8 @@ int LegacyMoonlightAdapter::StartApplication(int application_id)
         return result;
     }
 
-    m_connection_state = MOONLIGHT_CONNECTION_STREAMING;
+    /* Success only schedules setup. ForwardEvent owns the STREAM_STARTED/FAILED
+     * transition, which may already have arrived before the API call returns. */
     return 0;
 }
 
@@ -224,7 +225,7 @@ int LegacyMoonlightAdapter::StopApplication()
         return result;
     }
 
-    m_connection_state = MOONLIGHT_CONNECTION_PAIRED;
+    /* The session owner reports STREAM_STOPPED after transport cleanup. */
     return 0;
 }
 

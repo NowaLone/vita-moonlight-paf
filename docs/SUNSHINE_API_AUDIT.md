@@ -624,8 +624,10 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Semantics:** BUSY/currentgame describes host application state, not the number of active streams.
   S may retain an app after all clients disconnect. A positive local enqueue result is not STREAM_STARTED.
 - **Current:** L3 normalizes `currentgame` to zero unless state contains `_SERVER_BUSY`; L1 tracks
-  pending/active separately, but L4 adapter eagerly reports STREAMING after worker enqueue and
-  DISCONNECTED before deferred cleanup. No ongoing host-state refresh or exposed durable snapshot.
+  pending/active separately. L4 now changes stream state on lifecycle callbacks, not successful
+  Start/Stop request return (source follow-up in F5); it still reports DISCONNECTED before deferred
+  host cleanup. No ongoing host-state refresh or exposed durable snapshot. The connection enum
+  does not expose pending/stop ownership; it must not replace the foreground/session guards.
 - **Upstream / Sunshine:** QH normalizes BUSY; QS waits for callbacks; S uses `proc::proc.running()`.
 - **Verified / runtime:** source; T5/T8 compare UI, API/adapter state, host app ID and actual transport.
 
@@ -1014,7 +1016,7 @@ The async event mechanism is internal completion delivery, not a product require
 parallel foreground workflows. The source-risk findings below still apply to ownership
 and late completion; the proposed direction is a small serialized operation model.
 
-**Root cause:** L4 eagerly changes adapter state on enqueue/stop/disconnect; L1/L2 workers and
+**Baseline root cause:** L4 eagerly changes adapter state on enqueue/stop/disconnect; L1/L2 workers and
 callbacks update globals without a synchronization owner. L7/L4 event delivery can lag and
 MoonlightApp's 16-event queue drops overflow (now logged by the follow-up below). ConnectionService exposes Disconnect but
 no page calls it. Closing a PAF page is not necessarily protocol disconnect.
@@ -1127,6 +1129,39 @@ successful enqueue and Pairing PIN/widget traces are removed, together with timi
 Failure/fallback logs remain; historical evidence above is retained. No protocol, cancellation
 or dialog-lifecycle behavior changes. Eight existing non-build checks pass; the agent did not
 build or run on Vita for this cleanup. See docs/UI.md for the exact scope.
+
+**Adapter Start/Stop state correction, 2026-10-21; source only:** a focused review of the
+remaining F5 state problem finds a reproducible ordering defect: StartApplication assigns
+STREAMING after `moonlight_api_start_application()` returns 0, even if the setup worker has
+already emitted STREAM_FAILED/STOPPED. It overwrites the callback's PAIRED state. Without a
+callback yet it also reports streaming before transport establishment. StopApplication similarly
+reports PAIRED immediately after accepting a stop request, before owner cleanup/STREAM_STOPPED.
+
+Minimal correction: remove those two request-return assignments. Existing ForwardEvent handles
+STREAM_STARTED → STREAMING and STREAM_STOPPED/FAILED → PAIRED; synchronous failures keep their
+return code and do not mutate adapter state. While setup is pending the last state remains PAIRED;
+while stopping an active stream it remains STREAMING until the terminal event. These values are
+observed lifecycle state, not authorization to start another operation; service reservation and
+L1/L2 pending/active guards remain authoritative. No new pending enum, UI, endpoint or log is added.
+
+This follows V's connection-start callback, QS's callback/deferred-cleanup separation and
+[common-c's callback contract](https://github.com/moonlight-stream/moonlight-common-c/blob/aeba988e0a302145eff2e70fa3e11cd98ec01f5d/src/Limelight.h):
+start success is a connectionStarted event; explicit LiStopConnection does not generate
+connectionTerminated, so L2's existing post-cleanup STREAM_STOPPED remains necessary.
+The installed source flow through L1/L2 was inspected; no stream-owner change is required.
+
+`tests/test_adapter_lifecycle.py` interprets the actual two method bodies and ForwardEvent with
+mocked API calls. Ten accepted-request/event orderings (callback before/after return), six
+synchronous failure cases and both no-host guards are checked. Before correction seven ordering
+cases fail; after it all eleven Python tests pass. This is non-build serial source interpretation,
+not C++ ABI/type checking, real-thread synchronization, hardware playback or event-loss testing.
+
+DisconnectHost is deliberately a separate follow-up: its early host flag clear currently blocks
+new Start/Pair requests. Removing it alone would permit reuse while deferred cleanup runs;
+pending-disconnect admission/serialization must be established first. Adapter/API shared-state
+synchronization, stale events and unexposed DisconnectHost runtime cases remain F5 gaps. Next
+device regression: normal start/stop, fast setup failure then retry, and pending-setup stop;
+observe return to Apps/new start without a false streaming/idle state. No agent build/device run.
 
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
@@ -1468,8 +1503,11 @@ exposes all cached entries up to the unchanged backend bound of 64. Ten-row popu
 is now log-verified and the maintainer reports the requested >8 check OK. Normal
 switching between two PCs with different lists and back is now user-confirmed, without
 a new log. The empty-list message/no-repeat/no-hang scenario is now also user-confirmed.
-The maintainer explicitly defers the unverified 64/65-app boundary test. Next review
-F5 asynchronous backend state/operation ownership; concurrent/stress host changes remain open. The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
+The maintainer explicitly defers the unverified 64/65-app boundary test. F5 foreground dialog
+handoffs now have the scoped Vita evidence above; adapter Start/Stop eager-state writes are
+source-corrected with ordering checks. Next establish pending-disconnect admission/ownership
+before removing the adapter's early disconnect state. Concurrent/stress host changes remain open.
+The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
 cancellation/conflict trace verifies local cancellation followed by genuine server 409,
 not PIN success). A subsequent fragment now verifies pairing Run result 0, job release
 and Apps retrieval/population of ten entries. F8 active-wait cancellation, job release and

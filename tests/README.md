@@ -14,6 +14,12 @@ combinations and the retained-result classification (including a successful empt
 They do not execute PAF dialogs, threads, event-ring delivery or the complete state machine;
 dialog handoffs and overlap prevention still require maintainer build/Vita validation.
 
+The adapter lifecycle checks interpret the actual StartApplication/StopApplication and
+ForwardEvent method bodies with mocked API calls. They exercise callbacks before and after
+API return, immediate errors and no-host rejection. They reproduced seven ordering failures
+before the eager-state writes were removed. These are serial ordering checks, not C++ type
+checking, real-thread synchronization, PAF execution or coverage of the DisconnectHost API.
+
 `gamestream_xml_test.c` exercises the actual Expat parser API: entities/UTF-8,
 empty and bounded lists, malformed documents, invalid IDs, root errors, verb
 results, and session URLs. These fixtures require compilation by the maintainer;
