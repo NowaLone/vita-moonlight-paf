@@ -1163,6 +1163,12 @@ synchronization, stale events and unexposed DisconnectHost runtime cases remain 
 device regression: normal start/stop, fast setup failure then retry, and pending-setup stop;
 observe return to Apps/new start without a false streaming/idle state. No agent build/device run.
 
+**Maintainer follow-up:** after the Start/Stop correction, the maintainer reports
+“я проверил, всё работает”. This accepts the observed smoke-test behavior on their Vita.
+No new log, installed revision or individually enumerated fast-failure/pending-stop cases
+were supplied; do not extend this confirmation to those interleavings or all F5 coverage.
+The next independent task remains pending-disconnect admission/ownership.
+
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.
