@@ -708,8 +708,9 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   Immediate recovery FAILS at encrypted RTSP OPTIONS (-1); no STREAM_STARTED or PASS. Reported
   Sunshine 2025.924.154138 logs a matching RTSP tag-verification failure. See F5 for source
   analysis and remaining uncertainty. The later in-flight HTTPS test passes in the scoped run
-  below; common-c startup, transport errors/timeouts, immediate-recovery reproducibility and the
-  full cancellation/lifetime matrix stay open.
+  below. Common-c stage-entry late-start teardown/recovery is also verified below; prompt
+  interruption, startup failure unwind, transport errors/timeouts, immediate-recovery
+  reproducibility and the full cancellation/lifetime matrix stay open.
   A second host now has a log-verified PASS after a maintainer-reported approximately five-second
   pause before error OK: paired reconnect, same-app resume/RTSP, audio packets, 404 decoded frames
   and final stop/release on maintainer-reported Sunshine 2026.914.233613. Timing is unmeasured;
@@ -721,8 +722,11 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   version, client revision and error-OK timing are unspecified. The maintainer also confirms
   visible image, audible sound and double-PS stop; final release/unmaps are not logged. This is
   successful client-side in-flight ownership ordering, not curl abortion or remote rollback.
-  A separate common-c startup test is now prepared at RTSP stage entry (F5), with late STARTED/
-  owner STOPPED explicitly distinguished from prompt cancellation; no device run yet.
+  The common-c stage-entry test now verifies Disconnect=0 → late STARTED → owner STOPPED/CLOSED,
+  successful audio release/three old-buffer unmaps, paired reconnect/four Apps and encrypted
+  RTSP/PASS late_start=1, then sampled decoded frame 301 (F5). The maintainer confirms image,
+  audible sound and double-PS stop; recovery audio receipt/final release are not logged. This
+  proves late-start teardown/recovery, not prompt cancellation.
   Never substitute `/cancel` for local cancellation: its scope is host-wide (A20).
 
 ### A17 — Disconnect during active stream — partial
@@ -767,9 +771,12 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   after reconnect for this exact run (2026-10-21). A later in-flight HTTPS cancellation run
   also verifies paired reconnect, fresh four Apps, same-app encrypted RTSP/PASS, 661 decoded
   frames and incoming audio. The maintainer also confirms visible image, audible sound and
-  ordinary double-PS stop for that run; final release/unmaps are not logged (F5). Pending-launch
-  failure variants, concurrent host/cache races, repeated failure cycles and remaining T8 cases
-  stay open.
+  ordinary double-PS stop for that run; final release/unmaps are not logged (F5). A subsequent
+  common-c startup late-start teardown/recovery trace verifies STOPPED/CLOSED, old audio/buffer
+  release, paired reconnect/four Apps and same-app encrypted RTSP/PASS through 301 decoded
+  frames. The maintainer also confirms image, audible sound and double-PS stop for that run;
+  recovery audio receipt/final release are not logged. Pending-launch failure
+  variants, concurrent host/cache races, repeated failure cycles and remaining T8 cases stay open.
   Automatic reconnect here is opt-in test behavior; production network autoreconnect is not implemented.
 
 ### A19 — Host-side session cleanup — partial (end-to-end evidence pending)
@@ -1587,8 +1594,8 @@ for HTTP errors/timeouts, RTSP/common-c startup cancellation, shutdown and repea
 recovery. Next prepare a separate runtime trigger for cancellation inside RTSP/common-c startup.
 The agent analyzed the maintainer log; no agent build/device run.
 
-**Common-c startup test source preparation, 2026-10-21; build/Vita pending:** the next independent
-A16 gap is Disconnect after LiStartConnection has begun, while common-c owns partially initialized
+**Common-c startup test source preparation, 2026-10-21 (before maintainer run below):** the next
+independent A16 gap is Disconnect after LiStartConnection has begun, while common-c owns partially initialized
 resources. The minimal new mode MOONLIGHT_STARTUP_DISCONNECT_TEST=ON holds the existing
 stageStarting(STAGE_RTSP_HANDSHAKE) callback: platform/name/audio initialization has succeeded,
 RTSP handshake I/O has not started yet. The main-thread poll requests real Disconnect while
@@ -1632,8 +1639,50 @@ Atomics, scheduling/services and memory are mocked; no compilation/CMake configu
 common-c/RTSP/TLS, PAF navigation, synchronization, device or leak validation was run. This
 checkpoint covers partial startup at RTSP stage entry, not mid-handshake blocking I/O or prompt
 cancellation latency. Build/Vita remain maintainer work; A16/A18/F5 stay partial. Next run the
-[startup test procedure](../tests/runtime/README.md#common-c-startup-scenario-source-prepared-vita-validation-pending)
+[startup test procedure](../tests/runtime/README.md#common-c-startup-scenario)
 and capture startup, owner stop/CLOSED, recovery playback and final cleanup separately.
+
+**Common-c startup maintainer Vita result, 2026-10-21:** host 192.168.1.134, server UUID
+3D7D0EDF-A6A6-F303-0A1C-217868AB07D4, app 1093255277. Source mode was prepared in `95eb968`;
+the fragment has no Launch marker/current Sunshine version, so exact installed client revision/
+profile and host version remain unspecified. Current checkout includes the maintainer's later
+`c2040c9` asset commit; this does not identify the installed binary.
+
+Observed sequence: accepted resume → LiStartConnection stages 1–3 → stage-4 checkpoint →
+Disconnect=0 → successful RTSP and remaining startup → connectionStarted/setup=0 → immediate
+session-owner stop. Late STREAM_STARTED is delivered while stop is underway and the ordinary
+Stream page opens. Audio port 6 drain/release return 0; all common-c stop/cleanup stages finish,
+owner result=0 → matching STOPPED → CLOSED/DISCONNECTED. Ordinary frontend handling restores
+the infobar. Reconnect is enqueued before deferred framebuffer release; all three old unmaps
+return 0 and `deferred frame buffers released` occurs before the new stream setup. This is the
+intended separation of host cleanup from PAF surface lifetime, not proof that CLOSED waits for
+all frontend resources.
+
+Reconnect reaches PAIRED without PIN, authenticated applist count=4 and Apps rebuild
+before=4/after_delete=0/after_insert=4. Same-app resume/encrypted RTSP/all startup stages succeed;
+setup=0 and `PASS startup owner STOPPED -> CLOSED -> reconnect -> stream started app=1093255277
+late_start=1` are logged. First video arrives after 300 ms. After frame 1/number 4, IDR wait,
+consecutive-drop limit and IDR request, decode continues through sampled frame 301/number 424.
+This demonstrates recovery after that burst, not sustained stream quality acceptance.
+
+The first intentionally stopped session reports no received audio/video and decoded frames=0.
+Its ENet interruption/control-failed:4 occurs during owner stop, followed by successful cleanup.
+Local common-c Misc.c maps ConnectionInterrupted to EINTR; LiStopConnection sets that flag and
+disables termination callbacks before teardown. These lines do not establish a failure of the
+second session. The second session initializes audio but the fragment contains no received-audio
+marker or final manual stop/release. The maintainer subsequently confirms visible image, audible
+sound and ordinary double-PS stop (user report, separate from the log evidence).
+USER_RW free is 33880 KiB initially, 27376 after first transport stop, 33336 after old framebuffer
+release and 33600 at paired reconnect. The 280 KiB difference from the initial connection is a
+single-cycle observation, not a leak diagnosis or a leak-free claim.
+
+Record this targeted late-start owner cleanup/reconnect/resume/PASS as verified. The log also
+confirms deferred cancellation reaches STARTED before stop; it does not implement/verify prompt
+LiInterruptConnection integration, blocked-RTSP cancellation or failed-init rollback. A16/A18/F5
+remain partial for those paths, timeouts, shutdown and repeats. Next prepare an isolated safe
+startup-interrupt follow-up retaining the entry/reset/owner invariants above. Final recovery
+resource-release logs remain unprovided. No runtime-code change or agent build/device run
+accompanies this record.
 
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
@@ -1995,8 +2044,12 @@ verifies outgoing-header checkpoint → Disconnect=0 → transfer completion →
 reconnect/four Apps → same-app encrypted RTSP/setup=0/PASS, 661 decoded frames and incoming
 audio. The maintainer also confirms visible image, audible sound and ordinary double-PS stop;
 final release/unmaps are not logged. Current version/revision/error-OK timing are unspecified.
-The common-c startup mode is now source-prepared at RTSP stage entry and records late STARTED/
-owner STOPPED explicitly. Next run it on Vita to verify cleanup/recovery and final playback/stop.
+The common-c startup trace now verifies stage-4 Disconnect=0 → late STARTED → owner STOPPED/
+CLOSED, successful first-session audio release/three unmaps, paired reconnect/four Apps and
+same-app encrypted RTSP/PASS late_start=1, followed by decoded video through frame 301. The
+maintainer confirms visible image, audible sound and ordinary double-PS stop. Recovery audio
+receipt/final resource release are not logged; current version/revision are unspecified. Next
+prepare isolated safe startup interruption retaining single-owner cleanup and return-before-reuse.
 Pending-launch, concurrent/stress host changes and broader shared-state ownership remain open.
 The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
 cancellation/conflict trace verifies local cancellation followed by genuine server 409,

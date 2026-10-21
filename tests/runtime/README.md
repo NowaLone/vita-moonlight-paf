@@ -390,7 +390,7 @@ device run accompanies this record. Restore the ordinary package as described ab
 prepare a separate RTSP/common-c startup cancellation scenario. Full evidence and limits: API audit F5.
 
 
-## Common-c startup scenario (source prepared; Vita validation pending)
+## Common-c startup scenario
 
 `MOONLIGHT_STARTUP_DISCONNECT_TEST=ON` selects a separate one-shot controller. It holds the
 sole stream worker in the existing `stageStarting(STAGE_RTSP_HANDSHAKE)` callback, inside
@@ -470,4 +470,28 @@ uses LiInterruptConnection while retaining deferred cleanup/serialization. These
 not justify injecting an interrupt only in the test or freeing state from a second thread.
 A separate production follow-up would need safe entry/publication after common-c resets its
 interrupt flag, plus the existing owner/return-before-reuse contract; this test does not implement it.
-No build or Vita acceptance is recorded for this mode yet.
+The targeted maintainer runtime result is recorded below; broader acceptance remains open.
+
+
+### Maintainer startup result, 2026-10-21
+
+The supplied log for host .134/app 1093255277 verifies stage-4 checkpoint → Disconnect=0 →
+late STARTED/setup=0 → session-owner stop result=0 → STOPPED → CLOSED/DISCONNECTED. First-session
+audio drain/release and all three deferred framebuffer unmaps succeed. Reconnect is enqueued
+before deferred unmaps; these finish before recovery setup. CLOSED is host/transport completion,
+not a claim that every PAF surface has already been freed.
+
+Paired reconnect needs no PIN; fresh four Apps rebuild correctly. Same-app resume/encrypted RTSP/
+setup=0 reaches PASS late_start=1. First video arrives at 300 ms; decode resumes after the logged
+IDR wait/drop-limit/request sequence and continues through sampled frame 301 (number 424).
+The no-audio/video warnings and ENet interrupt/control-failed:4 belong to the immediately
+stopped first session, whose owner cleanup succeeds. Recovery audio is initialized but no
+received-audio marker or final manual stop appears in this fragment. The maintainer subsequently
+confirms visible image, audible sound and ordinary double-PS stop (user report).
+
+Source mode was prepared in 95eb968; no Launch marker/current Sunshine version identifies this
+installed binary/host. USER_RW free is 33880 KiB initially and 33600 at paired reconnect; one
+cycle neither diagnoses a leak nor proves leak freedom. This closes the targeted late-start
+teardown/recovery test through PASS/decoded video only. Prompt interruption, failed startup
+rollback, blocked RTSP I/O, timeout/shutdown/repeats and logged final recovery resource release
+remain separate. No runtime-code change or agent build/device run accompanies this record.
