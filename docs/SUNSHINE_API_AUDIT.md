@@ -1116,6 +1116,11 @@ not verified: 42 decoded frames, subsequent IDR wait/request and no audio traffi
 user observation is needed before diagnosing a playback issue. No runtime code, build or
 agent device test accompanies this documentation update.
 
+**Maintainer clarification, 2026-10-21:** in reply to the moving-image/sound question, the
+maintainer reports “всё нормально”. Normal observed playback in this run is user-confirmed.
+The IDR/audio log warnings remain unexplained; this report does not establish a playback defect
+or justify streaming changes. Longer-session quality and the remaining F5 cases are unchanged.
+
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.

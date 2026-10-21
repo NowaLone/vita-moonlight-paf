@@ -350,6 +350,11 @@ interruption/control error 4 appears after explicit stop and is consistent with 
 of an earlier network disconnect. This record changes documentation only; no agent build or
 device test was run.
 
+**Playback clarification [hw, user-reported, 2026-10-21]:** asked whether this attempt had moving
+video and sound or a playback problem, the maintainer replies “всё нормально”. Observed playback
+is accepted for this run. This does not explain the IDR/audio log warnings or establish sustained
+quality measurements; no playback defect is confirmed and no streaming-code change is made.
+
 ## 2. Screen geometry and the layout language
 
 ### 2.1 Zones (960 x 544, **[shot]**)

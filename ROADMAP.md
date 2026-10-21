@@ -673,6 +673,9 @@ ongoing stream threads and main-thread completion delivery remain. This is the t
   Playback quality is not accepted from this trace: 42 frames, subsequent IDR waiting/request,
   no logged recovery and no audio traffic reported. Await user observation before attributing
   a playback symptom or making runtime changes. No revision marker or agent build/device run.
+  Subsequent maintainer reply to the image/sound clarification: “всё нормально”. Record normal
+  observed playback for this run as user-confirmed. The log warnings remain unexplained, but
+  no playback defect is confirmed and no streaming-code change is warranted from this report.
 
 Source findings and isolated follow-ups (basic user smoke test passed; full runtime acceptance remains pending):
 
