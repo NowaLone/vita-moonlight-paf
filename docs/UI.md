@@ -38,9 +38,9 @@ Evidence tags used below:
 - **[code]** read from the source; not a claim about how it looks.
 - **[open]** not verified; do not treat as fact.
 
-LiveArea packaging follow-up (2026-10-21): `CMakeLists.txt` now includes the seven
+Earlier LiveArea packaging follow-up (2026-10-21): `CMakeLists.txt` initially included the seven
 `sce_sys/livearea/contents/frame*.png` images referenced by the `a5` template and
-the four `sce_sys/manual/` pages **[code]**. `frame1.png` uses an 8-bit palette with
+the then-four `sce_sys/manual/` pages **[code]**. `frame1.png` uses an 8-bit palette with
 identical decoded RGB pixels; template content/frame revisions are 2 **[code]**.
 Missing frame files were confirmed in the earlier local packages. After installing
 the full updated system VPK over the existing app, the maintainer's screenshot still
@@ -53,6 +53,13 @@ supports stale installation/registration state, but does not establish which ste
 preserved it. Updating LiveArea in place remains unverified **[open]**; clean removal
 is a recovery observed on this device, not a required general update procedure.
 Layout and image content are unchanged.
+
+Three-page manual packaging follow-up (2026-10-21): the maintainer's `529c3c5` asset update
+removed `sce_sys/manual/004.png`, retaining `001.png`–`003.png`. Its stale explicit CMake entry
+caused the reported VPK packaging failure after SELF creation. That entry is now removed
+**[code]**; all 15 source-file entries in the VPK manifest exist and its manual list matches
+the three current pages. No assets are restored or edited. This is a source/manifest check;
+packaging/install and the startup-interruption runtime test remain **[open]**. No agent build.
 
 ## 1. Principles
 

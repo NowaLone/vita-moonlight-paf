@@ -2,6 +2,16 @@
 
 This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordered by risk reduction and release readiness, not by a promise that every item must be completed before development continues. Keep individual changes small and verify device-specific behavior on real PS Vita hardware.
 
+## Packaging follow-up: three-page manual (2026-10-21)
+
+The maintainer's `529c3c5` asset update deletes `sce_sys/manual/004.png`, but the explicit
+VPK manifest still depended on it. The supplied build reaches SELF creation, then fails
+with `No rule to make target .../manual/004.png`. Remove only that obsolete FILE entry;
+retain the current three-page manual and all LiveArea assets. Read-only manifest checks
+confirm all 15 packaged source files exist and the manual list is exactly `001.png`–`003.png`.
+README/UI documentation now reflects the current list. No agent configure/build/package run;
+maintainer VPK rebuild/install and startup-interruption hardware validation remain pending.
+
 ## Requested: build both application profiles in one invocation
 
 `build.sh` now defaults to sequential normal/system builds in separate

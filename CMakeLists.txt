@@ -355,6 +355,5 @@ vita_create_vpk(vita_moonlight_paf.vpk "VLMP00001" ${PROJECT_NAME}.self
   FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/manual/001.png sce_sys/manual/001.png
   FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/manual/002.png sce_sys/manual/002.png
   FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/manual/003.png sce_sys/manual/003.png
-  FILE ${CMAKE_CURRENT_SOURCE_DIR}/sce_sys/manual/004.png sce_sys/manual/004.png
 )
 vita_create_stubs(stubs_${PROJECT_NAME} ${PROJECT_NAME} exports.yml)
