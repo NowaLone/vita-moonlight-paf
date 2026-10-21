@@ -159,7 +159,7 @@ remain separate. Existing audit references C/QS/V/S distinguish local stop from 
 this test sends no `/cancel`, quit or unpair request and uses no Sunshine administrative API.
 
 
-## Pending-setup scenario (source prepared; Vita validation pending)
+## Pending-setup scenario
 
 This mode targets one precise A16 checkpoint: **after a successful HTTPS launch/resume response,
 before RTSP/LiStartConnection**. It does not test cancellation while curl is waiting, inside RTSP
@@ -237,6 +237,32 @@ time and serial interleavings, plus the real post-response cancel-check fragment
 busy-launch disconnect, -7/CLOSED ordering, wrong app/host/state/result, no early STARTED, wait
 for error dismissal, request failures, worker/main timeout, shutdown release and a single
 same-app recovery. They do not compile C++, validate atomic memory ordering or real scheduling,
-run curl/RTSP or prove absence of use-after-free. Build/device acceptance, error UI, recovery
-playback and host-side pending-session cleanup remain pending. Other A16 stages, duplicate
-requests, rollback, shutdown/stress and broader T7/T8 coverage remain separate.
+run curl/RTSP or prove absence of use-after-free. Remaining acceptance is scoped by the actual
+failed Vita result below. Other A16 stages, duplicate requests, rollback, shutdown/stress and
+broader T7/T8 coverage remain separate.
+
+### Maintainer result — 2026-10-21: FAIL during recovery RTSP
+
+The supplied Vita log verifies the checkpoint, real disconnect, -7 setup cancellation before
+RTSP, CLOSED, native error dismissal, paired reconnect and four-app reload/rebuild. The second
+Start was requested and its resume was accepted. RTSP OPTIONS then fails with
+`Failed to decrypt RTSP response`, stage 4 error=-1, setup result=-1 and test FAIL/AwaitRestarted.
+No second STREAM_STARTED or PASS occurs. The maintainer reports Sunshine 2025.924.154138 and
+its `Failed to verify RTSP message tag` at 12:57:23.132. The Vita fragment has no Launch marker.
+
+Versioned source retains an older pending session when another is raised; a fresh client key
+against that retained session explains the two authentication failures, but exact session/key
+selection is inferred, not traced. See [API audit F5](../../docs/SUNSHINE_API_AUDIT.md#f5--sequential-foreground-workflow-operation-state-and-lifecycle-coverage)
+for upstream links and limits. Keep this as a failed immediate-recovery test. It is not an
+error-dialog wait failure; the reconnect/restart markers are present. No automatic retry,
+forced cancel, reused key or encryption downgrade is added. Expiry followed by a new explicit
+attempt remains unverified; no agent build/device test or runtime change accompanies this record.
+
+
+To distinguish pending-session expiry from another RTSP failure, keep this Moonlight process
+open in Apps after FAIL and leave the PC app running. With unchanged Sunshine ping_timeout
+(default [10 seconds in this release](https://github.com/LizardByte/Sunshine/blob/v2025.924.154138/src/config.cpp#L479-L480)),
+wait at least 15 seconds after FAIL and select the same app once. With a custom timeout, wait
+longer than its configured value. Do not relaunch Moonlight for this check: this one-shot test
+is already Finished, so the explicit new start bypasses its checkpoint. Capture resume/RTSP
+and playback/stop logs. This is an unrun diagnostic follow-up, not a client retry workaround.

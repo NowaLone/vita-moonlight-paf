@@ -703,11 +703,13 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   setup may briefly emit STARTED before asynchronous stop. Cancelled setup returns STREAM_FAILED.
 - **Upstream / Sunshine:** C offers `LiInterruptConnection` during pending common-c startup; SR
   expires pending launch session by configured `ping_timeout`. The remote process may still run.
-- **Verified / runtime:** source; an opt-in post-response/pre-RTSP checkpoint test is now
-  source-prepared (F5), requiring -7 then CLOSED before same-app recovery. No Vita acceptance
-  yet. T7 must additionally trigger during HTTP wait and inside common-c startup; verify
-  ordered events and no premature release. Never substitute `/cancel` for
-  local cancellation: its scope is host-wide (A20).
+- **Verified / runtime:** the 2026-10-21 maintainer Vita log verifies post-response/pre-RTSP
+  cancellation (-7), CLOSED, native error dismissal, paired reconnect and a fresh four-app list.
+  Immediate recovery FAILS at encrypted RTSP OPTIONS (-1); no STREAM_STARTED or PASS. Reported
+  Sunshine 2025.924.154138 logs a matching RTSP tag-verification failure. See F5 for source
+  analysis and remaining uncertainty. T7 must additionally trigger during HTTP wait and inside
+  common-c startup; immediate recovery and the full cancellation/lifetime matrix stay open.
+  Never substitute `/cancel` for local cancellation: its scope is host-wide (A20).
 
 ### A17 — Disconnect during active stream — partial
 
@@ -1393,9 +1395,57 @@ before explicit overrides. Ordinary builds contain neither new hook nor source. 
 runtime-file edits are guarded test hooks; protocol/cancellation logic, storage and frontend
 callbacks remain unchanged. Risks to validate: checkpoint/native-dialog interaction, teardown
 ordering, host pending-session behavior and recovered playback. See the exact
-[pending test procedure](../tests/runtime/README.md#pending-setup-scenario-source-prepared-vita-validation-pending).
+[pending test procedure](../tests/runtime/README.md#pending-setup-scenario).
 A16/A18/F5 remain partial; curl wait, RTSP/common-c cancellation, rollback, shutdown and stress
 still require their own coverage.
+
+**Pending runtime failure, 2026-10-21 (maintainer Vita + Sunshine logs):** app=1093255277
+reaches the post-response checkpoint, Disconnect returns 0, and the original setup exits -7
+before RTSP. The test receives that failure followed by CLOSED/DISCONNECTED. The ordinary
+native error opens/terminates; reconnect reaches PAIRED, authenticates and rebuilds four Apps
+rows (`before=4 after_delete=0 after_insert=4`). Thus the test did continue after OK.
+
+A second Start is accepted, sends a fresh resume and receives an accepted rtspenc URL. Its
+RTSP stage 4 fails on the OPTIONS response: `Failed to decrypt RTSP response`, error=-1.
+Common-c unwinds audio/platform initialization; setup returns -1 and the test logs
+`FAIL phase=10` (AwaitRestarted). No STREAM_STARTED, decoded video or PASS is present.
+The maintainer identifies Sunshine **2025.924.154138** and supplies its matching line:
+`[2026-10-21 12:57:23.132]: Error: Failed to verify RTSP message tag`.
+This is a failed immediate stream recovery, not a missed reconnect or an error-OK stall.
+The Vita fragment has no Launch revision marker; its checkpoint diagnostics match the prepared
+test, but the installed revision is not independently identified. USER_RW free is 33876 KiB
+at both connection-ready samples; one cycle does not establish memory safety or leak freedom.
+
+**Version-specific source comparison:** [Sunshine v2025.924.154138 RTSP](https://github.com/LizardByte/Sunshine/blob/v2025.924.154138/src/rtsp.cpp#L413-L469)
+retains one pending launch event until timeout, associates new RTSP sockets with it and declines
+to replace it on another raise. Its encrypted-message handler reports tag failure and responds
+using that session's cipher. [The versioned resume handler](https://github.com/LizardByte/Sunshine/blob/v2025.924.154138/src/nvhttp.cpp#L843-L929)
+constructs key material from the new request and still returns HTTP success when queue
+admission silently retains an older event. Live master RTSP/nvhttp inspected on 2026-10-21 has the same
+relevant behavior; no newer-host runtime result is claimed.
+
+Local L2 generates fresh key/IV per start and passes that material to common-c. This agrees
+with [Moonlight Qt's per-session key generation](https://github.com/moonlight-stream/moonlight-qt/blob/master/app/streaming/session.cpp#L643-L647).
+Vendored Connection.c copies the new StreamConfig and RtspConnection.c creates fresh cipher
+contexts. Source-supported explanation: cancellation leaves pending session A/key A; the next
+resume sends key B, while RTSP still binds to A. Both the server request-tag failure and client
+response-tag failure fit that mismatch. This is an inference from matching versioned source
+and both logs, not captured proof of the exact selected session/key; no secret material or
+session-ID trace was supplied. The log does not diagnose certificate pinning or a PAF delay.
+
+The minimal current action is to record the failed interoperability scenario and preserve its
+FAIL result. No concrete wrong client key construction, premature teardown or supported
+client-only pending-session cleanup is established here. Existing scope excludes Sunshine
+patches and client workarounds; no sleeps/retries, key reuse, encryption downgrade or host-wide
+cancel are introduced. A16/A18/F5 remain partial. Host pending-session expiry followed by a
+new explicit attempt is unverified and can distinguish this explanation without changing the
+client. The [versioned default configuration](https://github.com/LizardByte/Sunshine/blob/v2025.924.154138/src/config.cpp#L479-L480)
+sets ping_timeout to 10 seconds, configurable in milliseconds. With that unchanged default,
+wait at least 15 seconds after FAIL, keep this process open in Apps and select the same app
+once. The one-shot test is Finished, so that explicit attempt will not be held/cancelled again.
+If customized, wait longer than the actual configured timeout. Record resume/RTSP/video/audio;
+this is a diagnostic check, not an implemented timed retry. No build, runtime-code change or
+new hardware run was performed by the agent.
 
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
@@ -1745,8 +1795,11 @@ ordering checks. The normal direct idle disconnect/CLOSED/reconnect/Apps cycle i
 maintainer-log verified on one Vita (2026-10-21). The separate active-stream scenario is now
 log-verified on system build f25e735baf54 through STOPPED/CLOSED, paired reconnect, same-app
 resume, 654 decoded frames, received audio and final manual stop/release. The maintainer also
-confirms visible image and audible sound after reconnect for this exact run. The separate post-response/pre-RTSP pending-launch trigger is now source-prepared (A16);
-next run its expected -7/error-OK/CLOSED/reconnect/same-app recovery on Vita.
+confirms visible image and audible sound after reconnect for that active-stream run. The
+separate post-response/pre-RTSP pending test now verifies -7/CLOSED/error-OK/paired reconnect/
+Apps, but immediate recovery fails at encrypted RTSP OPTIONS (-1). Sunshine 2025.924.154138
+reports request-tag failure; versioned source supports a retained pending-session/key mismatch.
+Next distinguish pending-session expiry and a new explicit start; recovery remains unverified.
 Pending-launch, concurrent/stress host changes and broader shared-state ownership remain open.
 The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
 cancellation/conflict trace verifies local cancellation followed by genuine server 409,
