@@ -2,6 +2,7 @@
 
 No C++ compilation, PAF execution or real threads; this tests ordering semantics only.
 """
+import ast
 import re
 import unittest
 
@@ -22,6 +23,8 @@ def expression(node, values):
     if isinstance(node, c_ast.ID):
         return values[node.name]
     if isinstance(node, c_ast.Constant):
+        if node.type == 'string':
+            return ast.literal_eval(node.value)
         return int(node.value)
     if isinstance(node, c_ast.Cast):
         return expression(node.expr, values)
@@ -51,8 +54,16 @@ def expression(node, values):
             return int(left == right)
         if node.op == '!=':
             return int(left != right)
+        if node.op == '>':
+            return int(left > right)
+        if node.op == '>=':
+            return int(left >= right)
+        if node.op == '<':
+            return int(left < right)
+        if node.op == '-':
+            return left - right
     if isinstance(node, c_ast.FuncCall):
-        if node.name.name == 'vita_debug_log':
+        if node.name.name == 'vita_debug_log' and node.name.name not in values:
             return None
         arguments = [] if node.args is None else [
             expression(arg, values) for arg in node.args.exprs]

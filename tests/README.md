@@ -37,3 +37,7 @@ the agent has not compiled or executed them. Example desktop command for the mai
     /tmp/gamestream_xml_test
 
 These checks do not establish Vita networking, pairing or stream compatibility.
+
+The opt-in [Vita idle disconnect/reconnect scenario](runtime/README.md) gives the maintainer
+a direct DisconnectHost trigger through existing UI selection. It is excluded by default;
+its Python checks interpret its state flow with mocked services/time, not Vita runtime.

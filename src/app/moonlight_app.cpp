@@ -4,6 +4,9 @@
 #include "app/memory_budget.h"
 #include "common.h"
 #include "debug.h"
+#ifdef MOONLIGHT_DISCONNECT_TEST
+#include "app/disconnect_test.h"
+#endif
 #include "pages/page_main.h"
 #include <psp2/appmgr.h>
 #include <psp2/apputil.h>
@@ -215,6 +218,9 @@ int MoonlightApp::Initialize()
 
 void MoonlightApp::Shutdown()
 {
+#ifdef MOONLIGHT_DISCONNECT_TEST
+    disconnect_test_shutdown();
+#endif
     /* Shutdown disables event delivery, so STREAM_STOPPED may never reach Apps. */
     RestoreStreamInfobar();
 
@@ -331,6 +337,9 @@ void MoonlightApp::ProcessEventTask(void *userdata)
     if (!app) {
         return;
     }
+#ifdef MOONLIGHT_DISCONNECT_TEST
+    disconnect_test_poll(*app);
+#endif
 
     while (true) {
         MoonlightEvent event;
@@ -380,6 +389,9 @@ void MoonlightApp::ProcessEventTask(void *userdata)
         }
         paf::thread::RMutex::main_thread_mutex.Unlock();
 
+#ifdef MOONLIGHT_DISCONNECT_TEST
+        disconnect_test_event(*app, event);
+#endif
         if (callback) {
             callback(&event, callback_userdata);
         }

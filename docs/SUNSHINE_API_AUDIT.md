@@ -1227,6 +1227,20 @@ a new log, installed revision marker or enumerated steps. It does not establish 
 DisconnectHost execution (no current UI caller), pending/active disconnect, rollback or shutdown
 coverage. Keep A15–A18/F5 runtime requirements open; no runtime code changes accompany this record.
 
+**Idle runtime trigger prepared; unbuilt/unrun:** `MOONLIGHT_DISCONNECT_TEST=ON` adds a one-shot
+scenario after the first selected host's Apps response. It calls ConnectionService::Disconnect,
+requires CLOSED/DISCONNECTED, reconnects to the captured host/port through the normal Connect
+job and requires PAIRED plus a fresh application-list response. Hooks run only on the main
+thread after normal completion gating; frontend callbacks remain intact. PASS/FAIL markers
+use Debug log only in this test package. No game is launched and no remote quit/unpair occurs.
+The option defaults OFF; build.sh resets it OFF per invocation unless explicitly enabled, so a
+cached test option does not silently carry into an ordinary script build. No permanent UI or
+stored setting is added. User action/identity change, backend error or step timeout aborts the
+scenario's further actions. See [maintainer steps](../tests/runtime/README.md) for the exact
+build command and console sequence. Build, transfer and Vita execution remain maintainer work.
+This supplies the previously missing idle trigger; pending/active disconnect and the broader
+F5 matrix remain open, and preparation of a trigger is not runtime acceptance.
+
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.

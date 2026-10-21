@@ -16,6 +16,8 @@ To build a single profile in the legacy build/ directory:
 
 Heap tracing defaults OFF for each invocation. In a dual-profile build,
 -DMOONLIGHT_HEAP_TRACE=ON enables tracing only in the system profile.
+The idle disconnect/reconnect test defaults OFF per invocation; enable explicitly
+with -DMOONLIGHT_DISCONNECT_TEST=ON for a test package.
 Other CMake arguments are forwarded to the selected profile(s).
 EOF
 }
@@ -57,7 +59,7 @@ parse_arguments() {
 build_profile() {
     local profile="$1" build_dir="$2" mode=OFF
     [[ "$profile" == system ]] && mode=ON
-    local -a profile_args=(-DMOONLIGHT_HEAP_TRACE=OFF "${CMAKE_ARGS[@]}"
+    local -a profile_args=(-DMOONLIGHT_HEAP_TRACE=OFF -DMOONLIGHT_DISCONNECT_TEST=OFF "${CMAKE_ARGS[@]}"
         "-DMOONLIGHT_SYSTEM_APP=$mode")
     if [[ "$BUILD_SELECTION" == both && "$profile" == normal ]]; then
         profile_args+=(-DMOONLIGHT_HEAP_TRACE=OFF)

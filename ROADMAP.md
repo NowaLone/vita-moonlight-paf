@@ -709,6 +709,13 @@ ongoing stream threads and main-thread completion delivery remain. This is the t
   of the current application. No new log, revision marker or individual test steps were supplied.
   Direct DisconnectHost remains unverified: the current UI has no caller; ordinary navigation
   does not establish its execution or pending/active/error/shutdown coverage.
+  A concrete idle test trigger is now prepared behind MOONLIGHT_DISCONNECT_TEST=ON (default
+  OFF). After selecting a PC/opening Apps it requests local disconnect, requires CLOSED,
+  reconnects to the captured host/port and refreshes Apps once, reporting PASS/FAIL in Debug
+  Log. Normal builds exclude its source/hooks; build.sh resets the option OFF each invocation
+  unless explicitly requested. No game launch, new endpoint or permanent UI. Maintainer steps
+  and test scope: tests/runtime/README.md. Source-interpreted scenario checks pass; no agent
+  build/device run. Next run this idle scenario on Vita; pending/active cases remain separate.
 
 Source findings and isolated follow-ups (basic user smoke test passed; full runtime acceptance remains pending):
 
