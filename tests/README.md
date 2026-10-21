@@ -14,11 +14,19 @@ combinations and the retained-result classification (including a successful empt
 They do not execute PAF dialogs, threads, event-ring delivery or the complete state machine;
 dialog handoffs and overlap prevention still require maintainer build/Vita validation.
 
-The adapter lifecycle checks interpret the actual StartApplication/StopApplication and
-ForwardEvent method bodies with mocked API calls. They exercise callbacks before and after
-API return, immediate errors and no-host rejection. They reproduced seven ordering failures
-before the eager-state writes were removed. These are serial ordering checks, not C++ type
-checking, real-thread synchronization, PAF execution or coverage of the DisconnectHost API.
+The adapter lifecycle checks interpret actual Start/Stop/Disconnect and ForwardEvent method
+bodies with mocked API calls. They exercise callbacks before and after API return, immediate
+errors, no-host rejection and late Connect/Pair returns after closure. The initial Start/Stop
+checks reproduced seven ordering failures before correction. These are serial ordering checks,
+not C++ type checking, real-thread synchronization or PAF execution.
+
+The disconnect-admission checks interpret the actual API gate, entry points, cleanup worker
+and shutdown with mocked mutex/thread/stream functions. They cover contention, pending admission
+rejection (including cached app reads), duplicate/idle disconnect, pending-stream stop before
+GameStream release, creation/stop failure rollback and shutdown yielding to a queued worker.
+The C++ scoped-request syntax is normalized to its actual helper; destruction/unlock and atomic
+operations are simulated. They do not validate compiler/ABI/RAII behavior, pthread scheduling,
+real synchronization, curl/crypto lifetime on hardware or end-to-end DisconnectHost behavior.
 
 `gamestream_xml_test.c` exercises the actual Expat parser API: entities/UTF-8,
 empty and bounded lists, malformed documents, invalid IDs, root errors, verb

@@ -32,6 +32,10 @@ int moonlight_api_search_hosts(void);
 int moonlight_api_stop_host_search(void);
 int moonlight_api_add_host(const char *address, uint16_t port, const char *name);
 
+/* Selected-host control calls below use non-waiting admission: -1 may mean another
+ * request or disconnect owns the host. Cached app reads use the same guard.
+ * Callers must not wait/retry inside an API event callback; the frontend queues
+ * events for main-thread handling. Settings/discovery are independent of this gate. */
 int moonlight_api_connect_host(const MoonlightHost *host);
 int moonlight_api_prepare_pairing(char out_pin[5]);
 int moonlight_api_pair_current_host(const char pin[5], const MoonlightCancellation *cancel);
@@ -39,6 +43,9 @@ int moonlight_api_pair_current_host(const char pin[5], const MoonlightCancellati
 int moonlight_api_get_applications(MoonlightApplication *out, int capacity);
 int moonlight_api_start_application(int application_id);
 int moonlight_api_stop_application(void);
+/* Zero accepts deferred cleanup (or an idle/duplicate no-op), not final closure.
+ * CONNECTION_CLOSED publishes completion; new host requests stay excluded until
+ * its callback returns and the cleanup worker releases admission. */
 int moonlight_api_disconnect_host(void);
 MoonlightConnectionState moonlight_api_get_connection_state(void);
 int moonlight_api_get_stream_stats(MoonlightStreamStats *out);

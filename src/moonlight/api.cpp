@@ -37,6 +37,44 @@ static bool s_stream_active = false;
 static bool s_stream_pending = false;
 static bool s_disconnect_pending = false;
 static bool s_disconnect_worker_running = false;
+static pthread_mutex_t s_host_control_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static bool disconnect_pending()
+{
+    /* Duplicate disconnect requests must be observable even while cleanup owns the mutex. */
+    return __atomic_load_n(&s_disconnect_pending, __ATOMIC_ACQUIRE);
+}
+
+static void set_disconnect_pending(bool pending)
+{
+    __atomic_store_n(&s_disconnect_pending, pending, __ATOMIC_RELEASE);
+}
+
+static bool try_begin_host_request(bool for_disconnect)
+{
+    if (pthread_mutex_trylock(&s_host_control_mutex) != 0) return false;
+    if (!for_disconnect && disconnect_pending()) {
+        pthread_mutex_unlock(&s_host_control_mutex);
+        return false;
+    }
+    return true;
+}
+
+class HostControlRequest {
+public:
+    explicit HostControlRequest(bool for_disconnect)
+        : m_acquired(try_begin_host_request(for_disconnect)) {}
+    ~HostControlRequest()
+    {
+        if (m_acquired) pthread_mutex_unlock(&s_host_control_mutex);
+    }
+    bool Acquired() const { return m_acquired; }
+
+private:
+    HostControlRequest(const HostControlRequest &);
+    HostControlRequest &operator=(const HostControlRequest &);
+    bool m_acquired;
+};
 
 static void invalidate_applications()
 {
@@ -212,6 +250,9 @@ static void on_stream_event(
 
 static void *disconnect_cleanup_worker(void *)
 {
+    /* The request releases this mutex after scheduling us. New callers only trylock;
+     * they never wait on the main thread for network/transport cleanup. */
+    pthread_mutex_lock(&s_host_control_mutex);
     while (moonlight_stream_is_running()) {
         sceKernelDelayThread(10000);
     }
@@ -225,11 +266,12 @@ static void *disconnect_cleanup_worker(void *)
     s_stream_active = false;
     s_stream_application_id = -1;
     s_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
+    s_has_current_host = false;
 
     emit(MOONLIGHT_EVENT_CONNECTION_CLOSED, 0, s_current_host.id, -1, s_current_host.internal);
-    s_has_current_host = false;
-    s_disconnect_pending = false;
     s_disconnect_worker_running = false;
+    set_disconnect_pending(false);
+    pthread_mutex_unlock(&s_host_control_mutex);
     return NULL;
 }
 
@@ -239,7 +281,6 @@ static int begin_disconnect_cleanup(void)
     int result;
 
     if (s_disconnect_worker_running) return 0;
-    s_disconnect_pending = true;
     s_disconnect_worker_running = true;
     result = pthread_create(&worker, NULL, disconnect_cleanup_worker, NULL);
     if (result != 0) {
@@ -247,6 +288,9 @@ static int begin_disconnect_cleanup(void)
         vita_debug_log("[GameStream] disconnect cleanup worker create failed=%d", result);
         return result;
     }
+    /* Publish accepted cleanup only after creation succeeds. The worker cannot
+     * acquire the control mutex until this request releases admission. */
+    set_disconnect_pending(true);
     pthread_detach(worker);
     return 0;
 }
@@ -266,7 +310,14 @@ int moonlight_api_init(void)
 
 void moonlight_api_shutdown(void)
 {
-    while (s_disconnect_worker_running) sceKernelDelayThread(10000);
+    /* Shutdown may wait, unlike normal host requests. Wait outside the mutex when
+     * a scheduled cleanup worker still needs to acquire it. */
+    for (;;) {
+        pthread_mutex_lock(&s_host_control_mutex);
+        if (!s_disconnect_worker_running) break;
+        pthread_mutex_unlock(&s_host_control_mutex);
+        sceKernelDelayThread(10000);
+    }
 
     if (s_stream_active || s_stream_pending || moonlight_stream_is_running()) {
         moonlight_stream_stop();
@@ -283,12 +334,13 @@ void moonlight_api_shutdown(void)
     s_stream_active = false;
     s_stream_pending = false;
     s_stream_application_id = -1;
-    s_disconnect_pending = false;
+    set_disconnect_pending(false);
     s_disconnect_worker_running = false;
     memset(&s_server, 0, sizeof(s_server));
     memset(&s_current_host, 0, sizeof(s_current_host));
     s_callback = NULL;
     s_userdata = NULL;
+    pthread_mutex_unlock(&s_host_control_mutex);
 }
 
 int moonlight_api_open_settings(void)
@@ -356,10 +408,12 @@ int moonlight_api_add_host(const char *address, uint16_t port, const char *name)
 
 int moonlight_api_connect_host(const MoonlightHost *host)
 {
+    HostControlRequest request(false);
+    if (!request.Acquired()) return -1;
     char client_directory[512];
     char server_certificate_path[512] = {0};
 
-    if (!host || !host->internal[0] || s_disconnect_pending ||
+    if (!host || !host->internal[0] || disconnect_pending() ||
         s_disconnect_worker_running || moonlight_stream_is_running()) {
         return -1;
     }
@@ -455,6 +509,8 @@ int moonlight_api_connect_host(const MoonlightHost *host)
 
 int moonlight_api_prepare_pairing(char out_pin[5])
 {
+    HostControlRequest request(false);
+    if (!request.Acquired()) return -1;
     uint32_t random_value;
 
     if (!out_pin || !s_has_current_host ||
@@ -480,6 +536,8 @@ int moonlight_api_prepare_pairing(char out_pin[5])
 
 int moonlight_api_pair_current_host(const char pin[5], const MoonlightCancellation *cancel)
 {
+    HostControlRequest request(false);
+    if (!request.Acquired()) return -1;
     int result;
     LegacyGameStreamPairingError server_error = {0};
 
@@ -495,7 +553,7 @@ int moonlight_api_pair_current_host(const char pin[5], const MoonlightCancellati
         vita_debug_log("[GameStream] pairing cancelled locally; no completion event");
         return MOONLIGHT_PAIRING_CANCELLED;
     }
-    if (s_disconnect_pending) return -1;
+    if (disconnect_pending()) return -1;
     if (result != LEGACY_GAMESTREAM_OK) {
         int pairing_result = classify_pairing_error(result);
 
@@ -545,6 +603,8 @@ int moonlight_api_pair_current_host(const char pin[5], const MoonlightCancellati
 
 int moonlight_api_get_applications(MoonlightApplication *out, int capacity)
 {
+    HostControlRequest request(false);
+    if (!request.Acquired()) return -1;
     if (out && capacity > 0) {
         if (!s_applications_valid) return -1;
         int count = s_application_count < capacity ? s_application_count : capacity;
@@ -553,7 +613,7 @@ int moonlight_api_get_applications(MoonlightApplication *out, int capacity)
     }
 
     if (!s_has_current_host || !s_game_stream_initialized ||
-        s_disconnect_pending || s_stream_pending || moonlight_stream_is_running() ||
+        disconnect_pending() || s_stream_pending || moonlight_stream_is_running() ||
         s_connection_state != MOONLIGHT_CONNECTION_PAIRED) {
         emit(MOONLIGHT_EVENT_APPLICATIONS_FAILED, -1, s_current_host.id, -1, s_current_host.internal);
         return -1;
@@ -570,7 +630,7 @@ int moonlight_api_get_applications(MoonlightApplication *out, int capacity)
             MOONLIGHT_MAX_APPLICATIONS, &s_application_count, &response);
     }
     free(body);
-    if (s_disconnect_pending || s_connection_state != MOONLIGHT_CONNECTION_PAIRED) result = -1;
+    if (disconnect_pending() || s_connection_state != MOONLIGHT_CONNECTION_PAIRED) result = -1;
     if (result != 0) {
         invalidate_applications();
         vita_debug_log("[GameStream] applist failed result=%d status=%d message=%s",
@@ -596,6 +656,8 @@ extern "C" int moonlight_launch_request(
 
 int moonlight_api_start_application(int application_id)
 {
+    HostControlRequest request(false);
+    if (!request.Acquired()) return -1;
     vita_debug_log(
         "[GameStream] moonlight_api_start_application app=%d state=%d has_host=%d initialized=%d",
         application_id,
@@ -684,28 +746,31 @@ int moonlight_api_start_application(int application_id)
 
 int moonlight_api_stop_application(void)
 {
+    HostControlRequest request(false);
+    if (!request.Acquired()) return -1;
     if (!s_has_current_host || (!s_stream_active && !s_stream_pending)) return -1;
     return moonlight_stream_stop();
 }
 
 int moonlight_api_disconnect_host(void)
 {
+    HostControlRequest request(true);
+    if (!request.Acquired()) return disconnect_pending() ? 0 : -1;
     int result;
     if (!s_has_current_host) return 0;
-    if (s_disconnect_pending) return 0;
+    if (disconnect_pending()) return 0;
 
-    s_disconnect_pending = true;
     invalidate_applications();
     if (s_stream_active || s_stream_pending || moonlight_stream_is_running()) {
         result = moonlight_stream_stop();
         if (result != 0) {
-            s_disconnect_pending = false;
+            set_disconnect_pending(false);
             return result;
         }
     }
     result = begin_disconnect_cleanup();
     if (result != 0) {
-        s_disconnect_pending = false;
+        set_disconnect_pending(false);
         return result;
     }
     return 0;

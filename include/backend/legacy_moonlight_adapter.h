@@ -42,7 +42,6 @@ private:
     void ForwardEvent(const MoonlightEvent *event);
 
     MoonlightConnectionState m_connection_state;
-    MoonlightHost m_current_host;
     bool m_has_current_host;
     MoonlightEventCallback m_event_callback;
     void *m_event_userdata;

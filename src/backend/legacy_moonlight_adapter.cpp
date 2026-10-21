@@ -13,7 +13,6 @@ LegacyMoonlightAdapter::LegacyMoonlightAdapter()
       m_event_callback(NULL),
       m_event_userdata(NULL)
 {
-    m_current_host = MoonlightHost();
 }
 
 LegacyMoonlightAdapter::~LegacyMoonlightAdapter()
@@ -156,9 +155,7 @@ int LegacyMoonlightAdapter::ConnectHost(const MoonlightHost &host)
 
     vita_debug_log("[LegacyAdapter] ConnectHost ready");
 
-    m_current_host = host;
-    m_has_current_host = true;
-    m_connection_state = moonlight_api_get_connection_state();
+    /* CONNECTION_READY publishes the host/state before this API returns. */
     return 0;
 }
 
@@ -182,7 +179,7 @@ int LegacyMoonlightAdapter::PairCurrentHost(const char pin[5], const MoonlightCa
         return result;
     }
 
-    m_connection_state = MOONLIGHT_CONNECTION_PAIRED;
+    /* PAIRING_FINISHED owns this transition, including callbacks before return. */
     return 0;
 }
 
@@ -236,8 +233,8 @@ int LegacyMoonlightAdapter::DisconnectHost()
         return result;
     }
 
-    m_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
-    m_has_current_host = false;
+    /* The API closes admission immediately; CONNECTION_CLOSED publishes the final
+     * state only after stream/GameStream cleanup. Do not overwrite an early callback. */
     return 0;
 }
 
@@ -265,9 +262,8 @@ void LegacyMoonlightAdapter::ForwardEvent(const MoonlightEvent *event)
 {
     switch (event->type) {
     case MOONLIGHT_EVENT_CONNECTION_READY:
-        if (m_connection_state == MOONLIGHT_CONNECTION_DISCONNECTED) {
-            m_connection_state = MOONLIGHT_CONNECTION_READY;
-        }
+        m_connection_state = moonlight_api_get_connection_state();
+        m_has_current_host = true;
         break;
 
     case MOONLIGHT_EVENT_PAIRING_FINISHED:

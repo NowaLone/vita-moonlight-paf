@@ -625,8 +625,9 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   S may retain an app after all clients disconnect. A positive local enqueue result is not STREAM_STARTED.
 - **Current:** L3 normalizes `currentgame` to zero unless state contains `_SERVER_BUSY`; L1 tracks
   pending/active separately. L4 now changes stream state on lifecycle callbacks, not successful
-  Start/Stop request return (source follow-up in F5); it still reports DISCONNECTED before deferred
-  host cleanup. No ongoing host-state refresh or exposed durable snapshot. The connection enum
+  Start/Stop request return (source follow-up in F5). Disconnect now preserves the last state
+  until post-cleanup CLOSED; API admission excludes reuse meanwhile. No ongoing host-state
+  refresh or exposed durable snapshot. The connection enum
   does not expose pending/stop ownership; it must not replace the foreground/session guards.
 - **Upstream / Sunshine:** QH normalizes BUSY; QS waits for callbacks; S uses `proc::proc.running()`.
 - **Verified / runtime:** source; T5/T8 compare UI, API/adapter state, host app ID and actual transport.
@@ -678,9 +679,11 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   no remote quit/unpair request.
 - **Semantics:** CONNECTION_CLOSED should mean local cleanup completed; does not remove saved
   metadata, revoke pairing or kill the host app.
-- **Current:** L1 schedules cleanup, then frees L3 curl/crypto state and emits CLOSED; duplicate
-  pending disconnect returns success. L4 marks adapter disconnected immediately. No page caller of
-  ConnectionService::Disconnect was found; closing Apps only restores the previous page callback.
+- **Current:** L1 uses non-waiting selected-host admission, schedules cleanup, waits for the stream
+  owner, frees L3 curl/crypto state, clears the host and emits CLOSED. L4 changes state on that
+  event. Other host-control requests are rejected through worker release; duplicate pending
+  disconnect returns success. No page caller of ConnectionService::Disconnect was found;
+  closing Apps only restores the previous page callback. See the F5 source correction.
 - **Upstream / Sunshine:** QS/V distinguish local termination from quit; S needs no special HTTP
   disconnect for an idle client. This is an API capability, not a tested UI disconnect feature.
 - **Verified / runtime:** source; T7 needs a backend-level trigger, repeat-disconnect and reconnect
@@ -692,7 +695,8 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Semantics:** requesting stop cannot retract an HTTP request already accepted by the host.
   Cancel local continuation into RTSP; wait for the worker before freeing its server pointer.
 - **Current:** L2 sets cancel flag and checks after HTTP/before LiStartConnection; L1 deferred
-  disconnect waits for `moonlight_stream_is_running`. Curl is not aborted by cancel; a late-cancelled
+  disconnect waits for `moonlight_stream_is_running` while keeping new host-control requests out.
+  Curl is not aborted by cancel; a late-cancelled
   setup may briefly emit STARTED before asynchronous stop. Cancelled setup returns STREAM_FAILED.
 - **Upstream / Sunshine:** C offers `LiInterruptConnection` during pending common-c startup; SR
   expires pending launch session by configured `ping_timeout`. The remote process may still run.
@@ -1169,6 +1173,54 @@ No new log, installed revision or individually enumerated fast-failure/pending-s
 were supplied; do not extend this confirmation to those interleavings or all F5 coverage.
 The next independent task remains pending-disconnect admission/ownership.
 
+**Selected-host admission / disconnect correction, 2026-10-21; source only:** the preceding
+next task is now implemented. The root gap was inconsistent admission: Connect and applist
+checked disconnect flags, but prepare-pairing and stream start could enter during cleanup.
+Flag checks alone also left a check/use window against credential release and cached-list copy.
+The adapter reported DISCONNECTED/cleared its host when the request returned, before cleanup.
+The worker emitted CLOSED before clearing the API host flag, exposing unfinished bookkeeping.
+
+L1 now scopes Connect, pairing preparation/handshake, both app-list paths, Start and Stop with
+a project-owned `HostControlRequest`. It uses `pthread_mutex_trylock`, so a competing request
+returns -1 immediately. Disconnect uses the same admission; if another synchronous control
+call owns it, disconnect returns busy without acceptance. An in-flight pairing must first be
+cancelled through its existing token and allowed to return; no new blocking/abort path is added.
+Settings/discovery and stored-host metadata APIs keep their existing independent paths.
+
+The accepted disconnect worker holds admission while waiting for the stream owner and freeing
+GameStream state. This protects server/credential/cache lifetime against the guarded callers;
+it does not serialize the ongoing transport callbacks or solve all shared stream-state races.
+The atomic pending flag supports duplicate disconnect returning 0 while cleanup owns the mutex.
+It is published only after pthread creation succeeds, under the request lock; a creation/stop
+failure returns its error, releases admission and produces no false CLOSED. If a stop was already
+accepted before worker creation failed, transport stop can still finish; disconnect can be retried.
+
+After cleanup the worker sets DISCONNECTED and clears the API host before CLOSED. Admission
+stays closed through callback publication, then worker/pending flags reset before unlocking.
+Callbacks must queue frontend work; a synchronous reentrant host request receives busy, and
+must not spin/wait in the callback. Shutdown waits for admitted work/cleanup, releasing the
+mutex before yielding to a scheduled cleanup worker that has not acquired it yet.
+
+L4 no longer writes state/host after accepted Disconnect. Connect state/host publication moves
+to its synchronous CONNECTION_READY handler (reading L1's READY/PAIRED state); pairing uses
+PAIRING_FINISHED. This prevents a returning Connect/Pair wrapper from overwriting a CLOSED
+event after L1 releases admission. The unused adapter host copy is removed; persistent host
+identity/storage and the public state enum are unchanged. No new UI, endpoint or runtime trace.
+
+Reference basis remains C/QS/V: explicit local stop/owner cleanup is separate from host quit,
+and completion follows cleanup. The trylock guard is a project-specific admission mechanism
+around the existing protocol; it is not a copied Moonlight/Sunshine API requirement. N/B's
+main-thread event/PAF boundaries are preserved. No Sunshine administrative calls are introduced.
+
+All twenty non-build Python tests pass, including source-interpreted admission/entry/cleanup/
+shutdown paths and adapter callback-before/after-return cases. Mutex/thread/atomic operations
+and scoped-request destruction are mocked; these checks do not compile C++, run real pthreads,
+prove race freedom or validate curl/crypto lifetime on Vita. Installed VitaSDK declares trylock;
+no build/device test was run by the agent. Regression coverage still needed: normal Connect/
+pairing/apps/start/stop after the gate, direct idle/pending/active DisconnectHost, immediate
+reuse, duplicate requests, failure rollback and shutdown. Direct disconnect currently needs a
+backend-level trigger; closing Apps is not that test. A15–A18 and full F5 stay partial/pending.
+
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.
@@ -1511,8 +1563,10 @@ switching between two PCs with different lists and back is now user-confirmed, w
 a new log. The empty-list message/no-repeat/no-hang scenario is now also user-confirmed.
 The maintainer explicitly defers the unverified 64/65-app boundary test. F5 foreground dialog
 handoffs now have the scoped Vita evidence above; adapter Start/Stop eager-state writes are
-source-corrected with ordering checks. Next establish pending-disconnect admission/ownership
-before removing the adapter's early disconnect state. Concurrent/stress host changes remain open.
+source-corrected with ordering checks and user-reported smoke success. Pending-disconnect
+admission and post-cleanup adapter state now have a separate source implementation with mock
+ordering checks. Next validate direct DisconnectHost lifecycle with a backend-level trigger;
+concurrent/stress host changes and broader shared-state ownership remain open.
 The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
 cancellation/conflict trace verifies local cancellation followed by genuine server 409,
 not PIN success). A subsequent fragment now verifies pairing Run result 0, job release
