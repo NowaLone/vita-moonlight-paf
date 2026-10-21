@@ -745,7 +745,8 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   DisconnectHost → CLOSED/DISCONNECTED → ConnectHost/PAIRED → fresh applist count=4 is also
   maintainer-log verified on 2026-10-21 (F5). The separate f25e735baf54 active test also verifies
   CLOSED → paired reconnect → fresh four-app list → same-app resume/RTSP and decoded video
-  through 654 frames. Audible/visible playback confirmation is pending for that run. Pending
+  through 654 frames. The maintainer separately confirms visible image and audible sound
+  after reconnect for this exact run (2026-10-21). Pending
   launch, concurrent host/cache races, repeated failure cycles and remaining T8 cases stay open.
   Automatic reconnect here is opt-in test behavior; production network autoreconnect is not implemented.
 
@@ -1326,8 +1327,9 @@ cleanup with result=0 and another three successful framebuffer unmaps. No test F
 
 The first three-second session logs no received audio traffic; the resumed session does receive
 audio. Audio initialization/packets do not establish audible playback; decoded frames do not
-independently establish visible presentation. The maintainer has been asked to confirm image
-and sound for this exact run; neither is yet separately confirmed. ENet interrupted/control
+independently establish visible presentation. The maintainer subsequently confirms for this
+exact run (2026-10-21): “Да, изображение и звук работают” after automatic reconnect. This is
+user-confirmed visible/audible playback in addition to the log evidence. ENet interrupted/control
 failure messages occur inside both requested stop sequences, followed by acknowledged
 peer disconnect and successful owner completion; they are not a failed test result.
 
@@ -1340,10 +1342,10 @@ not identification of a Sunshine package release. Input logs show motion=0; this
 verify motion or the broader input lifecycle. No host-side resource trace is supplied.
 
 This verifies the direct active disconnect/paired reconnect/same-app resume event sequence,
-video decoding and subsequent manual stop on this one Vita/build. A17/A18/F5 retain open
-failure/race/stress and pending-launch coverage; visible/audible playback confirmation remains
-the immediate follow-up. No runtime code change or agent-run build/device test is needed to
-record this evidence.
+video decoding, user-confirmed image/sound and subsequent manual stop on this one Vita/build.
+A17/A18/F5 retain open failure/race/stress and pending-launch coverage. Next prepare a separate
+pending-launch DisconnectHost scenario (A16). No runtime code change or agent-run build/device
+test accompanies this evidence record.
 
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
@@ -1692,8 +1694,9 @@ admission and post-cleanup adapter state now have a separate source implementati
 ordering checks. The normal direct idle disconnect/CLOSED/reconnect/Apps cycle is now
 maintainer-log verified on one Vita (2026-10-21). The separate active-stream scenario is now
 log-verified on system build f25e735baf54 through STOPPED/CLOSED, paired reconnect, same-app
-resume, 654 decoded frames, received audio and final manual stop/release. Next confirm visible
-image and audible sound for this run; the log alone does not establish playback.
+resume, 654 decoded frames, received audio and final manual stop/release. The maintainer also
+confirms visible image and audible sound after reconnect for this exact run. Next prepare a
+separate pending-launch DisconnectHost scenario (A16).
 Pending-launch, concurrent/stress host changes and broader shared-state ownership remain open.
 The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
 cancellation/conflict trace verifies local cancellation followed by genuine server 409,

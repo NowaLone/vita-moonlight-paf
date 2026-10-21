@@ -146,12 +146,14 @@ The maintainer supplied a passing Vita log on 2026-10-21, identifying system bui
 f25e735baf54: owner stop result=0 → STOPPED → CLOSED/DISCONNECTED → paired reconnect without PIN
 → fresh four-app list → same-app resume/RTSP → PASS. The resumed stream decodes 654 frames and
 receives audio; final double-PS stop completes cleanup with result=0. Both teardowns log three
-successful framebuffer unmaps. Visible image/audible sound confirmation is pending for this
-exact run. This is one normal cycle; no agent-run build/device test or host resource trace.
+successful framebuffer unmaps. The maintainer subsequently confirms for this exact run
+(2026-10-21): “Да, изображение и звук работают” after reconnect. This verifies one normal
+cycle with user-confirmed visible/audible playback; no agent-run build/device test or host
+resource trace.
 See [API audit F5](../../docs/SUNSHINE_API_AUDIT.md#f5--sequential-foreground-workflow-operation-state-and-lifecycle-coverage)
 for evidence and limits. Python checks interpret the actual scenario
-with mocked services/time and queued event ordering; C++ ABI, native dialogs, real threads,
-transport cleanup, frame-buffer lifetime and hardware playback remain maintainer validation.
+with mocked services/time and queued event ordering. They do not compile C++ or execute PAF,
+real threads or transport; broader device coverage beyond the reported cycle remains open.
 Pending-launch cancellation, duplicate admission, failure rollback, shutdown and stress coverage
 remain separate. Existing audit references C/QS/V/S distinguish local stop from host-wide quit;
 this test sends no `/cancel`, quit or unpair request and uses no Sunshine administrative API.
