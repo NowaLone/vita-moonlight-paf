@@ -1081,6 +1081,16 @@ BHBB; native PAF owns visual cleanup, without SceMsgDialog FINISHED/Term polling
 still use SceMsgDialog. Pending checks include native appearance/latency, input blocking,
 success/error handoffs and shutdown on Vita. No automatic visibility or speed claim is made.
 
+**Compact wait acceptance, 2026-10-21:** maintainer reports good appearance. The system-profile
+trace embeds `ca359a25edf0` and verifies operation 3/slot 2 completion after native Close returns
+0, then StreamPage, successful launch/setup, received audio/video and decoded frames. PS double
+tap ends the stream, followed by successful three-buffer unmapping. First Close returned
+`0xEE251690`, with the second return 0 317 ms later; its semantics/root cause are unknown.
+Do not decode it as a known SCE error or claim the retry proves a permanent fix. No new
+Connect/Apps dialog trace, failure/shutdown/normal-profile matrix or build transcript is supplied;
+inclusion of the later header fix cannot be inferred from that embedded revision. F5 remains
+open beyond the accepted appearance/launch-stop path. Runtime code is unchanged for this record.
+
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.

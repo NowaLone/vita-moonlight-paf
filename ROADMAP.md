@@ -641,6 +641,15 @@ ongoing stream threads and main-thread completion delivery remain. This is the t
   Source compatibility follow-up uses a project-local narrow native Param/Show/Close header,
   checked against the installed header and stub symbols. No SDK modification or fake stubs.
   Rebuild/link and hardware checks remain pending; the compact wait is not yet build-verified.
+  Subsequent maintainer acceptance, 2026-10-21: compact dialogs now look good. The provided
+  system-profile trace embeds ca359a25edf0 and shows operation 3/slot 2 first poll at 132 ms,
+  Close returns 0xEE251690 at 5337 ms then 0 at 5654 ms, operation completion → StreamPage,
+  successful launch/setup, audio/video packets and decoded frames, then PS-double-tap stop
+  and all three buffers unmapped successfully. Appearance and this launch/stop handoff are
+  accepted on one Vita. First Close return semantics remain unexplained; Connect/Apps dialog
+  traces, errors, input blocking, shutdown and normal profile remain pending. The embedded
+  revision does not establish inclusion of header fix 279d35e; no build transcript supplied.
+  Do not broadly close F5 or change dialog timing based on the unexplained return alone.
 
 Source findings and isolated follow-ups (basic user smoke test passed; full runtime acceptance remains pending):
 

@@ -234,6 +234,22 @@ No fake implementation, replacement symbol, SDK edit or global compatibility hea
 This read-only symbol/header check is not compilation/link validation. The maintainer must
 rebuild before the compact window can be tested on Vita.
 
+**Compact busy appearance / launch [hw, user/log-reported, 2026-10-21]:** the maintainer
+confirms the compact dialog now looks good. The attached trace identifies `profile=system`,
+`system_app=ON`, embedded revision `ca359a25edf0`. It contains operation 3 first poll at 132 ms
+on slot 2, close return `0xEE251690` at 5337 ms, then close return 0 at 5654 ms. Only after
+that does operation 3 complete and StreamPage open. Launch/setup result=0, audio packets and
+decoded video follow; PS double press stops the stream and all three frame buffers unmap
+with result=0. This supports appearance acceptance and the tested launch/play/stop handoff.
+
+The first Close return is negative when interpreted as int32, but no named native error or
+root cause has been established. Return-value semantics and the repeated Close need further
+review; do not label it a proven harmless/native error or change timing speculatively. The
+trace omits Connect/Apps dialog open/close lines, so their full handoffs/latency are not newly
+log-verified. This is one system-profile run, not normal-profile, failure, shutdown or stress
+coverage. Its embedded revision does not establish inclusion of `279d35e` (the header fix);
+no configure/build transcript is supplied. No new build or device test was run by the agent.
+
 ## 2. Screen geometry and the layout language
 
 ### 2.1 Zones (960 x 544, **[shot]**)
