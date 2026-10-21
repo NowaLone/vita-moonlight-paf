@@ -1071,6 +1071,16 @@ close/term elapsed diagnostics were added, without artificial delay or protocol 
 The missing presentation root cause and effect remain runtime pending; pairing appearance
 acceptance is not acceptance of these windows. See UI.md for the focused follow-up.
 
+**Compact PAF busy-window follow-up, 2026-10-21; source only:** later timings show first PAF
+poll at 15/2 ms, close requests at 1750/1531 ms and Term at 2602/2383 ms for Connect/Apps.
+The maintainer still sees late/brief windows and selects BHBB's native `s_dialogTextSmallBusy`.
+ConnectionService now checks/loads CommonGuiDialog and owns a PAF Show/Close slot for the three
+foreground steps. Backend result ownership and event dispatch remain; no GameStream request,
+pairing or streaming protocol is changed. PAF Close success releases the logical slot as in
+BHBB; native PAF owns visual cleanup, without SceMsgDialog FINISHED/Term polling. Errors/Delete
+still use SceMsgDialog. Pending checks include native appearance/latency, input blocking,
+success/error handoffs and shutdown on Vita. No automatic visibility or speed claim is made.
+
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.

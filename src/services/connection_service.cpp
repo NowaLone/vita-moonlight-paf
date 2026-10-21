@@ -2,11 +2,14 @@
 #include <stdio.h>
 
 #include <paf.h>
+#include <common_gui_dialog.h>
 
 #include <psp2/message_dialog.h>
+#include <psp2/sysmodule.h>
 #include <psp2/kernel/processmgr.h>
 
 #include "services/connection_service.h"
+#include "common.h"
 #include "services/pairing_service.h"
 #include "debug.h"
 
@@ -74,8 +77,7 @@ private:
 ConnectionService::ConnectionService(MoonlightBackend &backend, PairingService &pairing)
     : m_backend(backend),
       m_pairing(pairing),
-      m_progress_dialog_open(false),
-      m_progress_dialog_closing(false),
+      m_progress_dialog_slot(-1),
       m_progress_close_requested(false),
       m_progress_polled(false),
       m_progress_started_us(0),
@@ -99,8 +101,8 @@ ConnectionService::~ConnectionService()
 
 bool ConnectionService::IsBusy() const
 {
-    return m_operation != Operation_None || m_progress_dialog_open ||
-           m_progress_dialog_closing || m_error_dialog_open || m_error_pending;
+    return m_operation != Operation_None || m_progress_dialog_slot >= 0 ||
+           m_error_dialog_open || m_error_pending;
 }
 
 int ConnectionService::BeginOperation(ForegroundOperation operation)
@@ -122,6 +124,10 @@ int ConnectionService::BeginOperation(ForegroundOperation operation)
 
 int ConnectionService::StartWaitDialog()
 {
+    if (!g_plugin) {
+        vita_debug_log("[Workflow] PAF busy dialog unavailable: no application plugin");
+        return -1;
+    }
     const char *message;
     switch (m_operation) {
     case Operation_Connect:
@@ -137,33 +143,36 @@ int ConnectionService::StartWaitDialog()
         return -1;
     }
 
-    SceMsgDialogParam param;
-    SceMsgDialogUserMessageParam user_message;
-    memset(&param, 0, sizeof(param));
-    memset(&user_message, 0, sizeof(user_message));
-
-    sceMsgDialogParamInit(&param);
-    user_message.buttonType = SCE_MSG_DIALOG_BUTTON_TYPE_NONE;
-    /* Static messages remain valid until the operation terminates the dialog. */
-    user_message.msg = (const SceChar8 *)message;
-    param.mode = SCE_MSG_DIALOG_MODE_USER_MSG;
-    param.userMsgParam = &user_message;
-
     m_progress_started_us = sceKernelGetProcessTimeWide();
-    int result = sceMsgDialogInit(&param);
-    if (result < 0) {
-        vita_debug_log(
-            "[Workflow] wait dialog init failed operation=%d result=0x%08X",
-            (int)m_operation, (unsigned int)result);
-        return result;
+    /* Match BHBB/NetStream: CommonGuiDialog stays in the application's PAF context.
+     * Keep this system module loaded for the same lifetime as the PAF framework. */
+    int result = sceSysmoduleIsLoadedInternal(SCE_SYSMODULE_INTERNAL_COMMON_GUI_DIALOG);
+    if (result != SCE_SYSMODULE_LOADED) {
+        result = sceSysmoduleLoadModuleInternal(SCE_SYSMODULE_INTERNAL_COMMON_GUI_DIALOG);
+        if (result < 0) {
+            vita_debug_log("[Workflow] PAF dialog module load failed result=0x%08X", (unsigned int)result);
+            return result;
+        }
     }
 
-    m_progress_dialog_open = true;
+    paf::wstring title;
+    paf::wstring text = paf::common::string_util::ToWString(message);
+    int32_t slot = sce::CommonGuiDialog::Dialog::Show(
+        g_plugin, &title, &text, &sce::CommonGuiDialog::Param::s_dialogTextSmallBusy,
+        NULL, NULL);
+    if (slot < 0) {
+        vita_debug_log("[Workflow] PAF busy dialog open failed operation=%d result=0x%08X",
+            (int)m_operation, (unsigned int)slot);
+        return slot;
+    }
+
+    m_progress_dialog_slot = slot;
     m_progress_close_requested = false;
     m_progress_polled = false;
     m_progress_last_error = 0;
-    vita_debug_log("[Workflow] dialog open operation=%d status=%d",
-        (int)m_operation, (int)sceMsgDialogGetStatus());
+    vita_debug_log("[Workflow] PAF busy dialog open operation=%d slot=%d elapsed_ms=%llu",
+        (int)m_operation, (int)slot,
+        (unsigned long long)((sceKernelGetProcessTimeWide() - m_progress_started_us) / 1000));
     if (!m_dialog_task_registered) {
         paf::common::MainThreadCallList::Register(DialogPollTask, this);
         m_dialog_task_registered = true;
@@ -173,32 +182,27 @@ int ConnectionService::StartWaitDialog()
 
 void ConnectionService::CloseWaitDialog()
 {
-    if (!m_progress_dialog_open && !m_progress_dialog_closing) return;
+    if (m_progress_dialog_slot < 0) return;
 
     const bool first_request = !m_progress_close_requested;
     m_progress_close_requested = true;
-    if (m_progress_dialog_open && !m_progress_dialog_closing) {
-        const SceCommonDialogStatus status = sceMsgDialogGetStatus();
-        int result = 0;
-        if (status == SCE_COMMON_DIALOG_STATUS_FINISHED) {
-            m_progress_dialog_closing = true;
-        } else if (status == SCE_COMMON_DIALOG_STATUS_RUNNING) {
-            /* Normal completion must close, not abort, the native message box. */
-            result = sceMsgDialogClose();
-            if (result >= 0) m_progress_dialog_closing = true;
-        }
-        if (first_request || m_progress_dialog_closing || result != m_progress_last_error) {
-            vita_debug_log("[Workflow] dialog close operation=%d status=%d submitted=%d result=0x%08X elapsed_ms=%llu",
-                (int)m_operation, (int)status, m_progress_dialog_closing ? 1 : 0,
-                (unsigned int)result,
-                (unsigned long long)((sceKernelGetProcessTimeWide() - m_progress_started_us) / 1000));
-        }
-        m_progress_last_error = result;
+    const int32_t slot = m_progress_dialog_slot;
+    int result = sce::CommonGuiDialog::Dialog::Close(slot);
+    if (first_request || result >= 0 || result != m_progress_last_error) {
+        vita_debug_log("[Workflow] PAF busy dialog close operation=%d slot=%d result=0x%08X elapsed_ms=%llu",
+            (int)m_operation, (int)slot, (unsigned int)result,
+            (unsigned long long)((sceKernelGetProcessTimeWide() - m_progress_started_us) / 1000));
     }
+    m_progress_last_error = result;
+    if (result < 0) return; /* Keep ownership; the PAF poll retries without blocking. */
 
-    if (!m_dialog_task_registered) {
-        paf::common::MainThreadCallList::Register(DialogPollTask, this);
-        m_dialog_task_registered = true;
+    /* BHBB releases its logical slot after Close. PAF owns widget/animation cleanup;
+     * this API has no SceMsgDialog FINISHED/Term lifecycle to poll. */
+    m_progress_dialog_slot = -1;
+    m_progress_close_requested = false;
+    if (m_release_on_dialog_close) {
+        m_operation = Operation_None;
+        m_release_on_dialog_close = false;
     }
 }
 
@@ -229,8 +233,7 @@ void ConnectionService::ShowError(const char *message, int result)
 
 void ConnectionService::TryShowError()
 {
-    if (!m_error_pending || m_progress_dialog_open ||
-        m_progress_dialog_closing || m_error_dialog_open) {
+    if (!m_error_pending || m_progress_dialog_slot >= 0 || m_error_dialog_open) {
         return;
     }
 
@@ -277,7 +280,7 @@ bool ConnectionService::PrepareCompletion(const MoonlightEvent &event)
         !__atomic_load_n(&m_worker_done, __ATOMIC_ACQUIRE)) return false;
 
     CloseWaitDialog();
-    if (m_progress_dialog_open || m_progress_dialog_closing) return false;
+    if (m_progress_dialog_slot >= 0) return false;
 
     ForegroundOperation operation = m_operation;
     m_operation = Operation_None;
@@ -324,41 +327,17 @@ void ConnectionService::DialogPollTask(void *userdata)
         return;
     }
 
-    if (service->m_progress_dialog_open && !service->m_progress_polled) {
+    if (service->m_progress_dialog_slot >= 0 && !service->m_progress_polled) {
         service->m_progress_polled = true;
-        vita_debug_log("[Workflow] dialog first poll operation=%d status=%d elapsed_ms=%llu",
-            (int)service->m_operation, (int)sceMsgDialogGetStatus(),
+        vita_debug_log("[Workflow] PAF busy dialog first poll operation=%d slot=%d elapsed_ms=%llu",
+            (int)service->m_operation, (int)service->m_progress_dialog_slot,
             (unsigned long long)((sceKernelGetProcessTimeWide() - service->m_progress_started_us) / 1000));
     }
-    if (service->m_progress_close_requested && !service->m_progress_dialog_closing) {
+    if (service->m_progress_close_requested) {
         service->CloseWaitDialog();
     }
 
-    if (service->m_progress_dialog_closing) {
-        if (sceMsgDialogGetStatus() != SCE_COMMON_DIALOG_STATUS_FINISHED) {
-            return;
-        }
-
-        int result = sceMsgDialogTerm();
-        if (result >= 0 || result != service->m_progress_last_error) {
-            vita_debug_log("[Workflow] dialog term operation=%d result=0x%08X elapsed_ms=%llu",
-                (int)service->m_operation, (unsigned int)result,
-                (unsigned long long)((sceKernelGetProcessTimeWide() - service->m_progress_started_us) / 1000));
-        }
-        service->m_progress_last_error = result;
-        if (result < 0) return;
-        service->m_progress_dialog_open = false;
-        service->m_progress_dialog_closing = false;
-        service->m_progress_close_requested = false;
-
-        if (service->m_release_on_dialog_close) {
-            service->m_operation = Operation_None;
-            service->m_release_on_dialog_close = false;
-        }
-    }
-
-    if (service->m_error_pending && !service->m_progress_dialog_open &&
-        !service->m_progress_dialog_closing &&
+    if (service->m_error_pending && service->m_progress_dialog_slot < 0 &&
         !service->m_error_dialog_open) {
         service->TryShowError();
     }
@@ -377,7 +356,7 @@ void ConnectionService::DialogPollTask(void *userdata)
         service->m_error_message[0] = '\0';
     }
 
-    if (!service->m_progress_dialog_open && !service->m_progress_dialog_closing &&
+    if (service->m_progress_dialog_slot < 0 &&
         !service->m_error_pending &&
         !service->m_error_dialog_open) {
         if (service->m_dialog_task_registered) {
@@ -389,18 +368,7 @@ void ConnectionService::DialogPollTask(void *userdata)
 
 void ConnectionService::Shutdown()
 {
-    if (m_progress_dialog_open || m_progress_dialog_closing) {
-        if (!m_progress_dialog_closing) {
-            sceMsgDialogAbort();
-            m_progress_dialog_closing = true;
-        }
-
-        if (sceMsgDialogGetStatus() == SCE_COMMON_DIALOG_STATUS_FINISHED) {
-            sceMsgDialogTerm();
-            m_progress_dialog_open = false;
-            m_progress_dialog_closing = false;
-        }
-    }
+    CloseWaitDialog();
 
     if (m_error_dialog_open) {
         sceMsgDialogAbort();
@@ -431,7 +399,7 @@ int ConnectionService::Connect(const MoonlightHost &host)
 
     int begin_result = BeginOperation(Operation_Connect);
     if (begin_result != 0) {
-        if (!IsBusy()) ShowConnectionError();
+        if (!IsBusy()) ShowError("Unable to open the progress dialog.", begin_result);
         return begin_result;
     }
     strncpy(m_connect_address, host.internal, sizeof(m_connect_address) - 1);

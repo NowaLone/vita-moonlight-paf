@@ -165,10 +165,12 @@ recipes for common UI changes live in [`docs/UI.md`](docs/UI.md). Read it before
   Do not restore inline progress, selection prompts, success/result messages or connection/stream-stop
   status. Long foreground steps use the existing native progress dialog; errors use native OK dialogs.
   If a dialog cannot be displayed, report through `vita_debug_log()` only; no text fallback on the page.
-- Complete foreground progress dialogs with native `sceMsgDialogClose()` and release ownership
-  only after FINISHED and successful Term. Reserve Abort for forced teardown. Do not add timed
-  minimum visibility or main-thread sleeps to mask unseen short dialogs; inspect `[Workflow]`
-  open/first-poll/close/term timing and status diagnostics first.
+- Foreground progress uses PAF `sce::CommonGuiDialog::Param::s_dialogTextSmallBusy`, as in BHBB,
+  through ConnectionService. Close the owned slot with `CommonGuiDialog::Dialog::Close()`;
+  after success PAF owns widget/animation cleanup. This API has no FINISHED/Term polling contract.
+  Error/confirmation dialogs still use SceMsgDialog and its own FINISHED/Term lifecycle.
+  Do not add timed minimum visibility or main-thread sleeps; inspect `[Workflow] PAF busy dialog`
+  open/first-poll/close timing first. Dialog/module failures are log-only, with no inline fallback.
 - Saved-host Delete confirmation uses native **OK/Cancel**; OK performs deletion, Cancel preserves
   selection. Successful deletion has no result message. Failure uses a native error dialog.
 - Pairing instructions are static CXML/localized text styled from the PS4 Link reference in `docs/UI.md`.
@@ -183,8 +185,8 @@ recipes for common UI changes live in [`docs/UI.md`](docs/UI.md). Read it before
 - UI should normally use `MoonlightApp` services rather than calling legacy globals directly.
 - `MoonlightApp` owns backend lifecycle and queues backend events for main-thread delivery.
 - Foreground network workflows must be sequential and modal: one user action owns the operation until
-  success, failure or completed cancellation/cleanup. Show native `SceMessageDialog` WAIT for long steps,
-  block conflicting actions, and finish/terminate the wait dialog before navigating or showing an error.
+  success, failure or completed cancellation/cleanup. Show native PAF CommonGuiDialog busy windows
+  for long steps, block conflicting actions, and close the owned wait slot before navigating or showing an error.
   This is the maintainer's target workflow (2026-10-20); current coverage/gaps are in `docs/UI.md`.
 - Keep blocking GameStream calls within the operation's worker/job so PAF can update dialogs and process
   lifecycle/cancellation. Main-thread completion delivery is an internal implementation mechanism; it

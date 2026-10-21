@@ -46,8 +46,7 @@ private:
 
     MoonlightBackend &m_backend;
     PairingService &m_pairing;
-    bool m_progress_dialog_open;
-    bool m_progress_dialog_closing;
+    int32_t m_progress_dialog_slot;
     bool m_progress_close_requested;
     bool m_progress_polled;
     uint64_t m_progress_started_us;

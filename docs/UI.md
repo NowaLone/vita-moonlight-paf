@@ -59,6 +59,9 @@ Evidence tags used below:
 
 ### Sequential foreground workflow — maintainer direction, 2026-10-20
 
+**Current implementation, 2026-10-21:** the compact PAF busy-dialog follow-up below supersedes
+the historical SceMsgDialog progress-window descriptions. Error/confirmation dialogs keep SceMsgDialog.
+
 Target: one action → native WAIT during a long step → completed operation/dialog teardown →
 result or next page. Conflicting selection/navigation must stay blocked until success, failure,
 or cancellation with local cleanup. A cancellation request alone does not release the operation.
@@ -179,6 +182,46 @@ poll; RUNNING alone still does not prove a frame was displayed. Repeat Connect �
 and collect these lines. The visibility root cause and the effect of normal Close remain
 unverified until that Vita follow-up. Eight existing Python checks do not execute these dialogs;
 no build or hardware run was performed by the agent.
+
+### Compact PAF busy dialog — source follow-up, 2026-10-21
+
+**Evidence:** the next Vita log measures Connect first poll at 15 ms, close request at 1750 ms,
+Term at 2602 ms; Apps first poll at 2 ms, close at 1531 ms, Term at 2383 ms. Both have successful
+Close/Term, with about 850 ms from close request to termination. The maintainer sees the windows
+late, just before closing. Opening/render-ready time is still not directly measured; RUNNING
+does not establish visible presentation. This evidence does not prove all subsequent PAF frames
+were responsive or identify a specific opening-animation duration.
+
+**Maintainer-approved change [code; build/Vita pending]:** Connect, Apps loading and stream setup
+now use `sce::CommonGuiDialog::Param::s_dialogTextSmallBusy` through ConnectionService. This is
+the small native PAF spinner/message box without Cancel shown in the supplied BHBB screenshot.
+The reference is local BHBB `9e615e9186bf7ca5fb985dc06c1a5e06c47f24f5`,
+[`common/dialog.cpp`](https://github.com/Ibrahim778/BetterHomebrewBrowser/blob/9e615e9186bf7ca5fb985dc06c1a5e06c47f24f5/common/dialog.cpp)
+(`OpenPleaseWait` without Cancel and `Close`), corroborated by NetStream's same helpers. The
+large official-app screenshot resembles a cancellable busy dialog; its exact API is unconfirmed.
+
+Before Show, the service checks/loads `SCE_SYSMODULE_INTERNAL_COMMON_GUI_DIALOG`. The module
+stays loaded for the application/PAF lifetime, as in the references; its stub was already linked.
+Show uses `g_plugin` and PAF wide-string content on the main thread. A failed module load or Show
+rejects starting the network operation and logs the failure; Connect reports a native progress-dialog
+error instead of suggesting a PC/network failure. The existing reservation, worker
+result publication and main-thread event delivery remain. Messages still describe Connect,
+Apps and stream start; no custom CXML imitation or minimum display duration is introduced.
+
+The service retains its slot while busy and calls the native PAF `Dialog::Close(slot)` at
+completion. On successful Close it releases the logical slot, following BHBB; PAF owns remaining
+widget/animation cleanup. This API does not expose SceMsgDialog's FINISHED/Term contract, so
+do not poll it using SceMsgDialogGetStatus or invent an animation-ready condition. A Close error
+keeps ownership and is retried by the existing PAF poll, logging repeated identical errors once.
+Next-step dispatch occurs only after backend completion (Connect/apps) and successful slot close.
+Shutdown also closes the owned PAF slot. No callback is attached to this noninteractive wait.
+
+Native SceMsgDialog OK errors and Delete OK/Cancel, the accepted static pairing layout and
+stream statistics are unchanged. Regression checks: compact wait appearance/latency, Connect →
+Apps → launch handoffs, busy input blocking, PAF busy → Sce error handoff and shutdown. Console
+diagnostics are now `[Workflow] PAF busy dialog open/first poll/close` with slot and elapsed_ms;
+no progress `dialog term` is expected. Eight existing Python checks do not run PAF or compile
+this API usage. Appearance, speed and cleanup on Vita remain pending maintainer build/testing.
 
 ## 2. Screen geometry and the layout language
 

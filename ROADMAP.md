@@ -629,6 +629,14 @@ ongoing stream threads and main-thread completion delivery remain. This is the t
   Term, retaining the poll while open and recording open/first-poll/close/term elapsed times.
   No timed display delay. Visibility root cause and this change's effect remain pending a new
   Vita log; this checkbox stays open. Pairing acceptance does not verify error/Delete dialogs.
+  The next timing log has first poll 15/2 ms, close 1750/1531 ms, Term 2602/2383 ms for
+  Connect/Apps, with both native Close/Term successful; appearance is reported late/brief.
+  Maintainer selected BHBB's compact PAF `s_dialogTextSmallBusy`. Source now checks/loads
+  CommonGuiDialog, shows/owns a native PAF slot and releases it after successful PAF Close,
+  following BHBB (no SceMsgDialog FINISHED/Term for this API). Error/Delete dialogs remain
+  SceMsgDialog. Module/Show failure rejects the operation; no inline or alternate wait fallback.
+  Next validate compact Connect → Apps → launch waits and their error handoffs on Vita;
+  performance/presentation is not verified by the source change. No agent build/device run.
 
 Source findings and isolated follow-ups (basic user smoke test passed; full runtime acceptance remains pending):
 
