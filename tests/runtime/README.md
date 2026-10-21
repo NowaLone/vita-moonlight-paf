@@ -621,3 +621,26 @@ This verifies the targeted cancelled-success owner cleanup/FAILED deferred-buffe
 recovery on one Vita. Earlier-entry races, blocked-I/O latency, shutdown, repeats and host-side
 cleanup remain separate. No runtime-code change or agent build/device run for this record.
 Next restore ordinary test-OFF packaging and check repeated start/stop cycles.
+
+## Ordinary repeated start/stop — maintainer result, 2026-10-21
+
+The requested ordinary run identifies system build 98f0d44194af, host .134/app 1093255277;
+no test-controller markers or automatic disconnects appear. One paired Connect/Apps precedes
+three same-app resumes/encrypted RTSP/setup=0. Decoded totals are 1833, 1856 and 1840 frames;
+video packet delays are 400/400/300 ms and audio delays 1700/0/0 ms. Each double PS completes
+owner stop=0, audio drain/release=0, infobar restore and three successful unmaps/deferred release.
+All old releases precede the next Start. OOS/RFI/audio-recovery messages occur with continued
+decoding; no setup/allocation failure or unexpected termination appears. This proves the
+sequential protocol/resource cycle, not error-free media quality or physical playback by itself.
+
+Equivalent post-release USER_RW free is 33596 KiB in all three cycles (initial paired idle
+33876 KiB); stream-ready free is 10828 KiB each time. The newlib arena stays 196608 bytes while
+used is 98792 → 99096 → 99256 (+464 bytes over two repeats). Preserve that small rise alongside
+the stable kernel samples; neither a leak diagnosis nor leak-free proof follows from this run.
+Visible image/audible sound and current Sunshine release require separate confirmation.
+
+There is no host DisconnectHost/CLOSED/reconnect or application shutdown between starts.
+The trace predates ee485a2's Main-label fix. Repeated failure recovery, active shutdown,
+callback/admission races and host-side cleanup remain separate. No runtime-code change or
+agent build/device run. Full evidence/limits: API audit F5; next inspect/prepare active-stream
+application-shutdown validation.

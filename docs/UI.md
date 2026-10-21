@@ -702,6 +702,14 @@ success path on one Vita; other races, blocked-I/O latency, shutdown and repeats
 See the [maintainer procedure and evidence](../tests/runtime/README.md#after-video-allocation-checkpoint).
 No UI behavior is changed by this evidence record.
 
+Three ordinary same-app start/double-PS stop cycles on system build 98f0d44194af now verify
+Stream creation/infobar hide → owner stop=0/audio release → infobar restore/three successful
+unmaps/deferred release before the next Start **[hw, log, 2026-10-21]**. Post-release USER_RW
+free is 33596 KiB each time; newlib used rises by 464 bytes across the repeats, so this is
+resource-reuse evidence rather than a leak-free proof. It does not validate host reconnect,
+active application shutdown or the later ee485a2 Main-label change. See
+[the recorded result](../tests/runtime/README.md#ordinary-repeated-startstop--maintainer-result-2026-10-21).
+
 Backend callbacks may arrive on worker threads. `MoonlightApp` queues them and delivers them through
 `MainThreadCallList`, so page callbacks run on the PAF main thread. Only the topmost page owns the event callback; when
 a page is destroyed it hands the callback back to the page below (`RestoreEventCallback()` in `Main`, `Search`, `Apps`,

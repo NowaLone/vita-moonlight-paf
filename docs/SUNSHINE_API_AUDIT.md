@@ -657,6 +657,10 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Verified / runtime:** source plus historical working stream reports, not a new version-specific
   test. T6 covers stage failure, duplicate start, video/audio/input and repeated sessions; F1 affects
   termination after successful startup, not common-c's own failed-start unwind.
+  A later 2026-10-21 trace identifies system build 98f0d44194af and verifies three ordinary
+  same-app resumes/encrypted RTSP/setup=0, receiving audio/video and decoding 1833/1856/1840
+  frames, with complete stop/release between starts (F5). This does not validate duplicate
+  starts, stage failures or sustained streaming quality.
 
 ### A14 — Stream stop — implemented (explicit local stop path)
 
@@ -672,6 +676,10 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   full matrix, including immediate restart and final neutral input. No end-to-end idempotency proof
   under concurrent callbacks; L2 ownership flags are synchronized, while broader L1/L4 state races
   remain F5. F1 has a source owner implementation; full runtime acceptance stays open.
+  Three ordinary double-PS stop/restart cycles on system build 98f0d44194af are now log-verified
+  (2026-10-21): owner stop=0, audio drain/release=0 and three GXM unmaps=0 per cycle, with
+  deferred release before the next Start (F5). No full concurrent/idempotency or neutral-host-
+  input proof follows from these sequential cycles.
 
 ### A15 — Disconnect while idle/paired — implemented (normal idle cycle verified)
 
@@ -803,6 +811,10 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   frames with incoming audio, then final double-PS stop/audio release/three unmaps. The
   maintainer confirms image/sound and Sunshine 2025.924.154138 for this run. It does not
   retrospectively explain the older audio warning or establish immediate-recovery timing.
+  Three subsequent ordinary same-app stop/restart cycles on system build 98f0d44194af verify
+  repeated reuse of the existing paired host, encrypted RTSP and received audio/decoded video,
+  with complete local release before each next Start. No new ConnectHost/CLOSED occurs;
+  repeated host reconnect and shutdown remain separate (F5).
   Pending-launch failure variants, concurrent host/cache races, repeated failure cycles and
   remaining T8 cases stay open.
   Automatic reconnect here is opt-in test behavior; production network autoreconnect is not implemented.
@@ -1898,6 +1910,44 @@ matrix remain open; A16/A18/F5 stay partial. The older immediate-recovery RTSP t
 still valid evidence; this success does not fix Sunshine or establish universal retry timing.
 No runtime change or agent build/device run accompanies this record. Next check repeated
 ordinary start/stop cycles with test modes OFF.
+
+**Three ordinary start/stop cycles — maintainer Vita result, 2026-10-21:** the Launch marker
+identifies `profile=system system_app=ON commit=98f0d44194af`; host 192.168.1.134/server UUID
+3D7D0EDF-A6A6-F303-0A1C-217868AB07D4, app 1093255277. Unlike the preceding startup tests,
+no test-controller checkpoint/automatic disconnect appears. One initial paired connection and
+applist count=4 precede three ordinary Starts using has_host=1/state=2. Each refreshes serverinfo,
+resumes the same app over an accepted encrypted RTSP URL, completes setup=0 and opens Stream.
+First video packet delays are 400/400/300 ms; audio delays are 1700/0/0 ms. Final decoded counts
+are 1833/1856/1840 (5529 total). Each stream logs OOS/speculative-RFI/fast-audio-recovery
+transitions with continued decoding; this is not an error-free quality or sustained FPS result.
+Audible/visible playback and the exact current Sunshine release require maintainer confirmation;
+the previous run's reported release is not automatically assigned to this run.
+
+Each deliberate double-PS stop requests the session owner, stops input/audio/video/control and
+cleans all common-c stages. Audio port 6 drain/release return 0, owner stop returns 0, infobar
+restore succeeds, all three GXM unmaps return 0 and deferred release completes before the next
+Start (or the end of the third cycle). ENet interrupted/control-failed:4 appears only during
+requested stop; successful teardown follows. No setup failure, unexpected termination, no-audio/
+video warning, resource-retention or allocation failure is logged. Successful native kernel
+free return values are not separately logged. There is no host DisconnectHost/CLOSED/reconnect
+between Starts and no application shutdown trace.
+
+Memory observations, in equivalent post-release snapshots: USER_RW free is 33596 KiB after
+every cycle; after-stop/before deferred release it is 27412 KiB in all three. Stream-ready
+USER_RW is 10828 KiB each time. Initial paired idle is 33876 KiB, so the first-cycle difference
+of 280 KiB does not continue to grow at this resolution. However, the post-release newlib arena
+is 196608 bytes with used=98792/99096/99256 (increments 304 and 160, +464 bytes over two repeats).
+These are different measurements: kernel free memory is not newlib live allocation accounting.
+Three samples establish neither leak freedom nor a leak/root cause for the small newlib rise;
+longer controlled runs or allocation attribution are separate work, not a reason to change
+working resource cleanup speculatively.
+
+Record three sequential normal start/stop/resource-reuse cycles as verified on this Vita.
+This binary predates ee485a2 and provides no validation of that later Main empty-label fix.
+Shutdown during an active stream, repeated failure/host reconnect, admission/callback races,
+host-side cleanup and broader T7/T8 acceptance remain open. No runtime-code change or agent
+build/device run accompanies this evidence record. Next inspect/prepare active-stream
+application-shutdown validation.
 
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
