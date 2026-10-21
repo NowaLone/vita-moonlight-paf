@@ -20,7 +20,8 @@ The idle disconnect/reconnect test defaults OFF per invocation; enable explicitl
 with -DMOONLIGHT_DISCONNECT_TEST=ON for a test package. The separate active-stream
 scenario uses -DMOONLIGHT_ACTIVE_DISCONNECT_TEST=ON instead; pending setup uses
 -DMOONLIGHT_PENDING_DISCONNECT_TEST=ON. In-flight HTTPS uses -DMOONLIGHT_HTTP_DISCONNECT_TEST=ON.
-All four default OFF and are mutually exclusive.
+Common-c RTSP stage entry uses -DMOONLIGHT_STARTUP_DISCONNECT_TEST=ON.
+All five default OFF and are mutually exclusive.
 Other CMake arguments are forwarded to the selected profile(s).
 EOF
 }
@@ -64,7 +65,7 @@ build_profile() {
     [[ "$profile" == system ]] && mode=ON
     local -a profile_args=(-DMOONLIGHT_HEAP_TRACE=OFF -DMOONLIGHT_DISCONNECT_TEST=OFF
         -DMOONLIGHT_ACTIVE_DISCONNECT_TEST=OFF -DMOONLIGHT_PENDING_DISCONNECT_TEST=OFF
-        -DMOONLIGHT_HTTP_DISCONNECT_TEST=OFF "${CMAKE_ARGS[@]}"
+        -DMOONLIGHT_HTTP_DISCONNECT_TEST=OFF -DMOONLIGHT_STARTUP_DISCONNECT_TEST=OFF "${CMAKE_ARGS[@]}"
         "-DMOONLIGHT_SYSTEM_APP=$mode")
     if [[ "$BUILD_SELECTION" == both && "$profile" == normal ]]; then
         profile_args+=(-DMOONLIGHT_HEAP_TRACE=OFF)

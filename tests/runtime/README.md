@@ -53,9 +53,9 @@ duplicate/admission races, failure rollback and shutdown remain separate tests.
    ```
 
    `build.sh` explicitly defaults all test modes OFF on each invocation. Direct CMake users
-   must pass `-DMOONLIGHT_DISCONNECT_TEST=OFF`, `-DMOONLIGHT_ACTIVE_DISCONNECT_TEST=OFF` and
-   `-DMOONLIGHT_PENDING_DISCONNECT_TEST=OFF`, `-DMOONLIGHT_HTTP_DISCONNECT_TEST=OFF` to clear
-   previously enabled cache entries.
+   must pass `-DMOONLIGHT_DISCONNECT_TEST=OFF`, `-DMOONLIGHT_ACTIVE_DISCONNECT_TEST=OFF`,
+   `-DMOONLIGHT_PENDING_DISCONNECT_TEST=OFF`, `-DMOONLIGHT_HTTP_DISCONNECT_TEST=OFF` and
+   `-DMOONLIGHT_STARTUP_DISCONNECT_TEST=OFF` to clear previously enabled cache entries.
 
 ### Scope and implementation
 
@@ -99,8 +99,8 @@ Maintainer procedure:
    ./build.sh -DMOONLIGHT_SYSTEM_APP=ON -DMOONLIGHT_ACTIVE_DISCONNECT_TEST=ON
    ```
 
-   Install `build/vita_moonlight_paf.vpk`. Enable only one of idle, active, pending setup or HTTP;
-   CMake rejects combined test modes. build.sh resets all four OFF before explicit arguments,
+   Install `build/vita_moonlight_paf.vpk`. Enable only one of idle, active, pending setup, HTTP or startup;
+   CMake rejects combined test modes. build.sh resets all five OFF before explicit arguments,
    including when replacing an earlier test cache.
 2. Open Settings, enable Debug log, return and connect to the PC normally. Start one application
    from Apps. Keep the PC app running and leave Vita controls untouched during the automatic
@@ -308,7 +308,7 @@ Maintainer procedure (the agent must not build):
    ```
 
    Install `build/vita_moonlight_paf.vpk`. Do not explicitly enable another disconnect option;
-   all four default OFF per script invocation. No new persistent setting is added.
+   all five default OFF per script invocation. No new persistent setting is added.
 2. Open Settings, enable Debug log, return, connect and start one app. Leave other controls
    untouched during the automatic steps except the expected cancellation error's OK.
 3. Capture `[Launch]` and all logs through PASS or FAIL. The critical lifetime ordering is:
@@ -388,3 +388,86 @@ client-side in-flight ownership/recovery run; HTTP errors/timeouts, RTSP/common-
 shutdown, repeated recovery and leaks remain separate. No runtime-code change or agent build/
 device run accompanies this record. Restore the ordinary package as described above. Next
 prepare a separate RTSP/common-c startup cancellation scenario. Full evidence and limits: API audit F5.
+
+
+## Common-c startup scenario (source prepared; Vita validation pending)
+
+`MOONLIGHT_STARTUP_DISCONNECT_TEST=ON` selects a separate one-shot controller. It holds the
+sole stream worker in the existing `stageStarting(STAGE_RTSP_HANDSHAKE)` callback, inside
+LiStartConnection after platform/name/audio initialization, before performRtspHandshake begins.
+This is a partial common-c startup ownership test at RTSP stage entry. It does not hold an
+RTSP socket read/send or prove cancellation latency during blocking I/O.
+
+The existing Vita stop sets local flags and waits for LiStartConnection to return; it does not
+call LiInterruptConnection. With a successful host handshake, STARTED can therefore occur
+after Disconnect, followed by the session owner's LiStopConnection and STOPPED/CLOSED. The
+test records this late start explicitly instead of injecting an interrupt or fabricating -7.
+PASS means this late-start teardown/recovery sequence completed; it does not claim prompt
+startup cancellation. A startup failure preserves its actual error and fails this scenario.
+
+Maintainer procedure (the agent must not build):
+
+1. Build/install:
+
+   ```bash
+   ./build.sh -DMOONLIGHT_SYSTEM_APP=ON -DMOONLIGHT_STARTUP_DISCONNECT_TEST=ON
+   ```
+
+   Install `build/vita_moonlight_paf.vpk`. Only this mode should be enabled; all five options
+   default OFF per build.sh invocation and CMake rejects combinations. No new setting exists.
+2. Enable Debug log, connect normally and start one app. Leave Vita controls untouched while
+   the test requests Disconnect, observes startup/owner teardown and reconnects automatically.
+   The first Stream page may open and close briefly. No cancellation-error/OK is expected in
+   the nominal late-start path, unlike the earlier -7 tests.
+3. Capture `[Launch]` and the full log through PASS/FAIL, including:
+
+   ```text
+   [Stream] stage start 4 (RTSP handshake)
+   [DisconnectStartupTest] checkpoint inside LiStartConnection stage=4 before RTSP handshake
+   [DisconnectStartupTest] startup disconnect request result=0
+   [Stream] connection started
+   [DisconnectStartupTest] late STREAM_STARTED after Disconnect; awaiting owner STOPPED app=...
+   [Stream] stop worker start (session owner)
+   [Stream] stop worker finished result=0
+   [DisconnectStartupTest] owner STOPPED observed app=...
+   [DisconnectStartupTest] CLOSED after owner STOPPED; state=DISCONNECTED
+   [DisconnectStartupTest] reconnect ready state=PAIRED
+   [DisconnectStartupTest] refreshed applications count=...
+   [DisconnectStartupTest] restart request app=... result=0
+   [DisconnectStartupTest] PASS startup owner STOPPED -> CLOSED -> reconnect -> stream started app=... late_start=1
+   ```
+
+   Main-thread event logs and worker logs can interleave: the worker may finish stop before
+   queued late STARTED is delivered. The required contracts are checkpoint → Disconnect request
+   before worker continuation, STARTED → STOPPED → CLOSED event delivery, and no reconnect until
+   CLOSED/DISCONNECTED and foreground idle. Recovery must use the same host/app, paired trust,
+   fresh Apps and actual STREAM_STARTED/STREAMING. No pause/retry or host-wide quit is inserted.
+4. After PASS, confirm visible image and audible sound, stop normally with double PS and send
+   the remaining log through STOPPED/audio release/frame-buffer unmaps. Include the actual
+   Sunshine version. A setup/transport error, wrong/duplicate event, request rejection, shutdown
+   or 60-second step deadline reports FAIL and stops automatic actions. If a native error opens,
+   dismiss it normally; this controller does not automatically retry after FAIL. Preserve the
+   real error and cleanup tail instead of counting it as successful -7 cancellation.
+5. Restore the ordinary package afterward:
+
+   ```bash
+   ./build.sh -DMOONLIGHT_SYSTEM_APP=ON
+   ```
+
+The test only adds guarded callback/Start-capture hooks. It neither replaces frontend callbacks
+nor accesses PAF from the worker, owns no HTTP/stream/control mutex at the checkpoint and never
+calls LiStopConnection or LiInterruptConnection. Failure/shutdown releases the barrier; the
+worker also has a 60-second safety deadline. The existing stream owner remains responsible for
+setup/stop and releasing its running flag before deferred host cleanup. Fresh control requests
+remain blocked until cleanup. Partial-init unwind on actual startup failure, mid-RTSP I/O,
+shutdown/stress and resource lifetime still need separate device evidence. Normal builds exclude
+this controller/hook; earlier idle/active/pending/HTTP modes retain their behavior.
+
+Reference: common-c [Connection.c](https://github.com/moonlight-stream/moonlight-common-c/blob/master/src/Connection.c)
+places the stage callback before the handshake, unwinds failed initialization and documents
+interrupt as asynchronous. Moonlight Qt [Session::interrupt/cleanup](https://github.com/moonlight-stream/moonlight-qt/blob/master/app/streaming/session.cpp)
+uses LiInterruptConnection while retaining deferred cleanup/serialization. These references do
+not justify injecting an interrupt only in the test or freeing state from a second thread.
+A separate production follow-up would need safe entry/publication after common-c resets its
+interrupt flag, plus the existing owner/return-before-reuse contract; this test does not implement it.
+No build or Vita acceptance is recorded for this mode yet.

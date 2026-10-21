@@ -720,8 +720,10 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   RTSP/setup=0/PASS, then decoded frames through 661 and incoming audio (F5). Current Sunshine
   version, client revision and error-OK timing are unspecified. The maintainer also confirms
   visible image, audible sound and double-PS stop; final release/unmaps are not logged. This is
-  successful client-side in-flight ownership ordering, not curl abortion or remote rollback. Never substitute `/cancel` for local
-  cancellation: its scope is host-wide (A20).
+  successful client-side in-flight ownership ordering, not curl abortion or remote rollback.
+  A separate common-c startup test is now prepared at RTSP stage entry (F5), with late STARTED/
+  owner STOPPED explicitly distinguished from prompt cancellation; no device run yet.
+  Never substitute `/cancel` for local cancellation: its scope is host-wide (A20).
 
 ### A17 — Disconnect during active stream — partial
 
@@ -1585,6 +1587,54 @@ for HTTP errors/timeouts, RTSP/common-c startup cancellation, shutdown and repea
 recovery. Next prepare a separate runtime trigger for cancellation inside RTSP/common-c startup.
 The agent analyzed the maintainer log; no agent build/device run.
 
+**Common-c startup test source preparation, 2026-10-21; build/Vita pending:** the next independent
+A16 gap is Disconnect after LiStartConnection has begun, while common-c owns partially initialized
+resources. The minimal new mode MOONLIGHT_STARTUP_DISCONNECT_TEST=ON holds the existing
+stageStarting(STAGE_RTSP_HANDSHAKE) callback: platform/name/audio initialization has succeeded,
+RTSP handshake I/O has not started yet. The main-thread poll requests real Disconnect while
+Launch is busy, then releases the one-shot bounded worker barrier. It uses a separate controller
+because the earlier pending/HTTP tests require pre-common-c -7 and forbid any early STARTED.
+
+Current source behavior/root cause of deferred cancellation: moonlight_stream_stop sets local
+cancel/stop flags; run_stream_session checks them before LiStartConnection, but the call itself
+never receives LiInterruptConnection. A successful handshake can therefore still emit STARTED
+before returning, followed by owner LiStopConnection/STOPPED and host cleanup/CLOSED. This is
+already noted in A16; no new runtime failure is asserted. The test must expose, not hide, this
+late start. It requires correct host/app and STARTED → STOPPED → CLOSED event order, paired
+reconnect, fresh Apps and an actual same-app recovery STREAM_STARTED/STREAMING. PASS explicitly
+labels late_start=1 and means teardown/recovery only. Startup errors (including -7 if returned)
+keep their real result, report FAIL and stop automatic actions; they cannot be promoted to
+successful cancellation. Queued STARTED/STOPPED may be delivered after adapter state advances,
+so event identity/order matters; CLOSED must still observe DISCONNECTED.
+
+Reference comparison: vendored and current upstream common-c
+[Connection.c](https://github.com/moonlight-stream/moonlight-common-c/blob/master/src/Connection.c)
+invoke the stage callback before performRtspHandshake, unwind failed setup through LiStopConnection
+and document that interrupt is asynchronous: wait for LiStartConnection to return before reuse.
+Moonlight Qt [Session::interrupt/deferred cleanup](https://github.com/moonlight-stream/moonlight-qt/blob/master/app/streaming/session.cpp)
+uses LiInterruptConnection with session cleanup serialization. A production interrupt follow-up
+would need publication of safe common-c entry after its interrupt-flag reset and retention of the
+single teardown owner/return-before-reuse invariant. Calling interrupt from the test alone would
+change the path being measured. No production interrupt/endpoint/Sunshine workaround is added.
+
+Regression risks: transient STARTED can open Stream before owner stop, and events may already
+be queued while adapter state is DISCONNECTED. Normal frontend callbacks still own page/surface
+cleanup; the test neither filters those events nor drives UI from the worker. A callback holds
+no HTTP/stream/control mutex; failure/shutdown releases the barrier and a 60-second worker
+safety deadline prevents indefinite test waiting. Test timeout does not prove backend cleanup.
+Normal builds exclude the source/hooks. All five modes default OFF and are mutually exclusive;
+build.sh resets cached selections before applying explicit arguments.
+
+All 73 Python source checks pass, including the actual new controller/gate, stage filtering,
+late-event ordering, busy admission/recovery, wrong/duplicate events, real failure preservation,
+timeout/shutdown release, the guarded callback and all 32 five-mode Boolean combinations.
+Atomics, scheduling/services and memory are mocked; no compilation/CMake configure, real
+common-c/RTSP/TLS, PAF navigation, synchronization, device or leak validation was run. This
+checkpoint covers partial startup at RTSP stage entry, not mid-handshake blocking I/O or prompt
+cancellation latency. Build/Vita remain maintainer work; A16/A18/F5 stay partial. Next run the
+[startup test procedure](../tests/runtime/README.md#common-c-startup-scenario-source-prepared-vita-validation-pending)
+and capture startup, owner stop/CLOSED, recovery playback and final cleanup separately.
+
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.
@@ -1945,7 +1995,8 @@ verifies outgoing-header checkpoint → Disconnect=0 → transfer completion →
 reconnect/four Apps → same-app encrypted RTSP/setup=0/PASS, 661 decoded frames and incoming
 audio. The maintainer also confirms visible image, audible sound and ordinary double-PS stop;
 final release/unmaps are not logged. Current version/revision/error-OK timing are unspecified.
-Next prepare cancellation inside RTSP/common-c startup as a separate runtime scenario.
+The common-c startup mode is now source-prepared at RTSP stage entry and records late STARTED/
+owner STOPPED explicitly. Next run it on Vita to verify cleanup/recovery and final playback/stop.
 Pending-launch, concurrent/stress host changes and broader shared-state ownership remain open.
 The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
 cancellation/conflict trace verifies local cancellation followed by genuine server 409,

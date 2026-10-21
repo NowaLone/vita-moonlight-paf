@@ -1,6 +1,6 @@
 #include "moonlight/stream_session.h"
 #include "moonlight/gamestream_xml.h"
-#ifdef MOONLIGHT_PENDING_DISCONNECT_TEST
+#if defined(MOONLIGHT_PENDING_DISCONNECT_TEST) || defined(MOONLIGHT_STARTUP_DISCONNECT_TEST)
 #include "app/disconnect_test.h"
 #endif
 #ifdef MOONLIGHT_HTTP_DISCONNECT_TEST
@@ -145,6 +145,9 @@ static void on_stage_start(int stage)
         "[Stream] stage start %d (%s)",
         stage,
         LiGetStageName(stage));
+#ifdef MOONLIGHT_STARTUP_DISCONNECT_TEST
+    disconnect_test_startup_checkpoint(stage);
+#endif
 }
 
 static void on_stage_complete(int stage)

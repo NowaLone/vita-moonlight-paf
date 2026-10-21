@@ -39,8 +39,9 @@ the agent has not compiled or executed them. Example desktop command for the mai
 These checks do not establish Vita networking, pairing or stream compatibility.
 
 The opt-in [Vita disconnect/reconnect scenarios](runtime/README.md) give the maintainer
-separate idle, active-stream, post-launch/pre-RTSP and in-flight HTTPS DisconnectHost triggers
-through existing UI selection. All four are excluded by default and are mutually exclusive. The active scenario waits for a
+separate idle, active-stream, post-launch/pre-RTSP, in-flight HTTPS and common-c startup
+DisconnectHost triggers through existing UI selection. All five are excluded by default and
+are mutually exclusive. The active scenario waits for a
 user-selected stream, requires STOPPED before CLOSED, and restarts the same app only after
 paired reconnect and fresh Apps. Its checks include timer/busy gating, no restart before
 closure, queued STOPPED after the adapter already reports DISCONNECTED, wrong host/app/state,
@@ -65,3 +66,14 @@ curl option setup-failure cleanup and removal of stack userdata before unlock. M
 arithmetic/struct writes are used; no real curl, TLS, memory ordering, thread scheduling or C/C++
 ABI is tested. The existing C grammar check still covers all trust/transfer/pairing fragments.
 See the in-flight HTTPS maintainer procedure before claiming device/lifetime acceptance.
+
+
+The startup mode uses a separate controller because stop currently does not interrupt common-c
+startup. Its source checks exercise the actual stage-filtered one-shot worker gate, Disconnect
+while Launch remains busy, late STARTED → owner STOPPED → CLOSED ordering, paired reconnect/
+Apps/same-app recovery, and failure/shutdown/deadline release. Wrong/duplicate events and actual
+setup errors cannot produce PASS. PASS explicitly labels late_start=1; it is a teardown/recovery
+result, not prompt startup cancellation. The checks also inspect the guarded stage callback and
+all 32 combinations of the five CMake option expressions plus per-invocation defaults. This is
+not CMake configure or compilation. All atomics, services, time and threads are mocked; no real
+common-c, RTSP, PAF, allocator, concurrency or hardware validation is performed.
