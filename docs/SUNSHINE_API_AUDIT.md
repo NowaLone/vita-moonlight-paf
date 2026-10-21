@@ -704,7 +704,8 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   local -7 after owner unwind (including owner stop if common-c returns success). Actual raw
   errors are logged; uncancelled/pre-callback validation errors are preserved. L1 waits for the
   owner before freeing host state. Curl is not aborted. Stop after STARTED commits uses ordinary
-  active teardown. New interrupt behavior remains build/Vita pending; see F5.
+  active teardown. Stage-4 interruption/unwind/recovery/final stop is now log-verified on one
+  Vita; earlier-entry and late-stage races remain open (F5).
 - **Upstream / Sunshine:** C offers `LiInterruptConnection` during pending common-c startup; SR
   expires pending launch session by configured `ping_timeout`. The remote process may still run.
 - **Verified / runtime:** the 2026-10-21 maintainer Vita log verifies post-response/pre-RTSP
@@ -712,9 +713,10 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   Immediate recovery FAILS at encrypted RTSP OPTIONS (-1); no STREAM_STARTED or PASS. Reported
   Sunshine 2025.924.154138 logs a matching RTSP tag-verification failure. See F5 for source
   analysis and remaining uncertainty. The later in-flight HTTPS test passes in the scoped run
-  below. Common-c stage-entry late-start teardown/recovery is also verified below; prompt
-  interruption, startup failure unwind, transport errors/timeouts, immediate-recovery
-  reproducibility and the full cancellation/lifetime matrix stay open.
+  below. The old late-start teardown/recovery baseline and the later stage-4 interrupted
+  partial-init unwind/recovery are now verified below. Blocked-I/O cancellation latency,
+  earlier-entry/late-stage races, transport errors/timeouts, immediate-recovery reproducibility
+  and the full cancellation/lifetime matrix stay open.
   A second host now has a log-verified PASS after a maintainer-reported approximately five-second
   pause before error OK: paired reconnect, same-app resume/RTSP, audio packets, 404 decoded frames
   and final stop/release on maintainer-reported Sunshine 2026.914.233613. Timing is unmeasured;
@@ -731,9 +733,12 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   RTSP/PASS late_start=1, then sampled decoded frame 301 (F5). The maintainer confirms image,
   audible sound and double-PS stop; recovery audio receipt/final release are not logged. This
   proves late-start teardown/recovery, not prompt cancellation.
-  The later interrupt source follow-up changes the startup-test expectation to -7/no first
-  STARTED/PASS late_start=0; it is not yet device-verified. Never substitute `/cancel` for local
-  cancellation: its scope is host-wide (A20).
+  The later interrupt trace now verifies raw stage-4 -1 → audio/platform unwind → local -7/
+  CLOSED, no first STARTED, paired reconnect/four Apps, encrypted RTSP/PASS late_start=0 and
+  final double-PS stop with audio release/three unmaps. Recovery decodes 208 frames. The
+  maintainer confirms audible sound despite the log's no-audio warning; this discrepancy is
+  unresolved. This is stage-entry coverage, not blocked-handshake latency or late-init
+  buffer cancellation. Never substitute `/cancel` for local cancellation: its scope is host-wide (A20).
 
 ### A17 — Disconnect during active stream — partial
 
@@ -781,8 +786,12 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   common-c startup late-start teardown/recovery trace verifies STOPPED/CLOSED, old audio/buffer
   release, paired reconnect/four Apps and same-app encrypted RTSP/PASS through 301 decoded
   frames. The maintainer also confirms image, audible sound and double-PS stop for that run;
-  recovery audio receipt/final release are not logged. Pending-launch failure
-  variants, concurrent host/cache races, repeated failure cycles and remaining T8 cases stay open.
+  recovery audio receipt/final release are not logged. The later interrupted-startup run now
+  verifies -7/CLOSED, paired reconnect/fresh Apps, same-app encrypted RTSP/PASS late_start=0,
+  208 decoded frames and final normal stop/audio release/three unmaps. Audible sound is
+  maintainer-confirmed despite a contradictory no-audio log warning; the discrepancy stays open.
+  Pending-launch failure variants, concurrent host/cache races, repeated failure cycles and
+  remaining T8 cases stay open.
   Automatic reconnect here is opt-in test behavior; production network autoreconnect is not implemented.
 
 ### A19 — Host-side session cleanup — partial (end-to-end evidence pending)
@@ -1690,7 +1699,7 @@ startup-interrupt follow-up retaining the entry/reset/owner invariants above. Fi
 resource-release logs remain unprovided. No runtime-code change or agent build/device run
 accompanies this record.
 
-**Safe startup interruption source follow-up, 2026-10-21; build/Vita pending:** the baseline
+**Safe startup interruption source preparation, 2026-10-21 (before maintainer run below):** the baseline
 late_start=1 trace confirms the root cause: moonlight_stream_stop only sets local flags while
 LiStartConnection continues. Blindly calling interrupt before the call also races common-c's
 ConnectionInterrupted=false reset. The minimal production change stays in L2, with no vendored
@@ -1750,6 +1759,53 @@ partial unwind, late-stage/success-race buffers, blocked-I/O latency, repeated r
 shutdown. Native interruption is cooperative and does not guarantee immediate cancellation of
 every blocking socket/platform call. A16/A18/F5 remain partial until maintainer evidence exists.
 Next run the [updated startup test](../tests/runtime/README.md#common-c-startup-scenario).
+
+**Interrupted startup maintainer Vita result, 2026-10-21:** host 192.168.1.134, server UUID
+3D7D0EDF-A6A6-F303-0A1C-217868AB07D4, app 1093255277. The new strict controller and production
+cancel/unwind markers identify the follow-up behavior introduced in 499a241. No Launch marker,
+current Sunshine version or measured time at error OK is supplied; do not assign an exact
+installed revision/profile or reuse earlier host-version/timing reports.
+
+Observed sequence:
+
+1. Accepted resume reaches the checkpoint at RTSP stage 4. Disconnect=0 precedes RTSP OPTIONS/
+   stage failure -1, audio-stream/platform cleanup and LiStartConnection return -1. The production
+   log records `common-c startup cancelled result=-1; owner cleanup returned`, then setup -7.
+   This matches the native cooperative interrupt at the stage-entry transaction check; the raw
+   OPTIONS failure here is part of expected cancellation, not evidence of failed recovery.
+2. Matching STREAM_FAILED=-7 is delivered before CLOSED/DISCONNECTED. The ordinary native error
+   starts and terminates before reconnect. There is no initial connectionStarted/input startup,
+   video decoder allocation or StreamPage in the supplied cancellation segment. Therefore this
+   does not exercise release of buffers allocated during a later interrupted stage.
+3. Reconnect reaches PAIRED without PIN; authenticated applist count=4 and Apps rebuild
+   before=4/after_delete=0/after_insert=4 precede same-app resume. Encrypted RTSP/all startup
+   stages succeed, setup=0 and PASS late_start=0 are logged. First video arrives at 400 ms;
+   decode reaches sampled frame 181/number 184 and the final decoded count is 208.
+4. Double PS requests normal stop. Owner result=0 follows full common-c cleanup, audio port 6
+   drain/release both return 0, the infobar is restored, and three video unmaps return 0 before
+   `deferred frame buffers released`. This verifies final normal teardown separately from the
+   first partial-init unwind.
+
+Recovery audio initializes, but stop explicitly reports `No audio traffic was ever received
+from the host!`; no received-audio marker appears. The maintainer subsequently answers that
+sound was audible on Vita for this run. Retain both observations: playback is user-reported,
+while this trace does not establish audio packet receipt. The discrepancy is unresolved.
+Vendored AudioStream.c sets receivedDataFromPeer/logs on first packet and reads that flag for
+the stop warning before joining its receiver; no correlated capture identifies why this warning
+and the audible report disagree. It is a short session (208 decoded frames, no absolute duration
+supplied). No audio code change or diagnosed regression follows from this evidence alone.
+ENet interrupted/control-failed:4 occurs during final owner stop and cleanup still succeeds. USER_RW free returns to 33880 KiB
+at paired reconnect (same as initial), then 33600 after final framebuffer release; one cycle
+neither proves leak freedom nor diagnoses the 280 KiB difference.
+
+Record stage-entry interruption, partial-init unwind, error acknowledgement, paired recovery/
+video/PASS late_start=0 and final normal resource release as verified on this Vita. Do not
+extend it to cancel-before-entry replay, blocked RTSP I/O latency, late-stage/cancelled-success
+buffers, shutdown, repeats or log-verified audio receipt. Earlier immediate-recovery/tag-failure
+runs remain separate; this success does not establish a universal safe delay or fix Sunshine's pending slot.
+A16/A18/F5 remain partial. Next target cancellation after video allocation to exercise FAILED/
+deferred-buffer release. No runtime-code change or agent
+build/device run accompanies this evidence record.
 
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
@@ -2116,8 +2172,11 @@ CLOSED, successful first-session audio release/three unmaps, paired reconnect/fo
 same-app encrypted RTSP/PASS late_start=1, followed by decoded video through frame 301. The
 maintainer confirms visible image, audible sound and ordinary double-PS stop. Recovery audio
 receipt/final resource release are not logged; current version/revision are unspecified. Next
-run the source-updated startup interruption test (-7/CLOSED/error OK/recovery/PASS late_start=0),
-retaining the historical baseline as separate evidence.
+cover cancellation after video allocation. The interrupted-startup cycle is now log-verified:
+raw stage-4 -1/unwind → -7/CLOSED → paired recovery/PASS late_start=0 → 208 decoded frames →
+final double-PS stop/audio release/three unmaps, without first STARTED. The maintainer confirms
+audible sound despite a contradictory no-audio warning; that discrepancy and earlier/later
+cancellation races remain open.
 Pending-launch, concurrent/stress host changes and broader shared-state ownership remain open.
 The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
 cancellation/conflict trace verifies local cancellation followed by genuine server 409,

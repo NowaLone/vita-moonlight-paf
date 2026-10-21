@@ -59,7 +59,8 @@ removed `sce_sys/manual/004.png`, retaining `001.png`–`003.png`. Its stale exp
 caused the reported VPK packaging failure after SELF creation. That entry is now removed
 **[code]**; all 15 source-file entries in the VPK manifest exist and its manual list matches
 the three current pages. No assets are restored or edited. This is a source/manifest check;
-packaging/install and the startup-interruption runtime test remain **[open]**. No agent build.
+VPK packaging/install was not separately reported. The subsequent stage-4 startup-interruption
+log is scoped below; other hardware checks remain **[open]**. No agent build.
 
 ## 1. Principles
 
@@ -681,8 +682,11 @@ without publishing STARTED/opening Stream. Release remains on the main-thread ca
 common-c teardown; a pending release never frees a newer pool or a pool still referenced by an
 active Stream page. This also covers a successful common-c return suppressed by a prior local
 cancel, after the owner stops that transport. No new progress/error UI or inline text is added.
-Cancellation and late-init failure hardware checks remain **[open]**; the earlier late-start
-teardown test predates this change.
+The later strict stage-4 cancellation trace verifies no first STARTED/Stream page, partial
+common-c unwind → -7/CLOSED → native error termination → paired recovery/PASS late_start=0
+and final normal stop/audio release/three unmaps **[hw, log, 2026-10-21]**. That first cancelled
+setup never allocated video buffers; FAILED cleanup after late-init allocation and the cancelled-
+success race remain **[open]**. The earlier late_start=1 teardown test predates this change.
 
 Backend callbacks may arrive on worker threads. `MoonlightApp` queues them and delivers them through
 `MainThreadCallList`, so page callbacks run on the PAF main thread. Only the topmost page owns the event callback; when

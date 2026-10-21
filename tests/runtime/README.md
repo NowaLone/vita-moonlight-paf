@@ -392,7 +392,7 @@ prepare a separate RTSP/common-c startup cancellation scenario. Full evidence an
 
 ## Common-c startup scenario
 
-**Current interrupt follow-up, 2026-10-21; build/Vita pending:** use
+**Current interrupt follow-up, 2026-10-21; stage-4 Vita result recorded below:** use
 `MOONLIGHT_STARTUP_DISCONNECT_TEST=ON` to hold the sole worker in
 stageStarting(STAGE_RTSP_HANDSHAKE), inside LiStartConnection after platform/name/audio init,
 before handshake I/O begins. The checkpoint is unchanged; the production stop path now requests
@@ -467,7 +467,8 @@ shutdown/worker deadline (60 seconds). The production stop only sends a nonblock
 under the short stream mutex; LiStopConnection stays on the stream owner. Host cleanup waits
 for worker completion and terminal-event bookkeeping. Apps uses the existing deferred release
 with pool-generation and active-Stream guards. No vendored protocol, endpoint, credentials,
-HTTP cancellation or Sunshine behavior is changed. Build/Vita are still pending for this revision.
+HTTP cancellation or Sunshine behavior is changed. The narrow stage-4 runtime result is below;
+remaining boundary/race/latency cases are unverified.
 
 References: [common-c asynchronous interrupt contract](https://github.com/moonlight-stream/moonlight-common-c/blob/master/src/Limelight.h),
 [reset/stage/unwind implementation](https://github.com/moonlight-stream/moonlight-common-c/blob/master/src/Connection.c)
@@ -496,3 +497,25 @@ cycle neither diagnoses a leak nor proves leak freedom. This closes the targeted
 teardown/recovery test through PASS/decoded video only. Prompt interruption, failed startup
 rollback, blocked RTSP I/O, timeout/shutdown/repeats and logged final recovery resource release
 remain separate. No runtime-code change or agent build/device run accompanies this record.
+
+
+### Maintainer interrupted-startup result, 2026-10-21
+
+The strict test now passes on the supplied Vita log for host .134/app 1093255277:
+stage-4 checkpoint/Disconnect=0 → raw RTSP OPTIONS/stage failure -1 → audio/platform unwind →
+production cancel log/raw -1 → local setup -7 → CLOSED → native error termination → paired
+reconnect without PIN → four Apps/rebuild → same-app encrypted RTSP/setup=0 → PASS late_start=0.
+There is no first STARTED/input startup/decoder/Stream page before CLOSED. This validates the
+stage-entry cooperative interrupt and partial unwind, without testing a blocked RTSP read or
+FAILED cleanup after video buffers were allocated.
+
+Recovery receives video at 400 ms and decodes 208 frames. Final double PS stops the owner with
+result=0, audio port drain/release succeed and all three deferred video unmaps return 0.
+Recovery initializes audio but explicitly reports no received audio before stop. The maintainer
+subsequently confirms audible sound on Vita for this run. Preserve that user report alongside
+the contradictory warning; packet receipt is not log-verified and the discrepancy is unresolved.
+No Launch marker/current Sunshine version/error-OK timing is supplied.
+USER_RW free is 33880 KiB initially/after reconnect and 33600 after final buffer release; this
+single run is not a leak diagnosis/proof. No runtime-code change or agent build/device run.
+Next cover cancellation after video allocation; earlier-entry replay, late cancelled-success,
+blocked I/O, shutdown and repeats remain separate.
