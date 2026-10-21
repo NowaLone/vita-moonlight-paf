@@ -20,11 +20,6 @@ public:
         Main *m_parent;
     };
 
-    struct HostButtonContext {
-        Main *page;
-        int index;
-    };
-
     Main();
     virtual ~Main();
     virtual Type GetType() { return Type_Main; }
@@ -68,13 +63,22 @@ private:
     void StartDeleteConfirmation();
     void DeleteSelectedHosts();
 
-    MoonlightHost m_hosts[8];
+    struct HostRowState {
+        uint32_t token;
+        uint32_t checkbox_token;
+        bool selected;
+        paf::ui::CheckBox *checkbox;
+    };
+    int FindHostIndex(uint32_t token) const;
+
+    paf::vector<MoonlightHost> m_hosts;
+    paf::vector<HostRowState> m_rows;
+    uint32_t m_next_host_token;
     int m_host_count;
     int m_selected_index;
     bool m_connecting;
     int m_initial_refresh_attempts;
     int m_initial_refresh_stable_count;
-    HostButtonContext m_button_contexts[8];
 
     SceImeDialogParam m_ime_param;
     SceWChar16 m_ime_input[256];
@@ -86,8 +90,6 @@ private:
     bool m_ime_module_loaded;
 
     bool m_selection_mode;
-    bool m_selected_hosts[8];
-    paf::ui::CheckBox *m_checkboxes[8];
     int m_selected_count;
     bool m_delete_dialog_open;
     bool m_delete_dialog_task_registered;

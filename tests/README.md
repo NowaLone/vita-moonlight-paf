@@ -19,6 +19,16 @@ previous source fails 24 cases across six of these tests; all 108 current Python
 No compiler/ABI, actual filesystem/flush, concurrency, native-dialog or Vita behavior is tested.
 Atomic replacement, memory rollback and power-loss durability are outside this correction.
 
+`test_host_lists.py` interprets the shared host-snapshot/identity helpers, actual Main/Search
+refresh/token-lookup functions, Main Select/Clear All/count/delete and Search's canonical lookup
+fragment. Nine checks model 40 saved/16 discovered hosts, discovery growth between count/copy,
+shrink/empty/error preservation, conflicting UUID/MAC and port, selection following a moved UUID,
+obsolete tokens, Select/Clear All and deletion past eight, and lookup after eight despite duplicate
+names. Callback bindings are source-checked. PAF vectors, allocation, service reads, widgets and
+action-bar exit are modeled; C++ template/member syntax is normalized for the serial interpreter.
+All 117 Python checks pass. No compiler/ABI, allocator, real threading/snapshot consistency, PAF
+scrolling/focus, native dialogs or Vita run is established. Backend discovery still holds at most 16.
+
 The foreground checks interpret the source terminal-event predicate across all event/operation
 combinations and the retained-result classification (including a successful empty app list).
 They do not execute PAF dialogs, threads, event-ring delivery or the complete state machine;

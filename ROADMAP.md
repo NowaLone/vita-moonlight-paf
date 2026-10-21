@@ -35,15 +35,25 @@ shutdown validation are deferred while concrete source gaps are addressed.
   non-atomic truncation; errors do not roll back in-memory metadata or guarantee durable storage.
 - [ ] Maintainer build/Vita validation of saved-host creation/update and reuse after restart;
   controlled storage-failure handling remains pending. No agent build or hardware run.
-- [ ] **Next isolated change: the eight-host Main/Search presentation limit**, followed separately
-  by discovery-service completion/error state. Preserve selection identity and PAF templates.
+- [x] **Source correction: remove the eight-host Main/Search presentation limit (2026-10-21).**
+  Page-owned vectors read full service snapshots; discovery growth between count/copy retries.
+  Cells are removed before replacing data, with page-owned callback userdata and fresh row tokens
+  rejecting obsolete rows. Main remaps deletion selection by host identity, including after reorder;
+  Search canonicalizes against all saved PCs by address/port, without display-name fallback.
+  Native PAF templates, selection bar/dialogs, initial Main refresh, storage and discovery's 16-host
+  backend bound remain. All 117 non-build checks pass; nine new actual-source checks cover lists
+  beyond eight, growth/shrink/empty/error, selection, stale tokens and canonical lookup. No agent build.
+- [ ] Maintainer build/Vita validation: scroll/select a PC beyond eight in Main/Search, exercise
+  Select/Clear All and Delete OK/Cancel, then return/reopen. Source simulation is not PAF proof.
+- [ ] **Next isolated change: discovery-service completion/error state** on natural scan completion
+  and failed start. Keep protocol/backend capacity changes separate.
 - Requested remote self-unpair remains **missing/blocked by upstream client protocol**; no admin
   login, host patch, fake `/unpair`, `/cancel` workaround or global identity rotation is authorized.
 - Malformed trust/XML/transport faults, custom ports, mandatory encryption, shutdown, long stress
   and the explicitly deferred 64/65-app case remain unverified. They are not missing endpoints;
   retain them as milestone/release checks or investigate when concrete runtime evidence appears.
 
-The consolidation itself changed documentation only; the dated queue and persistence follow-ups
+The consolidation itself changed documentation only; the dated queue, persistence and host-list follow-ups
 above are source changes with maintainer build/Vita validation pending. Broad T1–T10 acceptance remains open;
 dated evidence and accepted compatibility limitations remain below.
 

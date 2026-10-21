@@ -111,7 +111,21 @@ the maintainer reports the requested >8 check OK. Normal two-PC list switching a
 are subsequently user-confirmed without a new log, as is the empty-list message without
 repeated requests or a hang. The 64/65 boundary test is unverified and explicitly deferred
 by the maintainer (2026-10-20). In-page refresh and concurrent host/cache checks remain pending; see `docs/UI.md` and the API audit.
-Main/Search eight-host limits and their canonicalization issue remain open. No build/hardware run by the agent.
+Main/Search still had their separate limit at that stage. No build/hardware run by the agent.
+
+**Source follow-up, 2026-10-21:** Main/Search now use dynamic PAF vectors sized by service count,
+with discovery copy retry when its returned total exceeds the queried capacity. Refresh removes
+all old cells before publishing new data. Page-only callback userdata and fresh widget row tokens
+avoid addresses inside vectors and reject obsolete rows. Main's selection follows host identity
+after reorder; checkbox pointers are cleared with the old rows. Search canonicalization scans all
+saved records by address/port and fails explicitly if no match exists, avoiding a different same-name
+record. This follows local BHBB `9e615e9` AppBrowser EntryCB/factory widget-ID resolution, without
+copying its app/database architecture. Main's initial-refresh task and CXML templates are unchanged.
+Nine new source checks simulate 40 saved/16 discovered PCs, count/copy growth, shrink/empty/read
+failure, identity conflict/reorder, Select/Clear All, deletion past row eight and obsolete tokens;
+all 117 non-build Python checks pass. Maintainer build/PAF scrolling/selection/navigation remain
+pending. This does not remove discovery's 16-host backend bound or establish atomic/concurrent
+host-store snapshots. DiscoveryService's natural-completion/error state remains the next gap.
 
 ### 2. Backend/stream state is shared across threads without a real synchronization model
 

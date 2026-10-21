@@ -13,9 +13,10 @@ current source and Git state determine the findings below.
 implementations and scoped Vita evidence. Further routine stop/reconnect test variants are not
 the next development task. See [the consolidated decision and backlog](#6-completion-and-next-work)
 for implemented paths, concrete code gaps, blocked self-unpair and deferred verification.
-Later source follow-ups isolate snapshot bursts from ordered lifecycle delivery (F5) and
-propagate host metadata write failures (L8); maintainer build/Vita validation remains pending.
-Next isolated implementation: remove the eight-host Main/Search presentation limit.
+Later source follow-ups isolate snapshot bursts from ordered lifecycle delivery (F5),
+propagate host metadata write failures (L8) and remove Main/Search's eight-PC presentation limit
+(A01); maintainer build/Vita validation remains pending.
+Next isolated implementation: discovery-service completion/error state.
 These corrections add no protocol endpoint.
 
 ## User runtime follow-up — 2026-10-20
@@ -464,8 +465,10 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Semantics:** resolve service records/target/IPv4 address and advertised GameStream HTTP port;
   discovery results are temporary, not proof of availability or pairing.
 - **Current:** L5 active query/sniffer, 10-second scan, maximum 16 entries, name/address/port
-  deduplication. Main/Search expose at most eight; HostDiscoveryService keeps `m_running` true
-  after natural completion until Stop.
+  deduplication. Main/Search now read dynamic service-sized snapshots and expose all available
+  entries, including saved PCs beyond eight. Search's saved-record lookup covers all saved PCs
+  by address/port; row tokens avoid pointers into vectors. Source checks pass; PAF/Vita acceptance
+  remains open. HostDiscoveryService keeps `m_running` true after natural completion until Stop.
 - **Upstream / Sunshine:** SD publishes mapped HTTP port; V discovery is a reference for client
   discovery, N/B only for presenting results.
 - **Verified / runtime:** source; T1 must verify repeated scans, >8 hosts, packet ordering and
@@ -2340,8 +2343,9 @@ checkbox is closed solely by this consolidation.
 
 - **Discover/connect/serverinfo and pairing preparation (A01/A02/A04):** real mDNS/IPv4 and
   HTTP bootstrap/HTTPS paired status exist. LAN discovery/manual selection work in the scoped
-  user flow; complete scan/custom-port/wider-host coverage remains separate. Main/Search still
-  expose at most eight hosts, so broad discovery support remains partial.
+  user flow; complete scan/custom-port/wider-host coverage remains separate. Main/Search's
+  eight-host cap is now removed in source; >8-PC PAF acceptance remains pending. Discovery
+  still has its 16-entry backend bound, so broad discovery support remains partial.
 - **Pairing, actionable errors and server trust (A05/A06/A22):** five-phase proof/final HTTPS
   challenge, host server.pem pinning and exact-leaf verification are implemented. Normal pairing,
   persisted trust/reconnect, wrong-PIN rejection, genuine 409 presentation, active-wait cancellation,
@@ -2397,11 +2401,22 @@ proven leak or leak-free guarantee. Earlier quality/audio-warning observations r
    compilation or device proof. Existing memory mutations remain on failure; non-atomic truncating
    writes may leave partial files. Atomic replacement, rollback and power-loss durability are not
    addressed. Maintainer build/save/restart smoke and controlled storage-failure tests remain open.
-3. **Next implementation: host/discovery limits and state (A01).** Main/Search arrays and callback/selection contexts
-   remain eight-wide; discovery holds 16 and persistent storage is dynamic. DiscoveryService's
-   m_running does not clear on natural completion and DiscoveryJob ignores SearchHosts' return.
-   These are existing local gaps, not missing Sunshine endpoints. Separate scalable host storage
-   from service completion/error handling, preserving PAF templates and selection identity.
+3. **Host presentation limit: source-addressed; next implementation is discovery state (A01).**
+   Main/Search now read dynamically sized snapshots. Count/copy uses the existing service API;
+   discovery's total-count return triggers a resize/retry on growth. Old cells are removed before
+   vector swaps; fresh tokens in widget names resolve through page-only userdata, following
+   [BHBB EntryCB/factory](https://github.com/Ibrahim778/BetterHomebrewBrowser/blob/9e615e9186bf7ca5fb985dc06c1a5e06c47f24f5/src/pages/app_browser.cpp#L410-L416).
+   Main remaps selected flags by UUID/MAC/address-port, rejecting stronger identity conflicts;
+   Search canonicalizes against the complete saved snapshot by address/port, never a same-name
+   fallback. PAF row templates, modal workflow, initial Main refresh, storage and protocols remain.
+   Nine new actual-source checks cover 40 saved/16 discovered hosts, growth/shrink/empty/error,
+   old row tokens, selection/reorder/Select All/deletion and lookup past eight. All 117 non-build
+   checks pass; no build, allocator, real concurrent snapshot or PAF/Vita proof. More rows still
+   consume finite Vita memory; discovery retains its 16-host backend bound. Maintainer >8-PC
+   scrolling/selection/Delete/navigation acceptance is pending.
+   **Next:** DiscoveryService's m_running does not clear on natural completion and DiscoveryJob
+   ignores SearchHosts' return. Address completion/error handling separately; it is a local service
+   gap, not a missing Sunshine endpoint or a reason to change discovery capacity/protocol.
 4. **Narrow error/compatibility limits (A03/A06/A23).** Some local pairing failures still classify
    as protocol errors, capabilities remain fixed and version bounds are bypassed. Address a
    concrete required case with its own source/host evidence; no speculative codec/timeout expansion.
@@ -2447,7 +2462,9 @@ TLS weakening, delayed retry or host workaround is proposed to reduce testing sc
   maintainer build/Vita gate open.** No arbitrary critical-storm/race guarantee.
 - **Persistence source gate: checked write/close status through host store; 108 non-build checks
   complete; maintainer build/Vita gate open.** No atomic-write/durability guarantee.
-- **Next code gate: remove the eight-host Main/Search limit as one isolated change.**
+- **Host presentation source gate: dynamic snapshots/token callbacks and 117 non-build checks
+  complete; maintainer build/Vita gate open.** Backend discovery capacity is still 16.
+- **Next code gate: discovery-service completion/error state as one isolated change.**
 - **Release/compatibility gate: open.** Deferred error/security/version/shutdown/stress tests,
   broader shared-state ownership and the separate build/license requirements remain pending.
 

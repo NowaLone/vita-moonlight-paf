@@ -26,11 +26,6 @@ public:
     paf::ui::ListItem *CreateListItem(paf::ui::listview::ItemFactory::CreateParam &param);
 
 private:
-    struct HostButtonContext {
-        Search *page;
-        int index;
-    };
-
     static void OnHostButton(int32_t type, paf::ui::Handler *self, paf::ui::Event *event, void *userdata);
     static void OnMoonlightEvent(const MoonlightEvent *event, void *userdata);
     void RefreshHosts();
@@ -39,11 +34,13 @@ private:
     void SelectHost(int index);
     void OnConnectionReady();
 
-    MoonlightHost m_hosts[8];
+    int FindHostIndex(uint32_t token) const;
+    paf::vector<MoonlightHost> m_hosts;
+    paf::vector<uint32_t> m_host_tokens;
+    uint32_t m_next_host_token;
     int m_host_count;
     bool m_host_selected;
     int m_selected_index;
-    HostButtonContext m_button_contexts[8];
     paf::ui::ListView *m_list;
 
 };

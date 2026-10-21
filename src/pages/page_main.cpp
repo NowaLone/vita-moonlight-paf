@@ -8,6 +8,7 @@
 #include <psp2/sysmodule.h>
 
 #include "pages/page_main.h"
+#include "pages/host_list.h"
 #include "pages/page_search.h"
 #include "pages/page_apps.h"
 #include "pages/page_pairing.h"
@@ -222,6 +223,7 @@ Main::Main()
     : Base("page_main", NULL,
            paf::Plugin::TransitionType_None,
            paf::Plugin::TransitionType_None),
+      m_next_host_token(0),
       m_host_count(0),
       m_selected_index(-1),
       m_connecting(false),
@@ -240,19 +242,11 @@ Main::Main()
     memset(m_ime_input, 0, sizeof(m_ime_input));
     memset(m_ime_initial_text, 0, sizeof(m_ime_initial_text));
     memset(m_add_pc_address, 0, sizeof(m_add_pc_address));
-    memset(m_selected_hosts, 0, sizeof(m_selected_hosts));
-    memset(m_checkboxes, 0, sizeof(m_checkboxes));
     memset(m_delete_message, 0, sizeof(m_delete_message));
 
     s_main = this;
 
     if (!IsValid()) return;
-
-    for (int i = 0; i < 8; ++i) {
-        m_hosts[i] = MoonlightHost();
-        m_button_contexts[i].page = this;
-        m_button_contexts[i].index = i;
-    }
 
     paf::ui::ListView *list = static_cast<paf::ui::ListView *>(
         root->FindChild("list_view_main"));
@@ -394,7 +388,7 @@ paf::ui::ListItem *Main::CreateListItem(
      * on the shared one: RefreshHosts() rebuilds every cell when the mode
      * changes, so the right template is simply picked here.
      */
-    m_checkboxes[param.cell_index] = NULL;
+    m_rows[param.cell_index].checkbox = NULL;
 
     paf::Plugin::TemplateOpenParam tmp;
     g_plugin->TemplateOpen(
@@ -415,28 +409,29 @@ paf::ui::ListItem *Main::CreateListItem(
         return static_cast<paf::ui::ListItem *>(item);
     }
 
-    button->SetName((uint32_t)param.cell_index);
+    button->SetName(m_rows[param.cell_index].token);
     button->AddEventCallback(
         paf::ui::ButtonBase::CB_BTN_DECIDE,
         OnHostButton,
-        &m_button_contexts[param.cell_index]);
+        this);
 
     if (m_selection_mode) {
         paf::ui::Widget *checkbox_widget = item->FindChild("checkbox_host_select");
         if (checkbox_widget) {
             paf::ui::CheckBox *checkbox = (paf::ui::CheckBox *)checkbox_widget;
+            checkbox->SetName(m_rows[param.cell_index].checkbox_token);
             checkbox->SetCheck(
-                m_selected_hosts[param.cell_index],
+                m_rows[param.cell_index].selected,
                 0.0f,
                 false);
             checkbox->AddEventCallback(
                 paf::ui::CheckBox::CB_BTN_DECIDE,
                 OnHostSelection,
-                &m_button_contexts[param.cell_index]);
+                this);
 
             /* Focus stays on the row; the checkbox mirrors its state. */
             set_widget_focusable(checkbox, false);
-            m_checkboxes[param.cell_index] = checkbox;
+            m_rows[param.cell_index].checkbox = checkbox;
         }
     }
 
@@ -446,7 +441,7 @@ paf::ui::ListItem *Main::CreateListItem(
         m_host_count,
         m_selection_mode ? 1 : 0,
         button,
-        m_checkboxes[param.cell_index]);
+        m_rows[param.cell_index].checkbox);
 
     const MoonlightHost &host = m_hosts[param.cell_index];
 
@@ -470,18 +465,27 @@ void Main::OnHostButton(
     void *userdata)
 {
     (void)type;
-    (void)self;
     (void)event;
 
-    HostButtonContext *context = (HostButtonContext *)userdata;
-    if (!context || !context->page) return;
+    Main *main = static_cast<Main *>(userdata);
+    paf::ui::Widget *button = static_cast<paf::ui::Widget *>(self);
+    if (!main || !button) return;
+    int index = main->FindHostIndex(button->GetName().GetIDHash());
+    if (index < 0) return;
 
-    if (context->page->m_selection_mode) {
-        context->page->ToggleHostSelection(context->index);
+    if (main->m_selection_mode) {
+        main->ToggleHostSelection(index);
         return;
     }
+    main->SelectHost(index);
+}
 
-    context->page->SelectHost(context->index);
+int Main::FindHostIndex(uint32_t token) const
+{
+    for (int i = 0; i < m_host_count; ++i) {
+        if (m_rows[i].token == token || m_rows[i].checkbox_token == token) return i;
+    }
+    return -1;
 }
 
 void Main::OnHostSelection(
@@ -492,19 +496,16 @@ void Main::OnHostSelection(
 {
     (void)type;
     (void)event;
+    Main *main = static_cast<Main *>(userdata);
+    paf::ui::CheckBox *checkbox = static_cast<paf::ui::CheckBox *>(self);
+    if (!main || !checkbox || !main->m_selection_mode) return;
+    int index = main->FindHostIndex(checkbox->GetName().GetIDHash());
+    if (index < 0) return;
 
-    HostButtonContext *context = (HostButtonContext *)userdata;
-    if (!context || !context->page || !self ||
-        context->index < 0 || context->index >= context->page->m_host_count ||
-        !context->page->m_selection_mode) {
-        return;
-    }
-
-    paf::ui::CheckBox *checkbox = (paf::ui::CheckBox *)self;
     bool checked = checkbox->IsChecked();
-    if (context->page->m_selected_hosts[context->index] != checked) {
-        context->page->m_selected_hosts[context->index] = checked;
-        context->page->UpdateSelectionCount();
+    if (main->m_rows[index].selected != checked) {
+        main->m_rows[index].selected = checked;
+        main->UpdateSelectionCount();
     }
 }
 
@@ -515,28 +516,47 @@ void Main::RefreshHosts()
     MoonlightApp *app = MoonlightApp::Instance();
     if (!app) return;
 
-    const int host_count = app->Hosts().GetHosts(m_hosts, 8);
-    if (host_count < 0) {
+    paf::ui::ListView *list = static_cast<paf::ui::ListView *>(
+        root->FindChild("list_view_main"));
+    if (!list) return;
+
+    paf::vector<MoonlightHost> hosts;
+    if (!read_host_snapshot(app->Hosts(), hosts)) {
         /* An unavailable store is not a confirmed empty saved-host list. */
         HideStatus();
         return;
     }
-    m_host_count = host_count > 8 ? 8 : host_count;
+    paf::vector<HostRowState> rows(hosts.size());
+    for (int i = 0; i < (int)hosts.size(); ++i) {
+        /* Fresh tokens reject callbacks from cells destroyed by this refresh. */
+        if (++m_next_host_token == 0) ++m_next_host_token;
+        rows[i].token = m_next_host_token;
+        if (++m_next_host_token == 0) ++m_next_host_token;
+        rows[i].checkbox_token = m_next_host_token;
+        if (m_selection_mode) {
+            for (int j = 0; j < m_host_count; ++j) {
+                if (m_rows[j].selected && same_host_identity(hosts[i], m_hosts[j])) {
+                    rows[i].selected = true;
+                    break;
+                }
+            }
+        }
+    }
 
-    paf::ui::ListView *list = static_cast<paf::ui::ListView *>(
-        root->FindChild("list_view_main"));
-
-    if (!list) return;
-
-    /* The cells are about to be destroyed; do not keep dangling widgets. */
-    memset(m_checkboxes, 0, sizeof(m_checkboxes));
-
+    /* Invalidate callbacks/widget pointers before removing the old cells. */
+    m_host_count = 0;
+    m_rows.clear();
     int existing = list->GetCellNum(0);
     if (existing > 0) {
         /* DeleteCell's third argument is a cell count, not the last index. */
         list->DeleteCell(0, 0, existing);
     }
     const int cells_after_delete = list->GetCellNum(0);
+
+    m_hosts.swap(hosts);
+    m_rows.swap(rows);
+    m_host_count = (int)m_hosts.size();
+    if (m_selection_mode) UpdateSelectionCount();
 
     if (m_host_count > 0) {
         list->InsertCell(0, 0, m_host_count);
@@ -589,10 +609,10 @@ void Main::ToggleHostSelection(int index)
      * Update the flag first: if SetCheck() notifies OnHostSelection(), that
      * handler sees the checkbox already matches and changes nothing.
      */
-    m_selected_hosts[index] = !m_selected_hosts[index];
+    m_rows[index].selected = !m_rows[index].selected;
 
-    if (m_checkboxes[index]) {
-        m_checkboxes[index]->SetCheck(m_selected_hosts[index], 0.0f, false);
+    if (m_rows[index].checkbox) {
+        m_rows[index].checkbox->SetCheck(m_rows[index].selected, 0.0f, false);
     }
 
     UpdateSelectionCount();
@@ -612,7 +632,7 @@ void Main::ToggleSelectAll()
     /* Same condition as the button label: "Clear all" only when everything is selected. */
     const bool select = !AllHostsSelected();
     for (int i = 0; i < m_host_count; ++i) {
-        m_selected_hosts[i] = select;
+        m_rows[i].selected = select;
     }
 
     UpdateSelectionCount();
@@ -625,7 +645,7 @@ void Main::UpdateSelectionCount()
 {
     m_selected_count = 0;
     for (int i = 0; i < m_host_count; ++i) {
-        if (m_selected_hosts[i]) {
+        if (m_rows[i].selected) {
             ++m_selected_count;
         }
     }
@@ -664,7 +684,7 @@ void Main::EnterSelectionMode()
 
     m_selection_mode = true;
     m_selected_count = 0;
-    memset(m_selected_hosts, 0, sizeof(m_selected_hosts));
+    for (int i = 0; i < m_host_count; ++i) m_rows[i].selected = false;
 
     paf::ui::Widget *normal_actions = root->FindChild("plane_main_actions");
     paf::ui::Widget *status = root->FindChild("text_main_status");
@@ -699,7 +719,7 @@ void Main::ExitSelectionMode()
 
     m_selection_mode = false;
     m_selected_count = 0;
-    memset(m_selected_hosts, 0, sizeof(m_selected_hosts));
+    for (int i = 0; i < m_host_count; ++i) m_rows[i].selected = false;
 
     paf::ui::Widget *normal_actions = root->FindChild("plane_main_actions");
     paf::ui::Widget *settings = root->FindChild("settings_button");
@@ -765,7 +785,7 @@ void Main::DeleteSelectedHosts()
     bool failed = false;
 
     for (int i = 0; i < m_host_count; ++i) {
-        if (!m_selected_hosts[i]) {
+        if (!m_rows[i].selected) {
             continue;
         }
 

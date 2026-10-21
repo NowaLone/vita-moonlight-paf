@@ -158,6 +158,11 @@ recipes for common UI changes live in [`docs/UI.md`](docs/UI.md). Read it before
 - Layout and appearance belong in `cxml/vita_moonlight_ui.xml`; code fills content, state and events. Choose a row template by mode; never show/hide a checkbox on a shared row template (Apps uses `template_list_item_generic`).
 - Disable buttons only with `set_button_enabled()`. Return Main to its idle status only with `Main::ShowIdleStatus()`; a direct `SetStatus("Select a PC to connect.")` draws over the rows.
 - `ListView::DeleteCell()` takes a cell count: pass the full existing count (`Main`, `Search`, `Apps` all do). `existing - 1` leaves a stale duplicate row.
+- Main/Search use dynamic page-owned host snapshots and per-refresh widget row tokens with page
+  userdata; never bind callbacks to vector element addresses. Remove old cells before swapping
+  backing data, reject obsolete tokens and preserve Main deletion selection by host identity.
+  Search resolves a selection against the full saved list by address/port, not display name.
+  Source checks pass; >8-PC PAF scrolling/selection still needs maintainer build/Vita validation.
 - In a `style_plane`, the style `color` and its `planeobj` `color` multiply, alpha included: keep the style at `1, 1, 1, 1` and put the real value in the `planeobj`.
 - The PAF coordinate system is center-origin on a 960×544 screen: `(0,0)` is screen center and positive Y points upward. Anchor/align values, `adjust`, the visible-edge inset of buttons and the speech-balloon placement rule are in `docs/UI.md` sections 2 and 5.4.
 - Saved-host Delete uses `SceMessageDialog` for confirmation and removes the selected persistent records through the HostService → backend → legacy device store path.

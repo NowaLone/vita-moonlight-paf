@@ -4,6 +4,7 @@
 #include "common.h"
 
 #include "pages/page_search.h"
+#include "pages/host_list.h"
 #include "pages/page_apps.h"
 #include "pages/page_pairing.h"
 #include "pages/page_main.h"
@@ -13,26 +14,17 @@
 
 namespace page {
 
-namespace {
-static const int kMaxHosts = 8;
-}
-
 Search::Search()
     : Base("page_search_pcs", "btn_close_search",
            paf::Plugin::TransitionType_SlideFromBottom,
            paf::Plugin::TransitionType_SlideFromBottom),
+      m_next_host_token(0),
       m_host_count(0),
       m_host_selected(false),
       m_selected_index(-1),
       m_list(NULL) {
 
     if (!IsValid()) return;
-
-    for (int i = 0; i < kMaxHosts; ++i) {
-        m_hosts[i] = MoonlightHost();
-        m_button_contexts[i].page = this;
-        m_button_contexts[i].index = i;
-    }
 
     m_list = static_cast<paf::ui::ListView *>(
         root->FindChild("list_view_generic"));
@@ -87,11 +79,11 @@ paf::ui::ListItem *Search::CreateListItem(
         return item;
     }
 
-    button->SetName((uint32_t)param.cell_index);
+    button->SetName(m_host_tokens[param.cell_index]);
     button->AddEventCallback(
         paf::ui::ButtonBase::CB_BTN_DECIDE,
         OnHostButton,
-        &m_button_contexts[param.cell_index]);
+        this);
 
     const MoonlightHost &host = m_hosts[param.cell_index];
     set_child_text(item, "text_host_title", host.name[0] ? host.name : "PC");
@@ -108,19 +100,21 @@ void Search::OnHostButton(int32_t type,
                           paf::ui::Event *event,
                           void *userdata) {
     (void)type;
-    (void)self;
     (void)event;
 
-    HostButtonContext *context = (HostButtonContext *)userdata;
-    if (!context || !context->page) return;
+    Search *search = static_cast<Search *>(userdata);
+    paf::ui::Widget *button = static_cast<paf::ui::Widget *>(self);
+    if (!search || !button || search->m_host_selected) return;
+    int index = search->FindHostIndex(button->GetName().GetIDHash());
+    if (index >= 0) search->SelectHost(index);
+}
 
-    Search *search = context->page;
-
-    if (search->m_host_selected) {
-        return;
+int Search::FindHostIndex(uint32_t token) const
+{
+    for (int i = 0; i < m_host_count; ++i) {
+        if (m_host_tokens[i] == token) return i;
     }
-
-    search->SelectHost(context->index);
+    return -1;
 }
 
 void Search::SelectHost(int index) {
@@ -151,44 +145,29 @@ void Search::SelectHost(int index) {
         return;
     }
 
-    /*
-     * Add() resolves the discovered entry to the persistent host record and
-     * assigns the stable host_id/storage identity. Connect using that
-     * canonical record instead of the transient discovery object.
-     */
-    MoonlightHost canonical_host = host;
-    MoonlightHost saved_hosts[kMaxHosts];
-    int saved_count = app->Hosts().GetHosts(saved_hosts, kMaxHosts);
-
-    if (saved_count > 0) {
-        /*
-         * Address is the authoritative match for a freshly discovered host.
-         * Name is only a fallback because multiple PCs may share one name.
-         */
-        int canonical_index = -1;
-
-        if (host.internal[0]) {
-            for (int i = 0; i < saved_count && i < kMaxHosts; ++i) {
-                if (strcmp(saved_hosts[i].internal, host.internal) == 0) {
-                    canonical_index = i;
-                    break;
-                }
-            }
-        }
-
-        if (canonical_index < 0 && host.name[0]) {
-            for (int i = 0; i < saved_count && i < kMaxHosts; ++i) {
-                if (strcmp(saved_hosts[i].name, host.name) == 0) {
-                    canonical_index = i;
-                    break;
-                }
-            }
-        }
-
-        if (canonical_index >= 0) {
-            canonical_host = saved_hosts[canonical_index];
+    /* Resolve against the complete saved list, including records after row 8.
+     * A duplicate display name must not override the selected address/port. */
+    paf::vector<MoonlightHost> saved_hosts;
+    if (!read_host_snapshot(app->Hosts(), saved_hosts)) {
+        app->Connection().ShowError("Unable to read saved PCs.");
+        m_host_selected = false;
+        return;
+    }
+    int saved_count = (int)saved_hosts.size();
+    int canonical_index = -1;
+    for (int i = 0; i < saved_count; ++i) {
+        if (saved_hosts[i].port == host.port &&
+            strcmp(saved_hosts[i].internal, host.internal) == 0) {
+            canonical_index = i;
+            break;
         }
     }
+    if (canonical_index < 0) {
+        app->Connection().ShowError("Unable to find saved PC.");
+        m_host_selected = false;
+        return;
+    }
+    MoonlightHost canonical_host = saved_hosts[canonical_index];
 
     vita_debug_log(
         "[Search] selected host name=%s ip=%s id=%s saved_count=%d canonical_id=%s",
@@ -265,16 +244,27 @@ void Search::HideStatus() {
 void Search::RefreshHosts() {
     if (!root || m_host_selected || !m_list) return;
 
-    m_host_count = MoonlightApp::Instance()->Discovery().GetHosts(
-        m_hosts, kMaxHosts);
+    paf::vector<MoonlightHost> hosts;
+    if (!read_host_snapshot(MoonlightApp::Instance()->Discovery(), hosts)) {
+        MoonlightApp::Instance()->Connection().ShowError("Unable to read discovered PCs.");
+        return;
+    }
 
-    if (m_host_count < 0) m_host_count = 0;
-    if (m_host_count > kMaxHosts) m_host_count = kMaxHosts;
-
+    /* Reject callbacks from removed cells before replacing their backing data. */
+    m_host_count = 0;
+    m_host_tokens.clear();
     const int existing = m_list->GetCellNum(0);
     if (existing > 0) {
         /* DeleteCell's third argument is a cell count, not the last index. */
         m_list->DeleteCell(0, 0, existing);
+    }
+
+    m_hosts.swap(hosts);
+    m_host_count = (int)m_hosts.size();
+    m_host_tokens.resize(m_host_count);
+    for (int i = 0; i < m_host_count; ++i) {
+        if (++m_next_host_token == 0) ++m_next_host_token;
+        m_host_tokens[i] = m_next_host_token;
     }
 
     if (m_host_count > 0) {
