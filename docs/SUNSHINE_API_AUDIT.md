@@ -703,8 +703,10 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   setup may briefly emit STARTED before asynchronous stop. Cancelled setup returns STREAM_FAILED.
 - **Upstream / Sunshine:** C offers `LiInterruptConnection` during pending common-c startup; SR
   expires pending launch session by configured `ping_timeout`. The remote process may still run.
-- **Verified / runtime:** source; T7 must trigger during HTTP wait, between HTTP/RTSP and inside
-  common-c startup; verify ordered events and no premature release. Never substitute `/cancel` for
+- **Verified / runtime:** source; an opt-in post-response/pre-RTSP checkpoint test is now
+  source-prepared (F5), requiring -7 then CLOSED before same-app recovery. No Vita acceptance
+  yet. T7 must additionally trigger during HTTP wait and inside common-c startup; verify
+  ordered events and no premature release. Never substitute `/cancel` for
   local cancellation: its scope is host-wide (A20).
 
 ### A17 — Disconnect during active stream — partial
@@ -1347,6 +1349,54 @@ A17/A18/F5 retain open failure/race/stress and pending-launch coverage. Next pre
 pending-launch DisconnectHost scenario (A16). No runtime code change or agent-run build/device
 test accompanies this evidence record.
 
+**Pending-setup trigger source follow-up, 2026-10-21; build/Vita pending:** the remaining
+A16 gap is an untested cancellation/lifetime path, not a newly reproduced runtime bug. A fixed
+delay after Start could accidentally test idle or established streaming; the test instead uses
+a precise hook after load_launch_session succeeds and before the existing RTSP cancellation
+check. MOONLIGHT_PENDING_DISCONNECT_TEST=ON compiles one separate scenario and two hooks:
+service Start captures the accepted app on the main thread, and the stream worker publishes
+an atomic checkpoint then yields until released (maximum 60 seconds, no stream/control mutex
+held). PAF poll calls the existing service Disconnect while foreground Launch is still busy,
+then releases the worker. The worker checkpoint performs no PAF work; service/UI commands
+remain on the main thread.
+
+The real Disconnect sets cancellation; the unchanged post-response check must return -7.
+The test requires STREAM_FAILED=-7 for the chosen host/app before CLOSED/DISCONNECTED and
+rejects any first STREAM_STARTED or STOPPED. The normal Apps callback still displays its
+native launch-error dialog; the user presses OK once. Automatic reconnect waits until that
+service-owned dialog is no longer busy, requires PAIRED without a PIN, refreshes Apps and
+requests the same app ID once. Only the recovery STREAM_STARTED/STREAMING produces PASS.
+The worker gate cannot hold the recovery a second time. This is a post-HTTP/pre-RTSP scenario,
+not cancellation of in-flight curl or common-c startup, and not proof of remote launch rollback.
+
+Reference basis remains A16 and the already inspected C/QS/V/S implementations. Vendored
+common-c Limelight.h requires a pending LiStartConnection to finish before starting another;
+this checkpoint is earlier than that call, so it uses the existing cancellation flag/owner
+and waits for CLOSED rather than introducing LiInterruptConnection or a new endpoint. L2
+publishes its failed completion before clearing the owner-running flag, and L1 waits for that
+owner before freeing GameStream state. An already accepted host launch may persist; the
+normal fresh serverinfo chooses resume/launch on recovery. Any host pending-session rejection
+is logged as a test failure; no host patch, cleanup workaround, timed retry or `/cancel` is added.
+
+All 44 non-build Python checks pass. Tests interpret actual scenario functions with mocked
+atomics, time, services and serial interleavings; they also interpret the real post-response
+cancel fragment (error bypass, -7 and uncancelled continuation). They cover busy launch,
+failure-before-CLOSED, wrong host/app/state/result, no early STARTED, native-error busy gating,
+one-shot recovery, timeouts and release on failure/shutdown. They do not compile C++, prove
+atomic ordering or real concurrency/curl/crypto lifetime, validate native error presentation
+or execute the new path on Vita. Main failure/shutdown releases the gate; its worker deadline
+prevents an indefinite test hold if PAF disappears. Releasing the gate does not itself cancel
+setup: backend lifecycle remains the owner. User selection and error OK have no test deadline.
+
+All three disconnect modes default OFF and are mutually exclusive; build.sh resets them OFF
+before explicit overrides. Ordinary builds contain neither new hook nor source. The only
+runtime-file edits are guarded test hooks; protocol/cancellation logic, storage and frontend
+callbacks remain unchanged. Risks to validate: checkpoint/native-dialog interaction, teardown
+ordering, host pending-session behavior and recovered playback. See the exact
+[pending test procedure](../tests/runtime/README.md#pending-setup-scenario-source-prepared-vita-validation-pending).
+A16/A18/F5 remain partial; curl wait, RTSP/common-c cancellation, rollback, shutdown and stress
+still require their own coverage.
+
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.
@@ -1695,8 +1745,8 @@ ordering checks. The normal direct idle disconnect/CLOSED/reconnect/Apps cycle i
 maintainer-log verified on one Vita (2026-10-21). The separate active-stream scenario is now
 log-verified on system build f25e735baf54 through STOPPED/CLOSED, paired reconnect, same-app
 resume, 654 decoded frames, received audio and final manual stop/release. The maintainer also
-confirms visible image and audible sound after reconnect for this exact run. Next prepare a
-separate pending-launch DisconnectHost scenario (A16).
+confirms visible image and audible sound after reconnect for this exact run. The separate post-response/pre-RTSP pending-launch trigger is now source-prepared (A16);
+next run its expected -7/error-OK/CLOSED/reconnect/same-app recovery on Vita.
 Pending-launch, concurrent/stress host changes and broader shared-state ownership remain open.
 The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
 cancellation/conflict trace verifies local cancellation followed by genuine server 409,

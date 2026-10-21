@@ -9,6 +9,7 @@ from test_xml_source import ROOT, strip_directives
 
 class ScenarioHarness:
     source_name = 'disconnect_smoke.cpp'
+    extra_functions = ()
 
     @classmethod
     def setUpClass(cls):
@@ -21,10 +22,11 @@ class ScenarioHarness:
             for name in ('MoonlightConnectionState', 'MoonlightEventType'))
         functions = []
         names = ('set_phase', 'fail', 'disconnect_test_capture_host', 'disconnect_test_poll',
-                 'disconnect_test_event', 'disconnect_test_shutdown')
+                 'disconnect_test_event', 'disconnect_test_shutdown') + cls.extra_functions
         for name in names:
-            start = re.search(r'^(?:static )?void ' + name + r'\(', source, re.M).start()
+            start = re.search(r'^(?:static |extern "C" )?void ' + name + r'\(', source, re.M).start()
             body = source[start:source.index('\n}', start) + 2]
+            body = body.replace('extern "C" ', '')
             body = body.replace('MoonlightApp &app', 'int app').replace(
                 'const MoonlightHost &host', 'const MoonlightHost host').replace(
                 'const MoonlightEvent &event', 'const MoonlightEvent *event').replace('event.', 'event->')

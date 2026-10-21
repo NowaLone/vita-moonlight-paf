@@ -39,10 +39,20 @@ the agent has not compiled or executed them. Example desktop command for the mai
 These checks do not establish Vita networking, pairing or stream compatibility.
 
 The opt-in [Vita disconnect/reconnect scenarios](runtime/README.md) give the maintainer
-separate idle and active-stream DisconnectHost triggers through existing UI selection. Both
-are excluded by default and cannot be enabled together. The active scenario waits for a
+separate idle, active-stream and post-launch/pre-RTSP pending-setup DisconnectHost triggers
+through existing UI selection. All are excluded by default and are mutually exclusive. The active scenario waits for a
 user-selected stream, requires STOPPED before CLOSED, and restarts the same app only after
 paired reconnect and fresh Apps. Its checks include timer/busy gating, no restart before
 closure, queued STOPPED after the adapter already reports DISCONNECTED, wrong host/app/state,
 operation rejection/failure, timeout, user interruption and no repeat after PASS. These Python
 checks interpret the actual source with mocked services/time, not Vita runtime or compilation.
+
+
+The pending scenario's source checks interpret both its worker checkpoint and main-thread
+flow. Atomics, services, time and worker yields are mocked; serial interleavings cover disconnect
+while Launch is busy, expected -7 before CLOSED, no reconnect under the native error/OK dialog,
+no early STREAM_STARTED, one-shot recovery and release on failure/shutdown/worker timeout.
+A separate check interprets the actual post-response/pre-RTSP cancel fragment: failed launch
+responses bypass the hook, cancellation returns -7, and an uncancelled path continues. These
+checks do not compile C++ or establish actual memory ordering, real-thread/curl lifetime,
+Vita error presentation or recovery playback. See runtime/README.md for maintainer steps.

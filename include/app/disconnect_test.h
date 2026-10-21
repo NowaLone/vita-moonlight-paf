@@ -5,11 +5,18 @@
 
 class MoonlightApp;
 
-/* Test build only: CMake selects one idle/active implementation under the shared hook guard.
- * All hooks run on the PAF main thread; no worker/UI callback replacement. */
+/* Test build only: CMake selects one implementation under the shared hook guard.
+ * Hooks run on the PAF main thread except the explicitly marked pending worker checkpoint.
+ * No worker/UI callback replacement. */
 void disconnect_test_capture_host(const MoonlightHost &host);
 void disconnect_test_poll(MoonlightApp &app);
 void disconnect_test_event(MoonlightApp &app, const MoonlightEvent &event);
 void disconnect_test_shutdown();
+
+#ifdef MOONLIGHT_PENDING_DISCONNECT_TEST
+void disconnect_test_capture_start(int application_id, int result);
+/* Stream worker only; test-only bounded checkpoint, no PAF access. */
+extern "C" void disconnect_test_pending_checkpoint(int application_id);
+#endif
 
 #endif

@@ -1,5 +1,8 @@
 #include "moonlight/stream_session.h"
 #include "moonlight/gamestream_xml.h"
+#ifdef MOONLIGHT_PENDING_DISCONNECT_TEST
+#include "app/disconnect_test.h"
+#endif
 
 #include <arpa/inet.h>
 #include <psp2/kernel/rng.h>
@@ -397,6 +400,10 @@ static int run_stream_session(
             remote_key,
             remote_iv);
     if (result != 0) return result;
+
+#ifdef MOONLIGHT_PENDING_DISCONNECT_TEST
+    disconnect_test_pending_checkpoint(application_id);
+#endif
 
     if (stream_cancel_requested()) {
         vita_debug_log("[Stream] launch cancelled before RTSP setup");

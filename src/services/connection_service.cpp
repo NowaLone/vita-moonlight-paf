@@ -395,6 +395,9 @@ int ConnectionService::Start(int application_id)
      * can hide launch failures from the caller/UI.
      */
     int result = m_backend.StartApplication(application_id);
+#ifdef MOONLIGHT_PENDING_DISCONNECT_TEST
+    disconnect_test_capture_start(application_id, result);
+#endif
 
     vita_debug_log(
         "[ConnectionService] Start app=%d result=%d",

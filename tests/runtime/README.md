@@ -52,9 +52,9 @@ duplicate/admission races, failure rollback and shutdown remain separate tests.
    ./build.sh -DMOONLIGHT_SYSTEM_APP=ON
    ```
 
-   `build.sh` explicitly defaults this test OFF on each invocation. Direct CMake users must
-   pass both `-DMOONLIGHT_DISCONNECT_TEST=OFF` and
-   `-DMOONLIGHT_ACTIVE_DISCONNECT_TEST=OFF` to clear previously enabled cache entries.
+   `build.sh` explicitly defaults all test modes OFF on each invocation. Direct CMake users
+   must pass `-DMOONLIGHT_DISCONNECT_TEST=OFF`, `-DMOONLIGHT_ACTIVE_DISCONNECT_TEST=OFF` and
+   `-DMOONLIGHT_PENDING_DISCONNECT_TEST=OFF` to clear previously enabled cache entries.
 
 ### Scope and implementation
 
@@ -98,9 +98,9 @@ Maintainer procedure:
    ./build.sh -DMOONLIGHT_SYSTEM_APP=ON -DMOONLIGHT_ACTIVE_DISCONNECT_TEST=ON
    ```
 
-   Install `build/vita_moonlight_paf.vpk`. Do not enable the idle test together with this option;
-   CMake rejects that combination. build.sh resets both options OFF before explicit arguments,
-   including when replacing an earlier idle-test cache.
+   Install `build/vita_moonlight_paf.vpk`. Enable only one of idle, active or pending setup;
+   CMake rejects combined test modes. build.sh resets all three OFF before explicit arguments,
+   including when replacing an earlier test cache.
 2. Open Settings, enable Debug log, return and connect to the PC normally. Start one application
    from Apps. Keep the PC app running and leave Vita controls untouched during the automatic
    disconnect/reconnect/restart. No app is automatically chosen from the list. Initial pairing
@@ -157,3 +157,86 @@ real threads or transport; broader device coverage beyond the reported cycle rem
 Pending-launch cancellation, duplicate admission, failure rollback, shutdown and stress coverage
 remain separate. Existing audit references C/QS/V/S distinguish local stop from host-wide quit;
 this test sends no `/cancel`, quit or unpair request and uses no Sunshine administrative API.
+
+
+## Pending-setup scenario (source prepared; Vita validation pending)
+
+This mode targets one precise A16 checkpoint: **after a successful HTTPS launch/resume response,
+before RTSP/LiStartConnection**. It does not test cancellation while curl is waiting, inside RTSP
+or during common-c startup. A failed launch/resume response never enters the checkpoint.
+
+The user chooses an app in Apps for the first attempt. In this test package only, its worker publishes
+an atomic checkpoint and waits for release, holding no stream/control mutex. PAF's test poll
+requests the real service Disconnect while Launch is still busy, then releases the worker.
+The existing stream cancel check must return -7 before any first STREAM_STARTED. The scenario
+requires STREAM_FAILED=-7 for that host/app followed by CLOSED/DISCONNECTED; it then waits for
+the user to dismiss the ordinary native launch error. It reconnects, requires PAIRED without PIN,
+refreshes Apps and starts the same app once without holding the checkpoint again. PASS requires
+the recovery STREAM_STARTED/STREAMING with the same host/app, not accepted Start alone.
+
+Maintainer procedure (agent must not build):
+
+1. Build and install the pending-test package:
+
+   ```bash
+   ./build.sh -DMOONLIGHT_SYSTEM_APP=ON -DMOONLIGHT_PENDING_DISCONNECT_TEST=ON
+   ```
+
+   Install `build/vita_moonlight_paf.vpk`. Other disconnect modes must remain OFF; build.sh
+   clears their cached ON values unless explicitly requested. Normal budgets/settings apply.
+2. Open Settings, enable Debug log, return, connect and start one app from Apps. The first
+   attempt should be cancelled before video. Initial pairing is allowed if needed.
+3. Expect one ordinary **Unable to start stream** error (`0xFFFFFFF9`, -7). Press OK once.
+   This is the intended cancellation result delivered through the existing frontend callback;
+   it is not hidden or automatically dismissed by the test. Do not select/start another app.
+   The test waits for OK without a test deadline, then reconnects and restarts automatically.
+4. Capture from `[Launch]` through `[DisconnectPendingTest] PASS` or FAIL, including normal
+   GameStream/Stream setup lines. Expected markers:
+
+   ```text
+   [DisconnectPendingTest] armed host=... port=...
+   [DisconnectPendingTest] ready; start one app; expect one cancellation error/OK
+   [DisconnectPendingTest] start accepted app=...; awaiting checkpoint
+   [DisconnectPendingTest] checkpoint after launch response before RTSP app=...
+   [DisconnectPendingTest] pending disconnect request result=0
+   [Stream] launch cancelled before RTSP setup
+   [Stream] setup finished app=... result=-7
+   [DisconnectPendingTest] cancelled setup observed result=-7 app=...
+   [DisconnectPendingTest] CLOSED after cancelled setup; dismiss launch error with OK
+   [DisconnectPendingTest] reconnect enqueue result=0
+   [DisconnectPendingTest] reconnect ready state=PAIRED
+   [DisconnectPendingTest] refresh enqueue result=0
+   [DisconnectPendingTest] refreshed applications count=...
+   [DisconnectPendingTest] restart request app=... result=0
+   [DisconnectPendingTest] PASS pending cancelled -> CLOSED -> reconnect -> stream started app=...
+   ```
+
+   Worker/main-thread messages can interleave: the checkpoint can log before Start returns.
+   The old attempt must have no RTSP/connection-start message after its accepted launch response.
+   A page-initiated fresh app refresh can omit the test's own refresh-enqueue line. Inspect the
+   recovery launch/resume choice and RTSP stages; only the recovery should reach STREAM_STARTED.
+5. Confirm image/sound and selected host/app after recovery, stop normally and capture cleanup.
+   PASS alone is an event/state check. A pending host launch may leave the app running; fresh
+   serverinfo decides resume versus launch. Host pending-session rejection/failure is recorded
+   as FAIL with the actual backend result, without timed retries, `/cancel` or a Sunshine fix.
+6. Restore the ordinary package with `./build.sh -DMOONLIGHT_SYSTEM_APP=ON` afterward.
+
+Only the pending option compiles the new worker/main-thread hooks and scenario source. The
+worker checkpoint is one-shot and uses only atomic publication, time and a 10 ms worker yield;
+it has a 60-second safety timeout if PAF stops responding. Main-thread failure/shutdown releases
+it too. The worker makes no PAF calls, and the main thread never waits on this checkpoint;
+only the stream worker is held.
+Automatic backend steps have 60-second test deadlines; first app selection and cancellation OK
+are user-paced. Timeout/error releases the barrier and stops further test commands. Normal
+backend cleanup still owns outstanding work; releasing a failed test does not itself cancel
+setup. No production cancellation flag, API semantics, host identity/storage or page callback is
+changed, and no forced remote quit/unpair request is sent. Relaunch to repeat the one-shot test.
+
+Non-build checks interpret the actual checkpoint/main state flow with mocked atomics/services,
+time and serial interleavings, plus the real post-response cancel-check fragment. They cover
+busy-launch disconnect, -7/CLOSED ordering, wrong app/host/state/result, no early STARTED, wait
+for error dismissal, request failures, worker/main timeout, shutdown release and a single
+same-app recovery. They do not compile C++, validate atomic memory ordering or real scheduling,
+run curl/RTSP or prove absence of use-after-free. Build/device acceptance, error UI, recovery
+playback and host-side pending-session cleanup remain pending. Other A16 stages, duplicate
+requests, rollback, shutdown/stress and broader T7/T8 coverage remain separate.
