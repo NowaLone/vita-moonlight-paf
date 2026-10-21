@@ -61,6 +61,8 @@ Evidence tags used below:
 
 **Current implementation, 2026-10-21:** the compact PAF busy-dialog follow-up below supersedes
 the historical SceMsgDialog progress-window descriptions. Error/confirmation dialogs keep SceMsgDialog.
+The temporary workflow/timing and job-lifetime traces described below were removed after the
+maintainer's successful run; they remain documented as historical evidence, not current output.
 
 Target: one action → native WAIT during a long step → completed operation/dialog teardown →
 result or next page. Conflicting selection/navigation must stay blocked until success, failure,
@@ -354,6 +356,18 @@ device test was run.
 video and sound or a playback problem, the maintainer replies “всё нормально”. Observed playback
 is accepted for this run. This does not explain the IDR/audio log warnings or establish sustained
 quality measurements; no playback defect is confirmed and no streaming-code change is made.
+
+**Diagnostic cleanup [code; build/Vita pending, 2026-10-21]:** at the maintainer's request,
+remove temporary foreground begin/complete, busy-dialog open/first-poll/close timing traces,
+their timestamp/poll fields and the now-unused process-time include. Connect/Pairing jobs no
+longer print addresses or Run/Finish/destruction/cancellation lifetimes; successful enqueue
+traces are removed, with enqueue failures retained. Pairing no longer logs the constructor
+PIN/root or PIN-widget address. Error/fallback messages remain in Debug Log. Main/Search/Apps
+list-population diagnostics, backend protocol diagnostics and streaming logs are unchanged.
+Native dialog calls, operation gating, main-thread polling, result publication and pairing
+cancellation are preserved; the pairing result local was used only for the removed log.
+This is an output cleanup, not a new UI/protocol fix. Source/diff review and eight existing
+non-build Python checks pass; no build or hardware test was run for the cleanup.
 
 ## 2. Screen geometry and the layout language
 

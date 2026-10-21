@@ -6,7 +6,6 @@
 
 #include <psp2/message_dialog.h>
 #include <psp2/sysmodule.h>
-#include <psp2/kernel/processmgr.h>
 
 #include "services/connection_service.h"
 #include "common.h"
@@ -44,27 +43,18 @@ public:
     {
     }
 
-    virtual ~ConnectJob()
-    {
-        vita_debug_log("[ConnectionService] job=%p destroyed", (void *)this);
-    }
+    virtual ~ConnectJob() {}
 
     virtual void Run()
     {
-        vita_debug_log(
-            "[ConnectionService] ConnectJob::Run host=%s job=%p",
-            m_host.internal, (void *)this);
         int result = m_backend.ConnectHost(m_host);
-        vita_debug_log(
-            "[ConnectionService] ConnectJob::Run result=%d job=%p",
-            result, (void *)this);
+        if (result != 0) {
+            vita_debug_log("[ConnectionService] Connect job failed result=%d", result);
+        }
         m_connection.RecordWorkerResult(result);
     }
 
-    virtual void Finish()
-    {
-        vita_debug_log("[ConnectionService] job=%p Finish", (void *)this);
-    }
+    virtual void Finish() {}
 
 private:
     MoonlightBackend &m_backend;
@@ -78,8 +68,6 @@ ConnectionService::ConnectionService(MoonlightBackend &backend, PairingService &
     : m_backend(backend),
       m_pairing(pairing),
       m_progress_dialog_slot(-1),
-      m_progress_polled(false),
-      m_progress_started_us(0),
       m_error_dialog_open(false),
       m_error_pending(false),
       m_dialog_task_registered(false),
@@ -114,7 +102,6 @@ int ConnectionService::BeginOperation(ForegroundOperation operation)
         m_operation = Operation_None;
         return result;
     }
-    vita_debug_log("[Workflow] begin operation=%d", (int)operation);
     return 0;
 }
 
@@ -139,7 +126,6 @@ int ConnectionService::StartWaitDialog()
         return -1;
     }
 
-    m_progress_started_us = sceKernelGetProcessTimeWide();
     /* Match BHBB/NetStream: CommonGuiDialog stays in the application's PAF context.
      * Keep this system module loaded for the same lifetime as the PAF framework. */
     int result = sceSysmoduleIsLoadedInternal(SCE_SYSMODULE_INTERNAL_COMMON_GUI_DIALOG);
@@ -163,10 +149,6 @@ int ConnectionService::StartWaitDialog()
     }
 
     m_progress_dialog_slot = slot;
-    m_progress_polled = false;
-    vita_debug_log("[Workflow] PAF busy dialog open operation=%d slot=%d elapsed_ms=%llu",
-        (int)m_operation, (int)slot,
-        (unsigned long long)((sceKernelGetProcessTimeWide() - m_progress_started_us) / 1000));
     if (!m_dialog_task_registered) {
         paf::common::MainThreadCallList::Register(DialogPollTask, this);
         m_dialog_task_registered = true;
@@ -183,9 +165,6 @@ void ConnectionService::CloseWaitDialog()
      * in r0, not a status code. Match BHBB/NetStream: call once, discard the return
      * and release our slot. PAF owns the remaining widget/animation cleanup. */
     (void)sce::CommonGuiDialog::Dialog::Close(slot);
-    vita_debug_log("[Workflow] PAF busy dialog close requested operation=%d slot=%d elapsed_ms=%llu",
-        (int)m_operation, (int)slot,
-        (unsigned long long)((sceKernelGetProcessTimeWide() - m_progress_started_us) / 1000));
     m_progress_dialog_slot = -1;
 }
 
@@ -266,8 +245,6 @@ bool ConnectionService::PrepareCompletion(const MoonlightEvent &event)
 
     ForegroundOperation operation = m_operation;
     m_operation = Operation_None;
-    vita_debug_log("[Workflow] complete operation=%d event=%d result=%d",
-        (int)operation, (int)event.type, event.result);
 
     if (operation == Operation_Connect && event.type == MOONLIGHT_EVENT_CONNECTION_FAILED) {
         ShowConnectionError();
@@ -307,13 +284,6 @@ void ConnectionService::DialogPollTask(void *userdata)
     ConnectionService *service = (ConnectionService *)userdata;
     if (!service) {
         return;
-    }
-
-    if (service->m_progress_dialog_slot >= 0 && !service->m_progress_polled) {
-        service->m_progress_polled = true;
-        vita_debug_log("[Workflow] PAF busy dialog first poll operation=%d slot=%d elapsed_ms=%llu",
-            (int)service->m_operation, (int)service->m_progress_dialog_slot,
-            (unsigned long long)((sceKernelGetProcessTimeWide() - service->m_progress_started_us) / 1000));
     }
 
     if (service->m_error_pending && service->m_progress_dialog_slot < 0 &&
@@ -396,12 +366,8 @@ int ConnectionService::Connect(const MoonlightHost &host)
     );
 
     int result = paf::job::JobQueue::default_queue->Enqueue(item);
-    vita_debug_log(
-        "[ConnectionService] Connect enqueue host=%s result=%d",
-        host.internal,
-        result);
-
     if (result != 0) {
+        vita_debug_log("[ConnectionService] Connect enqueue failed result=%d", result);
         FinishUnstartedOperation();
     }
 

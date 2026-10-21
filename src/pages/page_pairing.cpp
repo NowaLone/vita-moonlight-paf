@@ -23,12 +23,6 @@ Pairing::Pairing(const char pin[5])
 {
     m_pin[0] = '\0';
 
-    vita_debug_log(
-        "[Pairing] constructor pin=%s valid=%d root=%p",
-        pin ? pin : "(null)",
-        IsValid() ? 1 : 0,
-        root);
-
     if (!IsValid()) {
         return;
     }
@@ -99,7 +93,6 @@ void Pairing::SetPin(const char pin[5])
 
     if (root) {
         paf::ui::Widget *widget = root->FindChild("text_pairing_pin");
-        vita_debug_log("[Pairing] text_pairing_pin=%p", widget);
         if (widget) {
             paf::string pin_text = paf::common::FormatString(
                 "%c  %c  %c  %c",

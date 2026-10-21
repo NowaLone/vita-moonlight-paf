@@ -15,29 +15,19 @@ public:
         m_cancel.requested = 0; /* Before publishing the job to any worker. */
     }
 
-    virtual ~Job()
-    {
-        vita_debug_log("[PairingService] job=%p destroyed", (void *)this);
-    }
+    virtual ~Job() {}
 
     virtual void Run()
     {
-        vita_debug_log("[PairingService] job=%p Run begin", (void *)this);
-        int result = MOONLIGHT_PAIRING_CANCELLED;
         if (!moonlight_is_cancelled(&m_cancel)) {
-            result = m_backend.PairCurrentHost(m_pin, &m_cancel);
+            m_backend.PairCurrentHost(m_pin, &m_cancel);
         }
-        vita_debug_log("[PairingService] job=%p Run returned result=%d", (void *)this, result);
     }
 
-    virtual void Finish()
-    {
-        vita_debug_log("[PairingService] job=%p Finish", (void *)this);
-    }
+    virtual void Finish() {}
 
     void RequestCancel()
     {
-        vita_debug_log("[PairingService] job=%p cancel requested", (void *)this);
         moonlight_cancel(&m_cancel);
     }
 
@@ -88,7 +78,9 @@ int PairingService::Pair(const char pin[5])
 
     m_job = item;
     int result = paf::job::JobQueue::default_queue->Enqueue(item);
-    vita_debug_log("[PairingService] enqueue result=%d", result);
-    if (result != 0) Cancel();
+    if (result != 0) {
+        vita_debug_log("[PairingService] enqueue failed result=%d", result);
+        Cancel();
+    }
     return result;
 }

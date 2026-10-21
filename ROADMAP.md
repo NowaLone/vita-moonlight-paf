@@ -676,6 +676,11 @@ ongoing stream threads and main-thread completion delivery remain. This is the t
   Subsequent maintainer reply to the image/sound clarification: “всё нормально”. Record normal
   observed playback for this run as user-confirmed. The log warnings remain unexplained, but
   no playback defect is confirmed and no streaming-code change is warranted from this report.
+  Maintainer-requested diagnostic cleanup removes temporary workflow/timing and Connect/Pairing
+  job-lifetime/address traces, plus Pairing PIN/widget logging. Unused timing state is removed;
+  errors/failed enqueue and required list-population diagnostics remain. Dialog/worker/cancel
+  behavior is unchanged. Diff review and eight non-build Python checks pass; cleanup build/Vita
+  validation is pending. Earlier traces remain recorded in docs/UI.md as historical evidence.
 
 Source findings and isolated follow-ups (basic user smoke test passed; full runtime acceptance remains pending):
 

@@ -1121,6 +1121,13 @@ maintainer reports “всё нормально”. Normal observed playback in 
 The IDR/audio log warnings remain unexplained; this report does not establish a playback defect
 or justify streaming changes. Longer-session quality and the remaining F5 cases are unchanged.
 
+**Diagnostic cleanup, 2026-10-21:** after that acceptance, the maintainer requests removal of
+temporary diagnostics. Workflow timing/success traces, Connect/Pairing job-lifetime pointers,
+successful enqueue and Pairing PIN/widget traces are removed, together with timing-only state.
+Failure/fallback logs remain; historical evidence above is retained. No protocol, cancellation
+or dialog-lifecycle behavior changes. Eight existing non-build checks pass; the agent did not
+build or run on Vita for this cleanup. See docs/UI.md for the exact scope.
+
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.
