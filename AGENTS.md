@@ -169,6 +169,9 @@ recipes for common UI changes live in [`docs/UI.md`](docs/UI.md). Read it before
   through ConnectionService. Close the owned slot with `CommonGuiDialog::Dialog::Close()`;
   after success PAF owns widget/animation cleanup. This API has no FINISHED/Term polling contract.
   Error/confirmation dialogs still use SceMsgDialog and its own FINISHED/Term lifecycle.
+  Include `platform/paf_common_gui_dialog.h` for this binding: the upstream umbrella header
+  depends on Sony-SDK kernel/appmgr headers unavailable in VitaSDK. Keep the native ABI exact;
+  do not add global fake kernel/appmgr headers or replacement implementations.
   Do not add timed minimum visibility or main-thread sleeps; inspect `[Workflow] PAF busy dialog`
   open/first-poll/close timing first. Dialog/module failures are log-only, with no inline fallback.
 - Saved-host Delete confirmation uses native **OK/Cancel**; OK performs deletion, Cancel preserves

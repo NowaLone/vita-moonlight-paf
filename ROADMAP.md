@@ -637,6 +637,10 @@ ongoing stream threads and main-thread completion delivery remain. This is the t
   SceMsgDialog. Module/Show failure rejects the operation; no inline or alternate wait fallback.
   Next validate compact Connect → Apps → launch waits and their error handoffs on Vita;
   performance/presentation is not verified by the source change. No agent build/device run.
+  Maintainer build then fails on Sony-SDK `kernel.h` included by common_gui_dialog.h.
+  Source compatibility follow-up uses a project-local narrow native Param/Show/Close header,
+  checked against the installed header and stub symbols. No SDK modification or fake stubs.
+  Rebuild/link and hardware checks remain pending; the compact wait is not yet build-verified.
 
 Source findings and isolated follow-ups (basic user smoke test passed; full runtime acceptance remains pending):
 

@@ -223,6 +223,17 @@ diagnostics are now `[Workflow] PAF busy dialog open/first poll/close` with slot
 no progress `dialog term` is expected. Eight existing Python checks do not run PAF or compile
 this API usage. Appearance, speed and cleanup on Vita remain pending maintainer build/testing.
 
+**Header compatibility follow-up [code; build pending]:** the maintainer's build fails in
+the installed `common_gui_dialog.h`: missing Sony-SDK `kernel.h`. That umbrella header also
+includes `appmgr.h` and unused ErrorDialog declarations requiring a Sony-only app ID constant.
+ConnectionService now includes `include/platform/paf_common_gui_dialog.h`, a narrow declaration
+binding for native Param/Show/Close using VitaSDK/PAF types. Param fields, callback enum and
+function signatures match the installed upstream header; `arm-vita-eabi-nm -C` confirms the
+Show callback signature, Close(int) and s_dialogTextSmallBusy symbols in the linked stub archive.
+No fake implementation, replacement symbol, SDK edit or global compatibility headers are added.
+This read-only symbol/header check is not compilation/link validation. The maintainer must
+rebuild before the compact window can be tested on Vita.
+
 ## 2. Screen geometry and the layout language
 
 ### 2.1 Zones (960 x 544, **[shot]**)

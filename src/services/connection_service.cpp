@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 #include <paf.h>
-#include <common_gui_dialog.h>
+#include "platform/paf_common_gui_dialog.h"
 
 #include <psp2/message_dialog.h>
 #include <psp2/sysmodule.h>
