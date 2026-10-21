@@ -721,8 +721,12 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   signals termination, it does not perform its caller's stop. SS handles disconnect/timeouts host-side.
 - **Verified / runtime:** unexpected ENet disconnect, complete owner teardown, deferred buffer
   release and manual resume with decoded video are log verified on 2026-10-20. This is one
-  established-stream failure/restart, not DisconnectHost/ConnectHost coverage. Host kill, explicit
-  host disconnect, repeated failures and setup races still need T7/T8.
+  established-stream failure/restart. Separately, the 2026-10-21 maintainer log identifies system
+  build f25e735baf54 and verifies explicit active DisconnectHost → owner stop result=0 → STOPPED
+  → CLOSED/DISCONNECTED → paired reconnect → same-app resume/RTSP → PASS, 654 decoded frames,
+  incoming audio packets and final manual stop with three successful unmaps in each teardown.
+  See F5 for playback confirmation and memory limits. Host kill, repeats/failures and setup races
+  still need T7/T8.
 
 ### A18 — Reconnect — partial
 
@@ -739,9 +743,11 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   after unexpected control disconnect are user/log verified on 2026-10-20. Normal two-PC
   app-list switching and return are subsequently user-confirmed without new logs. Direct idle
   DisconnectHost → CLOSED/DISCONNECTED → ConnectHost/PAIRED → fresh applist count=4 is also
-  maintainer-log verified on 2026-10-21 (F5). Pending/active host disconnect→connect API coverage,
-  concurrent host/cache races, repeated failure
-  cycles and the remaining T8 cases remain open. No automatic network reconnection is implemented.
+  maintainer-log verified on 2026-10-21 (F5). The separate f25e735baf54 active test also verifies
+  CLOSED → paired reconnect → fresh four-app list → same-app resume/RTSP and decoded video
+  through 654 frames. Audible/visible playback confirmation is pending for that run. Pending
+  launch, concurrent host/cache races, repeated failure cycles and remaining T8 cases stay open.
+  Automatic reconnect here is opt-in test behavior; production network autoreconnect is not implemented.
 
 ### A19 — Host-side session cleanup — partial (end-to-end evidence pending)
 
@@ -1299,8 +1305,45 @@ work on error. The scenario rejects mismatches/failures, requires CLOSED and a f
 restart, times out automatic steps and issues no further test commands after PASS/FAIL. It does
 not cancel outstanding backend work on timeout or intercept controls. Initial user selection
 has no test deadline. This is not real concurrency/ABI or device proof. Run the separate active
-[maintainer procedure](../tests/runtime/README.md#active-stream-scenario-source-prepared-vita-validation-pending);
+[maintainer procedure](../tests/runtime/README.md#active-stream-scenario);
 A17/A18 and full F5 remain partial. Pending launch, rollback, shutdown and stress remain separate.
+
+**Active-stream runtime follow-up, 2026-10-21 (maintainer Vita log):** the supplied launch marker
+identifies `profile=system system_app=ON commit=f25e735baf54`, AppMgr mode=2, 65536 KiB total,
+6144 KiB newlib and 10240 KiB PAF. The test captures 192.168.1.134:47989 and app=1093255277.
+The first stream has successful RTSP/setup and decodes 162 frames before the requested stop.
+
+The session owner stops input/audio/video/control, drains/releases audio with result=0 and
+finishes with result=0. Then the test observes STOPPED for the selected app followed by
+CLOSED/DISCONNECTED. All three old framebuffers unmap with result=0 and deferred release
+finishes after ConnectHost begins but before the next stream setup. Reconnect reaches PAIRED
+without another PIN; authenticated applist returns four entries and Apps rebuild logs
+`before=4 after_delete=0 after_insert=4`. The second Start uses the same app ID and explicitly
+logs `resume app=1093255277`, an accepted rtspenc URL, successful RTSP handshake/setup and
+STREAM_STARTED. The test reports PASS. Video continues through 654 decoded frames; audio
+traffic first arrives at 4600 ms. A subsequent double-PS stop request completes owner
+cleanup with result=0 and another three successful framebuffer unmaps. No test FAIL appears.
+
+The first three-second session logs no received audio traffic; the resumed session does receive
+audio. Audio initialization/packets do not establish audible playback; decoded frames do not
+independently establish visible presentation. The maintainer has been asked to confirm image
+and sound for this exact run; neither is yet separately confirmed. ENet interrupted/control
+failure messages occur inside both requested stop sequences, followed by acknowledged
+peer disconnect and successful owner completion; they are not a failed test result.
+
+USER_RW free is 33880 KiB before the first connection, 33600 KiB after reconnect and 33600 KiB
+after the final stop/deferred release (280 KiB below the initial sample). Both stream-after-setup
+samples report 10832 KiB free. These are different lifecycle points in one cycle, not evidence
+of a leak or of leak freedom; repeated settled-baseline testing is still pending. Sunshine's
+exact release/configuration is absent; `server=7.1.431.-1` is the reported protocol version,
+not identification of a Sunshine package release. Input logs show motion=0; this does not
+verify motion or the broader input lifecycle. No host-side resource trace is supplied.
+
+This verifies the direct active disconnect/paired reconnect/same-app resume event sequence,
+video decoding and subsequent manual stop on this one Vita/build. A17/A18/F5 retain open
+failure/race/stress and pending-launch coverage; visible/audible playback confirmation remains
+the immediate follow-up. No runtime code change or agent-run build/device test is needed to
+record this evidence.
 
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
@@ -1647,8 +1690,10 @@ handoffs now have the scoped Vita evidence above; adapter Start/Stop eager-state
 source-corrected with ordering checks and user-reported smoke success. Pending-disconnect
 admission and post-cleanup adapter state now have a separate source implementation with mock
 ordering checks. The normal direct idle disconnect/CLOSED/reconnect/Apps cycle is now
-maintainer-log verified on one Vita (2026-10-21). A separate opt-in active-stream DisconnectHost trigger is now source-prepared; next run its
-STOPPED/CLOSED/reconnect/same-app restart sequence on Vita and verify resume/image/audio.
+maintainer-log verified on one Vita (2026-10-21). The separate active-stream scenario is now
+log-verified on system build f25e735baf54 through STOPPED/CLOSED, paired reconnect, same-app
+resume, 654 decoded frames, received audio and final manual stop/release. Next confirm visible
+image and audible sound for this run; the log alone does not establish playback.
 Pending-launch, concurrent/stress host changes and broader shared-state ownership remain open.
 The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
 cancellation/conflict trace verifies local cancellation followed by genuine server 409,

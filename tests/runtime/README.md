@@ -79,7 +79,7 @@ open. The fragment has no launch revision/profile or Sunshine version marker. Se
 for evidence and limits. No build/device test was run by the agent. Python source-interpretation
 checks mock service calls and time; they do not compile C++ or execute PAF/network operations.
 
-## Active-stream scenario (source prepared; Vita validation pending)
+## Active-stream scenario
 
 This is a separate package mode. Select and start an app yourself; the scenario captures its
 actual STREAM_STARTED app ID and waits three seconds without blocking PAF. It then calls
@@ -142,7 +142,14 @@ FAIL/timeout does not forcibly cancel outstanding backend work: normal cleanup r
 Relaunch to repeat the one-shot scenario. Controls must remain untouched; the test does not
 intercept input or prevent ordinary Stop/Back actions from aborting its expected sequence.
 
-No active-test build/device result is recorded yet. Python checks interpret the actual scenario
+The maintainer supplied a passing Vita log on 2026-10-21, identifying system build
+f25e735baf54: owner stop result=0 → STOPPED → CLOSED/DISCONNECTED → paired reconnect without PIN
+→ fresh four-app list → same-app resume/RTSP → PASS. The resumed stream decodes 654 frames and
+receives audio; final double-PS stop completes cleanup with result=0. Both teardowns log three
+successful framebuffer unmaps. Visible image/audible sound confirmation is pending for this
+exact run. This is one normal cycle; no agent-run build/device test or host resource trace.
+See [API audit F5](../../docs/SUNSHINE_API_AUDIT.md#f5--sequential-foreground-workflow-operation-state-and-lifecycle-coverage)
+for evidence and limits. Python checks interpret the actual scenario
 with mocked services/time and queued event ordering; C++ ABI, native dialogs, real threads,
 transport cleanup, frame-buffer lifetime and hardware playback remain maintainer validation.
 Pending-launch cancellation, duplicate admission, failure rollback, shutdown and stress coverage
