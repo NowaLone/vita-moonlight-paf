@@ -290,7 +290,7 @@ FAIL. Preserve both results; immediate recovery and other A16/F5 cases remain op
 wait/retry or runtime-code change is introduced. See API audit F5 for the complete evidence.
 
 
-## In-flight HTTPS scenario (source prepared; Vita validation pending)
+## In-flight HTTPS scenario
 
 This fourth mode reuses the pending test's main-thread state machine and one-shot barrier with
 `[DisconnectHttpTest]` markers. Its checkpoint is inside curl_easy_perform for the selected
@@ -357,8 +357,9 @@ TLS pinning, HTTP timeouts and write callbacks are unchanged.
 
 Official [curl debug API](https://curl.se/libcurl/c/CURLOPT_DEBUGFUNCTION.html) describes HEADER_OUT
 as outgoing header data; [curl 8.17.0 request.c](https://github.com/curl/curl/blob/curl-8_17_0/lib/request.c#L201-L208)
-issues it after the send call. Installed VitaSDK headers report 8.17.0; the actual linked/runtime
-library and callback behavior still need the maintainer build/device test. The checkpoint holds
+issues it after the send call. Installed VitaSDK headers report 8.17.0; the maintainer trace below
+now confirms the targeted callback sequence on one Vita, without identifying the linked library
+revision or establishing all callback fragmentation cases. The checkpoint holds
 the HTTP transfer mutex, but no stream/API control mutex; main-thread Disconnect only requests
 stop and queues cleanup. The owner retains curl/response until perform returns. The barrier is
 released by the request, failure/shutdown or its 60-second worker deadline. The existing stream
@@ -366,4 +367,24 @@ cancel flag is checked after HTTP; this mode does not abort curl or add cancella
 Thus the response may already be buffered at the peer/OS while the callback is held. It tests
 client-side in-flight lifetime, not a proven server processing delay or TCP retransmission wait.
 Unrecognized fragmented request-line/terminator callbacks can miss the checkpoint; that is an
-incomplete test, not cancellation coverage. No runtime-result acceptance is recorded yet.
+incomplete test, not cancellation coverage.
+
+### Maintainer result, 2026-10-21
+
+The supplied `[DisconnectHttpTest]` trace for host .134/app 1093255277 passes the targeted
+sequence: outgoing-header checkpoint → Disconnect=0 → response headers → transfer result=0
+(checkpoint=1, response_headers=1) → accepted resume → setup -7 before RTSP → CLOSED → error
+termination → reconnect/PAIRED without PIN → fresh four Apps/rebuild → same-app encrypted
+RTSP/setup=0 → PASS. Video decodes through sampled frame 661 (number 665); first video packet
+is logged at 400 ms, first audio packet at 2700 ms. The HTTP callback is one-shot: recovery
+proceeds without entering a second checkpoint.
+
+The log ends during streaming. The maintainer subsequently confirms visible image, audible
+sound and ordinary double-PS stop (user report). Final STOPPED/release/unmaps are not captured.
+Current Sunshine version, installed client revision/profile (no Launch marker) and error-OK
+timing are unspecified. Do not infer them from earlier host
+reports or claim a fix for the earlier immediate-recovery RTSP tag failure. This is one successful
+client-side in-flight ownership/recovery run; HTTP errors/timeouts, RTSP/common-c cancellation,
+shutdown, repeated recovery and leaks remain separate. No runtime-code change or agent build/
+device run accompanies this record. Restore the ordinary package as described above. Next
+prepare a separate RTSP/common-c startup cancellation scenario. Full evidence and limits: API audit F5.

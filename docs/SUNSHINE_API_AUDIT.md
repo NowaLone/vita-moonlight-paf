@@ -707,16 +707,20 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   cancellation (-7), CLOSED, native error dismissal, paired reconnect and a fresh four-app list.
   Immediate recovery FAILS at encrypted RTSP OPTIONS (-1); no STREAM_STARTED or PASS. Reported
   Sunshine 2025.924.154138 logs a matching RTSP tag-verification failure. See F5 for source
-  analysis and remaining uncertainty. T7 must additionally trigger during HTTP wait and inside
-  common-c startup; immediate recovery and the full cancellation/lifetime matrix stay open.
+  analysis and remaining uncertainty. The later in-flight HTTPS test passes in the scoped run
+  below; common-c startup, transport errors/timeouts, immediate-recovery reproducibility and the
+  full cancellation/lifetime matrix stay open.
   A second host now has a log-verified PASS after a maintainer-reported approximately five-second
   pause before error OK: paired reconnect, same-app resume/RTSP, audio packets, 404 decoded frames
   and final stop/release on maintainer-reported Sunshine 2026.914.233613. Timing is unmeasured;
   see F5. This does
   not erase the immediate-retry failure or prove five seconds is sufficient generally.
-  A fourth opt-in in-flight curl test is source-prepared, not device-verified (F5); it holds the
-  selected outgoing-header callback before response processing and requires transfer completion
-  before -7/CLOSED. It does not add curl abortion. Never substitute `/cancel` for local
+  The later in-flight curl trace on host .134 verifies outgoing-header checkpoint → Disconnect=0
+  → response/transfer result=0 → -7/CLOSED → paired reconnect/four Apps → same-app encrypted
+  RTSP/setup=0/PASS, then decoded frames through 661 and incoming audio (F5). Current Sunshine
+  version, client revision and error-OK timing are unspecified. The maintainer also confirms
+  visible image, audible sound and double-PS stop; final release/unmaps are not logged. This is
+  successful client-side in-flight ownership ordering, not curl abortion or remote rollback. Never substitute `/cancel` for local
   cancellation: its scope is host-wide (A20).
 
 ### A17 — Disconnect during active stream — partial
@@ -758,8 +762,12 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   maintainer-log verified on 2026-10-21 (F5). The separate f25e735baf54 active test also verifies
   CLOSED → paired reconnect → fresh four-app list → same-app resume/RTSP and decoded video
   through 654 frames. The maintainer separately confirms visible image and audible sound
-  after reconnect for this exact run (2026-10-21). Pending
-  launch, concurrent host/cache races, repeated failure cycles and remaining T8 cases stay open.
+  after reconnect for this exact run (2026-10-21). A later in-flight HTTPS cancellation run
+  also verifies paired reconnect, fresh four Apps, same-app encrypted RTSP/PASS, 661 decoded
+  frames and incoming audio. The maintainer also confirms visible image, audible sound and
+  ordinary double-PS stop for that run; final release/unmaps are not logged (F5). Pending-launch
+  failure variants, concurrent host/cache races, repeated failure cycles and remaining T8 cases
+  stay open.
   Automatic reconnect here is opt-in test behavior; production network autoreconnect is not implemented.
 
 ### A19 — Host-side session cleanup — partial (end-to-end evidence pending)
@@ -1488,7 +1496,7 @@ is added. The earlier post-FAIL explicit retry remains unrun. Next independent A
 cancellation while the HTTPS request is outstanding, separately from this post-response hook.
 No build/device run was performed by the agent.
 
-**In-flight HTTPS trigger source follow-up, 2026-10-21; build/Vita pending:** the outstanding
+**In-flight HTTPS trigger source preparation, 2026-10-21 (before maintainer run below):** the outstanding
 A16 gap is cancellation while curl still owns the HTTP transfer, distinct from the prior
 post-response checkpoint. MOONLIGHT_HTTP_DISCONNECT_TEST=ON reuses the pending main-thread
 controller/barrier with an HTTP-specific log prefix and callback adapter. The earlier
@@ -1532,9 +1540,50 @@ pairing fragments plus the new adapter/header. Atomics, buffers, options, servic
 are mocked/serial: no real curl/TLS, C/C++ type/ABI, concurrency, hardware or leak proof. No
 build/device run by the agent. All four test modes default OFF and are exclusive; normal builds
 exclude the adapter and hooks. See the exact
-[HTTP test procedure](../tests/runtime/README.md#in-flight-https-scenario-source-prepared-vita-validation-pending).
+[HTTP test procedure](../tests/runtime/README.md#in-flight-https-scenario).
 A16/A18/F5 remain partial; real in-flight cleanup, transport failures, recovery playback,
 RTSP/common-c cancellation and broader repeated/shutdown cases still need device evidence.
+
+**In-flight HTTPS maintainer Vita result, 2026-10-21:** the new `[DisconnectHttpTest]`
+trace targets host 192.168.1.134, server UUID 3D7D0EDF-A6A6-F303-0A1C-217868AB07D4 and app
+1093255277. Source preparation is in `3634960`; the supplied fragment has no Launch marker,
+so the exact installed client revision/profile is not independently identified. The current
+Sunshine version and time spent at error OK are not supplied. Earlier .134 version reports and
+the other host's five-second pause must not be applied to this run.
+
+Observed order:
+
+1. Initial PAIRED connection and authenticated four-app list, then first selected resume.
+2. `request headers sent; curl active before response` and `checkpoint during curl before response`.
+   Session-owner stop request and main-thread `pending disconnect request result=0` occur next.
+3. `response headers received`, then `transfer end result=0 checkpoint=1 response_headers=1`.
+   Resume is accepted; the existing cancel check prevents RTSP and returns setup -7. The test
+   observes STREAM_FAILED=-7 and CLOSED in DISCONNECTED state. The native cancellation error
+   starts and terminates before reconnect is enqueued.
+4. Same-host reconnect reaches PAIRED without a new PIN. Fresh applist count=4 and Apps rebuild
+   before=4/after_delete=0/after_insert=4 precede restart of app 1093255277.
+5. Encrypted RTSP succeeds, all startup stages complete, setup=0 and the test reports
+   `PASS pending cancelled -> CLOSED -> reconnect -> stream started app=1093255277`.
+   First video packet arrives after 400 ms; decoded frames continue through sampled frame 661
+   (number 665). First audio packet arrives after 2700 ms and audio resync begins.
+
+This verifies the targeted outgoing-header callback and Disconnect/HTTP-owner completion ordering
+on one Vita, plus successful recovery through actual STREAM_STARTED, video decode and audio
+packet receipt. Curl finishes normally before cancellation/host cleanup; no immediate abort or
+server-side rollback is demonstrated. No callback trace bytes/keys appear in the supplied log.
+The fragment ends during streaming. The maintainer subsequently confirms visible image,
+audible sound and ordinary double-PS stop in reply to the combined playback/stop question.
+This is user-reported confirmation, separate from the log evidence. Final STOPPED/release/
+unmaps are not captured. The reply supplies no Sunshine version.
+There is no basis to claim a leak-free lifecycle, repeatability, a specific error-OK delay or
+resolution of the earlier RTSP tag failure. Memory
+USER_RW is 33872 KiB both before the first Start and after paired reconnect, but that single
+sample does not measure post-stream cleanup or allocator lifetime.
+
+No production/test runtime code change is needed for this evidence. A16/A18/F5 remain partial
+for HTTP errors/timeouts, RTSP/common-c startup cancellation, shutdown and repeated/concurrent
+recovery. Next prepare a separate runtime trigger for cancellation inside RTSP/common-c startup.
+The agent analyzed the maintainer log; no agent build/device run.
 
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
@@ -1891,9 +1940,12 @@ reports request-tag failure; versioned source supports a retained pending-sessio
 The second-host trace now verifies delayed error-OK recovery through resume/RTSP/PASS, audio
 packets, 404 decoded frames and final stop/release. Its roughly five-second pause is user-reported;
 Sunshine is reported as 2026.914.233613; exact timing/client revision remain unspecified and
-immediate recovery remains unresolved. Next cover
-the source-prepared in-flight HTTPS A16 scenario: verify header checkpoint, disconnect,
-transfer completion before -7/CLOSED and recovery separately on Vita.
+immediate recovery remains unresolved. The subsequent in-flight HTTPS run on host .134 now
+verifies outgoing-header checkpoint → Disconnect=0 → transfer completion → -7/CLOSED → paired
+reconnect/four Apps → same-app encrypted RTSP/setup=0/PASS, 661 decoded frames and incoming
+audio. The maintainer also confirms visible image, audible sound and ordinary double-PS stop;
+final release/unmaps are not logged. Current version/revision/error-OK timing are unspecified.
+Next prepare cancellation inside RTSP/common-c startup as a separate runtime scenario.
 Pending-launch, concurrent/stress host changes and broader shared-state ownership remain open.
 The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
 cancellation/conflict trace verifies local cancellation followed by genuine server 409,
