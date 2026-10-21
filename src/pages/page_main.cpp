@@ -515,9 +515,13 @@ void Main::RefreshHosts()
     MoonlightApp *app = MoonlightApp::Instance();
     if (!app) return;
 
-    m_host_count = app->Hosts().GetHosts(m_hosts, 8);
-    if (m_host_count < 0) m_host_count = 0;
-    if (m_host_count > 8) m_host_count = 8;
+    const int host_count = app->Hosts().GetHosts(m_hosts, 8);
+    if (host_count < 0) {
+        /* An unavailable store is not a confirmed empty saved-host list. */
+        HideStatus();
+        return;
+    }
+    m_host_count = host_count > 8 ? 8 : host_count;
 
     paf::ui::ListView *list = static_cast<paf::ui::ListView *>(
         root->FindChild("list_view_main"));
@@ -698,7 +702,6 @@ void Main::ExitSelectionMode()
     memset(m_selected_hosts, 0, sizeof(m_selected_hosts));
 
     paf::ui::Widget *normal_actions = root->FindChild("plane_main_actions");
-    paf::ui::Widget *status = root->FindChild("text_main_status");
     paf::ui::Widget *settings = root->FindChild("settings_button");
     paf::ui::Widget *selection_actions = root->FindChild("plane_main_selection_actions");
 
@@ -709,7 +712,6 @@ void Main::ExitSelectionMode()
 
     if (selection_actions) selection_actions->Hide(paf::common::transition::Type_Reset);
     if (normal_actions) normal_actions->Show(paf::common::transition::Type_Reset);
-    if (status) status->Show(paf::common::transition::Type_Reset);
     if (settings) settings->Show(paf::common::transition::Type_Reset);
 
     RefreshHosts();
@@ -863,11 +865,16 @@ void Main::OnSelectionSelectAll(
 
 void Main::ShowIdleStatus()
 {
-    if (m_host_count > 0 || m_selection_mode) {
+    if (m_host_count > 0 || m_selection_mode || m_connecting) {
         HideStatus();
     } else if (root) {
-        paf::ui::Widget *widget = root->FindChild("text_main_status");
-        if (widget) widget->Show(paf::common::transition::Type_Reset);
+        paf::ui::Text *widget = static_cast<paf::ui::Text *>(
+            root->FindChild("text_main_status"));
+        const wchar_t *label = g_plugin ? g_plugin->GetString("msg_no_pcs") : NULL;
+        if (widget && label) {
+            widget->SetString(paf::wstring(label));
+            widget->Show(paf::common::transition::Type_Reset);
+        }
     }
 }
 
@@ -875,8 +882,11 @@ void Main::HideStatus()
 {
     if (!root) return;
 
-    paf::ui::Widget *widget = root->FindChild("text_main_status");
+    paf::ui::Text *widget = static_cast<paf::ui::Text *>(
+        root->FindChild("text_main_status"));
     if (widget) {
+        /* A parent transition must not expose a stale empty-list label. */
+        widget->SetString(paf::wstring());
         widget->Hide(paf::common::transition::Type_Reset);
     }
 }

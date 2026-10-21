@@ -652,13 +652,18 @@ Only these `_common_*` names appear in the XML and are known to resolve: `_commo
 
 ### 4.8 Status text
 
-- Main, Apps and Pairing show status as centred or left text on the list area; Search uses the header text itself as
-  the status.
-- The idle hint is hidden while rows are listed, because the text is centred on the list and would be drawn over
-  row two **[shot]**. On Main every return to the idle state goes through `Main::ShowIdleStatus()`, never a direct
-  `SetStatus("Select a PC to connect.")`; Apps hides it in `ShowApps()`. Transient messages (connecting, launching,
-  errors) are still drawn over the rows.
-- `SetStatus()` shows the widget; selection mode keeps the Main status hidden.
+- Main/Apps show only static empty-list labels in the list area; Search uses its header text for the
+  empty state. Pairing keeps static instructions and the PIN. Progress/errors use native dialogs.
+- On Main every return to idle goes through `Main::ShowIdleStatus()`: it shows the localized
+  `msg_no_pcs` only with no hosts, outside selection/connection. The label would otherwise overlap
+  the rows **[shot]**. Apps controls its empty state in `ShowApps()`.
+- Main's `text_main_status` starts without a CXML label; `HideStatus()` also clears its string so
+  parent/page transitions cannot expose stale empty-state text. Leaving selection mode refreshes
+  hosts without an unconditional status `Show()` **[code, 2026-10-21]**.
+  A failed host-store read preserves the current rows and hides the label rather than treating
+  the error as an empty list **[code]**. Check startup with saved PCs,
+  return from Search/Apps/Settings, selection Cancel/delete with PCs remaining, and a truly empty
+  list on Vita **[open]**. No agent build or hardware test.
 
 ### 4.9 Events and threads **[code]**
 
