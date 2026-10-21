@@ -6,8 +6,9 @@ Source-level audit date: 2026-10-16
 [the consolidated API decision](docs/SUNSHINE_API_AUDIT.md#6-completion-and-next-work) and
 ROADMAP's current work decision for implementation priorities. XML parsing/cache invalidation,
 Apps storage, TLS pinning and several transport/foreground ownership fixes have since landed;
-their scoped evidence is in the API audit. Next implementation is reliable pairing/stream
-completion delivery on event-ring overflow, before more routine teardown test variants.
+their scoped evidence is in the API audit. Snapshot-pressure event loss now has the source
+correction below; its build/Vita checks remain pending. Next implementation is host persistence
+error propagation, before more routine teardown test variants.
 
 ## Scope
 
@@ -151,7 +152,7 @@ void *m_event_userdata;
 
 Pages replace it on construction and manually restore another page's callback in destructors. This creates lifecycle coupling between `Main`, `Search`, `Pairing`, and `Apps`.
 
-The app-level event ring has capacity 16. If it fills, `QueueEvent()` drops the event.
+At the audit baseline the app-level event ring had capacity 16 and dropped any event when full.
 The 2026-10-21 source follow-up logs overflow and retains Connect/app-list job results in
 ConnectionService, allowing completion delivery when the ring empties even if their event
 was lost. Other events still have no such fallback; overflow/lifecycle stress is unverified.
@@ -177,6 +178,19 @@ The actual overflow branch was interpreted at counts 15/16/17 for seven lifecycl
 (21 serial cases); it drops all kinds at full capacity. No saturation was reproduced on Vita.
 Keep this as a concrete next source correction, with bounded completion ownership/order checks,
 not a broad event-bus rewrite or another protocol endpoint.
+
+**Source follow-up, 2026-10-21:** app/event_queue.c keeps HOSTS_CHANGED/SETTINGS_CHANGED in
+two coalesced snapshot slots outside the 16-slot ordered FIFO. Scan boundaries/errors and all
+pairing/stream/closure events stay ordered. An extracted head has its own immutable payload until
+PrepareCompletion accepts it; acknowledgement occurs before invoking the current page callback.
+This prevents a discovery/settings burst from displacing lifecycle delivery or overwriting a
+completion waiting for the worker. Address, PIN and server-error data are copied by value, with
+address pointers rebound to owned storage. Existing PAF mutex/main-thread dispatch remain.
+No allocation or blocking producer path; 100 non-build source checks pass, including 12 queue/
+dispatch cases with modeled pointers/struct copies/interleavings. No compiler/ABI/PAF/real-thread
+or Vita proof. The ordered-only overload policy remains bounded: a seventeenth queued ordered
+event is rejected/logged without overwriting accepted entries; that workload exceeds the assumed
+sequential workflow and remains a separate limit, not an unlimited-delivery guarantee.
 
 ### 4. Persistence APIs can report success even when the file was not saved
 

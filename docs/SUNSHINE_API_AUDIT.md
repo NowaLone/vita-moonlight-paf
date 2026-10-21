@@ -13,8 +13,9 @@ current source and Git state determine the findings below.
 implementations and scoped Vita evidence. Further routine stop/reconnect test variants are not
 the next development task. See [the consolidated decision and backlog](#6-completion-and-next-work)
 for implemented paths, concrete code gaps, blocked self-unpair and deferred verification.
-Next isolated implementation: preserve pairing/stream lifecycle delivery when the application
-event ring is full. No new endpoint or runtime code is added by this consolidation.
+The later source follow-up isolates snapshot bursts from ordered lifecycle delivery (F5);
+maintainer build/Vita validation remains pending. Next isolated implementation: propagate host
+persistence errors. The consolidation and this queue change add no protocol endpoint.
 
 ## User runtime follow-up — 2026-10-20
 
@@ -1962,6 +1963,46 @@ host-side cleanup and broader T7/T8 acceptance remain open. No runtime-code chan
 build/device run accompanies this evidence record. Next inspect/prepare active-stream
 application-shutdown validation.
 
+**Snapshot-pressure event delivery source correction, 2026-10-21 — build/Vita pending:**
+QueueEvent's common 16-slot ring allowed repeated HOSTS_CHANGED notifications to crowd out
+pairing/stream/closure. Logging the drop and retaining only Connect/Apps job results did not
+restore those events. The correction extracts a small allocation-free queue into app/event_queue.c:
+
+- Only HOSTS_CHANGED and SETTINGS_CHANGED are snapshot invalidations: readers fetch complete
+  state. Each owns one latest-value slot outside the unchanged 16-slot ordered FIFO. Scan
+  start/finish/failure, pairing, stream and connection events are never coalesced or deduplicated.
+- Sequence order merges the latest snapshots with ordered events. Peek moves the head to an
+  owned pending slot before releasing the PAF mutex. Repeated peek while PrepareCompletion
+  returns false sees the same payload; producers can update snapshots/fill the ring without
+  changing it. Acknowledge precedes page dispatch so a callback's new notification cannot be
+  erased by acknowledgement of the old event. Reset clears pending and queued work on init/shutdown.
+- Address strings are bounded/copied/rebound at both storage moves; PIN/server-error arrays
+  remain value-owned. The dispatcher also copies the address to its delivery stack before unlock.
+  Existing Connect/Apps fallback and native-dialog/main-thread delivery remain intact. No
+  protocol, service admission, page navigation, CXML, credentials, stream cleanup or test mode changes.
+
+The bound is explicit: 16 queued ordered events, two snapshots and one extracted pending head.
+More than 16 simultaneous queued ordered events is rejected and logged without overwriting
+accepted work; producers never wait while holding backend/main-thread resources. This source
+fix protects the sequential workflow from discovery/settings pressure; it does not promise
+unbounded delivery under a critical-only storm or fix wider callback/session/shutdown races.
+No additional per-event success/heartbeat logs or dynamic allocations are introduced.
+
+Reference comparison: [BHBB jobs/UI synchronization](https://github.com/Ibrahim778/BetterHomebrewBrowser/blob/master/src/pages/app_browser.cpp)
+locks PAF UI access; [Moonlight Qt termination marshalling](https://github.com/moonlight-stream/moonlight-qt/blob/master/app/streaming/session.cpp)
+sends a main-loop event. The retained queue is project-specific; neither reference supplies
+this queue or justifies doing PAF work from the streaming callback. Protocol sources remain unchanged.
+
+All 100 non-build Python checks pass, including 12 new checks interpreting the actual queue C
+and ProcessEventTask source with modeled C values/pointers, mutexes and serial interleavings.
+Coverage includes 400 snapshot updates around lifecycle events, failure/scan ordering, pending
+completion stability, address/PIN/error copying, no replay/reset/wrap, callback-produced updates,
+Connect fallback and explicit ordered-only overload. These are not C/C++ compilation, ABI,
+real concurrency, native-dialog or Vita evidence. Maintainer smoke: discovery → pairing success/
+error → Apps → launch → double-PS stop → restart; confirm normal list refresh, WAIT/PIN completion
+and resource release. No new hardware test trigger is required. Next independent implementation
+is honest host persistence error propagation; F5's broader runtime/race matrix remains open.
+
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.
@@ -2330,24 +2371,16 @@ proven leak or leak-free guarantee. Earlier quality/audio-warning observations r
 
 ### 6.3 Concrete local gaps — implementation backlog
 
-1. **Next: lifecycle delivery under event-ring overflow (F5 / architecture finding 3).**
-   MoonlightApp::QueueEvent logs and returns at capacity 16, regardless of event kind.
-   GetCompletedJobEvent retains only Connect/Applications results. Pairing has no retained
-   completion; Launch relies on a delivered STREAM_STARTED/FAILED/STOPPED to close WAIT.
-   Dropped STREAM_STOPPED can also prevent Stream-page detach/deferred release; a dropped
-   pairing result can leave the PIN page waiting despite backend completion. This is a
-   source-confirmed conditional failure, not a diagnosed cause of any supplied Vita log.
-   The actual overflow branch was interpreted for seven lifecycle kinds at counts 15/16/17:
-   21 serial cases confirm type-independent drop at full capacity. No PAF/thread saturation test.
-   Minimal follow-up: bounded operation/session-owned completion retention and main-thread
-   acknowledgement/order, with redundant discovery updates coalesced where appropriate.
-   Increasing capacity alone cannot guarantee delivery. Preserve payload ownership, sequential
-   foreground flow and existing native dialogs; no general event-bus rewrite is needed.
-   Acceptance: a >16 discovery burst must not lose pairing/stream success/failure/stop/closure;
-   completions arrive once in order, WAIT/PIN exits appropriately, retained results cannot replay
-   after their owner releases them and normal discovery still refreshes rows. Specify the bounded-
-   overload policy explicitly; broader old-session callback races remain a separate F5 concern.
-2. **Host persistence errors (L8 / architecture finding 4).** save_device_info returns void;
+1. **Snapshot-pressure event delivery: source-addressed; build/Vita pending (F5).**
+   The original 16-slot shared ring dropped every event when full; Connect/Apps retained worker
+   results but pairing/stream completion had no fallback. The correction in F5 separates two
+   replaceable snapshots from the ordered FIFO and retains the extracted completion until its
+   service is ready. Bursts now preserve pairing/stream/closure, copied payloads and order in
+   source checks. An ordered-only burst exceeding 16 queued events is still rejected/logged;
+   this bounded policy relies on the sequential foreground workflow, not an arbitrary lossless
+   event bus. Broader stale-session routing remains separate. Do not mark Vita behavior fixed
+   until the maintainer's ordinary smoke test passes.
+2. **Next implementation: host persistence errors (L8 / architecture finding 4).** save_device_info returns void;
    fopen failure only logs, and store callers can return 0. Writes/fclose are not checked either.
    Minimum: checked status through host-store callers, honest save-error reporting, preserved
    protocol pairing success and unchanged storage format/global identity. Treat metadata and
@@ -2398,8 +2431,9 @@ TLS weakening, delayed retry or host workaround is proposed to reduce testing sc
   GameStream and admin scopes are distinct. Dated follow-ups preserve actual Vita evidence.
 - **Current scoped client path: implemented and exercised as listed, with explicit limits.**
   This does not close local persistence/event/discovery defects or external self-unpair.
-- **Next code gate: implement/test reliable lifecycle delivery under queue saturation as one
-  isolated change.** This turn consolidates documentation only; no runtime fix is claimed.
+- **Queue source gate: snapshot-pressure correction and 100 non-build checks complete;
+  maintainer build/Vita gate open.** No arbitrary critical-storm/race guarantee.
+- **Next code gate: propagate host persistence write failures as one isolated change.**
 - **Release/compatibility gate: open.** Deferred error/security/version/shutdown/stress tests,
   broader shared-state ownership and the separate build/license requirements remain pending.
 

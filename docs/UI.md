@@ -667,6 +667,14 @@ Only these `_common_*` names appear in the XML and are known to resolve: `_commo
 
 ### 4.9 Events and threads **[code]**
 
+Application event delivery now separates the latest HOSTS_CHANGED/SETTINGS_CHANGED snapshots
+from a 16-slot ordered lifecycle FIFO **[code, 2026-10-21]**. Pairing/stream/closure and scan
+boundaries/errors are never coalesced. A copied pending head remains stable while the foreground
+service waits for its worker; it is acknowledged before the page callback. Producer updates do
+not erase that head or a newer snapshot. The existing main-thread mutex/call list and native
+dialog handoff are preserved. Snapshot bursts are source-tested; critical-only FIFO exhaustion
+still logs rejection. Maintainer build/Vita smoke validation is **[open]**; no UI layout changes.
+
 Stream presentation metadata carries a statistics-session token and queue timestamp with each
 pending frame. The video bridge records queue replacement and successful PAF texture submission;
 the statistics module rejects tokens from older sessions. These hooks measure CPU submission and

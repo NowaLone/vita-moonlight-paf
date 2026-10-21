@@ -125,11 +125,9 @@ MoonlightApp::MoonlightApp()
       m_settings(m_backend),
       m_event_callback(NULL),
       m_event_userdata(NULL),
-      m_event_head(0),
-      m_event_tail(0),
-      m_event_count(0),
       m_event_task_registered(false)
 {
+    moonlight_event_queue_reset(&m_events);
 }
 
 MoonlightApp::~MoonlightApp()
@@ -204,9 +202,7 @@ int MoonlightApp::Initialize()
     }
 
     paf::thread::RMutex::main_thread_mutex.Lock();
-    m_event_head = 0;
-    m_event_tail = 0;
-    m_event_count = 0;
+    moonlight_event_queue_reset(&m_events);
     m_event_task_registered = true;
     paf::thread::RMutex::main_thread_mutex.Unlock();
 
@@ -231,9 +227,7 @@ void MoonlightApp::Shutdown()
     m_backend.SetEventCallback(NULL, NULL);
 
     paf::thread::RMutex::main_thread_mutex.Lock();
-    m_event_head = 0;
-    m_event_tail = 0;
-    m_event_count = 0;
+    moonlight_event_queue_reset(&m_events);
     m_event_callback = NULL;
     m_event_userdata = NULL;
 
@@ -303,30 +297,11 @@ void MoonlightApp::QueueEvent(const MoonlightEvent *event)
         return;
     }
 
-    if (m_event_count >= kEventQueueCapacity) {
-        vita_debug_log("[Events] queue full: event=%d result=%d", (int)event->type, event->result);
-        paf::thread::RMutex::main_thread_mutex.Unlock();
-        return;
+    if (moonlight_event_queue_push(&m_events, event) != 0) {
+        /* Snapshot bursts cannot reach this bound. Reject an ordered-only burst
+         * beyond the bounded sequential-workflow queue without overwriting it. */
+        vita_debug_log("[Events] ordered queue exhausted: event=%d result=%d", (int)event->type, event->result);
     }
-
-    QueuedEvent &queued = m_events[m_event_tail];
-    queued.event = *event;
-
-    if (event->address != NULL) {
-        sce_paf_strncpy(
-            queued.address,
-            event->address,
-            sizeof(queued.address) - 1
-        );
-        queued.address[sizeof(queued.address) - 1] = '\0';
-        queued.event.address = queued.address;
-    } else {
-        queued.address[0] = '\0';
-        queued.event.address = NULL;
-    }
-
-    m_event_tail = (m_event_tail + 1) % kEventQueueCapacity;
-    m_event_count++;
 
     paf::thread::RMutex::main_thread_mutex.Unlock();
 }
@@ -349,20 +324,17 @@ void MoonlightApp::ProcessEventTask(void *userdata)
 
         paf::thread::RMutex::main_thread_mutex.Lock();
 
-        const bool queued_event = app->m_event_count != 0;
+        const bool queued_event = moonlight_event_queue_peek(&app->m_events, &event) != 0;
         if (!queued_event && !app->m_connection.GetCompletedJobEvent(&event)) {
             paf::thread::RMutex::main_thread_mutex.Unlock();
             return;
         }
 
         if (queued_event) {
-            QueuedEvent &queued = app->m_events[app->m_event_head];
-            event = queued.event;
-
-            if (queued.event.address != NULL) {
+            if (event.address != NULL) {
                 sce_paf_strncpy(
                     address,
-                    queued.address,
+                    event.address,
                     sizeof(address) - 1
                 );
                 address[sizeof(address) - 1] = '\0';
@@ -379,13 +351,12 @@ void MoonlightApp::ProcessEventTask(void *userdata)
         paf::thread::RMutex::main_thread_mutex.Unlock();
 
         if (!app->m_connection.PrepareCompletion(event)) {
-            return; /* Keep the completion at the head until the backend call returns. */
+            return; /* Retain the owned completion until the backend call returns. */
         }
 
         paf::thread::RMutex::main_thread_mutex.Lock();
         if (queued_event) {
-            app->m_event_head = (app->m_event_head + 1) % kEventQueueCapacity;
-            app->m_event_count--;
+            moonlight_event_queue_acknowledge(&app->m_events);
         }
         paf::thread::RMutex::main_thread_mutex.Unlock();
 

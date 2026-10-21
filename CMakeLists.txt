@@ -161,6 +161,7 @@ add_executable(${PROJECT_NAME}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/app/paf_runtime.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/common.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/app/moonlight_app.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/app/event_queue.c
   ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/legacy_moonlight_adapter.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/legacy_device_store.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/backend/legacy/device.c

@@ -14,6 +14,18 @@ combinations and the retained-result classification (including a successful empt
 They do not execute PAF dialogs, threads, event-ring delivery or the complete state machine;
 dialog handoffs and overlap prevention still require maintainer build/Vita validation.
 
+`test_event_queue.py` interprets the actual event_queue.c functions/header and the production
+MoonlightApp::ProcessEventTask body. Twelve new checks cover 400 snapshot updates interleaved
+with pairing/start/stop/close; ordered scan/error events; latest-snapshot merge order; owned
+address/PIN/server-error payloads; producer updates while the head waits for worker completion;
+ack-before-callback and no replay; ring reuse/reset; null/truncated addresses; Connect's existing
+fallback; and explicit ordered-only overload without overwriting accepted events. The capacity
+is 16 ordered entries plus two snapshot slots and one pending head; this does not promise delivery
+for arbitrary critical-only storms. C struct assignment, pointer identity, fixed arrays, string
+copies, sizeof and serial scheduling/mutex calls are modeled. C grammar parsing is not compilation,
+type/ABI checking, real threading, PAF/native-dialog execution or hardware validation. Run the
+maintainer's ordinary discovery/pair/Apps/launch/stop/restart smoke sequence after building.
+
 The adapter lifecycle checks interpret actual Start/Stop/Disconnect and ForwardEvent method
 bodies with mocked API calls. They exercise callbacks before and after API return, immediate
 errors, no-host rejection and late Connect/Pair returns after closure. The initial Start/Stop

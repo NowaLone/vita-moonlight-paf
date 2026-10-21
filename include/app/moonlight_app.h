@@ -3,6 +3,7 @@
 
 #include <paf.h>
 
+#include "app/event_queue.h"
 #include "backend/legacy_moonlight_adapter.h"
 #include "services/host_service.h"
 #include "services/host_discovery_service.h"
@@ -37,11 +38,6 @@ public:
     bool IsInitialized() const { return m_initialized; }
 
 private:
-    struct QueuedEvent {
-        MoonlightEvent event;
-        char address[256];
-    };
-
     MoonlightApp();
     ~MoonlightApp();
 
@@ -52,8 +48,6 @@ private:
     static void ProcessEventTask(void *userdata);
 
     void QueueEvent(const MoonlightEvent *event);
-
-    static const int kEventQueueCapacity = 16;
 
     bool m_initialized;
     bool m_infobar_restore_pending;
@@ -69,10 +63,7 @@ private:
     MoonlightAppEventCallback m_event_callback;
     void *m_event_userdata;
 
-    QueuedEvent m_events[kEventQueueCapacity];
-    int m_event_head;
-    int m_event_tail;
-    int m_event_count;
+    MoonlightEventQueue m_events;
     bool m_event_task_registered;
 };
 
