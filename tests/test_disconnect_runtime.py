@@ -1,4 +1,4 @@
-"""Interpret the opt-in idle runtime scenario with mocked service calls and time."""
+"""Shared source interpreter and checks for the opt-in idle runtime scenario."""
 import re
 import unittest
 
@@ -7,10 +7,12 @@ from test_adapter_lifecycle import Returned, execute
 from test_xml_source import ROOT, strip_directives
 
 
-class DisconnectRuntime(unittest.TestCase):
+class ScenarioHarness:
+    source_name = 'disconnect_smoke.cpp'
+
     @classmethod
     def setUpClass(cls):
-        source = (ROOT / 'tests/runtime/disconnect_smoke.cpp').read_text()
+        source = (ROOT / 'tests/runtime' / cls.source_name).read_text()
         types = (ROOT / 'include/moonlight/types.h').read_text()
         enums = re.search(r'enum TestPhase\s*{.*?};', source, re.S).group()
         enums += 'typedef enum TestPhase TestPhase;'
@@ -31,12 +33,13 @@ class DisconnectRuntime(unittest.TestCase):
                     ('app.Connection().State', 'connection_state'),
                     ('app.Connection().Disconnect', 'disconnect_request'),
                     ('app.Connection().Connect', 'connect_request'),
+                    ('app.Connection().Start', 'start_request'),
                     ('app.Applications().Refresh', 'refresh_request')):
                 body = body.replace(original, stub)
             functions.append(body)
         preamble = ('typedef unsigned long long uint64_t;'
                     'typedef struct { char *internal; unsigned short port; } MoonlightHost;'
-                    'typedef struct { int type; int result; char *address; } MoonlightEvent;')
+                    'typedef struct { int type; int result; int application_id; char *address; } MoonlightEvent;')
         cls.unit = c_parser.CParser().parse(strip_directives(preamble + enums + '\n'.join(functions)))
         cls.functions = {item.decl.name: item.body for item in cls.unit.ext
                          if isinstance(item, c_ast.FuncDef)}
@@ -84,6 +87,8 @@ class DisconnectRuntime(unittest.TestCase):
         self.run_body('disconnect_test_capture_host')
         self.event('APPLICATIONS_READY', 4)
 
+
+class DisconnectRuntime(ScenarioHarness, unittest.TestCase):
     def test_single_idle_closed_reconnect_refresh_pass(self):
         self.arm()
         self.assertEqual(self.calls, [])

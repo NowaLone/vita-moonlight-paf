@@ -38,6 +38,11 @@ the agent has not compiled or executed them. Example desktop command for the mai
 
 These checks do not establish Vita networking, pairing or stream compatibility.
 
-The opt-in [Vita idle disconnect/reconnect scenario](runtime/README.md) gives the maintainer
-a direct DisconnectHost trigger through existing UI selection. It is excluded by default;
-its Python checks interpret its state flow with mocked services/time, not Vita runtime.
+The opt-in [Vita disconnect/reconnect scenarios](runtime/README.md) give the maintainer
+separate idle and active-stream DisconnectHost triggers through existing UI selection. Both
+are excluded by default and cannot be enabled together. The active scenario waits for a
+user-selected stream, requires STOPPED before CLOSED, and restarts the same app only after
+paired reconnect and fresh Apps. Its checks include timer/busy gating, no restart before
+closure, queued STOPPED after the adapter already reports DISCONNECTED, wrong host/app/state,
+operation rejection/failure, timeout, user interruption and no repeat after PASS. These Python
+checks interpret the actual source with mocked services/time, not Vita runtime or compilation.

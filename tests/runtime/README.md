@@ -1,4 +1,6 @@
-# Vita idle DisconnectHost smoke test
+# Vita DisconnectHost smoke tests
+
+## Idle scenario
 
 This opt-in package performs one local **idle** disconnect and reconnect to the PC selected
 through the existing UI. It uses ConnectionService/ApplicationService and MoonlightApp's
@@ -6,7 +8,7 @@ main-thread event delivery. It adds no button, endpoint, host credentials or per
 It does not launch/quit a game or revoke pairing. Pending-launch/active-stream disconnect,
 duplicate/admission races, failure rollback and shutdown remain separate tests.
 
-## Maintainer steps
+### Maintainer steps
 
 1. Build the test system-profile package from the repository root:
 
@@ -51,9 +53,10 @@ duplicate/admission races, failure rollback and shutdown remain separate tests.
    ```
 
    `build.sh` explicitly defaults this test OFF on each invocation. Direct CMake users must
-   pass `-DMOONLIGHT_DISCONNECT_TEST=OFF` to clear a previously enabled cache entry.
+   pass both `-DMOONLIGHT_DISCONNECT_TEST=OFF` and
+   `-DMOONLIGHT_ACTIVE_DISCONNECT_TEST=OFF` to clear previously enabled cache entries.
 
-## Scope and implementation
+### Scope and implementation
 
 The option defaults OFF. Its source and main-thread hooks are compiled only with the option ON.
 The original selected MoonlightHost is captured by ConnectionService after foreground reservation;
@@ -75,3 +78,73 @@ open. The fragment has no launch revision/profile or Sunshine version marker. Se
 [API audit F5](../../docs/SUNSHINE_API_AUDIT.md#f5--sequential-foreground-workflow-operation-state-and-lifecycle-coverage)
 for evidence and limits. No build/device test was run by the agent. Python source-interpretation
 checks mock service calls and time; they do not compile C++ or execute PAF/network operations.
+
+## Active-stream scenario (source prepared; Vita validation pending)
+
+This is a separate package mode. Select and start an app yourself; the scenario captures its
+actual STREAM_STARTED app ID and waits three seconds without blocking PAF. It then calls
+ConnectionService::Disconnect, requires a successful STREAM_STOPPED before CLOSED/DISCONNECTED,
+reconnects to the captured host/port without pairing, refreshes Apps and requests Start for the
+same app ID once. PASS requires the second STREAM_STARTED with that ID and STREAMING state,
+not merely a successful return from Start. Normal frontend callbacks still close/reopen the
+Stream page and schedule deferred frame-buffer release. The resumed stream remains active;
+there is no second automatic disconnect.
+
+Maintainer procedure:
+
+1. Build/install the test VPK (the agent must not execute the command):
+
+   ```bash
+   ./build.sh -DMOONLIGHT_SYSTEM_APP=ON -DMOONLIGHT_ACTIVE_DISCONNECT_TEST=ON
+   ```
+
+   Install `build/vita_moonlight_paf.vpk`. Do not enable the idle test together with this option;
+   CMake rejects that combination. build.sh resets both options OFF before explicit arguments,
+   including when replacing an earlier idle-test cache.
+2. Open Settings, enable Debug log, return and connect to the PC normally. Start one application
+   from Apps. Keep the PC app running and leave Vita controls untouched during the automatic
+   disconnect/reconnect/restart. No app is automatically chosen from the list. Initial pairing
+   is allowed; pairing requested after disconnect fails the test.
+3. Capture the log from `[Launch]` through the final `[DisconnectActiveTest] PASS` or FAIL:
+
+   ```text
+   [DisconnectActiveTest] armed host=... port=...
+   [DisconnectActiveTest] ready; start one app, then leave controls untouched
+   [DisconnectActiveTest] active app=...; disconnect in 3 seconds
+   [DisconnectActiveTest] disconnect request result=0
+   [DisconnectActiveTest] STOPPED observed app=...
+   [DisconnectActiveTest] CLOSED observed state=DISCONNECTED after STOPPED
+   [DisconnectActiveTest] reconnect enqueue result=0
+   [DisconnectActiveTest] reconnect ready state=PAIRED
+   [DisconnectActiveTest] refresh enqueue result=0
+   [DisconnectActiveTest] refreshed applications count=...
+   [DisconnectActiveTest] restart request app=... result=0
+   [DisconnectActiveTest] PASS active STOPPED -> CLOSED -> reconnect -> stream started app=...
+   ```
+
+   Include the normal `[Stream]`, `[Video]` and GameStream lines between markers: owner stop
+   completion before CLOSED, deferred framebuffer unmaps, and the second launch/resume choice
+   and RTSP setup. A legitimate page-initiated refresh can omit the test refresh-enqueue line.
+4. Confirm that image and sound return after reconnect and the host app remains the selected one.
+   PASS alone confirms event/state ordering, not decoded/presented video or audible playback.
+   Verify `[GameStream] resume app=...` to claim resume; fresh serverinfo may legitimately choose
+   launch if the host app exited. Do not report that alternative as a verified resume.
+5. Stop normally after observing the resumed stream, then restore the ordinary package with
+   `./build.sh -DMOONLIGHT_SYSTEM_APP=ON`.
+
+The active implementation is compiled only for this option, using the existing test hook guard;
+no production protocol, lifecycle ownership, UI callbacks or storage format is changed. The
+three-second hold begins at connection establishment and does not prove video has arrived.
+Each automatic step has a 60-second deadline; waiting for the user's first stream has no test
+deadline. Rejected operations, wrong host/app/state, failed stream, early/duplicate stop, CLOSED
+without STOPPED, unexpected pairing, another Connect or shutdown stop further test actions.
+FAIL/timeout does not forcibly cancel outstanding backend work: normal cleanup remains its owner.
+Relaunch to repeat the one-shot scenario. Controls must remain untouched; the test does not
+intercept input or prevent ordinary Stop/Back actions from aborting its expected sequence.
+
+No active-test build/device result is recorded yet. Python checks interpret the actual scenario
+with mocked services/time and queued event ordering; C++ ABI, native dialogs, real threads,
+transport cleanup, frame-buffer lifetime and hardware playback remain maintainer validation.
+Pending-launch cancellation, duplicate admission, failure rollback, shutdown and stress coverage
+remain separate. Existing audit references C/QS/V/S distinguish local stop from host-wide quit;
+this test sends no `/cancel`, quit or unpair request and uses no Sunshine administrative API.

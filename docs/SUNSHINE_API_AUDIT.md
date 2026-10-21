@@ -1266,6 +1266,42 @@ cycles remain unverified. No runtime code change or agent-run build/device test 
 this acceptance. The next separate scenario is explicit DisconnectHost during an active stream,
 with owner teardown before CLOSED and reconnect/resume afterward.
 
+**Active-stream trigger source follow-up, 2026-10-21; build/Vita pending:** the missing
+trigger, rather than a demonstrated new cleanup bug, is the next A17/F5 validation gap.
+`MOONLIGHT_ACTIVE_DISCONNECT_TEST=ON` selects a separate test-only implementation of the
+existing main-thread hooks. It cannot be combined with the idle mode; both are OFF by default
+and reset OFF by build.sh unless explicitly requested. No protocol/backend or PAF-page change.
+
+The maintainer starts an app from Apps. On its actual STREAM_STARTED the test captures app ID,
+waits three seconds by elapsed-time polling, then invokes service Disconnect once. It requires
+successful STOPPED for that host/app before CLOSED/DISCONNECTED, then reconnects to the exact
+captured host/port, requires PAIRED, refreshes Apps and requests the same app ID. PASS requires
+a second successful STREAM_STARTED/STREAMING, not start acceptance. The stream is left active
+for visual/audio verification and ordinary manual stop. STOPPED is allowed to arrive through
+the queue after the adapter has already reached DISCONNECTED; event ordering is checked without
+assuming backend state pauses at each queued event. Existing frontend callbacks and deferred
+framebuffer release run normally.
+
+Reference basis is the existing C/QS/V/S audit: common-c Limelight.h documents explicit stop
+separately from connectionTerminated and forbids overlapping transport lifecycle calls; L2 emits
+STOPPED after its owner has called LiStopConnection, then L1 frees GameStream and emits CLOSED.
+The test exercises this ownership contract rather than implementing host cleanup through a new
+endpoint. Remote Qt/Sunshine reference retrieval was unavailable during this follow-up; no new
+upstream behavior is claimed. Fresh serverinfo still chooses resume versus launch. The test
+PASS alone cannot establish `/resume`, decoder output, audio or host resource cleanup: inspect
+the normal resume/RTSP/owner/frame-unmap logs and confirm playback on Vita. It does not send
+host-wide `/cancel`, quit or unpair requests.
+
+All 34 non-build Python checks pass; source-interpreted cases cover the active flow and failures with mocked services,
+time and queued events. Both implementations remain excluded from ordinary builds. Risks:
+wrong host/app replay, premature restart, a stale/missing terminal event and abandoned automatic
+work on error. The scenario rejects mismatches/failures, requires CLOSED and a fresh list before
+restart, times out automatic steps and issues no further test commands after PASS/FAIL. It does
+not cancel outstanding backend work on timeout or intercept controls. Initial user selection
+has no test deadline. This is not real concurrency/ABI or device proof. Run the separate active
+[maintainer procedure](../tests/runtime/README.md#active-stream-scenario-source-prepared-vita-validation-pending);
+A17/A18 and full F5 remain partial. Pending launch, rollback, shutdown and stress remain separate.
+
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.
@@ -1611,9 +1647,9 @@ handoffs now have the scoped Vita evidence above; adapter Start/Stop eager-state
 source-corrected with ordering checks and user-reported smoke success. Pending-disconnect
 admission and post-cleanup adapter state now have a separate source implementation with mock
 ordering checks. The normal direct idle disconnect/CLOSED/reconnect/Apps cycle is now
-maintainer-log verified on one Vita (2026-10-21). Next prepare a separate active-stream
-DisconnectHost trigger; pending-launch, concurrent/stress host changes and broader shared-state
-ownership remain open.
+maintainer-log verified on one Vita (2026-10-21). A separate opt-in active-stream DisconnectHost trigger is now source-prepared; next run its
+STOPPED/CLOSED/reconnect/same-app restart sequence on Vita and verify resume/image/audio.
+Pending-launch, concurrent/stress host changes and broader shared-state ownership remain open.
 The maintainer now explicitly confirms the ordinary correct-PIN flow opens Apps after the cancellation work (user report; the
 cancellation/conflict trace verifies local cancellation followed by genuine server 409,
 not PIN success). A subsequent fragment now verifies pairing Run result 0, job release

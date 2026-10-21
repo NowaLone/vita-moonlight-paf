@@ -31,6 +31,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g3 -fno-rtti -fno-exceptions -Wl,-q -Wa
 option(MOONLIGHT_SYSTEM_APP "Experiment: launch alongside a suspended Vita game" OFF)
 option(MOONLIGHT_HEAP_TRACE "Diagnostic: track newlib allocation call sites" OFF)
 option(MOONLIGHT_DISCONNECT_TEST "Test only: disconnect/reconnect once after opening Apps" OFF)
+option(MOONLIGHT_ACTIVE_DISCONNECT_TEST "Test only: disconnect/reconnect after a selected stream starts" OFF)
+if(MOONLIGHT_DISCONNECT_TEST AND MOONLIGHT_ACTIVE_DISCONNECT_TEST)
+  message(FATAL_ERROR "Select only one disconnect test: idle or active stream")
+endif()
 if(MOONLIGHT_HEAP_TRACE AND NOT MOONLIGHT_SYSTEM_APP)
   message(FATAL_ERROR "MOONLIGHT_HEAP_TRACE requires MOONLIGHT_SYSTEM_APP=ON")
 endif()
@@ -196,7 +200,11 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/moonlight
 )
 
-if(MOONLIGHT_DISCONNECT_TEST)
+if(MOONLIGHT_ACTIVE_DISCONNECT_TEST)
+  message(STATUS "Active disconnect test enabled: select an app; stream disconnects once after 3 seconds")
+  target_compile_definitions(${PROJECT_NAME} PRIVATE MOONLIGHT_DISCONNECT_TEST=1)
+  target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/disconnect_active.cpp)
+elseif(MOONLIGHT_DISCONNECT_TEST)
   message(STATUS "Disconnect test enabled: opening Apps triggers one local disconnect/reconnect")
   target_compile_definitions(${PROJECT_NAME} PRIVATE MOONLIGHT_DISCONNECT_TEST=1)
   target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/disconnect_smoke.cpp)
