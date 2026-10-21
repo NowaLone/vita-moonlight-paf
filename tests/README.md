@@ -84,7 +84,7 @@ observer's actual C body is interpreted over all 512 combinations of slot memblo
 presence (loop increment/declaration normalized for the interpreter). Real allocator, native
 unmap/free results, races and decoder/GPU lifetime are not established by these serial checks.
 Stage 4 remains default; the stage-10 maintainer command and acceptance sequence are in
-[runtime/README.md](runtime/README.md#after-video-allocation-checkpoint--source-prepared-vita-validation-pending).
+[runtime/README.md](runtime/README.md#after-video-allocation-checkpoint).
 
 The production startup-interrupt checks interpret the actual mutex-protected publication,
 stop, connection-ready and finish helpers. They cover cancellation before/after common-c's

@@ -685,12 +685,17 @@ cancel, after the owner stops that transport. No new progress/error UI or inline
 The later strict stage-4 cancellation trace verifies no first STARTED/Stream page, partial
 common-c unwind → -7/CLOSED → native error termination → paired recovery/PASS late_start=0
 and final normal stop/audio release/three unmaps **[hw, log, 2026-10-21]**. That first cancelled
-setup never allocated video buffers; FAILED cleanup after late-init allocation and the cancelled-
-success race remain **[open]**. The earlier late_start=1 teardown test predates this change.
+setup never allocated video buffers. The earlier late_start=1 teardown test predates this change.
 The existing startup test now offers stage 10 after video setup **[code, 2026-10-21]**:
 it requires the old framebuffer generation to clear after FAILED/CLOSED before reconnect.
-The [maintainer procedure](../tests/runtime/README.md#after-video-allocation-checkpoint--source-prepared-vita-validation-pending)
-still needs Vita evidence, including successful old-pool unmaps; no UI behavior is changed.
+The later stage-10 trace verifies three mapped buffers/generation=1, suppressed frontend STARTED
+after cancelled common-c success, owner cleanup → FAILED=-7/CLOSED → three old unmaps returning 0
+before native error termination/reconnect, and same-app recovery/PASS **[hw, log, 2026-10-21]**.
+Recovery decodes 445 frames; final double PS releases audio and all three buffers successfully.
+The maintainer confirms image/sound on Sunshine 2025.924.154138. This covers that late cancelled-
+success path on one Vita; other races, blocked-I/O latency, shutdown and repeats remain **[open]**.
+See the [maintainer procedure and evidence](../tests/runtime/README.md#after-video-allocation-checkpoint).
+No UI behavior is changed by this evidence record.
 
 Backend callbacks may arrive on worker threads. `MoonlightApp` queues them and delivers them through
 `MainThreadCallList`, so page callbacks run on the PAF main thread. Only the topmost page owns the event callback; when

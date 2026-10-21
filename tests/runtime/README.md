@@ -520,7 +520,10 @@ single run is not a leak diagnosis/proof. No runtime-code change or agent build/
 Next cover cancellation after video allocation; earlier-entry replay, late cancelled-success,
 blocked I/O, shutdown and repeats remain separate.
 
-### After-video-allocation checkpoint — source prepared, Vita validation pending
+### After-video-allocation checkpoint
+
+Source prepared in 2c11d3b; the targeted maintainer Vita result is recorded below. The procedure
+remains available for reproduction; one passing run does not validate the full cancellation matrix.
 
 The same startup mode accepts `MOONLIGHT_STARTUP_DISCONNECT_STAGE=10` (stage 4 remains the
 default). Local and current upstream common-c Connection.c place the audio-start callback
@@ -591,3 +594,30 @@ The 88 Python source checks pass, including stage selection, partial/missing poo
 release-before-reconnect, changed-generation/timeout rejection and one-shot recovery. The observer
 is interpreted over all 512 combinations of three slots' memblock/pointer/mapping presence.
 These serial mocks do not validate C++ compilation, real atomics, GPU/decoder lifetime or Vita behavior.
+
+### Maintainer after-video-allocation result, 2026-10-21
+
+Host .134/app 1093255277 reaches the stage-10 checkpoint with three mapped buffers/generation=1.
+Disconnect=0 wins before frontend STARTED. Common-c still completes audio/input startup and
+calls the connection callback; the local callback suppresses input/STARTED and the owner stops
+the successful transport. Audio drain/release return 0, video decoded frames=0 and full common-c
+cleanup precede raw result=0/local setup=-7, expected native error and CLOSED.
+
+All three old unmaps return 0 and deferred release completes before native error termination.
+The captured-generation-clear marker precedes reconnect, PAIRED without PIN, fresh four Apps/
+correct rebuild, same-app resume/encrypted RTSP/setup=0 and PASS late_start=0 stage=10.
+No first frontend STARTED/STREAM_STOPPED/Stream page is present; the cancelled attempt's no-audio/
+video warnings are expected for its immediate teardown, not recovery warnings.
+
+Recovery receives video at 500 ms and audio at 3000 ms, then decodes 445 frames. An OOS/RFI/IDR
+wait/drop-limit/request sequence occurs before decoding resumes; this is not an error-free media
+quality result. Final double PS produces owner stop=0, audio drain/release=0 and three successful
+unmaps/deferred release. The maintainer confirms image/audible sound and Sunshine 2025.924.154138.
+No Launch marker/exact installed revision or error-OK timing is supplied; identify the test behavior,
+not an exact binary hash. USER_RW free: 33872 KiB initially, 33868 at paired reconnect and 33592
+after final release. A single cycle is neither leak diagnosis nor leak-free proof.
+
+This verifies the targeted cancelled-success owner cleanup/FAILED deferred-buffer path and
+recovery on one Vita. Earlier-entry races, blocked-I/O latency, shutdown, repeats and host-side
+cleanup remain separate. No runtime-code change or agent build/device run for this record.
+Next restore ordinary test-OFF packaging and check repeated start/stop cycles.
