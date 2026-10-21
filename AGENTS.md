@@ -294,7 +294,13 @@ Subsequent HTTPS requests verify the complete paired leaf certificate. Old recor
 `server.pem` require pairing again. An unreadable/malformed pin or changed server certificate
 fails closed: remove that saved PC locally and add/pair it again to establish new trust.
 Local deletion removes its server pin as part of the host directory; it does not revoke the
-Vita identity on Sunshine. A pin persistence error is logged separately from pairing success;
+Vita identity on Sunshine. Host metadata writes return failure on open, write or flush/close
+errors through Add/MarkPaired/SetHostId. Search uses its existing native save-error dialog;
+successful connection/pairing log metadata failures separately without becoming protocol failures.
+Normalization logs failed rewrites and keeps usable in-memory records. This is checked error
+reporting, not atomic persistence: failed writes can leave partial files and in-memory updates.
+Build/Vita storage-failure and restart validation of this source change is pending.
+A pin persistence error is logged separately from pairing success;
 trust then lasts only for the current connection and pairing is needed after restart.
 The implementation requires the OpenSSL libcurl backend. On 2026-10-20 the maintainer confirmed
 normal PIN pairing, Apps, application restart, reconnect without another PIN and stream launch/stop.

@@ -194,13 +194,30 @@ sequential workflow and remains a separate limit, not an unlimited-delivery guar
 
 ### 4. Persistence APIs can report success even when the file was not saved
 
-`save_device_info()` returns `void`. If `fopen()` fails it only logs and returns.
+At the audit baseline, `save_device_info()` returned `void`; `fopen()` failure only logged,
+and neither write errors nor `fclose()` failures were checked.
 
-Callers such as `legacy_device_store_add_host()`, `legacy_device_store_mark_paired()`, and `legacy_device_store_set_host_id()` can therefore return success after an unsuccessful write.
+Callers such as `legacy_device_store_add_host()`, `legacy_device_store_mark_paired()`, and
+`legacy_device_store_set_host_id()` could therefore return success after an unsuccessful write.
 
-That can produce a host that appears correct for the current process but disappears or loses identity/pairing metadata after restart.
+That could produce a host that appeared correct for the current process but disappeared or lost
+identity/pairing metadata after restart.
 
-Recommended fix: make `save_device_info()` return an error and propagate it through the device-store API. Pairing protocol success can still remain distinct from persistence success in the UI, but storage failure must be observable.
+**Source follow-up, 2026-10-21:** `save_device_info()` now returns 0/-1 after checking open,
+the stream error indicator and close (including its buffered flush). Every opened file is closed
+even after write failure. Add/MarkPaired/SetHostId propagate the result; the latter logs saved
+UUID only on success. Search already forwards Add failure to a native error dialog. Connection/
+pairing protocol success stays separate and existing API diagnostics now receive actual metadata
+write failures. Startup normalization logs failed rewrites without discarding usable records.
+The same unchecked writer exists in [xyzz's pinned source](https://github.com/xyzz/vita-moonlight/blob/984603bd6f93f752593048fe494b5ffca14514e1/src/device.c#L231-L265);
+no protocol or storage-layout change was copied in.
+
+Eight new actual-source checks inject open, each write and close errors, cover new/existing
+store records and successful-pairing completion despite metadata failure; all 108 Python checks
+pass. This is not actual filesystem, compiler/ABI or Vita evidence. Existing in-memory updates
+remain after failure, and `fopen("w")` can leave a truncated/partial file: atomic replacement,
+rollback, power-loss durability and host-store synchronization are separate unsolved concerns.
+Maintainer build, ordinary save/restart smoke and controlled storage-failure checks remain pending.
 
 ### 5. Release builds are currently compiled with debug/no-optimization flags
 

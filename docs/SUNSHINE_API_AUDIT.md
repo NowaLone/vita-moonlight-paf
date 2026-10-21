@@ -6,16 +6,17 @@ Audit date: **2026-10-18**. Local baseline: `master`,
 This continues [the preliminary audit](../ROADMAP.md#gamestream-client-api-coverage-and-follow-up-2026-10-15)
 and the findings in [REPOSITORY_ANALYSIS.md](../REPOSITORY_ANALYSIS.md). It is a **source-level audit**,
 not a new Vita/Sunshine interoperability test. The original inventory changed no runtime code or
-storage; dated source follow-ups below describe later implementation changes (latest: 2026-10-20). `PROGRESS.md` was absent. The supplied PRD was read as technical context;
+storage; dated source follow-ups below describe later implementation changes (latest: 2026-10-21). `PROGRESS.md` was absent. The supplied PRD was read as technical context;
 current source and Git state determine the findings below.
 
 **Current decision, 2026-10-21 (local edf0b58):** the required normal client flow has effective
 implementations and scoped Vita evidence. Further routine stop/reconnect test variants are not
 the next development task. See [the consolidated decision and backlog](#6-completion-and-next-work)
 for implemented paths, concrete code gaps, blocked self-unpair and deferred verification.
-The later source follow-up isolates snapshot bursts from ordered lifecycle delivery (F5);
-maintainer build/Vita validation remains pending. Next isolated implementation: propagate host
-persistence errors. The consolidation and this queue change add no protocol endpoint.
+Later source follow-ups isolate snapshot bursts from ordered lifecycle delivery (F5) and
+propagate host metadata write failures (L8); maintainer build/Vita validation remains pending.
+Next isolated implementation: remove the eight-host Main/Search presentation limit.
+These corrections add no protocol endpoint.
 
 ## User runtime follow-up — 2026-10-20
 
@@ -2380,12 +2381,23 @@ proven leak or leak-free guarantee. Earlier quality/audio-warning observations r
    this bounded policy relies on the sequential foreground workflow, not an arbitrary lossless
    event bus. Broader stale-session routing remains separate. Do not mark Vita behavior fixed
    until the maintainer's ordinary smoke test passes.
-2. **Next implementation: host persistence errors (L8 / architecture finding 4).** save_device_info returns void;
-   fopen failure only logs, and store callers can return 0. Writes/fclose are not checked either.
-   Minimum: checked status through host-store callers, honest save-error reporting, preserved
-   protocol pairing success and unchanged storage format/global identity. Treat metadata and
-   server-pin persistence separately; successful PIN proof is not a failed pairing when saving fails.
-3. **Host/discovery limits and state (A01).** Main/Search arrays and callback/selection contexts
+2. **Host persistence errors: source-addressed; build/Vita pending (L8 / architecture finding 4).**
+   The baseline void writer and unconditional store success matched
+   [xyzz's writer](https://github.com/xyzz/vita-moonlight/blob/984603bd6f93f752593048fe494b5ffca14514e1/src/device.c#L231-L265),
+   re-read for this correction. Now save_device_info returns 0/-1, checking fopen, sticky ferror
+   after writes and fclose's buffered flush. Every opened file closes even after a write error;
+   failures log path/stage/errno. Add/MarkPaired/SetHostId return the status and UUID-saved logs
+   require success. Search's existing native "Unable to save PC" dialog receives Add failures.
+   Successful connection/pairing still complete normally with separately logged persistence
+   failure; pin persistence remains separate. Normalization logs failed rewrites, retaining usable
+   in-memory hosts. Global identity, exact record resolution, paths and INI fields are unchanged.
+   Eight new source checks inject open/every-field-write/close/directory failures, exercise new/
+   existing records and successful pairing despite metadata failure. Previous source fails 24
+   cases across six tests; all 108 current Python checks pass. No actual filesystem, native-dialog,
+   compilation or device proof. Existing memory mutations remain on failure; non-atomic truncating
+   writes may leave partial files. Atomic replacement, rollback and power-loss durability are not
+   addressed. Maintainer build/save/restart smoke and controlled storage-failure tests remain open.
+3. **Next implementation: host/discovery limits and state (A01).** Main/Search arrays and callback/selection contexts
    remain eight-wide; discovery holds 16 and persistent storage is dynamic. DiscoveryService's
    m_running does not clear on natural completion and DiscoveryJob ignores SearchHosts' return.
    These are existing local gaps, not missing Sunshine endpoints. Separate scalable host storage
@@ -2433,7 +2445,9 @@ TLS weakening, delayed retry or host workaround is proposed to reduce testing sc
   This does not close local persistence/event/discovery defects or external self-unpair.
 - **Queue source gate: snapshot-pressure correction and 100 non-build checks complete;
   maintainer build/Vita gate open.** No arbitrary critical-storm/race guarantee.
-- **Next code gate: propagate host persistence write failures as one isolated change.**
+- **Persistence source gate: checked write/close status through host store; 108 non-build checks
+  complete; maintainer build/Vita gate open.** No atomic-write/durability guarantee.
+- **Next code gate: remove the eight-host Main/Search limit as one isolated change.**
 - **Release/compatibility gate: open.** Deferred error/security/version/shutdown/stress tests,
   broader shared-state ownership and the separate build/license requirements remain pending.
 

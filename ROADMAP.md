@@ -24,17 +24,27 @@ shutdown validation are deferred while concrete source gaps are addressed.
 - [ ] Maintainer build/Vita smoke check for this correction: discovery → pairing/error or success
   → Apps → launch/stop/restart; confirm native dialogs close and list refresh/resource release
   still work. Source tests model bursts/producer interleavings; no agent build or device run.
-- [ ] **Next isolated change: host persistence error propagation** (`save_device_info` still returns void),
-  then the remaining eight-host Main/Search presentation limit and discovery-service completion
-  state. Implement each separately; preserve successful pairing when a metadata write fails.
+- [x] **Source correction: host persistence error propagation (2026-10-21).** `save_device_info`
+  returns failure on open, write (`ferror`) or buffered flush/close failure and always closes an
+  opened file. Add/MarkPaired/SetHostId return that status; UUID-saved diagnostics require success.
+  Search's existing native save-error path now receives write failures. Successful connection/
+  pairing remain protocol successes with separately logged persistence failures. Normalization
+  retains usable in-memory records and logs failed rewrites. Storage format/paths are unchanged.
+  All 108 non-build checks pass; eight new source checks inject stdio/store failures and preserve
+  pairing success. Real storage faults and restart behavior remain unverified. Writes still use
+  non-atomic truncation; errors do not roll back in-memory metadata or guarantee durable storage.
+- [ ] Maintainer build/Vita validation of saved-host creation/update and reuse after restart;
+  controlled storage-failure handling remains pending. No agent build or hardware run.
+- [ ] **Next isolated change: the eight-host Main/Search presentation limit**, followed separately
+  by discovery-service completion/error state. Preserve selection identity and PAF templates.
 - Requested remote self-unpair remains **missing/blocked by upstream client protocol**; no admin
   login, host patch, fake `/unpair`, `/cancel` workaround or global identity rotation is authorized.
 - Malformed trust/XML/transport faults, custom ports, mandatory encryption, shutdown, long stress
   and the explicitly deferred 64/65-app case remain unverified. They are not missing endpoints;
   retain them as milestone/release checks or investigate when concrete runtime evidence appears.
 
-The consolidation itself changed documentation only; the dated queue follow-up above is a source
-change with maintainer build/Vita validation pending. Broad T1–T10 acceptance remains open;
+The consolidation itself changed documentation only; the dated queue and persistence follow-ups
+above are source changes with maintainer build/Vita validation pending. Broad T1–T10 acceptance remains open;
 dated evidence and accepted compatibility limitations remain below.
 
 ## Packaging follow-up: three-page manual (2026-10-21)

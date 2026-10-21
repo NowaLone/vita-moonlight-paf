@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
 #include <string.h>
 #include <dirent.h>
 #include <unistd.h>
@@ -175,7 +176,10 @@ static void normalize_known_devices(void) {
 
   for (int i = 0; i < known_devices.count; ++i) {
     ensure_host_identity(&known_devices.devices[i]);
-    save_device_info(&known_devices.devices[i]);
+    if (save_device_info(&known_devices.devices[i]) != 0) {
+      vita_debug_log("normalize_known_devices: metadata remains in memory only: %s",
+          known_devices.devices[i].storage_name);
+    }
   }
 }
 
@@ -546,10 +550,10 @@ bool load_device_info(device_info_t *info) {
   }
 }
 
-void save_device_info(const device_info_t *info) {
+int save_device_info(const device_info_t *info) {
   char path[512] = {0};
   const char *storage_name;
-  if (!info) return;
+  if (!info) return -1;
   storage_name = info->storage_name[0] ? info->storage_name : info->name;
   device_file_path(path, storage_name);
   vita_debug_log("save_device_info: device file path: %s\n", path);
@@ -558,9 +562,8 @@ void save_device_info(const device_info_t *info) {
 
   FILE* fd = fopen(path, "w");
   if (!fd) {
-    // FIXME
-    vita_debug_log("save_device_info: cannot open device file\n");
-    return;
+    vita_debug_log("save_device_info: cannot open %s: errno=%d", path, errno);
+    return -1;
   }
 
   vita_debug_log("save_device_info: name = %s\n", info->name);
@@ -585,6 +588,18 @@ void save_device_info(const device_info_t *info) {
   vita_debug_log("save_device_info: prefer_external = %s\n", info->prefer_external ? "true" : "false");
   write_bool(fd, "prefer_external", info->prefer_external);
 
-  fclose(fd);
-  vita_debug_log("save_device_info: file closed\n");
+  int result = 0;
+  if (ferror(fd)) {
+    vita_debug_log("save_device_info: write failed for %s: errno=%d", path, errno);
+    result = -1;
+  }
+  /* fclose also flushes buffered writes; always close, even after a write error. */
+  if (fclose(fd) != 0) {
+    vita_debug_log("save_device_info: close/flush failed for %s: errno=%d", path, errno);
+    result = -1;
+  }
+  if (result == 0) {
+    vita_debug_log("save_device_info: file closed\n");
+  }
+  return result;
 }

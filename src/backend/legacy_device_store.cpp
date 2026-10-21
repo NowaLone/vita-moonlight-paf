@@ -24,7 +24,11 @@ static bool ensure_device_directory(const char *name)
 {
     char path[512];
     snprintf(path, sizeof(path), "%s%s", config.key_dir, name);
-    return ensure_directory(path);
+    if (!ensure_directory(path)) {
+        vita_debug_log("[HostStore] cannot create host directory: %s", path);
+        return false;
+    }
+    return true;
 }
 
 static void copy_string(char *destination, size_t size, const char *source)
@@ -183,8 +187,7 @@ int legacy_device_store_add_host(const char *address, uint16_t port, const char 
             return -1;
         }
 
-        save_device_info(stored);
-        return 0;
+        return save_device_info(stored);
     }
 
     device_info_t info;
@@ -203,8 +206,7 @@ int legacy_device_store_add_host(const char *address, uint16_t port, const char 
         return -1;
     }
 
-    save_device_info(stored);
-    return 0;
+    return save_device_info(stored);
 }
 
 int legacy_device_store_mark_paired(const MoonlightHost *host)
@@ -257,8 +259,7 @@ int legacy_device_store_mark_paired(const MoonlightHost *host)
         return -1;
     }
 
-    save_device_info(stored);
-    return 0;
+    return save_device_info(stored);
 }
 
 
@@ -313,7 +314,10 @@ int legacy_device_store_set_host_id(
         return -1;
     }
 
-    save_device_info(stored);
+    int result = save_device_info(stored);
+    if (result != 0) {
+        return result;
+    }
 
     vita_debug_log(
         "legacy_device_store_set_host_id: host %s uuid=%s storage=%s",

@@ -9,6 +9,16 @@ The server-trust checks interpret the actual X509 comparison expression with moc
 results and check enrollment/rollback ordering. They do not execute OpenSSL, TLS or file I/O.
 C grammar checks are not compilation or type checking.
 
+`test_host_persistence.py` interprets the actual metadata writer, three host-store mutations and
+the successful-pairing completion fragment. Eight checks inject fopen failure, each of eight
+fprintf failures (sticky ferror), buffered close failure and directory failure; verify a single
+close of every opened file, unchanged INI fields, new/existing record status propagation and
+pairing success despite failed metadata save. The three fprintf macros are expanded from their
+source definitions; char arrays, struct pointers, directory calls and stdio are mocked. The
+previous source fails 24 cases across six of these tests; all 108 current Python tests pass.
+No compiler/ABI, actual filesystem/flush, concurrency, native-dialog or Vita behavior is tested.
+Atomic replacement, memory rollback and power-loss durability are outside this correction.
+
 The foreground checks interpret the source terminal-event predicate across all event/operation
 combinations and the retained-result classification (including a successful empty app list).
 They do not execute PAF dialogs, threads, event-ring delivery or the complete state machine;
