@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<livearea style="a1" format-ver="01.00" content-rev="1">
+<livearea style="a5" format-ver="01.00" content-rev="1">
   <livearea-background>
     <image>bg0.png</image>
   </livearea-background>
@@ -8,17 +8,47 @@
   </gate>
   <frame id="frame1" multi="o" autoflip="0" rev="1">
     <liveitem default="on">
-      <image align="center" valign="center" origin="frame" width="260" height="168" x="0" y="0">frame1.png</image>
+      <image align="center" valign="center" origin="frame" width="286" height="68" x="0" y="0">frame1.png</image>
+      <target>psla:eboot</target>
+      <text align="center" valign="bottom">
+        <str size="22" color="#ffffff" bold="on">Desktop</str>
+      </text>
     </liveitem>
   </frame>
   <frame id="frame2" multi="o" autoflip="0" rev="1">
     <liveitem default="on">
-      <image align="center" valign="center" origin="frame" width="260" height="168" x="0" y="0">frame2.png</image>
+      <image align="center" valign="center" origin="frame" width="286" height="68" x="0" y="0">frame2.png</image>
+      <target>psla:eboot</target>
     </liveitem>
   </frame>
   <frame id="frame3" multi="o" autoflip="0" rev="1">
     <liveitem default="on">
-      <image align="center" valign="center" origin="frame" width="286" height="150" x="0" y="0">frame3.png</image>
+      <image align="center" valign="center" origin="frame" width="286" height="68" x="0" y="0">frame3.png</image>
+      <target>psla:eboot</target>
+    </liveitem>
+  </frame>
+  <frame id="frame4" multi="o" autoflip="0" rev="1">
+    <liveitem default="on">
+      <image align="center" valign="center" origin="frame" width="286" height="68" x="0" y="0">frame4.png</image>
+    </liveitem>
+  </frame>
+  <frame id="frame5" multi="o" autoflip="0" rev="1">
+    <liveitem default="on">
+      <image align="center" valign="center" origin="frame" width="286" height="68" x="0" y="0">frame5.png</image>
+    </liveitem>
+  </frame>
+  <frame id="frame6" multi="o" autoflip="0" rev="1">
+    <liveitem default="on">
+      <image align="center" valign="center" origin="frame" width="286" height="68" x="0" y="0">frame6.png</image>
+    </liveitem>
+  </frame>
+  <frame id="frame7" multi="o" autoflip="0" rev="1">
+    <liveitem default="on">
+      <image align="center" valign="center" origin="frame" width="286" height="168" x="0" y="0">frame7.png</image>
+      <target>psla:eboot</target>
+      <text align="center" valign="bottom">
+        <str size="22" color="#ffffff" bold="on">NA-IGRUNOV</str>
+      </text>
     </liveitem>
   </frame>
 </livearea>
