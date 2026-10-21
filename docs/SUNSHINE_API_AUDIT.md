@@ -1221,6 +1221,12 @@ pairing/apps/start/stop after the gate, direct idle/pending/active DisconnectHos
 reuse, duplicate requests, failure rollback and shutdown. Direct disconnect currently needs a
 backend-level trigger; closing Apps is not that test. A15–A18 and full F5 stay partial/pending.
 
+**Maintainer smoke-test follow-up:** following the selected-host admission change, the
+maintainer reports “всё работает”. This is user-reported normal application success, without
+a new log, installed revision marker or enumerated steps. It does not establish direct
+DisconnectHost execution (no current UI caller), pending/active disconnect, rollback or shutdown
+coverage. Keep A15–A18/F5 runtime requirements open; no runtime code changes accompany this record.
+
 **Regression risks / tests:** queue saturation, old-session events affecting a new session, host
 switch and page close during jobs; T7/T8. This is consistent with the existing repository analysis;
 it does not justify a broad architecture rewrite during this audit.

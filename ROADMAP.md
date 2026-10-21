@@ -705,6 +705,10 @@ ongoing stream threads and main-thread completion delivery remain. This is the t
   build/device run; normal regression and direct idle/pending/active DisconnectHost, failure,
   reuse and shutdown need Vita tests. No UI caller exists for direct disconnect; use a backend
   test trigger. Broader shared-state/stale-event F5 cases remain open. See API audit for limits.
+  Maintainer follow-up after this change: “всё работает”. Record user-reported smoke success
+  of the current application. No new log, revision marker or individual test steps were supplied.
+  Direct DisconnectHost remains unverified: the current UI has no caller; ordinary navigation
+  does not establish its execution or pending/active/error/shutdown coverage.
 
 Source findings and isolated follow-ups (basic user smoke test passed; full runtime acceptance remains pending):
 
