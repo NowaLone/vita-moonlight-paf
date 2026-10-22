@@ -7,8 +7,12 @@ Source-level audit date: 2026-10-16
 ROADMAP's current work decision for implementation priorities. XML parsing/cache invalidation,
 Apps storage, TLS pinning and several transport/foreground ownership fixes have since landed;
 their scoped evidence is in the API audit. Snapshot-pressure event loss now has the source
-correction below; its build/Vita checks remain pending. Next implementation is host persistence
-error propagation, before more routine teardown test variants.
+correction below; its broader build/Vita checks remain pending. Host persistence error propagation,
+dynamic host lists and discovery lifecycle have since received separate source corrections.
+The 2026-10-22 API recheck identifies the next narrow implementation: preserve local pairing error
+provenance instead of reporting RNG/EVP/parser/allocation failures as protocol, security or network
+failures. See [the current source chains and minimal fix](docs/SUNSHINE_API_AUDIT.md#68-source-recheck-and-next-minimal-fix--2026-10-22).
+That recheck changes documentation only; it adds no endpoint or hardware claim.
 
 ## Scope
 

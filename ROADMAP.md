@@ -4,6 +4,18 @@ This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordere
 
 ## Current API work decision (2026-10-21)
 
+**API source recheck, 2026-10-22 (local c27e788):** reviewed the remaining partial entries against
+current API/stream/legacy/adapter/services and newly resolved Sunshine, Moonlight Qt/common-c,
+xyzz, NetStream and BHBB snapshots. No additional required ordinary-client endpoint was found.
+The next concrete implementation is **pairing error provenance (A06)**: local RNG/EVP/parser
+errors collapse into PROTOCOL/SECURITY, and response-buffer realloc failure is called NETWORK.
+Preserve typed local/OOM results at their origin before mapping to the public pairing enum;
+keep PIN/409/cancellation/trust behavior. See [source chains and minimal fix](docs/SUNSHINE_API_AUDIT.md#68-source-recheck-and-next-minimal-fix--2026-10-22).
+This recheck changes documentation only. All 127 existing non-build checks pass; ten additional
+mocked actual-classifier source cases confirm the category gap. No build, new device/host test,
+endpoint, Sunshine patch or dependency update. Self-unpair remains blocked by the absent client
+route; fixed media/list limits and deferred release tests remain explicitly scoped.
+
 **Priority regression, 2026-10-22:** the supplied Main-startup core localizes a null write to
 the dynamic row-vector count constructor introduced in `02541bc`. The installed PAF constructor
 reads its capacity before initialization; one requested row becomes a roughly 495 MiB allocation.
@@ -70,7 +82,7 @@ shutdown validation are deferred while concrete source gaps are addressed.
   polling stays in the existing backend worker, with unchanged scan duration/capacity/protocol.
   All 126 non-build checks pass; nine new actual-source lifecycle checks use serial kernel/network
   mocks. Three checks fail against the previous native start code. No build or hardware run.
-- [ ] **Next priority: maintainer build/Vita smoke of the accumulated source fixes**, including
+- [ ] **Remaining maintainer build/Vita coverage of the accumulated source fixes**, including
   Search → wait for scan completion → Back → Search again, immediate Back/reopen and normal
   discovery → connect → Apps. Runtime start-error presentation and worker cleanup remain pending.
   Choose further narrow API work from a concrete required case; do not add more automatic

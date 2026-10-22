@@ -19,6 +19,12 @@ and simplify discovery lifecycle/start errors (A01); broader Vita validation rem
 The scoped 6af2e36 Search/connect/Apps runtime result below does not close all remaining cases.
 These corrections add no protocol endpoint.
 
+**Source recheck, 2026-10-22 (local c27e788):** the remaining `partial` entries were compared
+with current implementation and freshly resolved upstream snapshots. No additional required
+ordinary-client endpoint was identified. A06 has confirmed local error-provenance loss, including
+allocation failures presented as NETWORK/PROTOCOL/SECURITY. This is the next narrow implementation
+task; the present recheck changes documentation only. See [the findings and minimal fix](#68-source-recheck-and-next-minimal-fix--2026-10-22).
+
 **Startup regression takes priority, 2026-10-22:** the maintainer's new core shows a Main null
 write consistent with the installed PAF sized-vector constructor reading uninitialized capacity.
 That constructor was introduced for row state in `02541bc`. Main now constructs empty then
@@ -564,7 +570,10 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   protocol and local failure without presenting storage failure as bad PIN.
 - **Semantics:** XML rejection/`paired=0` differs from curl failure and cryptographic proof failure.
 - **Current:** L1 recognizes PIN/security error strings, explicit certificate security failures,
-  selected curl errors and OOM. Other local failures still fall through to PROTOCOL. The F4 source
+  selected curl errors and direct OOM. Helpers' local errors can be collapsed before L1 sees them:
+  RNG/AES/signing/XML allocation failures become PROTOCOL, response-buffer allocation failure
+  becomes NETWORK, and verification-context allocation failure becomes SECURITY. See §6.8 for
+  the source chain and separate minimal correction. The F4 source
   follow-up checks signature before the PIN-bound hash and accepts only successful EVP return codes.
   Tests exercise mocked return logic; actual malformed-proof/TLS runtime coverage remains pending.
 - **Upstream / Sunshine:** QP has explicit failed/PIN/in-progress results; S can reject ordering,
@@ -2453,9 +2462,12 @@ proven leak or leak-free guarantee. Earlier quality/audio-warning observations r
    real kernel/socket/PAF or Vita proof. Existing volatile state, socket-init error coverage and
    permanent wait-error handling remain separate concerns; the inherited Stop wait loop is not
    given a new timing guarantee. Next: maintainer build and ordinary Search reopen/connect smoke.
-4. **Narrow error/compatibility limits (A03/A06/A23).** Some local pairing failures still classify
-   as protocol errors, capabilities remain fixed and version bounds are bypassed. Address a
-   concrete required case with its own source/host evidence; no speculative codec/timeout expansion.
+4. **Pairing error provenance (A06): confirmed source gap, next separate fix.** Local RNG,
+   crypto and parser/allocation errors lose their cause before semantic classification; a local
+   response allocation failure is even classified as NETWORK. See §6.8 for exact branches,
+   upstream comparison, the minimal typed-result correction and regression requirements.
+   Fixed media capabilities and bypassed legacy version bounds (A03/A23) remain compatibility
+   limits, with no concrete case justifying a codec/timeout/version-policy change in this recheck.
 
 ### 6.4 Requested but blocked, optional and excluded
 
@@ -2502,8 +2514,10 @@ TLS weakening, delayed retry or host workaround is proposed to reduce testing sc
   complete; maintainer build/Vita gate open.** Backend discovery capacity is still 16.
 - **Discovery source gate: direct lifecycle/status, exact start errors and native reaping;
   126 non-build checks complete; maintainer build/Vita gate open.** Network polling stays threaded.
-- **Next priority: maintainer build and Search completion/reopen → connect → Apps smoke.**
-  Further narrow API changes require a concrete case; no speculative endpoint or test expansion.
+- **Next implementation priority: preserve local pairing error provenance (A06 / §6.8).**
+  The later scoped Main/discovery/Connect/Apps/playback evidence is recorded above; broader
+  discovery failure/natural-completion and >8-PC acceptance remain open. No new automatic
+  streaming test variant or endpoint is needed for this source-proven classification correction.
 - **Release/compatibility gate: open.** Deferred error/security/version/shutdown/stress tests,
   broader shared-state ownership and the separate build/license requirements remain pending.
 
@@ -2523,3 +2537,117 @@ does not guarantee early-startup capture. No logging or refresh code was changed
 `Main::InitialRefreshTask()` was not changed. Analyze any additional cold-start logs before changes:
 `hosts == 0` points below PAF to storage/load; `hosts > 0` with mismatched cells points to ListView
 lifecycle; matching counts with invisible rows points to layout/template/activation state.
+
+### 6.8 Source recheck and next minimal fix — 2026-10-22
+
+**Scope / method.** Clean local `master` at `c27e788` before this documentation change; no
+PROGRESS.md exists. Re-read the API, stream launch/owner/cancellation, legacy HTTP/pairing,
+adapter and relevant services against A01–A24 and the existing dated evidence. Current Git/code
+supersede the older PRD's fixed-list, parser and void-persistence descriptions. No build,
+deployment, user-host request, Sunshine modification or new hardware run was performed.
+
+**Fresh upstream snapshots.** Public branch heads were resolved with GitHub's commit API,
+then the listed source files were read at those exact SHAs. These supplement the original
+S/Q/C references; they do not relabel earlier device runs or replace their version attribution:
+
+- Sunshine **d0b4a88ef727f8dabf80cc970a14739b55c885de** (`master`):
+  [GameStream handlers/routes](https://github.com/LizardByte/Sunshine/blob/d0b4a88ef727f8dabf80cc970a14739b55c885de/src/nvhttp.cpp),
+  [admin authorization/routes](https://github.com/LizardByte/Sunshine/blob/d0b4a88ef727f8dabf80cc970a14739b55c885de/src/confighttp.cpp),
+  [RTSP](https://github.com/LizardByte/Sunshine/blob/d0b4a88ef727f8dabf80cc970a14739b55c885de/src/rtsp.cpp)
+  and [version constants](https://github.com/LizardByte/Sunshine/blob/d0b4a88ef727f8dabf80cc970a14739b55c885de/src/nvhttp.h).
+- Moonlight Qt **dc92b6d2f361064d3e9e53ce5de92f611db77220** (`master`):
+  [pairing](https://github.com/moonlight-stream/moonlight-qt/blob/dc92b6d2f361064d3e9e53ce5de92f611db77220/app/backend/nvpairingmanager.cpp)
+  and [HTTP/status/quit](https://github.com/moonlight-stream/moonlight-qt/blob/dc92b6d2f361064d3e9e53ce5de92f611db77220/app/backend/nvhttp.cpp).
+- moonlight-common-c **04053843c90c4268583f2496b997d54d59f03957** (`master`):
+  [start/interrupt/stop contract](https://github.com/moonlight-stream/moonlight-common-c/blob/04053843c90c4268583f2496b997d54d59f03957/src/Connection.c)
+  and [RTSP negotiation](https://github.com/moonlight-stream/moonlight-common-c/blob/04053843c90c4268583f2496b997d54d59f03957/src/RtspConnection.c).
+  Local common-c remains `2d984f4b0dfab5ea2cff0f262abe1a056946a7c1`; no dependency update.
+- xyzz/vita-moonlight **984603bd6f93f752593048fe494b5ffca14514e1** (`vita`),
+  [client.c](https://github.com/xyzz/vita-moonlight/blob/984603bd6f93f752593048fe494b5ffca14514e1/libgamestream/client.c);
+  NetStream **99db706d860f7126b0b8b6ac1f5a5bbf960055f8** (`main`),
+  [player ownership](https://github.com/GrapheneCt/NetStream/blob/99db706d860f7126b0b8b6ac1f5a5bbf960055f8/NetStream/source/players/player_av.cpp);
+  BHBB **617ab7da240e33fca8a7f546a304f7e66cd87d45** (`master`),
+  [page lifetime](https://github.com/Ibrahim778/BetterHomebrewBrowser/blob/617ab7da240e33fca8a7f546a304f7e66cd87d45/src/pages/page.cpp)
+  and [jobs/list handling](https://github.com/Ibrahim778/BetterHomebrewBrowser/blob/617ab7da240e33fca8a7f546a304f7e66cd87d45/src/pages/app_browser.cpp).
+  These three heads match the original references. N/B remain UI/ownership references only.
+
+**Coverage decisions after recheck.**
+
+- A01/A03/A07: discovery is bounded to 16, application cache to 64; Main/Search/Apps storage
+  now scales to the actual exposed count. H.264/stereo/one controller/Rec.601 are explicit Vita
+  scope. These bounds and unverified configurations do not imply missing HTTP calls.
+- A09–A18: the effective launch/resume path is `stream_session.cpp::load_launch_session`,
+  authenticated requests and common-c. The declaration `legacy_gamestream_launch` in the legacy
+  header has no implementation/caller and is not evidence of support. Fresh serverinfo guards
+  different-app resume; the session owner handles start/stop, and disconnect waits for it before
+  destroying credentials/HTTP state. Current common-c still requires LiStartConnection to return
+  before reuse after interrupt. Existing targeted runtime evidence applies; no universal race,
+  shutdown or blocked-I/O cancellation guarantee is added.
+- A19/A20: current Sunshine `/cancel` terminates sessions, the running host process and restores
+  display configuration. Qt's `quitApp` uses this route. Local Stop/disconnect cannot silently
+  acquire remote-Quit semantics. No separate `/quit` route is registered.
+- A21: current GameStream registration still has no `/unpair`. Qt's legacy HTTP `unpair` calls
+  on pairing failure do not establish Sunshine support for that route. The actual Sunshine route
+  is admin `POST /api/clients/unpair`, with separate authentication, CSRF and server-side client
+  UUID. The `@api_examples` comment still says `/api/unpair`; route registration takes precedence.
+  Requested self-revocation remains **missing / blocked** under the no-admin-login constraint.
+- A22/A23: preserve full paired-leaf pinning and final HTTPS challenge. `ENCFLG_NONE` opts out
+  of optional media encryption; local common-c's SDP code still honors host-requested audio/video
+  encryption and enables supported control-v2. `corever=1` enables encrypted RTSP. Mandatory-policy
+  interoperability/performance remain unverified. `unsupported=true` bypasses legacy generation
+  3–7 guards; it neither proves future-version support nor justifies restoring an old hard ceiling
+  without an affected host case. No TLS/version/encryption policy change is made here.
+- A11/A16–A19 and broad A22/A23 error cases retain their scoped partial status. Runtime gaps,
+  accepted compatibility limitations and unsupported features remain separate from missing APIs.
+
+**A06 root cause: error provenance is lost at several layers.**
+
+1. In L3 `pair`, failed salt RNG, challenge RNG/AES, decrypt/encrypt, client-secret RNG and
+   RSA signing return generic FAILED. `encrypt_ecb`/`decrypt_ecb` and `rsa_sign` can report OOM,
+   but the caller collapses that result. L1 sees FAILED plus last curl result OK and returns
+   PROTOCOL. No host protocol violation is established by a local RNG/EVP failure.
+2. `xml_status_ok`/`xml_find_value` return OUT_OF_MEMORY when Expat parser creation fails, but
+   `pair` combines status/field/result checks and returns FAILED. Thus even existing OOM
+   semantics disappear. XML rejection and malformed/incomplete data must remain distinct from
+   local allocation failure; server XML status/reason (including 409) must stay intact.
+3. `http_write_callback` returns 0 when `realloc` fails. Curl reports WRITE_ERROR; L1 explicitly
+   categorizes that as NETWORK. In this concrete callback the failure is local response storage.
+   Curl's own OUT_OF_MEMORY also currently falls through to PROTOCOL. Neither is a network proof.
+4. `verify_signature` returns bool for both invalid proof and local BIO/key/context/EVP failure.
+   Its false result becomes the string `MITM attack detected`, then SECURITY in L1. A local
+   verifier failure must still reject pairing, but does not prove an attack. Similarly the final
+   candidate-certificate path combines BIO allocation failure with certificate parse failure.
+   Certificate/proof rejection must remain fail-closed while preserving a local internal cause
+   where the failing API actually distinguishes it.
+
+The original xyzz client uses broad GS_FAILED results and is a protocol reference, not a
+complete implementation of this project's semantic error enum. Current Qt independently verifies
+response status, validates certificate/proof before PIN comparison and returns a PIN-specific
+result only after authenticated challenge mismatch. Its general FAILED result and legacy cleanup
+requests should not be copied into Vita's richer categories or into Sunshine's absent route.
+
+**Minimal next code change (not implemented by this recheck).** Preserve typed local/internal
+and allocation results at their origin in L3; split short-circuit pairing checks enough to propagate
+those results without losing server status/reason. Tag response-buffer allocation failure and map
+it, plus curl OOM, to INTERNAL. Distinguish a verifier's local execution failure from a rejected
+proof instead of categorizing by a diagnostic string. Map the preserved outcomes once at the
+Moonlight API boundary. Keep existing public result values, cancellation-without-error behavior,
+PIN/409 messages, temporary-pin rollback and successful pairing despite metadata/pin write failure.
+No page navigation, retry delay, storage layout, credential rotation or endpoint change is needed.
+
+Regressions to guard in the separate implementation: success; wrong PIN after valid proof;
+invalid proof/TLS rejection; XML 409 with copied reason; malformed/paired=0 replies; network
+timeout/connect failures; local RNG/EVP/parser/response allocation failures; cancellation; failed
+pin persistence after successful proof. Every failure must still release local resources and must
+never accept a certificate merely to improve error reporting.
+
+**Verification in this recheck.** All **127 existing non-build Python checks pass**. An additional
+one-off source interpretation used the existing pycparser interpreter on the actual L1 classifier
+and its network predicate, with symbolic curl codes/mock failures. Ten cases confirmed current
+categories: local RNG, collapsed AES OOM, collapsed XML OOM and curl OOM → PROTOCOL;
+verifier-local failure represented by its current MITM string → SECURITY; response realloc failure
+represented by curl WRITE_ERROR → NETWORK; direct OOM → INTERNAL; wrong PIN → INCORRECT_PIN;
+XML 409 → PROTOCOL; connect failure → NETWORK. Lower-layer failure origins were established by
+source reading; the interpretation does not execute allocation, RNG, OpenSSL, Expat, curl or Vita.
+No new permanent test/runtime code was added. Build/hardware validation of the future correction
+remains pending; the existing C parser fixtures and broader release catalogue remain as before.
