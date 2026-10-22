@@ -799,10 +799,12 @@ statistics, touch/controller input and infobar behavior are unchanged.
 Appearance is project artwork, **not measured Sony UI or hardware-verified geometry**:
 
 - Like DualShock 4: a **200 x 36 px [code]** white/alpha mask anchored at bottom center. Its
-  light-bar lens has an almost straight top, rounded ends and a deeper curved lower center,
+  light-bar lens has an almost straight bottom, rounded ends and a raised curved upper center,
   with a soft halo. Host RGB tints it. The silhouette follows the maintainer's DS4 photo:
   blue lens bounds **x=348..833, y=493..571 [shot]**, about **6.2:1 [shot]** width/height;
   the source lens spans approximately **164 x 26 px [code]** inside the existing plane.
+  Per the 2026-10-23 request, the mask is rotated **180 degrees [code]** from the photo's
+  orientation so the straight edge faces the screen bottom; Vita viewing remains **[open]**.
 - Like DualSense: two **24 x 448 px [code]** planes flush to the left/right edges, vertically
   centered. Mirrored **16 x 128 px [code]** alpha masks fade inward and toward both ends.
 - All three planes appear after video and before statistics in CXML. Both style and planeobj

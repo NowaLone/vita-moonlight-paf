@@ -282,7 +282,8 @@ class ControllerLight(unittest.TestCase):
                 rows = [pixels[y * (width * 4 + 1) + 1:(y + 1) * (width * 4 + 1)] for y in range(height)]
                 self.assertTrue(all(row[x:x + 3] == b'\xff\xff\xff' for row in rows for x in range(0, width * 4, 4)))
                 alpha = [list(row[3::4]) for row in rows]
-                self.assertLess(max(alpha[0]), 3)
+                # The DS4 bar can face either way; its outer halo fades at an edge.
+                self.assertLess(min(max(alpha[0]), max(alpha[-1])), 3)
                 self.assertGreater(max(map(max, alpha)), 100)
                 decoded[suffix] = alpha
             self.assertEqual(decoded['left'], [list(reversed(row)) for row in decoded['right']])

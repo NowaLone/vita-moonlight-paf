@@ -47,7 +47,8 @@ def edge(x, y):
 
 
 def main():
-    write_png(TEXTURES / 'controller_light_ds4.png', 200, 36, light_bar)
+    write_png(TEXTURES / 'controller_light_ds4.png', 200, 36,
+              lambda x, y: light_bar(199 - x, 35 - y))
     write_png(TEXTURES / 'controller_light_left.png', 16, 128, edge)
     write_png(TEXTURES / 'controller_light_right.png', 16, 128,
               lambda x, y: edge(15 - x, y))
