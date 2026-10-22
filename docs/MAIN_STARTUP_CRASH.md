@@ -83,3 +83,30 @@ timing/visibility is not separately established. Callback clearing alone does no
 natural scan timeout from explicit Stop. No >8-PC display, Delete/selection, stream start/stop,
 forced storage/start errors, firmware-wide or repeated cold-start acceptance is supplied here.
 No runtime code changes, agent build or agent hardware run accompany this evidence record.
+
+## Subsequent ordinary stream start/stop log — 2026-10-22
+
+The maintainer supplies a continuation after the 6af2e3639c69 Main/Search/Apps run. This
+fragment has no independent launch marker or exact Sunshine release; retain that attribution
+limit rather than assigning a server release from an older run.
+
+App 1093255277 resumes successfully with an encrypted RTSP session URL. All common-c setup
+stages complete, input starts, StreamPage is created and infobar hide succeeds. Mode is
+960×544 at 60 fps/10000 kbps, with the nongame decoder and stereo 48 kHz audio port 6.
+First video/audio packet delays are 500/5400 ms and the final decoded count is 411. The
+OOS/speculative-RFI transition is followed by continued decoding. Asked specifically about this
+attempt, the maintainer confirms that image and audible sound worked. This adds user-reported
+playback acceptance on the tested Vita, not measured frame rate, latency or error-free quality.
+
+A deliberate double PS stops the owner. Input/touch stop, audio drain/release return zero,
+all common-c stages clean up, owner stop finishes with result 0 and infobar restore succeeds.
+All three video-buffer unmaps return zero, followed by deferred-release completion. The
+ENet interrupted/control-failed:4 messages occur after the stop request; local common-c
+Misc.c sets EINTR when ConnectionInterrupted breaks the ENet wait, matching this teardown
+sequence. There is no setup failure or unexpected stop shown in the fragment.
+
+USER_RW free is 33836 KiB before setup and 33068 KiB after deferred release; newlib used is
+95704 then 99000 bytes. These are one-cycle observations, not proof of a leak or full memory
+return. Motion type 1/2 state messages establish reporting activity, not correctness of gyro
+input. >8-PC lists, repeated cold starts, natural scan timeout, host disconnect/reconnect and
+other error/shutdown cases remain outside this record. No runtime code change or agent build.

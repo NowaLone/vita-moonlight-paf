@@ -29,6 +29,16 @@ Apps cells without the previous crash. Initial cold-start timing, natural timeou
 Stop, >8 hosts and stream/error paths are not separately verified by it.
 Do not treat earlier passing host-list source checks as device/allocator validation.
 
+**Ordinary stream follow-up, 2026-10-22:** the next fragment after the 6af2e36 Main/Search run
+shows same-app encrypted-RTSP resume/setup=0, StreamPage, 411 decoded frames and audio packets,
+then deliberate double PS → owner stop=0/audio drain/release=0/three unmaps=0/deferred release.
+ENet interrupted/control-failed:4 occurs during requested teardown and matches local common-c's
+ConnectionInterrupted/EINTR path. First video/audio packets arrive at 500/5400 ms; the maintainer
+explicitly confirms image and audible sound for this attempt. This fragment has no independent launch marker
+or exact Sunshine release. USER_RW free changes 33836→33068 KiB; newlib used 95704→99000 bytes.
+One cycle neither diagnoses a leak nor establishes full memory return. No runtime change;
+[full scoped record](MAIN_STARTUP_CRASH.md#subsequent-ordinary-stream-startstop-log--2026-10-22).
+
 ## User runtime follow-up — 2026-10-20
 
 After the changes through source HEAD `22ff3ae`, the maintainer replied “всё ок” to the

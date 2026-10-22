@@ -14,6 +14,11 @@ See [dump/source evidence](docs/MAIN_STARTUP_CRASH.md). The subsequent system-pr
 PCs, paired Connect is ready and four Apps cells are inserted. The previous crash does not recur
 in this logged path. Initial cold-start visibility/timing, natural timeout vs explicit Stop and
 >8-PC/selection/stream acceptance are not established by that fragment; keep those scopes separate.
+The subsequent stream fragment adds successful same-app resume/setup, StreamPage, 411 decoded
+frames/audio packets and deliberate double-PS owner stop=0, audio release=0/three unmaps=0 with
+deferred release. The maintainer explicitly confirms image and audible sound in this attempt.
+The fragment has no separate build marker/Sunshine release. See the same evidence record;
+this is one ordinary cycle, not stress/shutdown proof.
 
 The [consolidated API decision](docs/SUNSHINE_API_AUDIT.md#6-completion-and-next-work)
 supersedes older chronological "next test" instructions below. The normal client path is
