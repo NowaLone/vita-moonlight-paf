@@ -427,3 +427,8 @@ int ConnectionService::GetStreamStats(MoonlightStreamStats *out)
 {
     return m_backend.GetStreamStats(out);
 }
+
+int ConnectionService::GetControllerLight(MoonlightControllerLight *out)
+{
+    return m_backend.GetControllerLight(out);
+}

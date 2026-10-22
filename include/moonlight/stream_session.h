@@ -2,6 +2,7 @@
 
 #include "moonlight/types.h"
 #include "moonlight/stream_stats.h"
+#include "moonlight/controller_light.h"
 #include "legacy_gamestream.h"
 
 #ifdef __cplusplus
@@ -24,6 +25,7 @@ int moonlight_stream_start(
 int moonlight_stream_stop(void);
 int moonlight_stream_is_running(void);
 int moonlight_stream_get_stats(MoonlightStreamStats *out);
+int moonlight_stream_get_controller_light(MoonlightControllerLight *out);
 
 #ifdef __cplusplus
 }

@@ -32,6 +32,7 @@ typedef enum MoonlightSettingKey {
     MOONLIGHT_SETTING_BACK_DEADZONE_LEFT,
     MOONLIGHT_SETTING_CENTER_REGION_ONLY,
     MOONLIGHT_SETTING_DEBUG_LOG,
+    MOONLIGHT_SETTING_CONTROLLER_LIGHT,
     MOONLIGHT_SETTING_COUNT
 } MoonlightSettingKey;
 
@@ -64,6 +65,7 @@ typedef struct MoonlightSettings {
     int back_deadzone_right;
     int back_deadzone_bottom;
     int back_deadzone_left;
+    int controller_light;
 } MoonlightSettings;
 
 typedef struct MoonlightHost {

@@ -781,3 +781,8 @@ int moonlight_api_get_stream_stats(MoonlightStreamStats *out)
 {
     return moonlight_stream_get_stats(out);
 }
+
+int moonlight_api_get_controller_light(MoonlightControllerLight *out)
+{
+    return moonlight_stream_get_controller_light(out);
+}

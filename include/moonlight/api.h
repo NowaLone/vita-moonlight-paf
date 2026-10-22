@@ -4,6 +4,7 @@
 #include "moonlight/types.h"
 #include "moonlight/cancellation.h"
 #include "moonlight/stream_stats.h"
+#include "moonlight/controller_light.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,6 +50,7 @@ int moonlight_api_stop_application(void);
 int moonlight_api_disconnect_host(void);
 MoonlightConnectionState moonlight_api_get_connection_state(void);
 int moonlight_api_get_stream_stats(MoonlightStreamStats *out);
+int moonlight_api_get_controller_light(MoonlightControllerLight *out);
 
 #ifdef __cplusplus
 }

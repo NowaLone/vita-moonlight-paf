@@ -248,6 +248,11 @@ int LegacyMoonlightAdapter::GetStreamStats(MoonlightStreamStats *out)
     return moonlight_api_get_stream_stats(out);
 }
 
+int LegacyMoonlightAdapter::GetControllerLight(MoonlightControllerLight *out)
+{
+    return moonlight_api_get_controller_light(out);
+}
+
 void LegacyMoonlightAdapter::OnLegacyEvent(const MoonlightEvent *event, void *userdata)
 {
     LegacyMoonlightAdapter *adapter = (LegacyMoonlightAdapter *)userdata;

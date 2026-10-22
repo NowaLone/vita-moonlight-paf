@@ -54,6 +54,9 @@ static int s_stream_termination_result = 0;
  * These fields and LiInterruptConnection admission are protected by s_stream_mutex. */
 static int s_common_starting = 0;
 static int s_start_interrupt_sent = 0;
+/* Same mutex as stream admission/stop: a stop wins over later RGB feedback.
+ * The owner joins common-c's callbacks before admitting another session. */
+static MoonlightControllerLight s_controller_light = {};
 
 struct RecoveryWaitLog {
     uint64_t last_emit_us;
@@ -292,6 +295,19 @@ static void on_motion_event_state(
         report_rate_hz);
 }
 
+static void on_controller_led(uint16_t controller, uint8_t r, uint8_t g, uint8_t b)
+{
+    pthread_mutex_lock(&s_stream_mutex);
+    if (controller == 0 && s_stream_thread_running &&
+        !s_stream_stop_requested && !s_stream_cancel_requested &&
+        s_controller_light.mode != MOONLIGHT_CONTROLLER_LIGHT_OFF) {
+        s_controller_light.r = r;
+        s_controller_light.g = g;
+        s_controller_light.b = b;
+    }
+    pthread_mutex_unlock(&s_stream_mutex);
+}
+
 static void initialize_connection_callbacks(
     CONNECTION_LISTENER_CALLBACKS *callbacks)
 {
@@ -305,6 +321,7 @@ static void initialize_connection_callbacks(
     callbacks->connectionStatusUpdate = on_status_update;
     callbacks->setHdrMode = on_hdr_mode;
     callbacks->setMotionEventState = on_motion_event_state;
+    callbacks->setControllerLED = on_controller_led;
 }
 
 static int make_hex(
@@ -639,6 +656,16 @@ extern "C" int moonlight_stream_start(
     s_stream_context.callback = callback;
     s_stream_context.userdata = userdata;
     s_stream_context.started = 0;
+    s_controller_light.generation = s_controller_light.generation + 1u;
+    if (!s_controller_light.generation) s_controller_light.generation = 1;
+    s_controller_light.mode = settings->controller_light;
+    if (s_controller_light.mode < MOONLIGHT_CONTROLLER_LIGHT_OFF ||
+        s_controller_light.mode > MOONLIGHT_CONTROLLER_LIGHT_DUALSENSE) {
+        s_controller_light.mode = MOONLIGHT_CONTROLLER_LIGHT_OFF;
+    }
+    s_controller_light.r = 0;
+    s_controller_light.g = 0;
+    s_controller_light.b = 0;
     pthread_mutex_unlock(&s_stream_mutex);
 
     args->server = server;
@@ -721,4 +748,17 @@ extern "C" int moonlight_stream_get_stats(MoonlightStreamStats *out)
 {
     /* UI only reads cached counters; it never waits on the ENet mutex. */
     return moonlight_stats_snapshot(out);
+}
+
+extern "C" int moonlight_stream_get_controller_light(MoonlightControllerLight *out)
+{
+    if (!out) return -1;
+    pthread_mutex_lock(&s_stream_mutex);
+    *out = s_controller_light;
+    if (!s_stream_thread_running || !s_stream_context.started ||
+        s_stream_stop_requested || s_stream_cancel_requested) {
+        out->mode = MOONLIGHT_CONTROLLER_LIGHT_OFF;
+    }
+    pthread_mutex_unlock(&s_stream_mutex);
+    return 0;
 }

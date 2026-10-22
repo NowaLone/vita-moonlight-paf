@@ -38,6 +38,11 @@
   <string src="Enable double tap to sprint" id="msg_double_tap_sprint" />
   <string src="Sprint double tap time" id="msg_sprint_double_tap_time" />
   <string src="Controller type" id="msg_controller_type" />
+  <string src="Controller light" id="msg_controller_light" />
+  <string src="Off" id="msg_controller_light_off" />
+  <string src="Like DualShock 4" id="msg_controller_light_ds4" />
+  <string src="Like DualSense" id="msg_controller_light_dualsense" />
+  <string src="Shows the game's controller light color over the stream: a small bottom light or soft side lights. Requires RGB feedback from the host gamepad. Takes effect on the next stream." id="msg_controller_light_hint" />
   <string src="Xbox" id="msg_controller_xbox" />
   <string src="PlayStation" id="msg_controller_playstation" />
   <string src="Nintendo" id="msg_controller_nintendo" />

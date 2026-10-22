@@ -35,6 +35,7 @@ public:
 
     MoonlightConnectionState State() const;
     int GetStreamStats(MoonlightStreamStats *out);
+    int GetControllerLight(MoonlightControllerLight *out);
 
 private:
     static void DialogPollTask(void *userdata);

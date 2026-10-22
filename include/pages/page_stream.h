@@ -2,6 +2,7 @@
 #define VITA_MOONLIGHT_PAGE_STREAM_H
 
 #include "pages/page.h"
+#include "moonlight/controller_light.h"
 #include <stdint.h>
 
 namespace page {
@@ -48,12 +49,18 @@ private:
     void PresentFrame(const Frame &frame);
     static void StatisticsTask(void *userdata);
     void UpdateStatistics();
+    void UpdateControllerLight();
     void OpenKeyboardIfRequested();
     SurfaceSlot *FindSurfaceSlot(void *buffer);
 
     paf::ui::Plane *m_video_plane;
     paf::ui::Text *m_statistics_text;
     paf::ui::Widget *m_statistics_background;
+    paf::ui::Widget *m_light_ds4;
+    paf::ui::Widget *m_light_left;
+    paf::ui::Widget *m_light_right;
+    MoonlightControllerLight m_controller_light;
+    uint32_t m_controller_light_generation;
     uint32_t m_statistics_generation;
     uint64_t m_statistics_next_update_us;
     unsigned int m_video_plane_width;

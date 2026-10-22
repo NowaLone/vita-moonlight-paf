@@ -67,6 +67,11 @@
         <list_item id="controller_nintendo" title="msg_controller_nintendo" value="3" />
         <list_item id="controller_generic" title="msg_controller_generic" value="4" />
       </list>
+      <list id="controller_light" title="msg_controller_light" hint="msg_controller_light_hint" key="controller_light" default_value="0">
+        <list_item id="controller_light_off" title="msg_controller_light_off" value="0" />
+        <list_item id="controller_light_ds4" title="msg_controller_light_ds4" value="1" />
+        <list_item id="controller_light_dualsense" title="msg_controller_light_dualsense" value="2" />
+      </list>
       <toggle_switch id="swap_shoulders" title="msg_swap_shoulders" hint="msg_swap_shoulders_hint" key="swap_shoulders" default_value="0" />
       <list id="mouse_acceleration" title="msg_mouse_acceleration" hint="msg_mouse_acceleration_hint" key="mouse_acceleration" default_value="150">
         <list_item id="mouse_0" title="0" value="0" />

@@ -759,6 +759,51 @@ Backend callbacks may arrive on worker threads. `MoonlightApp` queues them and d
 a page is destroyed it hands the callback back to the page below (`RestoreEventCallback()` in `Main`, `Search`, `Apps`,
 `Pairing`). Streaming stays behind the `moonlight_api_*` boundary; never move it into a page.
 
+### 4.10 Controller RGB overlay **[code, 2026-10-22; Vita validation open]**
+
+Input settings now offer `Controller light`: Off (default), Like DualShock 4, Like DualSense.
+The choice is captured on the next stream; it changes the local effect, not the host controller
+type. This is game/controller RGB feedback, not an image-derived ambient-light effect. A host
+virtual controller/game must produce RGB output; no default blue or invented color is displayed.
+The existing common-c `setControllerLED` callback receives controller 0 RGB. Input advertises
+`LI_CCAP_RGB_LED` only for an enabled, started session. No protocol/dependency replacement or
+physical Vita/controller LED API is introduced.
+
+The stream mutex protects a small cached snapshot (generation, mode, RGB). The callback writes
+only that cache, ignoring other controller IDs, Off and stopping/finished sessions. An accepted
+start resets RGB to black and advances the generation; the sole owner joins transport callbacks
+before another session can be admitted. The getter reports Off before STARTED and immediately
+after stop/cancel/termination or completion. There is no new event type, worker, allocation,
+network query, per-frame diagnostic or statistics dependency.
+
+`ConnectionService -> backend -> Moonlight API -> stream` exposes the snapshot. Stream's existing
+main-thread `PresentTask` reads it even when no video frame arrives, rejects another generation
+and changes PAF widgets only when mode/RGB changes. Off pages do not poll it. Black hides the
+effect, including its halo. The planes belong to the Stream root and disappear with that page;
+no additional call-list registration or framebuffer ownership is added. Video scaling/cropping,
+statistics, touch/controller input and infobar behavior are unchanged.
+
+Appearance is project artwork, **not measured Sony UI or hardware-verified geometry**:
+
+- Like DualShock 4: a **200 x 36 px [code]** white/alpha mask anchored at bottom center. Its
+  curved cap is **16 px [code]** high at the center with a soft outer halo. Host RGB tints it.
+- Like DualSense: two **24 x 448 px [code]** planes flush to the left/right edges, vertically
+  centered. Mirrored **16 x 128 px [code]** alpha masks fade inward and toward both ends.
+- All three planes appear after video and before statistics in CXML. Both style and planeobj
+  colors remain white; widget tint supplies RGB. No full-screen tint, top/bottom border, animation
+  loop or input handler is added. Source masks total **45,184 uncompressed RGBA bytes [code]**;
+  this is not a measurement of PAF/GPU allocation overhead.
+
+`tools/generate_controller_light_textures.py` authors these source PNG masks with the standard
+library; it does not compile resources. Ten non-build checks interpret the actual RGB callback,
+accepted-start reset, snapshot getter and normalized PAF update method with serial mutex/widget
+mocks. They cover filtering, stop/cancel/inactive gating, restart, black, duplicate events, stale
+generation, Off/missing-widget behavior, service/capability wiring, CXML layering/localization and
+reproducible alpha assets. A software composition preview checks source artwork only. CXML/C++
+compilation, real callback ordering, PAF alpha/tint, AppSettings persistence and both modes over
+video (including stop/restart, paused frames, crop/fit, statistics and Quick Actions) remain
+**[open]** for the maintainer's build/Vita validation. No agent build or device run.
+
 ## 5. Components and their measured look
 
 ### 5.1 Header and paragraph

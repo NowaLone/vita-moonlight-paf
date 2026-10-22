@@ -190,6 +190,11 @@ Stream::Stream()
       m_video_plane(NULL),
       m_statistics_text(NULL),
       m_statistics_background(NULL),
+      m_light_ds4(NULL),
+      m_light_left(NULL),
+      m_light_right(NULL),
+      m_controller_light(),
+      m_controller_light_generation(0),
       m_statistics_generation(0),
       m_statistics_next_update_us(0),
       m_video_plane_width(0),
@@ -212,6 +217,12 @@ Stream::Stream()
         root->FindChild("plane_stream_video"));
     m_statistics_text = static_cast<ui::Text *>(root->FindChild("text_stream_statistics"));
     m_statistics_background = root->FindChild("plane_stream_statistics");
+    m_light_ds4 = root->FindChild("plane_stream_light_ds4");
+    m_light_left = root->FindChild("plane_stream_light_left");
+    m_light_right = root->FindChild("plane_stream_light_right");
+    if (m_light_ds4) m_light_ds4->Hide(common::transition::Type_Reset);
+    if (m_light_left) m_light_left->Hide(common::transition::Type_Reset);
+    if (m_light_right) m_light_right->Hide(common::transition::Type_Reset);
     if (m_statistics_text) {
         m_statistics_text->Hide(common::transition::Type_Reset);
     }
@@ -239,6 +250,12 @@ Stream::Stream()
         /* Keep the Vita awake only while the streaming page is active. */
         set_stream_power_tick(true);
         MoonlightApp::Instance()->HideStreamInfobar();
+        MoonlightControllerLight light;
+        if (MoonlightApp::Instance()->Connection().GetControllerLight(&light) == 0 &&
+            light.mode != MOONLIGHT_CONTROLLER_LIGHT_OFF) {
+            m_controller_light_generation = light.generation;
+            UpdateControllerLight();
+        }
         common::MainThreadCallList::Register(PresentTask, this);
         MoonlightStreamStats stats;
         if (m_statistics_text && m_statistics_background &&
@@ -316,6 +333,7 @@ void Stream::PresentTask(void *userdata)
     thread::RMutex::main_thread_mutex.Unlock();
 
     stream->OpenKeyboardIfRequested();
+    stream->UpdateControllerLight();
     if (frame.valid) {
         stream->PresentFrame(frame);
     }
@@ -475,6 +493,43 @@ void Stream::StatisticsTask(void *userdata)
     Stream *stream = static_cast<Stream *>(userdata);
     if (stream == s_instance && LiGetMicroseconds() >= stream->m_statistics_next_update_us) {
         stream->UpdateStatistics();
+    }
+}
+
+void Stream::UpdateControllerLight()
+{
+    /* PresentTask runs even without a new video frame. Only changed host feedback
+     * touches widgets; OFF sessions do not poll the backend each PAF tick. */
+    if (!m_controller_light_generation) return;
+    MoonlightControllerLight light;
+    if (MoonlightApp::Instance()->Connection().GetControllerLight(&light) != 0 ||
+        light.generation != m_controller_light_generation) {
+        light = MoonlightControllerLight();
+    }
+    if (light.mode == m_controller_light.mode &&
+        light.r == m_controller_light.r && light.g == m_controller_light.g &&
+        light.b == m_controller_light.b) return;
+    m_controller_light = light;
+
+    if (m_light_ds4) m_light_ds4->Hide(common::transition::Type_Reset);
+    if (m_light_left) m_light_left->Hide(common::transition::Type_Reset);
+    if (m_light_right) m_light_right->Hide(common::transition::Type_Reset);
+    if (light.mode == MOONLIGHT_CONTROLLER_LIGHT_OFF ||
+        (light.r == 0 && light.g == 0 && light.b == 0)) return;
+
+    const math::v4 color(light.r / 255.0f, light.g / 255.0f, light.b / 255.0f, 1.0f);
+    if (light.mode == MOONLIGHT_CONTROLLER_LIGHT_DS4 && m_light_ds4) {
+        m_light_ds4->SetColor(color);
+        m_light_ds4->Show(common::transition::Type_Reset);
+    } else if (light.mode == MOONLIGHT_CONTROLLER_LIGHT_DUALSENSE) {
+        if (m_light_left) {
+            m_light_left->SetColor(color);
+            m_light_left->Show(common::transition::Type_Reset);
+        }
+        if (m_light_right) {
+            m_light_right->SetColor(color);
+            m_light_right->Show(common::transition::Type_Reset);
+        }
     }
 }
 

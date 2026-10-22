@@ -7,6 +7,7 @@
 #include "app/memory_budget.h"
 #include "debug.h"
 #include "moonlight/settings.h"
+#include "moonlight/controller_light.h"
 #include "vita_input.h"
 #include "vita_video_renderer.h"
 
@@ -76,6 +77,7 @@ static const char *key_name(MoonlightSettingKey key)
     case MOONLIGHT_SETTING_BACK_DEADZONE_LEFT: return "back_deadzone_left";
     case MOONLIGHT_SETTING_CENTER_REGION_ONLY: return "center_region_only";
     case MOONLIGHT_SETTING_DEBUG_LOG: return "debug_log";
+    case MOONLIGHT_SETTING_CONTROLLER_LIGHT: return "controller_light";
     default: return NULL;
     }
 }
@@ -322,6 +324,11 @@ int moonlight_settings_get_all(MoonlightSettings *out)
     moonlight_settings_get_value(MOONLIGHT_SETTING_BACK_DEADZONE_RIGHT, &out->back_deadzone_right);
     moonlight_settings_get_value(MOONLIGHT_SETTING_BACK_DEADZONE_BOTTOM, &out->back_deadzone_bottom);
     moonlight_settings_get_value(MOONLIGHT_SETTING_BACK_DEADZONE_LEFT, &out->back_deadzone_left);
+    moonlight_settings_get_value(MOONLIGHT_SETTING_CONTROLLER_LIGHT, &out->controller_light);
+    if (out->controller_light < MOONLIGHT_CONTROLLER_LIGHT_OFF ||
+        out->controller_light > MOONLIGHT_CONTROLLER_LIGHT_DUALSENSE) {
+        out->controller_light = MOONLIGHT_CONTROLLER_LIGHT_OFF;
+    }
     return 0;
 }
 

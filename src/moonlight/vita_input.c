@@ -672,6 +672,12 @@ void vita_input_start(void)
      */
     uint32_t supported_buttons = 0xFFFF;
     uint16_t capabilities = LI_CCAP_ANALOG_TRIGGERS;
+    MoonlightControllerLight light;
+
+    if (moonlight_stream_get_controller_light(&light) == 0 &&
+        light.mode != MOONLIGHT_CONTROLLER_LIGHT_OFF) {
+        capabilities |= LI_CCAP_RGB_LED;
+    }
 
     if (s_touchscreen_mode == 1) {
         supported_buttons |= TOUCHPAD_FLAG;

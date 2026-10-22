@@ -105,6 +105,15 @@
       <plane texture="_bg_texture" id="plane_stream_video">
         <layout_hint anchor="1, 2" align="1, 2" size="960, 544" />
       </plane>
+      <plane style="style_plane_controller_light_ds4" id="plane_stream_light_ds4">
+        <layout_hint anchor="0, 1" align="0, 1" size="200, 36" />
+      </plane>
+      <plane style="style_plane_controller_light_left" id="plane_stream_light_left">
+        <layout_hint anchor="1, 0" align="1, 0" size="24, 448" />
+      </plane>
+      <plane style="style_plane_controller_light_right" id="plane_stream_light_right">
+        <layout_hint anchor="2, 0" align="2, 0" size="24, 448" />
+      </plane>
       <plane style="style_plane_stream_statistics" id="plane_stream_statistics">
         <layout_hint anchor="1, 2" align="1, 2" size="660, 136" pos="16, -12" />
       </plane>
@@ -164,6 +173,16 @@
 
     <style_plane color="1, 1, 1, 1" planeobj="plane_obj_stream_statistics" id="style_plane_stream_statistics">
       <planeobj color="0, 0, 0, 0.65" id="plane_obj_stream_statistics" />
+    </style_plane>
+
+    <style_plane color="1, 1, 1, 1" planeobj="plane_obj_controller_light_ds4" id="style_plane_controller_light_ds4">
+      <planeobj color="1, 1, 1, 1" texture0="_controller_light_ds4" id="plane_obj_controller_light_ds4" />
+    </style_plane>
+    <style_plane color="1, 1, 1, 1" planeobj="plane_obj_controller_light_left" id="style_plane_controller_light_left">
+      <planeobj color="1, 1, 1, 1" texture0="_controller_light_left" id="plane_obj_controller_light_left" />
+    </style_plane>
+    <style_plane color="1, 1, 1, 1" planeobj="plane_obj_controller_light_right" id="style_plane_controller_light_right">
+      <planeobj color="1, 1, 1, 1" texture0="_controller_light_right" id="plane_obj_controller_light_right" />
     </style_plane>
 
     <style_plane color="1, 1, 1, 1" planeobj="plane_obj_selection_bar" id="style_plane_selection_bar">
@@ -266,6 +285,9 @@
   <texturetable>
     <texture src="texture/bg.png" id="_bg_texture" type="texture/png" />
     <texture src="texture/header_line.png" id="_header_line_texture" type="texture/png" />
+    <texture src="texture/controller_light_ds4.png" id="_controller_light_ds4" type="texture/png" />
+    <texture src="texture/controller_light_left.png" id="_controller_light_left" type="texture/png" />
+    <texture src="texture/controller_light_right.png" id="_controller_light_right" type="texture/png" />
   </texturetable>
 
     <templatetable>

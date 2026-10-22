@@ -16,6 +16,16 @@ The server-trust checks interpret the actual X509 comparison expression with moc
 results and check enrollment/rollback ordering. They do not execute OpenSSL, TLS or file I/O.
 C grammar checks are not compilation or type checking.
 
+`test_controller_light.py` adds ten non-build checks for controller RGB feedback and the two
+optional stream overlays. It interprets the actual callback, accepted-start reset, snapshot getter
+and normalized PAF update method: controller filtering, Off/stop/cancel/finished gating, fresh
+black RGB on restart, black turning the light off, stale generation, unchanged-color deduplication,
+missing widgets and no polling when disabled. It also checks capability/service wiring, update
+without a new video frame, CXML layering/settings/localization and reproducible mirrored PNG masks.
+Mutexes, pointer/struct copies, color vectors and widgets are serial mocks. These checks do not
+compile CXML/C++, render PAF, run a host or verify real concurrency, Vita appearance/performance,
+AppSettings persistence or actual game-generated RGB. See docs/UI.md section 4.10.
+
 `test_host_persistence.py` interprets the actual metadata writer, three host-store mutations and
 the successful-pairing completion fragment. Eight checks inject fopen failure, each of eight
 fprintf failures (sticky ferror), buffered close failure and directory failure; verify a single
