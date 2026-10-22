@@ -3,6 +3,15 @@
 Audit date: **2026-10-18**. Local baseline: `master`,
 `761d730f53a30dc8201286f2d10e22a58a1c609a`; clean working tree before this documentation change.
 
+**Current status, 2026-10-22:** the API inventory/source audit is complete, including A01–A24,
+the 2026-10-22 upstream recheck and the isolated corrections recorded below. Ordinary client
+paths have scoped Vita evidence, latest pairing/error recovery on 5db31a9 (§6.10). `partial`
+rows retain actual limits/unverified cases; requested self-unpair is blocked by the missing
+upstream client operation. This is not full security/interoperability/release certification.
+The next independent work is reproducible toolchain/dependency setup (ROADMAP §2). Dated
+findings, test counts, “next” requests and absent-runtime statements below describe their stages;
+the current matrix and §6 take precedence over obsolete implementation/diagnostic instructions.
+
 This continues [the preliminary audit](../ROADMAP.md#gamestream-client-api-coverage-and-follow-up-2026-10-15)
 and the findings in [REPOSITORY_ANALYSIS.md](../REPOSITORY_ANALYSIS.md). It is a **source-level audit**,
 not a new Vita/Sunshine interoperability test. The original inventory changed no runtime code or
@@ -539,6 +548,11 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Current:** L3 stores versions/codec mask; L2 advertises H.264, stereo, one controller,
   Rec.601 limited range, 6000 refresh rate x100 and packet size 1024. No general capability UI or
   server display-mode negotiation is implemented.
+- **Optional controller feedback follow-up (bff5712, 2026-10-22):** an enabled, started session
+  advertises common-c `LI_CCAP_RGB_LED` for controller 0; `setControllerLED` updates a cached RGB
+  snapshot displayed by the optional PAF overlay. It uses the existing control protocol, not a
+  new HTTP endpoint or physical Vita LED. Source checks pass; real host feedback/rendering and
+  settings persistence remain unverified. Media/address limits above are unchanged.
 - **Upstream / Sunshine:** S computes codec flags; QH/QS use richer metadata; C negotiates SDP.
 - **Verified / runtime:** source; T2/T4 verify actual negotiated mode and unsupported capture modes.
   HEVC/AV1, HDR, surround and multiple controllers are intentionally unsupported, not missing endpoints.
@@ -995,6 +1009,9 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 
 ## 4. Concrete findings and minimal separate fixes
 
+F1–F8 retain original problem descriptions and dated corrections, including superseded source
+instructions; use A01–A24 and §6 for current status.
+
 These are source findings, not runtime fixes. Runtime code must be changed as separate, reviewable work.
 
 ### F1 — Unexpected termination cleanup ownership (established-stream failure/restart verified)
@@ -1030,7 +1047,9 @@ before cleanup. `volatile` flags do not serialize this. Validate T6–T8, includ
 the setup worker has fully returned. This finding is sufficient to design a fix; no new hardware
 success is claimed. Pending launch cancellation fixes already in master should be preserved.
 
-### F2 — Resume can target a different app or stale process state
+<a id="f2--resume-can-target-a-different-app-or-stale-process-state"></a>
+
+### F2 — Baseline resume/app-state defect — corrected; scoped Vita evidence
 
 **Source follow-up, 2026-10-20:** the session worker now fetches HTTPS serverinfo immediately before
 launch/resume, without HTTP fallback, checks pairing and compares the active ID to the selection.
@@ -1063,7 +1082,9 @@ Host state can still change after the snapshot, so preserve XML rejection/error 
 **Regression risks / tests:** extra request latency, app exit between snapshot and launch, two clients,
 older GFE BUSY semantics; T5/T8. Do not introduce a destructive `/cancel` as an automatic fallback.
 
-### F3 — XML error responses can become successful list/launch results
+<a id="f3--xml-error-responses-can-become-successful-listlaunch-results"></a>
+
+### F3 — Baseline XML/cache defects — source-addressed; error fixtures open
 
 **Source follow-up, 2026-10-20:** implemented a shared Expat parser for applist/launch/resume,
 root status plus verb-result validation, entity decoding, per-App fields, strict IDs, URL validation
@@ -1092,7 +1113,9 @@ Parser and scalable UI storage should remain separate changes.
 limits and partial documents; T4/T5. The original inventory made no parser changes; see the dated
 source follow-up above for implementation and still-unrun C fixtures.
 
-### F4 — Server TLS identity is not pinned; signature error check is too broad
+<a id="f4--server-tls-identity-is-not-pinned-signature-error-check-is-too-broad"></a>
+
+### F4 — TLS pinning and pairing proof — implemented; broad security tests open
 
 **Source follow-up, 2026-10-20:** signature return handling and security-before-PIN ordering are
 now implemented. Each EVP stage must return 1; a negative final crypto error cannot become boolean
@@ -2369,6 +2392,9 @@ file-based stream logs or per-frame diagnostics.
 
 ## 6. Completion and next work
 
+Current review, 2026-10-22: inventory complete; see §6.8–§6.10 for the latest source/runtime
+follow-ups. The conclusion below began at edf0b58; current gates are in §6.6.
+
 ### 6.1 Current conclusion — 2026-10-21
 
 Reconciled with local master edf0b58 (including ee485a2), the existing source inventory and
@@ -2380,8 +2406,9 @@ The detailed A01–A24 entries and dated F1–F8 records remain the evidence, no
 
 **Source status and runtime evidence are separate.** A08's parser and A09/A10's normal launch/
 selected-app resume are implemented; their headings now say so while retaining unrun fixture,
-race and compatibility cases. A06 still has concrete error-classification gaps; A01/A03/A07/
-A11/A16–A19/A22–A23 retain bounded/partial coverage as documented. No remaining acceptance
+race and compatibility cases. A06’s local error-classification gap is now source-addressed in §6.9, with PIN/409/recovery
+evidence in §6.10 and rare fault validation still open. A01/A03/A07/A11/A16–A19/A22–A23
+retain bounded/partial coverage as documented. No remaining acceptance
 checkbox is closed solely by this consolidation.
 
 ### 6.2 Implemented and exercised paths
@@ -2421,7 +2448,11 @@ proven leak or leak-free guarantee. Earlier quality/audio-warning observations r
 
 ### 6.3 Concrete local gaps — implementation backlog
 
-1. **Snapshot-pressure event delivery: source-addressed; build/Vita pending (F5).**
+The selected source corrections below are implemented. Their remaining gates concern broader
+native/runtime acceptance, not another implementation of the same fixes. Normal Main/discovery/
+pairing/Apps and scoped playback evidence are recorded separately above and in §6.10.
+
+1. **Snapshot-pressure event delivery: source-addressed; fault/stress Vita acceptance open (F5).**
    The original 16-slot shared ring dropped every event when full; Connect/Apps retained worker
    results but pairing/stream completion had no fallback. The correction in F5 separates two
    replaceable snapshots from the ordered FIFO and retains the extracted completion until its
@@ -2430,7 +2461,7 @@ proven leak or leak-free guarantee. Earlier quality/audio-warning observations r
    this bounded policy relies on the sequential foreground workflow, not an arbitrary lossless
    event bus. Broader stale-session routing remains separate. Do not mark Vita behavior fixed
    until the maintainer's ordinary smoke test passes.
-2. **Host persistence errors: source-addressed; build/Vita pending (L8 / architecture finding 4).**
+2. **Host persistence errors: source-addressed; storage-fault/durability acceptance open (L8).**
    The baseline void writer and unconditional store success matched
    [xyzz's writer](https://github.com/xyzz/vita-moonlight/blob/984603bd6f93f752593048fe494b5ffca14514e1/src/device.c#L231-L265),
    re-read for this correction. Now save_device_info returns 0/-1, checking fopen, sticky ferror
@@ -2446,7 +2477,7 @@ proven leak or leak-free guarantee. Earlier quality/audio-warning observations r
    compilation or device proof. Existing memory mutations remain on failure; non-atomic truncating
    writes may leave partial files. Atomic replacement, rollback and power-loss durability are not
    addressed. Maintainer build/save/restart smoke and controlled storage-failure tests remain open.
-3. **Host presentation and discovery service: source-addressed; build/Vita pending (A01).**
+3. **Host presentation/discovery: source-addressed; >8-PC/error/timing acceptance open (A01).**
    Main/Search now read dynamically sized snapshots. Count/copy uses the existing service API;
    discovery's total-count return triggers a resize/retry on growth. Old cells are removed before
    vector swaps; fresh tokens in widget names resolve through page-only userdata, following
@@ -2518,14 +2549,17 @@ TLS weakening, delayed retry or host workaround is proposed to reduce testing sc
   GameStream and admin scopes are distinct. Dated follow-ups preserve actual Vita evidence.
 - **Current scoped client path: implemented and exercised as listed, with explicit limits.**
   This does not close local persistence/event/discovery defects or external self-unpair.
-- **Queue source gate: snapshot-pressure correction and 100 non-build checks complete;
-  maintainer build/Vita gate open.** No arbitrary critical-storm/race guarantee.
+- **Queue source gate: snapshot-pressure correction complete (100 checks at that stage);
+  broader fault/stress Vita gate open.** No arbitrary critical-storm/race guarantee.
 - **Persistence source gate: checked write/close status through host store; 108 non-build checks
-  complete; maintainer build/Vita gate open.** No atomic-write/durability guarantee.
+  complete at that source gate; controlled storage-fault/restart gate open.** Normal metadata
+  writes are logged on 5db31a9; no atomic-write/durability guarantee.
 - **Host presentation source gate: dynamic snapshots/token callbacks and 117 non-build checks
-  complete; maintainer build/Vita gate open.** Backend discovery capacity is still 16.
+  complete at that source gate; >8-PC selection/delete gate open.** Ordinary one-PC Main/two-PC
+  discovery and Apps are logged; backend discovery capacity is still 16.
 - **Discovery source gate: direct lifecycle/status, exact start errors and native reaping;
-  126 non-build checks complete; maintainer build/Vita gate open.** Network polling stays threaded.
+  126 non-build checks complete at that source gate; natural-completion/error acceptance open.**
+  Ordinary scans/connect have scoped logs; network polling stays threaded.
 - **Pairing error source gate: typed local/security/PIN results and 137 non-build checks complete.**
   The maintainer's system 5db31a9 log now verifies wrong PIN, per-attempt native dialog lifecycle,
   XML 409 detail and subsequent five-phase pairing → Apps (§6.10). Rare local/crypto/storage faults

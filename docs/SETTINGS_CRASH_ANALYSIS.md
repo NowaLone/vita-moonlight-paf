@@ -3,6 +3,11 @@
 > successful device checks. The diagnostic build commands/artifact paths below
 > describe past experiments and no longer apply to current source. The authority
 > correction and native AppSettings path remain in place.
+>
+> Current status, 2026-10-22: the reported Settings regression and requested PS/Quick Actions/
+> reconnect checks were user-verified after the authority correction. The closure/cleanup
+> sections supersede the early “next diagnostic” requests and lack-of-runtime-evidence
+> statements. API inventory/source review is now complete; current work order is in ROADMAP.
 
 # Settings crash: full-dump analysis (2026-10-19)
 
@@ -10,7 +15,8 @@
 
 The user reports a freeze followed by C2-12828-1 after selecting Settings on
 Main. Saved PCs appear on startup in the reported run. This document records
-offline findings; it does not establish a fix or hardware verification.
+initial offline findings. That dump analysis alone did not establish a fix; later sections
+record the authority correction, successful device checks and diagnostic removal.
 
 Input: `psp2core-1792359321-0x000007394b-eboot.bin.psp2dmp`, SHA-256
 `f4fef97599cdc563e4d41e26db45610ea69e00e2d34bab600a6369bf1ece70f2`.

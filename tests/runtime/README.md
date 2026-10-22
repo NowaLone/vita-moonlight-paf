@@ -1,5 +1,12 @@
 # Vita DisconnectHost smoke tests
 
+**Catalogue status, 2026-10-22:** these are optional maintainer-run diagnostic modes, not the
+current next development task. The API inventory/source review is complete; scoped idle,
+active-stream, in-flight HTTP and startup results appear in the dated sections below. The
+post-launch immediate-recovery RTSP failure remains recorded alongside delayed recovery.
+Broader shutdown/stress/fault validation stays deferred per API audit §6.5 and ROADMAP.
+Build commands here are maintainer instructions; the agent does not run them.
+
 ## Idle scenario
 
 This opt-in package performs one local **idle** disconnect and reconnect to the PC selected
@@ -642,5 +649,5 @@ Visible image/audible sound and current Sunshine release require separate confir
 There is no host DisconnectHost/CLOSED/reconnect or application shutdown between starts.
 The trace predates ee485a2's Main-label fix. Repeated failure recovery, active shutdown,
 callback/admission races and host-side cleanup remain separate. No runtime-code change or
-agent build/device run. Full evidence/limits: API audit F5; next inspect/prepare active-stream
-application-shutdown validation.
+agent build/device run. Full evidence/limits: API audit F5. Active shutdown validation remains
+deferred; it is not the next automatic test to prepare. Follow ROADMAP's current work order.

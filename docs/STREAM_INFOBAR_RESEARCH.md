@@ -3,12 +3,18 @@
 Research date: 2026-10-19. Branch: `codex/research-stream-infobar`.
 Moonlight source baseline: `9ce5dcad89737a0e4bdac5bd8a7e44691554803a`.
 
+**Current status, 2026-10-22:** the implementation is on master. The maintainer confirmed
+working hide/restore on 2026-10-19; later ordinary stream logs show hide/restore result=0
+around normal stop and deferred buffer release. See [the later scoped record](MAIN_STARTUP_CRASH.md#subsequent-ordinary-stream-startstop-log--2026-10-22).
+Detailed shutdown/failure/keyboard/return cases remain unverified. The branch, baseline and
+integration plan below describe the original investigation, not a new implementation task.
+
 **Result [code]:** use `sceAppMgrSetInfobarState()` to hide the Vita system status
 bar while the Stream page is active and show it again on exit. NetStream explicitly
 calls this API when its playback controls change visibility; video decoding does
 not automatically control the bar. The follow-up implementation on this branch
 adds these requests to Moonlight's page/application lifecycle. No build or hardware
-validation was performed.
+validation was performed at that initial source stage; later user/log evidence follows.
 
 ## Evidence and API
 
@@ -188,5 +194,5 @@ case below. Detailed lifecycle/failure coverage remains **[open]**:
 
 Completed: local source/API/lifecycle review, online VitaSDK API check and source
 implementation, followed by the user's confirmation of working infobar behavior.
-No build or hardware test was run by the agent; detailed matrix results and actual
-AppMgr return codes remain unreported.
+No new build/hardware test was run for this documentation review. Ordinary hide/restore API
+return codes are now logged as 0 in later runs; the complete matrix above remains unverified.

@@ -7,6 +7,14 @@ measured numbers behind every layout decision. Read this before changing anythin
 Companion documents: `AGENTS.md` (hard rules for agents), `ROADMAP.md` (plan and hardware checks), `README.md`
 (overview and build).
 
+**Current-state review, 2026-10-22:** foreground progress uses PAF CommonGuiDialog
+`s_dialogTextSmallBusy`; errors/Delete confirmation use SceMessageDialog. The maintainer
+accepted the compact busy and pairing appearance; ordinary handoffs/stop have scoped logs.
+Main/Search/Apps use page-owned dynamic snapshots (backend discovery 16/apps 64). Typed pairing
+errors and later wrong-PIN → separate 409 attempts → successful pairing/Apps are recorded in
+API audit §6.10. Dated investigations below preserve earlier implementations, failed experiments
+and test counts; obsolete progress APIs/diagnostics and “next” requests are historical.
+
 System infobar during streaming: [research and implementation notes](STREAM_INFOBAR_RESEARCH.md)
 compare NetStream's AppMgr calls with the Stream lifecycle **[code]**. A valid Stream page requests
 hidden through `MoonlightApp::HideStreamInfobar()`; its destructor requests visible before returning
@@ -491,8 +499,10 @@ Correct-PIN success navigation is unchanged **[code]**. User/log verified one in
 error → OK → Search and one duplicate-session error → Search, with new requests only
 after explicit PC selection, on 2026-10-20 **[hw, tested Vita]**. After Sunshine displayed
 its delayed failure, another selection produced a new PIN and waited at getservercert;
-completed pairing/Apps after that recovery is not yet shown. Main return, other error
-types and a fully traced correct-PIN recovery remain **[open]**. The maintainer later
+completed pairing/Apps was not yet shown at that stage. A later system 5db31a9 trace
+(2026-10-22, API audit §6.10) now completes all five phases and inserts one app after wrong
+PIN and two separate 409 attempts on host .154. Main return and other error types remain
+**[open]**. The maintainer earlier
 reports the discussed recovery flow now appears OK (2026-10-20, qualified user confirmation;
 no new log or separate Apps result). Returning to Search does not cancel or reset the
 host's pending pairing session.
@@ -634,7 +644,8 @@ Only these `_common_*` names appear in the XML and are known to resolve: `_commo
   as the item.
 - Refresh: `DeleteCell(0, 0, existing)` then `InsertCell(0, 0, count)`. **The third argument of `DeleteCell` is a
   count, not the last index** **[hw on Main]**; `existing - 1` leaves a stale cell behind (a duplicate row). Search and
-  Apps use the same call; their hardware check is open.
+  Apps use the same call. Apps has logged 10-row population and a four-row → four-row rebuild
+  with after_delete=0; full Search/shrink/empty acceptance remains open.
 - Cells are created lazily by the factory; do not keep widget pointers across a refresh. Main/Search own
   dynamic `paf::vector<MoonlightHost>` snapshots **[code, 2026-10-21]**, removing their eight-host cap.
   `pages/host_list.h` queries the service count and copies that many records; discovery's total-count return
@@ -660,7 +671,8 @@ Only these `_common_*` names appear in the XML and are known to resolve: `_commo
   scrolling/selection and correct app ID at launch on Vita. A supplied 2026-10-20 log verifies
   `count=10`, `before=0`, `after_delete=0`, `after_insert=10`; the maintainer reports the requested >8 check OK
   **[hw, tested Vita; selection user-reported]**. The fragment does not identify a launched app. Smaller
-  nonempty-list rebuild remains **[open]**. The 64/65-app boundary is unverified and explicitly deferred by
+  four-row → four-row rebuild is logged in the idle DisconnectHost test **[hw, log, 2026-10-21]**;
+  shrinking/empty rebuild remains **[open]**. The 64/65-app boundary is unverified and explicitly deferred by
   the maintainer (2026-10-20), rather than required as the next test. Normal switching between PCs with different lists
   and return to the first is user-confirmed on 2026-10-20 **[hw, user-reported; no new log]**: each shows its own
   apps. The empty-list state is also user-confirmed on 2026-10-20 **[hw, user-reported; no new log]**:
@@ -722,8 +734,9 @@ in its destructor, like NetStream's surface update task. `QueueFrame()` only rep
 frame; neither it nor the callback registers another entry. The deferred framebuffer release task
 also stays registered while counting down and unregisters on completion or invalidation. PAF call
 lists are persistent, so treating them as one-shot queues accumulated callbacks in the previous
-source. The fix bounds registration count but its effect on the reported resource failure still
-needs a long stream/reconnect check on Vita.
+source. The fix bounds registration count in source. Later owner-cleanup/restart and repeated
+stream logs are scoped in the API audit; actual callback counts and attribution of the original
+resource failure are not established by those traces.
 
 Apps schedules the same generation-guarded deferred framebuffer release for STREAM_FAILED as
 for STREAM_STOPPED **[code, 2026-10-21]**. Failed or cancelled setup can create decoder buffers

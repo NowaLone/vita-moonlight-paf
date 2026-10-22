@@ -56,6 +56,8 @@ The application currently provides:
 - Game streaming with working video decode/presentation and audio.
 - Vita controller input.
 - Front touchscreen input.
+- Optional host-controller RGB overlay is source-implemented (bff5712); native appearance,
+  host game feedback and AppSettings persistence still need maintainer build/Vita validation.
 - Motion/gyro support is implemented in the input path but has not been fully hardware-verified in the current development cycle.
 - PS Button/application lifecycle handling.
 - Stable stream stop/cleanup, including deferred release of mapped video frame buffers.
@@ -129,7 +131,11 @@ The target application title ID is `VLMP00001`.
 
 ### Validation
 
-There is currently no automated unit/integration test suite. Platform-specific changes are validated primarily by:
+Focused non-build Python source checks exist (Python 3 + pycparser); see `tests/README.md`
+for the current command and recorded counts.
+They interpret selected logic with mocked platform/library calls and do not provide native
+compilation, ABI, full integration or hardware validation. Actual C/Expat parser fixtures
+exist but remain uncompiled/unrun by the agent. Platform-specific changes are validated primarily by:
 
 1. successful CXML/CMake build;
 2. running the VPK/SELF on actual Vita hardware;
@@ -215,6 +221,9 @@ recipes for common UI changes live in [`docs/UI.md`](docs/UI.md). Read it before
   naturally finished workers, and restart joins the old worker before replacing its UID.
 - `LegacyMoonlightAdapter` is the compatibility boundary between the service/backend layer and the legacy Moonlight code.
 - Pairing events use semantic `MoonlightPairingResult` values at the Moonlight API boundary. Only `MOONLIGHT_PAIRING_ERROR_INCORRECT_PIN` means the cryptographic PIN check failed; transport, protocol, security, and local/internal failures remain distinguishable.
+- Preserve typed legacy pairing results through parser/crypto/transfer callers; never infer PIN
+  or security categories from diagnostic text. Local allocation/execution failure is INTERNAL;
+  a rejected proof/certificate is SECURITY. Every verifier non-success must reject pairing.
 - `MOONLIGHT_EVENT_PAIRING_FINISHED` reports pairing success independently of host-persistence errors. A persistence failure may be logged, but it must not be presented as a failed pairing operation.
 
 ### Settings
@@ -237,7 +246,10 @@ The long-term native-integration shortlist below was researched specifically for
 
 - **`sce::AppSettings` / `SceAppSettings`** — real Sony Settings UI and application settings storage. This is the required Settings implementation, not a custom replacement. Current adapter: `src/moonlight/settings.cpp`; XML definition: `cxml/moonlight_settings.xml`.
 - **`SceIme` / `SceImeDialog`** — native Vita on-screen keyboard. The current Add PC control uses it directly from Main instead of implementing a custom keyboard.
-- **`SceMessageDialog` / internal message-dialog support** — native confirmation, error, progress, and wait/loading dialogs. The connection flow currently uses its native WAIT dialog while connecting and an OK error dialog on failure; pairing failures use the same common-dialog family.
+- **PAF `sce::CommonGuiDialog`** — compact foreground busy/loading windows through
+  `s_dialogTextSmallBusy`, owned by ConnectionService. Close the slot; there is no FINISHED/Term poll.
+- **`SceMessageDialog`** — native OK errors and OK/Cancel Delete confirmation, with its own
+  FINISHED/Term lifecycle. It is no longer the Connect/Apps/launch progress implementation.
 - **`SceNotificationUtil`** — system notifications and progress-style notifications. It is not used by the current connection flow; do not reintroduce it for connection progress unless a concrete non-modal notification use case appears.
 - **`SceNetCtl`** — system network state information and callbacks. Useful for Wi-Fi/network status, reconnect handling, diagnostics, and exposing network information in UI.
 - **Power/idle management** — follow NetStream's lifecycle pattern: schedule `sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DEFAULT)` on the PAF main-thread call list only while the streaming page is active, and unregister it when the page is destroyed. Do not expose a permanent `Disable Power Save` setting or tick continuously while browsing. Manual clock/frequency manipulation is not planned unless profiling demonstrates a need.
@@ -314,7 +326,8 @@ errors through Add/MarkPaired/SetHostId. Search uses its existing native save-er
 successful connection/pairing log metadata failures separately without becoming protocol failures.
 Normalization logs failed rewrites and keeps usable in-memory records. This is checked error
 reporting, not atomic persistence: failed writes can leave partial files and in-memory updates.
-Build/Vita storage-failure and restart validation of this source change is pending.
+Normal metadata writes/paired Apps are logged on system 5db31a9; controlled Vita storage-failure
+and restart durability validation remain pending.
 A pin persistence error is logged separately from pairing success;
 trust then lasts only for the current connection and pairing is needed after restart.
 The implementation requires the OpenSSL libcurl backend. On 2026-10-20 the maintainer confirmed
@@ -386,7 +399,7 @@ The agreed, prioritized development plan lives in [`ROADMAP.md`](ROADMAP.md). Ke
 - Document exact vitasdk-paf-component and psp2cxml-tool revisions.
 - Add a reproducible dependency/setup procedure.
 - `Main::RefreshHosts()` must pass the full existing cell count to `ListView::DeleteCell(0, 0, existing)`: the third argument is a deletion count, not the last index. This follows BetterHomebrewBrowser's `AppBrowser::ClearList()` pattern. Keep the `[Main] RefreshHosts ... after_insert=` diagnostic; on Vita, verify `after_delete=0` and `after_insert=hosts` for empty, one-host, and multiple-host lists. A source-level fix is not considered hardware-verified until these cases pass. `Search::RefreshHosts()` and `Apps::ShowApps()` use the same call.
-- Add automated tests when the project architecture is stable enough to support them.
+- Extend the existing focused non-build checks for concrete new logic; keep native/runtime gates separate.
 - Document preferred formatter/static-analysis tooling if one is adopted.
 - Define a release procedure, including adding/maintaining the appropriate LICENSE before a release.
 

@@ -40,12 +40,15 @@ The current application supports:
 - H.264 video streaming and Vita AVC presentation.
 - Opus audio playback.
 - Optional stream statistics overlay: video rates, missing/local-drop estimates, RTT,
-  decode/PAF queue timing and payload bitrate. Source implementation; Vita validation pending.
+  decode/PAF queue timing and payload bitrate. The compact six-line layout and metric accuracy
+  still need specific Vita validation; streaming/playback verification is recorded separately.
 - Vita controller input.
 - Front touchscreen input.
 - Motion/gyro input path.
+- Optional host-controller RGB overlay: Off, Like DualShock 4 or Like DualSense; source
+  implemented in bff5712, with build/Vita appearance and host feedback validation pending.
 - PS Button/application lifecycle handling.
-- Stable stream shutdown and cleanup.
+- Session-owned stream stop/disconnect cleanup and reconnect, with scoped Vita evidence.
 
 ## Repository Layout
 
@@ -84,6 +87,10 @@ The current list/title resources intentionally follow the real patterns used by 
 - `style_image_button_list_button`
 
 The full UI reference (screen zones, layout language, pages, templates, styles, helpers, measured values from PS4 Link and Photos, recipes and pitfalls) is [`docs/UI.md`](docs/UI.md).
+
+Foreground Connect, Apps loading and stream setup use PAF CommonGuiDialog's compact
+`s_dialogTextSmallBusy`. Errors and Delete OK/Cancel use SceMessageDialog. Pages show static
+empty-list labels and pairing instructions; no inline progress or success/status fallback.
 
 The main page contains a saved-PC list, an inline PC address input using the native Vita IME, Search PCs, and access to the system AppSettings UI.
 
@@ -219,14 +226,15 @@ Direct CMake configuration retains its ordinary default/cached profile behavior.
 CMake prints the selected `Moonlight launch profile`. With Debug log enabled,
 Settings logs `[Launch]` with the profile and source revision.
 
-It uses `gdc` packaging, a 64 MiB SELF budget, a 6 MiB newlib heap, a 10 MiB PAF
+The system profile uses `gdc` packaging, a 64 MiB SELF budget, a 6 MiB newlib heap, a 10 MiB PAF
 heap and PAF application mode. UNSAFE and the existing authority/settings remain.
 These are the device-tested streaming allocations, not an established minimum.
 PAF surface/text pools are 4/1 MiB after the initial 8/4 MiB configuration failed
 with an 8 MiB DDR-main allocation request on startup with a game resident. The
 smaller pools save 7 MiB in requested pool capacity. On `7e20e94`, the user verified
 Main/Settings, launch without closing the Vita game, and resuming its existing session
-on the tested device. Streaming with this 32 MiB budget remains unverified.
+on the tested device with the earlier 32 MiB browsing budget. That budget did not establish
+streaming support; current system defaults and successful streaming evidence use 64 MiB.
 Install the complete VPK through VitaShell, then launch from LiveArea, rather than
 replacing only the SELF, so the changed launch metadata is promoted. Then test
 opening Moonlight with a Vita game suspended and returning to that same game session.
@@ -283,7 +291,7 @@ console traffic during recovery without changing the transport's recovery behavi
 The longer user run stopped after 2732 decoded frames with `Video Receive: malloc()
 failed`. After teardown, newlib still reported 5591728 used bytes in its 6 MiB
 heap, while USER_RW had 31412 KiB free. Allocation ownership and fragmentation
-must be investigated before treating the system profile as stable for longer sessions.
+required investigation at that stage; the later root cause and retest follow below.
 The subsequent diagnostic run identified repeated pthread thread-record allocations:
 the custom entry point skipped VitaSDK's pthread constructor. Startup now explicitly
 initializes pthread after newlib and verifies stable thread identity before entering
@@ -373,7 +381,11 @@ The CXML build is fail-fast: if `psp2cxml-tool` is not available, the build stop
 
 ## Runtime Validation
 
-There is currently no automated test suite.
+The recorded bff5712 source gate has 147 non-build Python checks (Python 3 + pycparser), covering selected parser
+grammar, pairing/trust, host-store/list, event and lifecycle logic with mocked platform/library
+calls. See [tests/README.md](tests/README.md) for their scope and command. They do not compile
+or execute the application or replace Vita tests. C/Expat parser fixtures also exist, but their
+compilation/execution by the maintainer remains unverified.
 
 Changes are validated primarily on real PS Vita hardware:
 
@@ -397,11 +409,21 @@ For streaming-related changes, verify at least connection setup, video/audio, in
 
 ## Development Roadmap
 
-The next priorities are to validate the full streaming lifecycle and motion input on real Vita hardware, make the toolchain/build reproducible, close known technical risks and add focused tests, then prepare a release. The prioritized tasks and completion criteria are maintained in [`ROADMAP.md`](ROADMAP.md).
+The next independent development task is to record exact toolchain/dependency revisions and a
+reproducible setup procedure. Broader lifecycle/motion/security/error and release checks remain
+open; ordinary API paths are not reopened merely because exhaustive validation is incomplete.
+The canonical plan and completion criteria are in [`ROADMAP.md`](ROADMAP.md).
 
 ## Status
 
 The project is an actively developed working Vita Moonlight frontend. Streaming is functional, but the UI, host-management behavior, lifecycle edge cases, and some device/input paths are still under active development.
+
+As of 2026-10-22 the [client API audit](docs/SUNSHINE_API_AUDIT.md#6-completion-and-next-work)
+is complete as an inventory/source comparison, with scoped Vita evidence for the normal client
+flow. It is not full compatibility/security/release certification. Latest system build 5db31a9
+logs typed wrong-PIN rejection, two separate Error 409 attempts, then successful pairing/Apps.
+Remote self-unpair remains blocked by the absent Sunshine client operation under the agreed
+no-admin-login constraint. Missing/unverified features and accepted limits are listed in the audit.
 
 ## License
 

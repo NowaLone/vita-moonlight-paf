@@ -4,6 +4,16 @@ This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordere
 
 ## Current API work decision (2026-10-21)
 
+**Current status, 2026-10-22:** the client API inventory/source audit is complete. The normal
+client flow has scoped Vita evidence, including the latest 5db31a9 pairing/error recovery.
+Remaining partial/error/security/compatibility cases are release verification, explicit limits
+or blocked self-unpair; they do not make the inventory unfinished. The next independent task
+is exact toolchain/dependency revisions and a reproducible setup procedure (§2).
+
+The independent bff5712 controller-RGB feature is source-implemented and documented in UI §4.10;
+Off/DS4/DualSense overlays use existing host feedback. Its Vita/build acceptance remains open.
+The current committed-source gate is 147 non-build checks; older counts below belong to their stages.
+
 - [x] **Pairing error provenance source correction (2026-10-22).** Local RNG/crypto and parser/
   response allocation failures now preserve explicit internal/OOM results; PIN/security are typed
   instead of inferred from log text. All five pairing responses retain server status/reason,
@@ -722,8 +732,8 @@ Not part of the PS4 Link parity pass because the needed pieces do not exist in t
 
 - [x] Complete the source-level inventory of client-facing Sunshine-compatible GameStream APIs/protocols, including purpose, request/response semantics, authentication/pairing, local implementation, upstream references and coverage status. See [docs/SUNSHINE_API_AUDIT.md](docs/SUNSHINE_API_AUDIT.md), audited on 2026-10-18 against local `761d730` and pinned upstream revisions. This checkbox covers source review only, not runtime compatibility.
 - [x] Compare actual Moonlight/Vita Moonlight/common-c and Sunshine implementations; distinguish client GameStream APIs from administrative Web API. The audit confirms that `/cancel` is remote Quit, not ordinary disconnect or cancellation of an in-flight launch; the reviewed Sunshine has no GameStream `/quit` or `/unpair` route. Admin integration remains out of scope.
-- [ ] Implement missing client-side API support that is required for compatibility, in small changes following the existing backend/legacy-adapter boundaries; preserve protocol behavior from upstream implementations rather than inventing shortcuts.
-- [ ] Exercise the relevant endpoints against a real Sunshine host, including success, error, and version/feature-compatibility cases; document any intentionally unsupported endpoints and why.
+- [x] Complete the source corrections selected for the current ordinary client flow: XML/cache, trust, launch/resume, session/foreground ownership, pairing errors, event delivery, persistence status and page-list/discovery handling. Scoped runtime gates remain below; this does not promise all faults/races or release certification. Requested self-unpair is separately blocked by the upstream client protocol, not silently complete.
+- [ ] Complete the broad release interoperability/security catalogue against identified Sunshine versions/configurations. Ordinary success and several failure/recovery paths already have dated Vita evidence below; incomplete exhaustive validation does not reopen the finished API inventory.
 
 **Foreground workflow direction, 2026-10-20:** the maintainer requires sequential modal
 user flows: action → native WAIT for a long step → terminal result and local cleanup →
@@ -999,7 +1009,7 @@ is not an independent TLS-handshake trace or verification of rejection/error cas
 
 - [x] **Unexpected-termination cleanup ownership (audit F1): established-stream control disconnect → owner cleanup → manual resume verified on one Vita, 2026-10-20.** Source implementation is already present in `0cef1ac`; do not implement the obsolete callback-only fix again. Supplied logs show unexpected ENet disconnect, termination result=-1/cleanup requested, session-owner stop, all common-c stop/cleanup stages, audio drain/release result=0 and three framebuffer unmaps result=0 before another StartApplication. Then resume app=1093255277 is accepted, setup result=0 and video decodes through frame 361. This tests stream teardown and restart using the existing paired host (has_host=1/state=2/initialized=1), not the separate DisconnectHost/ConnectHost API. Repeated failures, setup/termination races, pending launch cancellation, full host shutdown and other network-failure modes remain open. The log also reports no audio traffic for the stopped session; the maintainer subsequently confirmed audible sound on Vita (2026-10-20). This is not a diagnosed audio regression; exact session attribution of the warning remains unproven and no audio code change is warranted. Single-cycle memory samples are not a leak-free guarantee.
 - [x] Refresh host active-app state before launch/resume and reject a different running app instead of silently resuming it (F2), verified for the three tested normal decision branches on one Vita. Source implemented 2026-10-20: HTTPS-only pre-start snapshot, pairing check, same-app resume/idle launch, conflict result -8, and cancellation checks. Normal launch/stop and reconnect smoke test reported OK by the user; different-app conflict verified on Vita by user confirmation and logs (2026-10-20): selected=881448767, active=1093255277, setup result=-8. Same-app resume also user/log verified (2026-10-20): resume app=1093255277, accepted rtspenc URL, RTSP handshake complete, connection started, setup result=0 and decoded frames through 901. Host-app exit while keeping Apps open also user/log verified (2026-10-20): fresh state selected launch app=1093255277, accepted rtspenc URL, all setup stages completed, result=0 and decoded video through frame 841. This closes the basic F2 decision regression (different app / same app / exited app); snapshot races, additional host-change cases and the remaining T5/T8 matrix stay open. The launch log includes an IDR wait/drop-limit/request sequence followed by resumed decoding; stream-quality root cause and sustained quality are not established. Do not automatically quit another app.
-- [ ] Validate GameStream XML status/session results with Expat, fix app-list parsing and invalidate cache on host transitions (F3). Source implemented 2026-10-20; C grammar checks passed and normal Apps/stream flow reported OK by the user; actual C fixtures, malformed/error XML and full Vita matrix remain pending. Transfers now own callback/buffer/timeout under the HTTP mutex. The separate Apps presentation follow-up now uses page-owned dynamic storage sized to the ready count, with a shared backend bound of 64; population of ten rows is now Vita-log verified and the maintainer reports the requested >8 check OK; the broader matrix remains pending (see below).
+- [ ] Finish native-fixture and malformed/error-XML validation of the implemented Expat parser/cache correction (F3). Source implemented 2026-10-20; C grammar checks passed and normal Apps/stream flow reported OK by the user; actual C fixtures, malformed/error XML and full Vita matrix remain pending. Transfers now own callback/buffer/timeout under the HTTP mutex. The separate Apps presentation follow-up now uses page-owned dynamic storage sized to the ready count, with a shared backend bound of 64; population of ten rows is now Vita-log verified and the maintainer reports the requested >8 check OK; the broader matrix remains pending (see below).
 - [ ] Complete pairing/certificate validation (F4). On 2026-10-20 the source signature check now accepts only EVP result 1, verifies the signed server secret before classifying a PIN mismatch, and clears stale per-attempt errors. Non-build actual-expression AST checks cover all 27 combinations of -1/0/1 EVP return values and proof-before-PIN ordering. Per-host `server.pem` storage and exact-leaf TLS verification are source implemented with maintainer approval (2026-10-20). HTTPS without a pin is forbidden; old records need PIN pairing, mismatches fail without downgrade, and final-pairing failure rolls back temporary trust. Pairing/shutdown are excluded to protect credential lifetime. Six non-build Python checks pass. User confirmed normal pairing and reconnect without PIN after restart, followed by launch/stop; no separate certificate/TLS trace was supplied. Mismatched valid server.pem rejection and restoration are user/log verified on Vita (2026-10-20): the wrong certificate returns -10 (SSL peer certificate verification failure); after restoring the original, ConnectHost succeeds and applist count=4 total=4 without a new pairing exchange in the supplied log. Host-side revocation followed by PIN pairing and app retrieval is also user/log verified (2026-10-20): a new PIN page appears, all five pairing phases complete, then applist count=4 total=4. The maintainer then confirmed fresh-process reconnect to Apps without another PIN after this specific re-pair (2026-10-20); that final check is user-reported, without a new log. Wrong-PIN rejection is now user/log verified (2026-10-20; maintainer-reported Sunshine 2025.924.154138): legacy=-1, semantic result=-1001 (Incorrect pairing PIN), UI error/new PIN and a fresh getservercert request. The subsequent Vita log now reproduces retry failure: getservercert returns an empty HTTP response, mapped to network error -1002 and page exit. Successful retry is not verified. See accepted noncritical compatibility limitation F6; no Sunshine patch or client workaround is planned. Malformed/unreadable pins, failed persistence, malformed-proof/crypto error paths and remaining T3/T9 cases stay open.
 - **Accepted noncritical compatibility limitation (F6, 2026-10-20):** wrong PIN → new PIN → empty getservercert response → -1002/page exit on Sunshine 2025.924.154138. The maintainer confirms the failure occurs after submitting the new PIN. Wrong-PIN rejection works; retry fails in this tested sequence. Per explicit maintainer decision, do not patch Sunshine or add client workarounds for this issue. It does not block independent client API work.
 - [x] **Client pairing retry loop (F7): Search error return and explicit re-entry user/log verified on one Vita, 2026-10-20.** Source fix `8078c62` removes automatic PIN regeneration and pairing enqueue on error dismissal. Follow-up: incorrect PIN (-1001) → one error/OK → Search; immediate explicit PC reselection → duplicate-session rejection (-1003) → one error → Search; after Sunshine's delayed failure, explicit selection creates another PIN and reaches getservercert without immediate error. Every new request follows a Search selection; the old loop is absent in this tested sequence. This verifies client failure navigation, not immediate host-session cleanup or successful final pairing. The log ends at getservercert; correct-PIN recovery/Apps, Main/manual entry, other error types and exact second-host Sunshine version remain open. No Sunshine/protocol workaround; F6 remains accepted.
@@ -1008,16 +1018,16 @@ is not an independent TLS-handshake trace or verification of rejection/error cas
 - [x] **F8 active pairing-wait cancellation and reconnect verified on one Vita/system profile, 2026-10-20.** Launch log identifies `e7e7166ae5db`. Active getservercert → cancel requested → legacy -11/local semantic -1006/no completion event → Finish/destruction → new ConnectJob Run result=0/Finish/destruction and new PIN page. No preceding 300 s timeout occurs in this sequence; exact latency is unmeasured without timestamps. Another wrong-PIN attempt returns -1001 and releases its job, and the next explicit connection succeeds too. The subsequent empty HTTP reply (-1002) also completes/releases its job and remains accepted old-host F6, not a stuck queue. This closes the tested active-wait/reconnect regression only. A second-host log also verifies local cancellation/release, successful Connect and a real server 409 on immediate re-pair; local cancellation does not remove the pending host session. The maintainer separately confirms ordinary correct-PIN pairing opens Apps (user-reported, successful phases not in that trace). The subsequent ten-app fragment now shows pairing Run returned 0 → Paired/Loading applications → applist/Apps count=10, with job Finish/destruction; no launch revision/profile line is included. Queued cancellation, later-phase trust rollback, shutdown, stress/alternating-host and normal binary-profile cases remain pending. No agent build or hardware run.
 - [ ] Run audit tests T1–T10 with recorded Vita/package and Sunshine version/configuration. API methods with no UI caller require a backend-level test trigger; page close alone does not prove DisconnectHost ran (F5).
 
-Current independent work order: use the current API work decision at the top of this roadmap and API audit §6. The dated records above retain source/runtime evidence and accepted limits; completed normal flows are not reopened solely because the broader T1–T10 catalogue still contains untested cases. Snapshot-pressure delivery, persistence error reporting, host-list presentation and discovery lifecycle now have source corrections with maintainer build/Vita checks pending. Prioritize the ordinary build/Search-reopen/connect smoke before choosing another concrete API case. Remote self-unpair stays blocked by the missing supported upstream client operation. Deferred trust/error/compatibility and shutdown/stress checks remain release work, without claiming hardware acceptance.
+Current independent work order: record exact toolchain/dependency revisions and a reproducible setup (§2). API inventory/source review is complete. The dated records retain scoped evidence; remaining T1–T10 cases and broader event/storage/list/discovery acceptance stay open as milestone/release work. The 6af2e36 and 5db31a9 runs cover specific ordinary Main/discovery/connect/pair/Apps/playback paths, not every race or fault. Remote self-unpair remains blocked by the absent supported client operation. No further routine streaming scenario is the default next task.
 
-**Done when:** the API inventory is checked against source and runtime behavior, required missing client functionality is implemented, and remaining unsupported cases are explicitly documented.
+**Inventory gate: complete.** Required client scenarios have semantics/auth/source/upstream/status and scoped evidence or explicit gaps. Requested blocked self-unpair, intentionally unsupported features and remaining release/runtime tests are recorded separately; they do not make the source inventory unfinished.
 
 ## 3. Close technical risks and improve testability
 
 - [x] Verify the `RefreshHosts` cell-count fix on Vita: user confirmed the host list behaves correctly. Reported logs show `after_delete=0` and `after_insert=hosts` across repeated refreshes, selection-mode toggles, and removing one of two hosts. The user reports the remaining list behavior is OK. A clean build was not separately verified. Source review found that `DeleteCell` was passed `existing - 1` even though BetterHomebrewBrowser passes the full `GetCellNum(0)` count.
-- [ ] Verify the same `DeleteCell(0, 0, existing)` call on the Search PCs and Apps lists on Vita. A Search PCs screenshot showed three rows for two found PCs, the third a stale copy of the first, which is the `existing - 1` symptom; after the fix two found PCs must show exactly two rows when the scan finishes, and repeated scans must not add rows.
-- [ ] Identify small, hardware-independent logic suitable for tests, starting with host identity resolution, pairing-result classification, and host persistence decisions. Separate each decision from the `sceIo*`/PAF calls around it first, so it can be built and run with a desktop compiler.
-- [ ] Add focused automated tests for that logic where it can be isolated without mocking the whole PAF runtime.
+- [ ] Complete Search/shrink/empty list acceptance beyond the logged Apps rebuild (four old rows removed, four reinserted in the idle DisconnectHost test). Verify Search `DeleteCell(0, 0, existing)` on Vita. A Search PCs screenshot showed three rows for two found PCs, the third a stale copy of the first, which is the `existing - 1` symptom; after the fix two found PCs must show exactly two rows when the scan finishes, and repeated scans must not add rows.
+- [x] Identify focused hardware-independent/source-check seams: host identity/snapshots, pairing/trust, persistence outcomes, event delivery and lifecycle guards. Existing checks interpret selected actual source with mocks; native compiler/library behavior is not established.
+- [x] Add focused non-build Python source checks for those seams: 137 checks, documented in `tests/README.md`. Actual C/Expat fixtures still need maintainer compilation/execution; keep native/runtime validation separate.
 - [ ] Select and document formatter/static-analysis tooling only if it fits the existing codebase and toolchain.
 
 **Done when:** the known host-list diagnostic has an evidence-based conclusion and the highest-value non-PAF logic has repeatable checks where practical.
@@ -1034,7 +1044,7 @@ Current independent work order: use the current API work decision at the top of 
 
 ## Working order
 
-Start with **streaming lifecycle validation and motion-input verification**. Work on dependency pinning and reproducible builds in parallel when convenient. Use failures and logs from those runs to prioritize technical fixes; then add focused automated checks and finish with release preparation. Avoid broad speculative refactors or new system integrations until there is a concrete user-facing need.
+Next independent source/documentation task: **pin the working toolchain/dependency revisions and document reproducible setup**. Keep remaining lifecycle/motion/security/error validation as milestone/release work, reprioritized by concrete regressions. Existing focused checks and scoped normal-flow evidence remain; do not start new routine stream tests merely to fill the audit. Avoid broad refactors or system integrations without a concrete need.
 
 ## Scope boundaries
 
@@ -1042,6 +1052,13 @@ Start with **streaming lifecycle validation and motion-input verification**. Wor
 - Do not change the persistent host/settings formats or locations as incidental cleanup.
 - Do not repeat broad native-system API surveys already recorded in `AGENTS.md`; investigate a system API only for a concrete use case.
 - Treat hardware observations, build results, and test results as complete only after they have actually been verified.
+
+## Historical implementation and hardware records
+
+The dated records below describe the source/build/device state at each stage. Their “next”,
+“blocked”, diagnostic commands and unverified statements are historical; later results and the
+current work decision above take precedence. Do not repeat removed probes or already completed
+fixes from these records.
 
 ## Follow-up hardware test results (2026-10-12)
 
@@ -1101,7 +1118,9 @@ User-reported `psp2shell` logs from Vita after applying the `DeleteCell(0, 0, ex
 
 
 
-**Status: blocked on SELF authorization verification and real-device lifecycle testing.**
+**Status at the 2026-10-14 stage: blocked on SELF authorization verification and device testing.**
+Later authority/Settings and PS/Quick Actions results supersede this stage; current architecture
+uses UNSAFE authority 0x2200000000000001. Do not restore the old experimental authority from this record.
 
 - The current input code calls `sceShellUtilLock(PS_BTN | PS_BTN_2)` when the existing `ps_button_capture` setting is enabled, and logs the return code. The user observed that pressing PS still minimizes/suspends the app; therefore the input-side double-press logic alone does not satisfy capture.
 - Upstream `xyzz/vita-moonlight` packages its SELF with `vita-make-fself -a 0x2800000000000001 -at 0x0E -c` and documents the SceShell permission as a prerequisite for PS capture. The current PAF project uses auth ID `0x2F00000000000101`, `vita_create_self(... UNSAFE)`, and SFO attributes `ATTRIBUTE=33472` / `ATTRIBUTE_MINOR=16`. In VitaSDK, `UNSAFE` omits the default safe flag; it does not replace the SELF authorization ID.
@@ -1109,76 +1128,6 @@ User-reported `psp2shell` logs from Vita after applying the `DeleteCell(0, 0, ex
 - Keep the existing `ps_button_capture` setting as the sole toggle. When enabled, a single PS press should be sent to the host and only a confirmed double press should stop the stream. When disabled, do not intercept PS or stop the stream.
 - Quick Actions input suspension still needs a verified system-state signal. `SceAppMgrAppState.isSystemUiOverlaid` is a candidate for investigation, not yet hardware-verified. Do not substitute a timer-only suppression window or lock Quick Menu unconditionally, since that can break native behavior when capture is disabled.
 - Next verification: inspect the generated SELF metadata/permissions from a real build; test lock return codes and PS behavior on Vita with capture enabled and disabled; then validate the chosen AppMgr overlay signal through Quick Actions open/close and confirm controller forwarding resumes only after returning to the app. Record firmware and logs. Do not mark this complete before device testing.
-
-## 4. Prepare a release
-
-- [ ] Review licensing and attribution obligations for this project, Moonlight code, and vendored dependencies before choosing or adding a project license.
-- [ ] Document installation, runtime requirements, setup, and known compatibility limitations for the Vita and PC host.
-- [ ] Define versioning, release artifact naming, and a release checklist.
-- [ ] Perform a final clean build and smoke test on real hardware; verify core streaming and clean shutdown on the release candidate.
-- [ ] Publish only artifacts and source revisions that have actually been validated.
-
-**Done when:** licensing/attribution is addressed, users can build or install from documented instructions, and the release candidate has a recorded Vita smoke-test result.
-
-## Working order
-
-Start with **streaming lifecycle validation and motion-input verification**. Work on dependency pinning and reproducible builds in parallel when convenient. Use failures and logs from those runs to prioritize technical fixes; then add focused automated checks and finish with release preparation. Avoid broad speculative refactors or new system integrations until there is a concrete user-facing need.
-
-## Scope boundaries
-
-- Keep PAF UI concerns separate from services, backend, and legacy streaming code.
-- Do not change the persistent host/settings formats or locations as incidental cleanup.
-- Do not repeat broad native-system API surveys already recorded in `AGENTS.md`; investigate a system API only for a concrete use case.
-- Treat hardware observations, build results, and test results as complete only after they have actually been verified.
-
-## Follow-up hardware test results (2026-10-12)
-
-User-reported Vita test results:
-- Clean build and startup succeeded.
-- No log file is created; periodic `[Video] decoded frame=...` messages still appeared in `psp2shell`.
-- X/O Swap behaves correctly.
-- Power Tick runs only during streaming.
-- Center Region Only was initially reported visually incorrect: blank/letterboxed areas remained above and below, with black side bars.
-- In a later test with 1920×1080, toggling Center Region Only did not visibly change the picture. The full desktop fits on Vita and UI elements look small; given the near-identical stream and Vita aspect ratios, this is expected to produce only a very small crop. Test with a substantially different negotiated stream aspect ratio before treating this as an implementation failure.
-- Initially, the selected stream resolution appeared not to reach the host. Follow-up testing suggests the selected resolution was unavailable on the PC; choosing a resolution supported by the host resolved the issue.
-- Holding PS to open Quick Actions does not suspend controller forwarding to the host.
-
-Follow-up source changes:
-- Restored the `Debug log` setting as a console-only toggle (default off); it gates `vita_debug_log()` and never writes a file.
-- Replaced oversized-plane clipping with an in-place centered framebuffer crop matching the original Vita Moonlight texture-region logic. This avoids an extra framebuffer allocation but adds a per-frame memory copy; it needs a clean build and hardware/performance retest.
-- Compared the crop behavior with the original `xyzz/vita-moonlight` implementation (`src/video/vita.c`, branch `vita`): `update_scaling_settings()` computes an oversized texture and a centered source rectangle, then `draw_streaming()` calls `vita2d_draw_texture_part()` to draw only that rectangle at the screen origin. It does not change the host desktop resolution; geometry is based on the negotiated stream width/height.
-- Added a diagnostic line before stream startup reporting the selected width, height, FPS, bitrate, and graphics-optimization flag. With Debug log enabled, use this to determine whether the chosen resolution is read from AppSettings before the host launch request.
-
-Still unresolved / required:
-- Hardware verification now confirms the expected Fit/center-crop difference at 1280×540. Still build and retest with 16:9, 16:10, 4:3 and ultrawide *stream aspect ratios* where supported. Use the negotiated stream dimensions, not the host desktop setting, as the reference, and verify the in-place crop does not regress frame pacing. The original uses a centered source rectangle (`vita2d_draw_texture_part`); the PAF port emulates this by copying the centered 960×544 crop into the start of the framebuffer.
-- Confirm stream resolution selection for host-supported and host-unsupported modes; compare `[GameStream] selected stream mode=...` with the host's actual negotiated/display mode. If the diagnostic values are correct but the host ignores a supported mode, investigate Sunshine's launch/resolution policy rather than changing the Vita decoder size.
-- Research a supported shell/app event or status signal for Quick Actions. Do not claim the overlay is detectable until an API is verified. Avoid a timer-only input suppression workaround that could resume forwarding while the overlay remains open.
-- Rebuild CXML and the app, then retest on real hardware; these latest source changes have not been built or device-verified by the current agent.
-
-
-## Host ListView diagnosis (2026-10-13)
-
-Source review identified a likely off-by-one bug in `Main::RefreshHosts()`:
-
-- The old code called `DeleteCell(0, 0, existing - 1)`. PAF's third argument is used as a deletion count in the project's reference implementation, so this can leave one old cell behind. Re-inserting `m_host_count` cells can then produce `after_insert = hosts + 1`, matching the duplicate-row symptom.
-- BetterHomebrewBrowser's `AppBrowser::ClearList()` uses `DeleteCell(0, 0, listView->GetCellNum(0))`, passing the full cell count. The fix branch now follows that pattern and adds a comment documenting the count semantics.
-- NetStream's server browser creates its ListView segment and item factory once, then inserts cells for the loaded entries. It does not provide evidence for deleting a range with an inclusive final index.
-- The diagnostic `cells_after_delete` and `after_insert` log remains in place to validate the behavior on-device.
-
-**Verification status:** source comparison only. No Vita toolchain build or hardware test has been run for this change. Before marking the item complete, verify empty → one host → multiple hosts, repeated refresh, and entry/exit from selection mode; require `after_delete=0` and `after_insert=hosts` in each refresh.
-
-
-## Host ListView hardware test results (2026-10-13)
-
-User-reported `psp2shell` logs from Vita after applying the `DeleteCell(0, 0, existing)` fix:
-
-- Repeated refreshes with two hosts consistently report `cells before=2 after_delete=0 after_insert=2`.
-- Selection mode toggles correctly rebuild the two rows: `selection=1` shows non-null checkbox pointers for both cells; `selection=0` shows `checkbox=0x0`.
-- After removing `fedora43-1-common.local`, refresh reports `hosts=1 cells before=2 after_delete=0 after_insert=1`; a subsequent refresh remains at one cell.
-- These observations support the fix for stale/duplicate ListView cells and the selection-template rebuild path.
-
-**Follow-up:** user confirmed that the list behavior is OK. The clean build remains unverified separately; the runtime logs came from a running Vita build.
-
 
 ## Next task: Quick Actions, PS Button, and application lifecycle
 

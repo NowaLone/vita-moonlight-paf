@@ -1,6 +1,12 @@
 # Repository analysis: vita-moonlight-paf
 
-Source-level audit date: 2026-10-16
+Source-level audit baseline: 2026-10-16. Current-state review: 2026-10-22.
+
+The numbered findings below preserve the original baseline and dated follow-ups. Fixed eight-row
+UI storage, ad-hoc app XML parsing, unchecked metadata writes and uninitialized Settings events
+are historical findings, not current missing implementations. Current API inventory/source review
+is complete; full release/runtime certification is separate. Follow ROADMAP's current work order
+(toolchain/dependency reproducibility), not the baseline recommendations at the end of this record.
 
 **Current follow-up, 2026-10-21:** this is a dated architecture baseline. Use
 [the consolidated API decision](docs/SUNSHINE_API_AUDIT.md#6-completion-and-next-work) and
@@ -43,7 +49,11 @@ PAF pages
   -> GameStream / Moonlight implementation
 ```
 
-The strongest parts are the PAF page model, system-style dialogs/settings integration, the stream presentation path, and the recent stream/PS-button lifecycle work. The largest remaining risks are at the async boundary between PAF and the backend: shared state synchronization, event routing, fixed UI limits, and cleanup/error propagation.
+The strongest parts are the PAF page model, system-style dialogs/settings integration, the stream
+presentation path and stream/PS-button lifecycle work. Remaining risks include shared-state/event
+routing, bounded ordered-event overload, non-atomic host writes, lifecycle/error interleavings,
+partial input compatibility and release reproducibility. Page-level eight-entry limits are removed;
+the backend's 16 discovered hosts / 64 applications remain explicit bounds.
 
 ## What is already implemented well
 
@@ -60,7 +70,8 @@ The option menu is correctly treated as an application-owned PAF overlay. This m
 The video path is one of the most careful parts of the port:
 
 - Vita hardware AVC decode is retained.
-- Three CDRAM framebuffers are used.
+- Three CDRAM framebuffers are used in the normal profile. The system profile uses explicit
+  Nongameapp decoder contexts and three contiguous uncached main-RAM output buffers.
 - Each framebuffer is exposed to PAF through a `graph::Surface`.
 - Decoder frames are handed to the PAF main thread through a single pending presentation task rather than creating an unbounded callback queue.
 - The stream page detaches its texture before dropping surface references.
@@ -83,7 +94,9 @@ The PS-button/Quick Actions work in `ROADMAP.md` also shows useful hardware-driv
 
 ## High-priority findings
 
-### 1. UI still truncates application and host lists
+<a id="1-ui-still-truncates-application-and-host-lists"></a>
+
+### 1. Page list truncation at baseline — source-addressed
 
 The backend application cache supports up to 64 entries:
 
@@ -92,7 +105,7 @@ static const int MAX_APPLICATIONS = 64;
 static MoonlightApplication s_applications[MAX_APPLICATIONS];
 ```
 
-but `page::Apps` still has:
+but at the audit baseline `page::Apps` had:
 
 ```cpp
 static const int kMaxApps = 8;
@@ -101,7 +114,8 @@ MoonlightApplication m_apps[8];
 
 and `ShowApps()` explicitly requests/clamps to eight items.
 
-The main saved-host page and discovery page also use fixed arrays of eight hosts. The legacy device store itself is dynamically sized, and discovery can hold up to 16 hosts.
+At that baseline Main/Search also used fixed eight-host arrays. The dated corrections below
+remove all three page limits; the device store is dynamic and discovery remains bounded to 16.
 
 Consequences:
 
@@ -223,8 +237,7 @@ can therefore prevent PrepareCompletion from closing the launch busy dialog; los
 prevent page/buffer cleanup, and lost pairing completion can leave the PIN page waiting.
 The actual overflow branch was interpreted at counts 15/16/17 for seven lifecycle event kinds
 (21 serial cases); it drops all kinds at full capacity. No saturation was reproduced on Vita.
-Keep this as a concrete next source correction, with bounded completion ownership/order checks,
-not a broad event-bus rewrite or another protocol endpoint.
+This was the concrete source correction selected at that stage; the implementation follows.
 
 **Source follow-up, 2026-10-21:** app/event_queue.c keeps HOSTS_CHANGED/SETTINGS_CHANGED in
 two coalesced snapshot slots outside the 16-slot ordered FIFO. Scan boundaries/errors and all
@@ -239,7 +252,9 @@ or Vita proof. The ordered-only overload policy remains bounded: a seventeenth q
 event is rejected/logged without overwriting accepted entries; that workload exceeds the assumed
 sequential workflow and remains a separate limit, not an unlimited-delivery guarantee.
 
-### 4. Persistence APIs can report success even when the file was not saved
+<a id="4-persistence-apis-can-report-success-even-when-the-file-was-not-saved"></a>
+
+### 4. Metadata write status — source-addressed; durability open
 
 At the audit baseline, `save_device_info()` returned `void`; `fopen()` failure only logged,
 and neither write errors nor `fclose()` failures were checked.
@@ -268,7 +283,9 @@ Maintainer build, ordinary save/restart smoke and controlled storage-failure che
 
 ### 5. Release builds are currently compiled with debug/no-optimization flags
 
-`build.sh` configures CMake with `CMAKE_BUILD_TYPE=Release`, but `CMakeLists.txt` hardcodes `-g3 -O0 -fno-inline` into both C and C++ flags.
+`build.sh` configures CMake with `CMAKE_BUILD_TYPE=Release`, but CMakeLists.txt appends
+`-g3 -O0` to both C/C++ flags and `-fno-inline` to C flags. The build-type name alone does
+not establish an optimized release. This finding remains open.
 
 For a Vita streaming client, this should not be the final release configuration. It increases code size and can cost CPU time in exactly the paths where decode/input/network overhead matters.
 
@@ -302,7 +319,9 @@ the service is unnecessary. Other jobs/shared-state findings remain separate.
 
 Network/sysmodule cleanup is explicit, so AppUtil should receive the same treatment, including initialization-failure paths after AppUtil has successfully started.
 
-### Application cache should be invalidated on host/session transitions
+<a id="application-cache-should-be-invalidated-on-hostsession-transitions"></a>
+
+### Application cache invalidation — source-addressed
 
 At the audit baseline the global application cache survived host transitions.
 
@@ -314,7 +333,9 @@ cache when changing hosts and on shutdown/disconnect.
 at connect, disconnect, shutdown and failed refresh. This baseline finding is source-addressed;
 concurrent host/event races remain separate, and the API audit records the tested two-host flow.
 
-### Application-list parsing is ad-hoc despite Expat already being available
+<a id="application-list-parsing-is-ad-hoc-despite-expat-already-being-available"></a>
+
+### Application-list parsing — source-addressed; native fixtures open
 
 At the audit baseline `moonlight_api_get_applications()` scanned XML with `strchr()`, `strstr()`,
 and `atoi()`, without robust document validation/entity handling.
@@ -346,11 +367,13 @@ The settings UI offers US, German, Spanish, French, and Russian keyboard layouts
 
 Non-ASCII text entered through the Russian layout, and accented characters from other layouts, is silently skipped. This should either be handled with an explicit key/text mapping strategy or documented/restricted until supported.
 
-### Settings events contain uninitialized fields
+<a id="settings-events-contain-uninitialized-fields"></a>
 
-`src/moonlight/settings.cpp::emit()` creates a local `MoonlightEvent` without zero-initializing it and only fills a subset of fields.
+### Settings event initialization — source-addressed
 
-Current receivers may ignore the remaining fields for settings events, but the event contract should not expose uninitialized `application_id` / `pairing_pin` bytes. Use zero-initialization consistently.
+At the audit baseline `settings.cpp::emit()` only filled selected event fields. Current source
+uses `MoonlightEvent event = {};` before assigning type/result/host/address. This finding is
+source-addressed; no additional initialization fix is needed. Event routing/concurrency is separate.
 
 ### Persistent input/touch/motion resources are app-lifetime oriented
 
@@ -387,7 +410,8 @@ Useful patterns:
 - background jobs with UI changes protected by the PAF main-thread mutex;
 - PAF AppSettings/resource-driven UI conventions.
 
-The current target page stack is already close to this model. The most useful next borrowing is scalable list storage rather than more UI restructuring.
+The current target page stack already follows this model, and Apps/Main/Search now have scalable
+page-owned storage and ID/token callbacks. Do not repeat the old eight-row porting task.
 
 ### Vita Moonlight
 
@@ -396,6 +420,12 @@ The target correctly retains/adapts the important platform-specific streaming pi
 Areas where the port currently has reduced upstream behavior include full custom input mapping and keyboard/text handling. Protocol endpoint semantics such as cancel/quit/unpair should continue to be verified against current Moonlight/Sunshine behavior before adding calls by name.
 
 ## Recommended implementation order
+
+**Historical baseline recommendations (2026-10-16), superseded by ROADMAP's current work order.**
+Persistence status, cache invalidation, event initialization, dynamic lists, discovery lifecycle,
+XML parsing and focused source tests below have since received corrections. AppUtil shutdown,
+broader shared-state ownership, mapping/text limitations and release tasks remain open. This
+list preserves the audit rationale; it is not a second active development plan.
 
 1. **Correctness baseline:** propagate persistence write errors; clear application cache on host changes; zero-initialize all events; fix AppUtil shutdown.
 2. **Remove artificial UI limits:** replace fixed 8-host/8-app page arrays with scalable owned storage and keep ListView item factories.

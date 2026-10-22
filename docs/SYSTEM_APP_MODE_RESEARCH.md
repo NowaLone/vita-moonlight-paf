@@ -2,12 +2,22 @@
 
 Research date: 2026-10-19. Moonlight baseline: `dcf273f4c3a22b06429a193544fb217567b0b0b5`.
 
+**Current status, 2026-10-22:** the system profile is implemented on master and has scoped
+user-verified coexistence/stream/reconnect/Settings/Quick Actions results on one Vita/game.
+Current system defaults are 64 MiB total, PHYCONT reservation 0, newlib 6 MiB and PAF 10 MiB;
+video uses explicit Nongameapp contexts and contiguous main-RAM output buffers. Direct CMake
+defaults to normal mode; `build.sh` selects both profiles unless ON/OFF is explicitly supplied.
+See the final ordinary-profile/default/dual-build sections below and README for current commands.
+The initial 32 MiB candidate, branch names, “next module” requests and failed experiments below
+are dated history, not instructions to repeat binary research. Minimum budgets, broad
+compatibility/endurance and a clean dual build remain unverified.
+
 ## Result
 
-**System application mode is the concrete candidate.** BetterHomebrewBrowser supplies
+**Initial result (2026-10-19): system application mode was the concrete candidate.** BetterHomebrewBrowser supplies
 a small SELF memory budget and system-style packaging. VitaSDK already exposes the
 relevant packaging controls, so changing compiler/toolchain is not a prerequisite.
-This is a source-supported experiment, not verified Moonlight coexistence support.
+At that stage this was source-supported only; later scoped coexistence results appear below.
 
 The intended acceptance case is: suspend a Vita game, open Moonlight without closing
 that game, use Moonlight, then return to the same game session. This does not promise

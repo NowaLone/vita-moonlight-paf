@@ -78,7 +78,7 @@ Do not reopen these completed UI checks as TODO items without new evidence of a 
 - The global client identity is installation-wide under `ux0:data/moonlight/client/`. Do not put client key/certificate material into per-host directories.
 - The GameStream/Sunshine server UUID (`host_id`) is the primary stable host identity once known. Identity resolution also accounts for MAC, addresses and an existing name-only fallback; do not delete records by display name alone when a stronger identity is available.
 - Discovery entries are temporary. Manual input is persisted only after a successful connection; do not accidentally leave a host record after a failed manual connection.
-- Pairing success is distinct from a host-persistence failure. Only `MOONLIGHT_PAIRING_ERROR_INCORRECT_PIN` means the cryptographic PIN check failed; preserve distinctions for transport, protocol, security and internal failures.
+- Pairing success is distinct from a host-persistence failure. Only `MOONLIGHT_PAIRING_ERROR_INCORRECT_PIN` means the cryptographic PIN check failed; preserve distinctions for transport, protocol, security and internal failures. Preserve typed legacy results; do not infer categories from diagnostic strings. Local allocation/execution failure must not masquerade as a network/protocol/security rejection; all verifier non-success still rejects pairing.
 - Check the existing adapter/store flow before touching migration or deletion logic. The project does not currently promise migration from the original Vita Moonlight per-host credential layout.
 
 ## 6. Build and validation workflow
@@ -93,8 +93,10 @@ maintainer supplies results, and distinguish their results from checks run by th
 
 ### Runtime validation
 
-There is no established automated unit/integration test suite. The maintainer validates device behavior
-according to the affected layer:
+Focused non-build Python source checks exist; use `tests/README.md` for the command and limits.
+They interpret selected actual source with mocked platform/library calls and do not establish
+compilation, ABI, real crypto/networking/PAF or device behavior. Actual C/Expat fixtures require
+maintainer compilation/execution. The maintainer validates device behavior by affected layer:
 
 - CXML/layout, PAF focus and widget state: run on a real Vita.
 - Discovery, pairing and host store: exercise successful and failed cases and inspect logs.
@@ -106,12 +108,20 @@ Separate completed checks from recommended but unrun checks in the final report.
 
 ## 7. Roadmap-driven task order
 
-Unless the user reprioritizes, work in this order:
+Use the current work decision in `ROADMAP.md` before historical next-step requests. As of the
+2026-10-22 source/runtime review, API inventory/source comparison is complete; ordinary client
+paths have scoped Vita evidence. Remaining partial cases are explicit limits or milestone/release
+verification, and self-unpair is blocked by the absent upstream client operation under the
+no-admin-login constraint. Do not restart the audit or add endpoints/routine stream test variants.
 
-1. **Streaming lifecycle and motion input:** exercise the full connection-to-shutdown journey on Vita, including failures/recovery and gyroscope/accelerometer reporting.
-2. **Reproducible build:** record exact supported VITASDK, `vitasdk-paf-component` and `psp2cxml-tool` revisions; document a clean setup for the maintainer to validate with a fresh build.
-3. **Technical risks and tests:** investigate `[Main] RefreshHosts ... after_insert=` when duplicates are reproduced. Compare `after_insert` to `hosts` and distinguish stale PAF ListView cells from duplicate persistent records before changing code. Add focused tests for hardware-independent logic such as host identity resolution, pairing-result classification and persistence decisions where feasible.
-4. **Release readiness:** review license/attribution obligations before selecting a license; document installation/compatibility; define versioning and a release checklist with maintainer-run clean build and Vita smoke test.
+1. **Next independent task: reproducible setup.** Record exact working VitaSDK, PAF-component
+   and CXML-tool revisions and dependency/environment setup. The maintainer validates builds.
+2. **Concrete correctness work:** prioritize a newly reproduced regression or a source-proven
+   required gap; preserve existing session/dialog/host ownership and add focused non-build checks.
+3. **Remaining device/release gates:** lifecycle error cases, motion, trust/storage faults,
+   compatibility and endurance remain open, separate from the completed normal-flow inventory.
+4. **Release readiness:** license/attribution, installation/versioning and a maintainer-run clean
+   build/Vita smoke test remain release requirements.
 
 Use `ROADMAP.md` for completion criteria and current checkboxes. Mark work complete only when evidence exists. Do not treat the full roadmap as an invitation to perform unrelated refactors.
 
