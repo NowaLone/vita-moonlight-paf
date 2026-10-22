@@ -29,6 +29,15 @@ action-bar exit are modeled; C++ template/member syntax is normalized for the se
 All 117 Python checks pass. No compiler/ABI, allocator, real threading/snapshot consistency, PAF
 scrolling/focus, native dialogs or Vita run is established. Backend discovery still holds at most 16.
 
+`test_discovery_lifecycle.py` interprets the actual service Start/Stop, API bridge, native scan
+worker/start/stop/shutdown and Search's immediate error branch. Nine checks model duplicate Start,
+natural completion/restart, FINISHED before thread return, exact create/start errors with one
+caller error, Stop before native worker entry/after completion, interrupted-scan cleanup and a
+transient wait timeout. The previous native start code fails three cases while the current service/
+API remain in place. All 126 non-build checks pass. C++ method calls are normalized; globals and
+function-local scope, kernel/network calls and serial worker steps are mocked. No compiler/ABI,
+real threads, PAF, sockets, blocked-I/O latency, permanent wait errors or Vita proof is provided.
+
 The foreground checks interpret the source terminal-event predicate across all event/operation
 combinations and the retained-result classification (including a successful empty app list).
 They do not execute PAF dialogs, threads, event-ring delivery or the complete state machine;

@@ -203,6 +203,11 @@ recipes for common UI changes live in [`docs/UI.md`](docs/UI.md). Read it before
   do not cover the PIN-entry page with a generic WAIT dialog. A new conflicting operation starts only
   after the previous operation releases its local resources. Host-side pending pairing may still return 409.
 - Asynchronous backend callbacks must not mutate PAF UI directly from worker threads.
+- Discovery Start/Stop are serialized main-thread lifecycle calls; the backend owns the native
+  scan worker. Do not wrap SearchHosts in another PAF job or duplicate its running state in the
+  service. Start failures return synchronously to the caller's native error dialog, without a
+  second queued failure; found/finished events still use main-thread dispatch. Stop also reaps
+  naturally finished workers, and restart joins the old worker before replacing its UID.
 - `LegacyMoonlightAdapter` is the compatibility boundary between the service/backend layer and the legacy Moonlight code.
 - Pairing events use semantic `MoonlightPairingResult` values at the Moonlight API boundary. Only `MOONLIGHT_PAIRING_ERROR_INCORRECT_PIN` means the cryptographic PIN check failed; transport, protocol, security, and local/internal failures remain distinguishable.
 - `MOONLIGHT_EVENT_PAIRING_FINISHED` reports pairing success independently of host-persistence errors. A persistence failure may be logged, but it must not be presented as a failed pairing operation.

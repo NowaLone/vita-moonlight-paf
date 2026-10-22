@@ -125,7 +125,24 @@ Nine new source checks simulate 40 saved/16 discovered PCs, count/copy growth, s
 failure, identity conflict/reorder, Select/Clear All, deletion past row eight and obsolete tokens;
 all 117 non-build Python checks pass. Maintainer build/PAF scrolling/selection/navigation remain
 pending. This does not remove discovery's 16-host backend bound or establish atomic/concurrent
-host-store snapshots. DiscoveryService's natural-completion/error state remains the next gap.
+host-store snapshots. DiscoveryService's natural-completion/error state remained the next gap.
+
+**Discovery source follow-up, 2026-10-22:** the backend already owns a native 10-second scan
+worker, so the service's second queued DiscoveryJob and unrelated m_running cache are removed.
+Lifecycle calls delegate directly; no network polling is moved onto PAF. Start errors now reach
+Search's existing native dialog synchronously, with no duplicate queued HOST_SCAN_FAILED.
+Repeated Start during a scan is idempotent. Stop always reaps backend resources, even after
+natural completion; restart uses that join before replacing the old UID. Thread-create failure
+preserves its exact negative result. The pinned xyzz
+[check_host.c](https://github.com/xyzz/vita-moonlight/blob/984603bd6f93f752593048fe494b5ffca14514e1/src/check_host.c)
+was re-read: it also keeps polling/terminal status inside the native worker. Its GUI/status and
+multi-thread array are not copied; this project retains its own backend boundary.
+Nine new source checks simulate service/API/native calls, natural completion/restart, finish
+before thread return, cancellation, start failures and cleanup. All 126 non-build checks pass;
+three fail with the previous native start function. No real kernel scheduling, socket I/O, PAF,
+compiler/ABI or Vita validation. Existing volatile/shared-state risks, socket-init error coverage
+and Stop's retry-on-wait-error behavior are not solved. Maintainer build/ordinary Search reopen
+and startup-failure acceptance are pending.
 
 ### 2. Backend/stream state is shared across threads without a real synchronization model
 
@@ -251,11 +268,17 @@ Before a public/release build, add an appropriate top-level license and preserve
 
 ### Async service state can drift from backend state
 
-`HostDiscoveryService::m_running` is set when the PAF job is successfully enqueued, but it is not cleared when discovery naturally finishes or fails. A later `Start()` can therefore return success without starting a new scan.
+At the audit baseline, `HostDiscoveryService::m_running` was set when the PAF job was enqueued,
+but not cleared when discovery naturally finished or failed. A later Start could return success
+without a new scan. The 2026-10-22 discovery follow-up above removes that duplicate flag/job,
+delegates lifecycle to the existing backend worker and returns start errors directly. Its source
+checks pass; build/Vita acceptance remains pending.
 
 The same general pattern appears in jobs whose `Run()` result is ignored because the backend is expected to emit an event. That works on the normal path, but invalid-state returns that do not emit an event can leave a page waiting indefinitely.
 
-A service should own its operation state and reconcile it from backend completion, not only from enqueue success.
+Use one owner for operation state and reconcile it from actual work/completion, not merely enqueue
+success. Discovery's worker lifecycle is already owned by the backend; duplicating its state in
+the service is unnecessary. Other jobs/shared-state findings remain separate.
 
 ### AppUtil lifecycle is incomplete
 

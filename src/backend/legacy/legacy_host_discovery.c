@@ -154,8 +154,10 @@ int legacy_host_discovery_start(void)
     }
 
     if (s_thread >= 0) {
-        sceKernelDeleteThread(s_thread);
-        s_thread = -1;
+        /* FINISHED is emitted just before the worker returns. Join it before
+         * replacing its UID, even if its scan state already says IDLE. */
+        int result = legacy_host_discovery_stop();
+        if (result != 0) return result;
     }
 
     clear_hosts();
@@ -173,9 +175,10 @@ int legacy_host_discovery_start(void)
     );
 
     if (s_thread < 0) {
+        int result = s_thread;
         s_status = DISCOVERY_IDLE;
         s_thread = -1;
-        return -1;
+        return result;
     }
 
     int result = sceKernelStartThread(s_thread, 0, NULL);

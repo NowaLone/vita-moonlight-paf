@@ -45,15 +45,27 @@ shutdown validation are deferred while concrete source gaps are addressed.
   beyond eight, growth/shrink/empty/error, selection, stale tokens and canonical lookup. No agent build.
 - [ ] Maintainer build/Vita validation: scroll/select a PC beyond eight in Main/Search, exercise
   Select/Clear All and Delete OK/Cancel, then return/reopen. Source simulation is not PAF proof.
-- [ ] **Next isolated change: discovery-service completion/error state** on natural scan completion
-  and failed start. Keep protocol/backend capacity changes separate.
+- [x] **Source correction: discovery lifecycle and start errors (2026-10-22).** Remove the extra
+  DiscoveryJob and stale service m_running flag: the backend already owns the native scan worker.
+  Start returns its actual result; Search's existing native dialog owns a synchronous failure,
+  without a queued duplicate HOST_SCAN_FAILED. Repeated Start while scanning is a no-op. Stop
+  always reaches backend cleanup, including after natural completion; restart joins a previous
+  worker before replacing its UID. Thread-create errors retain their exact result. Network
+  polling stays in the existing backend worker, with unchanged scan duration/capacity/protocol.
+  All 126 non-build checks pass; nine new actual-source lifecycle checks use serial kernel/network
+  mocks. Three checks fail against the previous native start code. No build or hardware run.
+- [ ] **Next priority: maintainer build/Vita smoke of the accumulated source fixes**, including
+  Search → wait for scan completion → Back → Search again, immediate Back/reopen and normal
+  discovery → connect → Apps. Runtime start-error presentation and worker cleanup remain pending.
+  Choose further narrow API work from a concrete required case; do not add more automatic
+  cancellation scenarios or endpoints merely to fill the audit.
 - Requested remote self-unpair remains **missing/blocked by upstream client protocol**; no admin
   login, host patch, fake `/unpair`, `/cancel` workaround or global identity rotation is authorized.
 - Malformed trust/XML/transport faults, custom ports, mandatory encryption, shutdown, long stress
   and the explicitly deferred 64/65-app case remain unverified. They are not missing endpoints;
   retain them as milestone/release checks or investigate when concrete runtime evidence appears.
 
-The consolidation itself changed documentation only; the dated queue, persistence and host-list follow-ups
+The consolidation itself changed documentation only; the dated queue, persistence, host-list and discovery follow-ups
 above are source changes with maintainer build/Vita validation pending. Broad T1–T10 acceptance remains open;
 dated evidence and accepted compatibility limitations remain below.
 
@@ -946,7 +958,7 @@ is not an independent TLS-handshake trace or verification of rejection/error cas
 - [x] **F8 active pairing-wait cancellation and reconnect verified on one Vita/system profile, 2026-10-20.** Launch log identifies `e7e7166ae5db`. Active getservercert → cancel requested → legacy -11/local semantic -1006/no completion event → Finish/destruction → new ConnectJob Run result=0/Finish/destruction and new PIN page. No preceding 300 s timeout occurs in this sequence; exact latency is unmeasured without timestamps. Another wrong-PIN attempt returns -1001 and releases its job, and the next explicit connection succeeds too. The subsequent empty HTTP reply (-1002) also completes/releases its job and remains accepted old-host F6, not a stuck queue. This closes the tested active-wait/reconnect regression only. A second-host log also verifies local cancellation/release, successful Connect and a real server 409 on immediate re-pair; local cancellation does not remove the pending host session. The maintainer separately confirms ordinary correct-PIN pairing opens Apps (user-reported, successful phases not in that trace). The subsequent ten-app fragment now shows pairing Run returned 0 → Paired/Loading applications → applist/Apps count=10, with job Finish/destruction; no launch revision/profile line is included. Queued cancellation, later-phase trust rollback, shutdown, stress/alternating-host and normal binary-profile cases remain pending. No agent build or hardware run.
 - [ ] Run audit tests T1–T10 with recorded Vita/package and Sunshine version/configuration. API methods with no UI caller require a backend-level test trigger; page close alone does not prove DisconnectHost ran (F5).
 
-Current independent work order: use the current API work decision at the top of this roadmap and API audit §6. The dated records above retain source/runtime evidence and accepted limits; completed normal flows are not reopened solely because the broader T1–T10 catalogue still contains untested cases. Snapshot-pressure event delivery now has a source correction with maintainer build/Vita checks pending. Next implement persistence error reporting, then the remaining host/discovery limits. Remote self-unpair stays blocked by the missing supported upstream client operation. Deferred trust/error/compatibility and shutdown/stress checks remain release work, without claiming hardware acceptance.
+Current independent work order: use the current API work decision at the top of this roadmap and API audit §6. The dated records above retain source/runtime evidence and accepted limits; completed normal flows are not reopened solely because the broader T1–T10 catalogue still contains untested cases. Snapshot-pressure delivery, persistence error reporting, host-list presentation and discovery lifecycle now have source corrections with maintainer build/Vita checks pending. Prioritize the ordinary build/Search-reopen/connect smoke before choosing another concrete API case. Remote self-unpair stays blocked by the missing supported upstream client operation. Deferred trust/error/compatibility and shutdown/stress checks remain release work, without claiming hardware acceptance.
 
 **Done when:** the API inventory is checked against source and runtime behavior, required missing client functionality is implemented, and remaining unsupported cases are explicitly documented.
 

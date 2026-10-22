@@ -683,6 +683,17 @@ Only these `_common_*` names appear in the XML and are known to resolve: `_commo
 
 ### 4.9 Events and threads **[code]**
 
+Discovery lifecycle follow-up **[code, 2026-10-22]**: Search calls Start synchronously only to
+start the backend-owned native scan worker. The extra PAF DiscoveryJob and stale service running
+flag are removed. A start failure reaches the existing constructor's native OK dialog once;
+the API does not also enqueue HOST_SCAN_FAILED for that synchronous error. HOST_SCAN_STARTED
+marks a new attempt before worker startup; repeated Start during an active scan is a no-op.
+Found/finished events still reach Search through MoonlightApp's main-thread queue. Stop always
+reaps the backend worker (also after natural completion), and restart joins any old worker before
+replacing its UID. No progress text/wait window, page navigation, scan duration or layout change.
+All 126 non-build checks pass; real Search completion → Back/reopen, immediate Back/reopen,
+single-error presentation and worker cleanup remain **[open]** for maintainer build/Vita testing.
+
 Application event delivery now separates the latest HOSTS_CHANGED/SETTINGS_CHANGED snapshots
 from a 16-slot ordered lifecycle FIFO **[code, 2026-10-21]**. Pairing/stream/closure and scan
 boundaries/errors are never coalesced. A copied pending head remains stable while the foreground

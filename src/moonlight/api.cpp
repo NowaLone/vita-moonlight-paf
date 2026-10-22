@@ -386,14 +386,12 @@ int moonlight_api_get_discovered_hosts(MoonlightHost *out, int capacity)
 
 int moonlight_api_search_hosts(void)
 {
+    if (legacy_host_discovery_is_running()) return 0;
+
+    /* Preserve attempt-before-worker event order. Start errors are synchronous:
+     * Search already displays the returned error, so do not queue it a second time. */
     emit(MOONLIGHT_EVENT_HOST_SCAN_STARTED, 0, -1, -1, NULL);
-
-    int result = legacy_host_discovery_start();
-    if (result != 0) {
-        emit(MOONLIGHT_EVENT_HOST_SCAN_FAILED, result, -1, -1, NULL);
-    }
-
-    return result;
+    return legacy_host_discovery_start();
 }
 
 int moonlight_api_stop_host_search(void)

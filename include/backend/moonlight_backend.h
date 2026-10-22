@@ -21,6 +21,9 @@ public:
 
     virtual int GetHosts(MoonlightHost *out, int capacity) = 0;
     virtual int GetDiscoveredHosts(MoonlightHost *out, int capacity) = 0;
+    /* Start/Stop are serialized lifecycle calls. SearchHosts starts a backend-owned
+     * worker without doing the network scan on the caller thread; returns start
+     * failures directly. The caller owns presentation of a synchronous failure. */
     virtual int SearchHosts() = 0;
     virtual int StopHostSearch() = 0;
     virtual int AddHost(const char *address, uint16_t port, const char *name) = 0;

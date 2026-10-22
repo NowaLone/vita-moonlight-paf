@@ -6,7 +6,7 @@ Audit date: **2026-10-18**. Local baseline: `master`,
 This continues [the preliminary audit](../ROADMAP.md#gamestream-client-api-coverage-and-follow-up-2026-10-15)
 and the findings in [REPOSITORY_ANALYSIS.md](../REPOSITORY_ANALYSIS.md). It is a **source-level audit**,
 not a new Vita/Sunshine interoperability test. The original inventory changed no runtime code or
-storage; dated source follow-ups below describe later implementation changes (latest: 2026-10-21). `PROGRESS.md` was absent. The supplied PRD was read as technical context;
+storage; dated source follow-ups below describe later implementation changes (latest: 2026-10-22). `PROGRESS.md` was absent. The supplied PRD was read as technical context;
 current source and Git state determine the findings below.
 
 **Current decision, 2026-10-21 (local edf0b58):** the required normal client flow has effective
@@ -14,9 +14,9 @@ implementations and scoped Vita evidence. Further routine stop/reconnect test va
 the next development task. See [the consolidated decision and backlog](#6-completion-and-next-work)
 for implemented paths, concrete code gaps, blocked self-unpair and deferred verification.
 Later source follow-ups isolate snapshot bursts from ordered lifecycle delivery (F5),
-propagate host metadata write failures (L8) and remove Main/Search's eight-PC presentation limit
-(A01); maintainer build/Vita validation remains pending.
-Next isolated implementation: discovery-service completion/error state.
+propagate host metadata write failures (L8), remove Main/Search's eight-PC presentation limit
+and simplify discovery lifecycle/start errors (A01); maintainer build/Vita validation remains pending.
+Next priority: maintainer build and ordinary Search/discovery/connect smoke of these source changes.
 These corrections add no protocol endpoint.
 
 ## User runtime follow-up — 2026-10-20
@@ -468,7 +468,11 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   deduplication. Main/Search now read dynamic service-sized snapshots and expose all available
   entries, including saved PCs beyond eight. Search's saved-record lookup covers all saved PCs
   by address/port; row tokens avoid pointers into vectors. Source checks pass; PAF/Vita acceptance
-  remains open. HostDiscoveryService keeps `m_running` true after natural completion until Stop.
+  remains open. The service's stale m_running cache/extra PAF start job are now removed: the
+  backend owns the native worker/state, Start returns actual errors to Search's existing native
+  dialog once, and Stop reaps workers after natural completion too. Restart joins the prior UID
+  before replacement. HOST_SCAN_STARTED marks the attempt before worker startup; found/finished
+  remain queued. Synchronous start errors do not also enqueue HOST_SCAN_FAILED.
 - **Upstream / Sunshine:** SD publishes mapped HTTP port; V discovery is a reference for client
   discovery, N/B only for presenting results.
 - **Verified / runtime:** source; T1 must verify repeated scans, >8 hosts, packet ordering and
@@ -2401,7 +2405,7 @@ proven leak or leak-free guarantee. Earlier quality/audio-warning observations r
    compilation or device proof. Existing memory mutations remain on failure; non-atomic truncating
    writes may leave partial files. Atomic replacement, rollback and power-loss durability are not
    addressed. Maintainer build/save/restart smoke and controlled storage-failure tests remain open.
-3. **Host presentation limit: source-addressed; next implementation is discovery state (A01).**
+3. **Host presentation and discovery service: source-addressed; build/Vita pending (A01).**
    Main/Search now read dynamically sized snapshots. Count/copy uses the existing service API;
    discovery's total-count return triggers a resize/retry on growth. Old cells are removed before
    vector swaps; fresh tokens in widget names resolve through page-only userdata, following
@@ -2414,9 +2418,21 @@ proven leak or leak-free guarantee. Earlier quality/audio-warning observations r
    checks pass; no build, allocator, real concurrent snapshot or PAF/Vita proof. More rows still
    consume finite Vita memory; discovery retains its 16-host backend bound. Maintainer >8-PC
    scrolling/selection/Delete/navigation acceptance is pending.
-   **Next:** DiscoveryService's m_running does not clear on natural completion and DiscoveryJob
-   ignores SearchHosts' return. Address completion/error handling separately; it is a local service
-   gap, not a missing Sunshine endpoint or a reason to change discovery capacity/protocol.
+   **Discovery lifecycle follow-up, 2026-10-22:** the backend already owns the scan worker.
+   Removing the redundant PAF DiscoveryJob and service m_running flag removes the stale natural-
+   completion cache and queued-start-after-Stop path. Lifecycle calls are serialized on the main
+   thread; network polling stays in the native worker. Search receives start errors synchronously
+   through its existing native dialog, with no second queued HOST_SCAN_FAILED. Repeated Start
+   during an active scan is a no-op. Stop also reaps naturally finished workers; restart joins the
+   old UID before replacement because FINISHED precedes thread return. CreateThread errors keep
+   their exact result. The pinned V check_host.c native-worker polling/terminal-state pattern was
+   re-read; no SDL GUI, repeated-thread array or new protocol was copied.
+   Nine new source tests cover natural completion/restart, early Stop, finish-before-return,
+   exact start errors with one caller error, cancellation/cleanup and a transient wait timeout.
+   All 126 non-build checks pass; three fail with the previous native start code. No compiler/ABI,
+   real kernel/socket/PAF or Vita proof. Existing volatile state, socket-init error coverage and
+   permanent wait-error handling remain separate concerns; the inherited Stop wait loop is not
+   given a new timing guarantee. Next: maintainer build and ordinary Search reopen/connect smoke.
 4. **Narrow error/compatibility limits (A03/A06/A23).** Some local pairing failures still classify
    as protocol errors, capabilities remain fixed and version bounds are bypassed. Address a
    concrete required case with its own source/host evidence; no speculative codec/timeout expansion.
@@ -2464,7 +2480,10 @@ TLS weakening, delayed retry or host workaround is proposed to reduce testing sc
   complete; maintainer build/Vita gate open.** No atomic-write/durability guarantee.
 - **Host presentation source gate: dynamic snapshots/token callbacks and 117 non-build checks
   complete; maintainer build/Vita gate open.** Backend discovery capacity is still 16.
-- **Next code gate: discovery-service completion/error state as one isolated change.**
+- **Discovery source gate: direct lifecycle/status, exact start errors and native reaping;
+  126 non-build checks complete; maintainer build/Vita gate open.** Network polling stays threaded.
+- **Next priority: maintainer build and Search completion/reopen → connect → Apps smoke.**
+  Further narrow API changes require a concrete case; no speculative endpoint or test expansion.
 - **Release/compatibility gate: open.** Deferred error/security/version/shutdown/stress tests,
   broader shared-state ownership and the separate build/license requirements remain pending.
 
