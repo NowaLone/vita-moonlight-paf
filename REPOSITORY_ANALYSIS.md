@@ -13,7 +13,10 @@ The 2026-10-22 API recheck identified local pairing error-provenance loss. Its s
 correction now propagates typed local/OOM/security/PIN outcomes; all 137 non-build checks pass.
 See [the source chains](docs/SUNSHINE_API_AUDIT.md#68-source-recheck-and-next-minimal-fix--2026-10-22)
 and [implementation/validation limits](docs/SUNSHINE_API_AUDIT.md#69-pairing-error-provenance-source-correction--2026-10-22).
-No endpoint or UI/storage format change; maintainer build/Vita validation remains pending.
+No endpoint or UI/storage format change. The later maintainer system 5db31a9d5274 log verifies
+typed wrong PIN, two separate re-entry/409 results with one logged dialog lifecycle each, then
+successful five-phase pairing and one Apps row on host .154. Rare local-failure/native validation
+remains separate; see [the scoped record](docs/SUNSHINE_API_AUDIT.md#610-pairing-smoke-on-5db31a9--maintainer-log-2026-10-22).
 
 ## Scope
 

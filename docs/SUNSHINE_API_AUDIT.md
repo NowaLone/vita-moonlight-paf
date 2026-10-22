@@ -29,6 +29,10 @@ below; the recheck itself changed documentation only. See [the findings and mini
 allocation, security and PIN causes through pairing and the Moonlight API. Ten new non-build
 checks plus the existing suite pass (137 total); build/Vita validation remains pending.
 See [implementation and verification limits](#69-pairing-error-provenance-source-correction--2026-10-22).
+The subsequent maintainer log identifies system build **5db31a9d5274** and verifies typed wrong-PIN
+rejection, two explicit re-entry/409 results and later successful five-phase pairing → one app.
+Each failed attempt has one logged native dialog lifecycle; rare local faults are not exercised.
+See [the scoped runtime follow-up](#610-pairing-smoke-on-5db31a9--maintainer-log-2026-10-22).
 
 **Startup regression takes priority, 2026-10-22:** the maintainer's new core shows a Main null
 write consistent with the installed PAF sized-vector constructor reading uninitialized capacity.
@@ -564,9 +568,10 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Upstream / Sunshine:** QP/V use the same handshake family; S implements phased pairing,
   expiry and failed-session removal. QP likewise uses a temporary pin before the final HTTPS phase.
 - **Verified / runtime:** normal PIN pairing and re-pair after the host-side revocation test are
-  user/log verified on 2026-10-20 through all phases and authenticated applist (4/4). T3 still needs
-  successful correct-PIN retry after a wrong PIN, delayed approval, expiry and final-challenge
-  failure. Wrong-PIN rejection and a fresh pending retry are now user/log verified. Five-minute timeout is
+  user/log verified on 2026-10-20 through all phases and authenticated applist (4/4). The 2026-10-22
+  5db31a9 log adds successful recovery on host 192.168.1.154 after wrong PIN and two intervening
+  409 attempts, followed by authenticated applist (1/1), as scoped in §6.10. Delayed approval,
+  expiry and final-challenge failure remain open. Five-minute timeout is
   a client setting, not verified responsiveness on Vita.
 
 ### A06 — Pairing errors — partial
@@ -588,7 +593,9 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   after submitting the new PIN fails at getservercert with empty HTTP response/-1002 and page exit (F6), so
   recovery fails in this tested sequence. F6 is accepted as noncritical; no workaround is planned.
   F7 single-dialog return to Search and explicit re-entry are now user/log verified on one
-  Vita (2026-10-20); the final correct-PIN recovery after host failure is not yet shown.
+  Vita (2026-10-20). The later system 5db31a9d5274 trace (§6.10) adds typed legacy=-13 → -1001,
+  two separate protocol -1003 / XML 409 errors and then successful pairing/Apps on host .154.
+  This does not supersede the older F6 .134 failure or identify the new host's Sunshine release.
   Server XML status/reason are copied into pairing-failure events; the duplicate-session reason
   and Error 409 in the native dialog are user/log verified (F7). Other server codes/messages
   remain unverified.
@@ -2519,10 +2526,12 @@ TLS weakening, delayed retry or host workaround is proposed to reduce testing sc
   complete; maintainer build/Vita gate open.** Backend discovery capacity is still 16.
 - **Discovery source gate: direct lifecycle/status, exact start errors and native reaping;
   126 non-build checks complete; maintainer build/Vita gate open.** Network polling stays threaded.
-- **Pairing error source gate: typed local/security/PIN results and 137 non-build checks complete;
-  maintainer build/Vita gate open (A06 / §6.9).** Ordinary correct-PIN → Apps and a wrong-PIN
-  native error are the immediate smoke check after the maintainer builds. Rare injected local
-  failures remain source-modeled; no new automatic streaming variant or endpoint was added.
+- **Pairing error source gate: typed local/security/PIN results and 137 non-build checks complete.**
+  The maintainer's system 5db31a9 log now verifies wrong PIN, per-attempt native dialog lifecycle,
+  XML 409 detail and subsequent five-phase pairing → Apps (§6.10). Rare local/crypto/storage faults
+  and broad A06/A22 acceptance remain source-modeled/unverified. No new streaming variant/endpoint.
+- **Next independent engineering task:** record exact toolchain/dependency revisions and a
+  reproducible setup procedure (ROADMAP §2), while retaining the remaining runtime gates.
 - **Release/compatibility gate: open.** Deferred error/security/version/shutdown/stress tests,
   broader shared-state ownership and the separate build/license requirements remain pending.
 
@@ -2707,3 +2716,35 @@ caller fragments are not a complete real handshake. No compilation/type/ABI, Ope
 execution, sockets, actual low-memory behavior, native dialog or Vita proof is established.
 Maintainer build and ordinary pairing/error smoke remain pending. Broader A06/T3/A22 security,
 transport and storage-failure cases remain partial; the accepted F6 compatibility limit is unchanged.
+
+### 6.10 Pairing smoke on 5db31a9 — maintainer log, 2026-10-22
+
+The supplied trace starts with `profile=system system_app=ON commit=5db31a9d5274`, establishing
+the intended source correction in this running package. Host is 192.168.1.154, UUID
+166F8DA0-16E7-2A25-7E83-62FF30CC202C. The exact Sunshine release is absent; do not inherit
+2026.914.233613 from the earlier run on the same address. No build transcript was supplied.
+
+1. Discovery finds two hosts. Selecting .154 saves an unpaired record, then Connect is ready.
+   Pairing reaches serverchallengeresp and reports `legacy=-13 result=-1001 server_status=0`
+   with the incorrect-PIN message. This exercises the new typed PIN branch after proof validation.
+2. Two subsequent sequences each contain a fresh `[Search] selected host`, ConnectHost ready,
+   getservercert response, then `legacy=-1 result=-1003 server_status=409`. The native-error
+   message includes the duplicate-uniqueid reason and Error 409. Each of these and the initial
+   PIN failure has exactly one logged SceCommonDialog Init/Term pair. These are separate entry
+   attempts in the trace, not multiple error windows generated within one failed attempt.
+   The log has no timestamps, so pending-session duration/expiry cause is not established.
+3. A further Search selection/Connect completes getservercert, clientchallenge,
+   serverchallengeresp, clientpairingsecret and final HTTPS pairchallenge. Authenticated
+   serverinfo returns the host MAC; metadata writes paired=true. Applist reports count=1/total=1,
+   and Apps inserts one cell with after_delete=0/after_insert=1.
+
+This verifies the logged normal pairing/error/409/re-entry-to-success regression path on this
+Vita/build/host. It does not separately establish dialog appearance or button presses, durable
+server.pem reuse after restart, precise host timing, old-host F6 recovery, changed/malformed
+certificates, local RNG/EVP/allocation faults, storage failures or streaming on this package.
+The earlier F6 accepted limitation and broader T3/T9 gates remain scoped and open.
+
+No runtime code changes are needed from this trace. This follow-up updates documentation only;
+source paths/log ordering and diff whitespace were reviewed. The prior 137 non-build checks
+belong to the source correction; they were not rerun for this record. No agent build, deployment,
+new device/host test or Sunshine change was performed.

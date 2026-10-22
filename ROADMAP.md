@@ -11,8 +11,16 @@ This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordere
   pairing success independent of persistence remain. Ten new non-build checks bring the suite to
   137 passing checks. See [scope and limits](docs/SUNSHINE_API_AUDIT.md#69-pairing-error-provenance-source-correction--2026-10-22).
   No page/protocol/storage/dependency change, agent build or hardware run.
-- [ ] Maintainer build and pairing smoke: correct PIN → Apps; wrong PIN → one native error.
-  Injected rare local failures have source coverage only; no new streaming test cycle is required.
+- [x] **Logged pairing smoke on system build 5db31a9d5274 (2026-10-22).** Host 192.168.1.154:
+  wrong PIN returns legacy=-13/result=-1001 with one logged native dialog lifecycle. Two further
+  Search selections/Connect attempts each return protocol=-1003/server_status=409 with the host
+  reason and one dialog lifecycle; a later selection completes all five phases, saves paired=true
+  and retrieves/inserts one app. This demonstrates recovery on this host, without a client retry
+  loop in the trace. Exact Sunshine release, elapsed pending-session duration and visual dialog
+  appearance are not separately supplied. Rare local/crypto/storage faults remain source-modeled.
+  See [the scoped record](docs/SUNSHINE_API_AUDIT.md#610-pairing-smoke-on-5db31a9--maintainer-log-2026-10-22).
+  No agent build/device run. Next independent work: record the toolchain/dependency revisions
+  for the reproducible-build procedure in §2; existing broader acceptance gates remain open.
 
 **API source recheck, 2026-10-22 (local c27e788):** reviewed the remaining partial entries against
 current API/stream/legacy/adapter/services and newly resolved Sunshine, Moonlight Qt/common-c,
