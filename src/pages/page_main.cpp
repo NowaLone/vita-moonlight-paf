@@ -526,7 +526,10 @@ void Main::RefreshHosts()
         HideStatus();
         return;
     }
-    paf::vector<HostRowState> rows(hosts.size());
+    /* The installed PAF count constructor reads _capacity before initialization.
+     * Start empty so resize computes growth from an initialized capacity. */
+    paf::vector<HostRowState> rows;
+    rows.resize(hosts.size());
     for (int i = 0; i < (int)hosts.size(); ++i) {
         /* Fresh tokens reject callbacks from cells destroyed by this refresh. */
         if (++m_next_host_token == 0) ++m_next_host_token;

@@ -163,6 +163,9 @@ recipes for common UI changes live in [`docs/UI.md`](docs/UI.md). Read it before
   backing data, reject obsolete tokens and preserve Main deletion selection by host identity.
   Search resolves a selection against the full saved list by address/port, not display name.
   Source checks pass; >8-PC PAF scrolling/selection still needs maintainer build/Vita validation.
+- Default-construct PAF vectors and then resize; do not use the installed SDK's sized vector
+  constructor for row storage. It reads _capacity before initialization and caused the Main
+  startup null-write regression. See docs/MAIN_STARTUP_CRASH.md; device retest remains pending.
 - In a `style_plane`, the style `color` and its `planeobj` `color` multiply, alpha included: keep the style at `1, 1, 1, 1` and put the real value in the `planeobj`.
 - The PAF coordinate system is center-origin on a 960×544 screen: `(0,0)` is screen center and positive Y points upward. Anchor/align values, `adjust`, the visible-edge inset of buttons and the speech-balloon placement rule are in `docs/UI.md` sections 2 and 5.4.
 - Saved-host Delete uses `SceMessageDialog` for confirmation and removes the selected persistent records through the HostService → backend → legacy device store path.

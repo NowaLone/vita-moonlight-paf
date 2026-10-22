@@ -19,6 +19,13 @@ and simplify discovery lifecycle/start errors (A01); maintainer build/Vita valid
 Next priority: maintainer build and ordinary Search/discovery/connect smoke of these source changes.
 These corrections add no protocol endpoint.
 
+**Startup regression takes priority, 2026-10-22:** the maintainer's new core shows a Main null
+write consistent with the installed PAF sized-vector constructor reading uninitialized capacity.
+That constructor was introduced for row state in `02541bc`. Main now constructs empty then
+resizes; the test normalizer that hid this SDK behavior is removed. All 127 non-build checks pass,
+but rebuild/cold-start acceptance is pending. See [dump/source evidence](MAIN_STARTUP_CRASH.md).
+Do not treat earlier passing host-list source checks as device/allocator validation.
+
 ## User runtime follow-up — 2026-10-20
 
 After the changes through source HEAD `22ff3ae`, the maintainer replied “всё ок” to the

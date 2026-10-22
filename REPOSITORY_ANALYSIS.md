@@ -127,6 +127,14 @@ all 117 non-build Python checks pass. Maintainer build/PAF scrolling/selection/n
 pending. This does not remove discovery's 16-host backend bound or establish atomic/concurrent
 host-store snapshots. DiscoveryService's natural-completion/error state remained the next gap.
 
+**Main startup regression, 2026-10-22:** the new row-vector sized constructor in `02541bc`
+exposed an installed PAF SDK defect: growth reads uninitialized capacity before allocation/fill.
+The supplied core has one requested row, erroneous growth and a null-write register footprint;
+local system VELF segments corroborate the symbol mapping. Main now default-constructs then
+resizes; the earlier host-list mock no longer silently converts sized construction into ideal
+allocation. All 127 non-build checks pass, with hardware cold-start acceptance still pending.
+See [the evidence and mapping limits](docs/MAIN_STARTUP_CRASH.md). InitialRefreshTask is unchanged.
+
 **Discovery source follow-up, 2026-10-22:** the backend already owns a native 10-second scan
 worker, so the service's second queued DiscoveryJob and unrelated m_running cache are removed.
 Lifecycle calls delegate directly; no network polling is moved onto PAF. Start errors now reach

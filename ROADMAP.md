@@ -4,6 +4,14 @@ This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordere
 
 ## Current API work decision (2026-10-21)
 
+**Priority regression, 2026-10-22:** the supplied Main-startup core localizes a null write to
+the dynamic row-vector count constructor introduced in `02541bc`. The installed PAF constructor
+reads its capacity before initialization; one requested row becomes a roughly 495 MiB allocation.
+Main now uses empty construction then resize, leaving InitialRefreshTask unchanged. All 127
+non-build checks pass; the earlier vector mock hid this SDK defect and has been corrected.
+See [dump/source evidence](docs/MAIN_STARTUP_CRASH.md). **Maintainer rebuild/cold-start acceptance
+is the immediate priority**; do not claim the hardware crash fixed before that result.
+
 The [consolidated API decision](docs/SUNSHINE_API_AUDIT.md#6-completion-and-next-work)
 supersedes older chronological "next test" instructions below. The normal client path is
 implemented with scoped Vita evidence; inventory completion is separate from full release/

@@ -29,6 +29,13 @@ action-bar exit are modeled; C++ template/member syntax is normalized for the se
 All 117 Python checks pass. No compiler/ABI, allocator, real threading/snapshot consistency, PAF
 scrolling/focus, native dialogs or Vita run is established. Backend discovery still holds at most 16.
 
+Main startup crash follow-up (2026-10-22): the original host-list normalizer replaced the actual
+PAF sized vector constructor with idealized allocation, hiding its uninitialized-capacity defect.
+That translation is removed; the tests model the corrected empty-construction/resize path and
+reject reintroducing the unsafe row count constructor. All 127 checks pass. Allocation remains
+mocked: this is not a test of the installed C++ SDK or PAF malloc. Dump/disassembly evidence and
+the required maintainer cold-start retest are in [MAIN_STARTUP_CRASH.md](../docs/MAIN_STARTUP_CRASH.md).
+
 `test_discovery_lifecycle.py` interprets the actual service Start/Stop, API bridge, native scan
 worker/start/stop/shutdown and Search's immediate error branch. Nine checks model duplicate Start,
 natural completion/restart, FINISHED before thread return, exact create/start errors with one

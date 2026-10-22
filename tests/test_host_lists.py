@@ -16,6 +16,10 @@ class ContinueLoop(Exception):
     pass
 
 
+class RowVector(list):
+    """Value-initialized row storage, distinct from the host snapshot buffer."""
+
+
 def host(number, **fields):
     entry = dict(host_id=f'uuid-{number}\0', mac='\0', name='Same name\0',
                  internal=f'192.0.2.{number}\0', external='\0', port=47989)
@@ -39,12 +43,14 @@ def normalize(source):
     source = source.replace('service.GetHosts(', 'get_hosts(service, ')
     source = re.sub(r'paf::ui::ListView \*list = static_cast<paf::ui::ListView \*>\(\s*'
                     r'root->FindChild\("list_view_main"\)\)', 'int list = get_list()', source)
-    source = re.sub(r'paf::vector<HostRowState> rows\(hosts.size\(\)\);',
-                    'Vector rows = make_rows(vec_size(hosts));', source)
+    # Do not turn the SDK's unsafe count constructor into an idealized allocation.
+    # Empty construction + resize is the production path; sized construction must fail parsing.
+    source = source.replace('paf::vector<HostRowState> rows;', 'Vector rows = make_rows();')
     source = re.sub(r'paf::vector<\w+> (\w+);', r'Vector \1 = make_vector();', source)
     source = re.sub(r'(?:list|m_list)->GetCellNum\(0\)', 'get_cells()', source)
     source = re.sub(r'(?:list|m_list)->(DeleteCell|InsertCell)\(', r'\1(', source)
     source = source.replace('list->GetCellNum(0)', 'get_cells()')
+    source = re.sub(r'(\w+)\.size\(\)', r'vec_size(\1)', source)
     source = re.sub(r'(\w+)\.(size|data|resize|clear|swap)\(([^)]*)\)',
                     lambda m: f'vec_{m[2]}({m[1]}' + (', ' + m[3] if m[3] else '') + ')', source)
     return source
@@ -88,8 +94,7 @@ class HostLists(unittest.TestCase):
                            m_next_host_token=0, m_selection_mode=0, m_selected_count=0,
                            NULL=0, true=1, false=0,
                            get_app=lambda: 1, get_list=lambda: 1,
-                           make_vector=lambda: [], make_rows=lambda n: [
-                               dict(token=0, checkbox_token=0, selected=False, checkbox=0) for _ in range(n)],
+                           make_vector=lambda: [], make_rows=RowVector,
                            vec_size=len, vec_data=lambda x: x,
                            vec_resize=self.resize, vec_clear=lambda x: x.clear(), vec_swap=self.swap,
                            get_hosts=lambda service, out, capacity: self.getter(service, out, capacity),
@@ -109,7 +114,9 @@ class HostLists(unittest.TestCase):
 
     def resize(self, vector, count):
         vector[count:] = []
-        vector.extend([None] * (count - len(vector)))
+        for _ in range(count - len(vector)):
+            vector.append(dict(token=0, checkbox_token=0, selected=False, checkbox=0)
+                          if isinstance(vector, RowVector) else None)
 
     def swap(self, left, right):
         left[:], right[:] = right[:], left[:]
@@ -298,6 +305,14 @@ class HostLists(unittest.TestCase):
         self.assertIn('checkbox->SetName(m_rows[param.cell_index].checkbox_token)', self.main)
         self.assertIn('FindHostIndex(checkbox->GetName().GetIDHash())', self.main)
         self.assertNotIn('kMaxHosts', self.search)
+
+    def test_unsafe_paf_count_constructor_is_not_hidden_by_the_test_normalizer(self):
+        unsafe = 'paf::vector<HostRowState> rows(hosts.size());'
+        normalized = normalize(unsafe)
+        self.assertIn('paf::vector<HostRowState>', normalized)
+        # The old normalizer silently modeled this as safe allocation and missed the crash.
+        self.assertNotIn('make_rows', normalized)
+        self.assertNotRegex(self.main, r'paf::vector<HostRowState>\s+rows\s*\(')
 
 
 if __name__ == '__main__':

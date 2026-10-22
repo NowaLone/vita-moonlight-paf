@@ -620,6 +620,11 @@ Only these `_common_*` names appear in the XML and are known to resolve: `_commo
 
 ### 4.7 Lists (`paf::ui::ListView`) **[code]** unless tagged
 
+- **Main startup regression, 2026-10-22:** use an empty PAF vector followed by resize for row
+  storage. The installed ScePaf-RE sized constructor computes growth from an uninitialized
+  capacity; the new count constructor in Main caused a null write consistent with the supplied
+  core. It is replaced by empty construction/resize **[code; Vita retest open]**. InitialRefreshTask,
+  list timing and CXML are unchanged. [Evidence and test-model limitation](MAIN_STARTUP_CRASH.md).
 - Setup per page: `SetItemFactory(new ListViewFactory(this))`, `InsertSegment(0, 1)`, `SetCellSizeDefault(0, {960, 80})`,
   `SetSegmentLayoutType(0, LAYOUT_TYPE_LIST)`. The factory opens a template into `param.parent` and takes the last child
   as the item.
