@@ -63,6 +63,23 @@ construction into safe allocation. A regression guard rejects reintroducing the 
 constructor. All **127 non-build Python checks pass**. These still model allocation/widgets;
 they do not compile C++, execute PAF malloc or prove startup on Vita.
 
-Maintainer rebuild/install and cold-start with the existing saved PC are required next.
-Verify Main appears, then ordinary Search/selection/Apps return. Mark device startup fixed
-only after that result; no hardware success is claimed here.
+At the source-correction stage, maintainer rebuild/install and startup acceptance were pending.
+The following dated result supersedes that absence of runtime evidence, within its stated scope.
+
+## Maintainer runtime follow-up — 2026-10-22
+
+The supplied psp2shell log identifies system profile, system_app=ON and build `6af2e3639c69`.
+After Settings closes it reports Main `hosts=1`, cells before=1, after_delete=0, after_insert=1,
+selection=0. Two mDNS initialization/callback cycles each discover two PCs and then clear the
+callback. Search resolves the selected entry to the one saved UUID record, metadata closes
+successfully, ConnectHost reports ready, and Apps inserts all four returned applications.
+
+This is device-log evidence that the corrected row allocation/one-host Main refresh and the
+ordinary Search → paired Connect → Apps path run without the previous crash in this attempt.
+It is stronger than the earlier source-only checks, but does not measure allocator behavior or
+prove every startup. The launch marker is repeated verbatim; do not count it as two independent
+successful launches. Main's captured refresh follows Settings closure, so initial cold-start
+timing/visibility is not separately established. Callback clearing alone does not distinguish
+natural scan timeout from explicit Stop. No >8-PC display, Delete/selection, stream start/stop,
+forced storage/start errors, firmware-wide or repeated cold-start acceptance is supplied here.
+No runtime code changes, agent build or agent hardware run accompany this evidence record.

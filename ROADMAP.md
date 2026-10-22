@@ -9,8 +9,11 @@ the dynamic row-vector count constructor introduced in `02541bc`. The installed 
 reads its capacity before initialization; one requested row becomes a roughly 495 MiB allocation.
 Main now uses empty construction then resize, leaving InitialRefreshTask unchanged. All 127
 non-build checks pass; the earlier vector mock hid this SDK defect and has been corrected.
-See [dump/source evidence](docs/MAIN_STARTUP_CRASH.md). **Maintainer rebuild/cold-start acceptance
-is the immediate priority**; do not claim the hardware crash fixed before that result.
+See [dump/source evidence](docs/MAIN_STARTUP_CRASH.md). The subsequent system-profile log identifies
+`6af2e3639c69`: Main rebuilds one PC (after_delete=0/after_insert=1), two discovery cycles find two
+PCs, paired Connect is ready and four Apps cells are inserted. The previous crash does not recur
+in this logged path. Initial cold-start visibility/timing, natural timeout vs explicit Stop and
+>8-PC/selection/stream acceptance are not established by that fragment; keep those scopes separate.
 
 The [consolidated API decision](docs/SUNSHINE_API_AUDIT.md#6-completion-and-next-work)
 supersedes older chronological "next test" instructions below. The normal client path is
@@ -67,6 +70,9 @@ shutdown validation are deferred while concrete source gaps are addressed.
   discovery → connect → Apps. Runtime start-error presentation and worker cleanup remain pending.
   Choose further narrow API work from a concrete required case; do not add more automatic
   cancellation scenarios or endpoints merely to fill the audit.
+  Runtime follow-up: system build `6af2e3639c69` reaches one-PC Main, two discovery cycles,
+  paired Connect and four Apps. This covers that ordinary path; the fragment does not distinguish
+  natural timeout/immediate Back or include stream/error cases, so this broader gate stays open.
 - Requested remote self-unpair remains **missing/blocked by upstream client protocol**; no admin
   login, host patch, fake `/unpair`, `/cancel` workaround or global identity rotation is authorized.
 - Malformed trust/XML/transport faults, custom ports, mandatory encryption, shutdown, long stress

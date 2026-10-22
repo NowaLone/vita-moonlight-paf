@@ -623,8 +623,12 @@ Only these `_common_*` names appear in the XML and are known to resolve: `_commo
 - **Main startup regression, 2026-10-22:** use an empty PAF vector followed by resize for row
   storage. The installed ScePaf-RE sized constructor computes growth from an uninitialized
   capacity; the new count constructor in Main caused a null write consistent with the supplied
-  core. It is replaced by empty construction/resize **[code; Vita retest open]**. InitialRefreshTask,
-  list timing and CXML are unchanged. [Evidence and test-model limitation](MAIN_STARTUP_CRASH.md).
+  core. It is replaced by empty construction/resize **[code]**. The maintainer's `6af2e3639c69`
+  system-profile log reaches a one-PC Main refresh (after_delete=0/after_insert=1), two discovery
+  cycles and four Apps cells without that crash **[hw, log; scoped]**. The captured Main refresh
+  follows Settings; cold-start visibility/timing and >8-PC/selection remain **[open]**.
+  InitialRefreshTask, list timing and CXML are unchanged.
+  [Evidence and test-model limitation](MAIN_STARTUP_CRASH.md).
 - Setup per page: `SetItemFactory(new ListViewFactory(this))`, `InsertSegment(0, 1)`, `SetCellSizeDefault(0, {960, 80})`,
   `SetSegmentLayoutType(0, LAYOUT_TYPE_LIST)`. The factory opens a template into `param.parent` and takes the last child
   as the item.

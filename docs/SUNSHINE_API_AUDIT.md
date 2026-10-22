@@ -15,15 +15,18 @@ the next development task. See [the consolidated decision and backlog](#6-comple
 for implemented paths, concrete code gaps, blocked self-unpair and deferred verification.
 Later source follow-ups isolate snapshot bursts from ordered lifecycle delivery (F5),
 propagate host metadata write failures (L8), remove Main/Search's eight-PC presentation limit
-and simplify discovery lifecycle/start errors (A01); maintainer build/Vita validation remains pending.
-Next priority: maintainer build and ordinary Search/discovery/connect smoke of these source changes.
+and simplify discovery lifecycle/start errors (A01); broader Vita validation remains pending.
+The scoped 6af2e36 Search/connect/Apps runtime result below does not close all remaining cases.
 These corrections add no protocol endpoint.
 
 **Startup regression takes priority, 2026-10-22:** the maintainer's new core shows a Main null
 write consistent with the installed PAF sized-vector constructor reading uninitialized capacity.
 That constructor was introduced for row state in `02541bc`. Main now constructs empty then
-resizes; the test normalizer that hid this SDK behavior is removed. All 127 non-build checks pass,
-but rebuild/cold-start acceptance is pending. See [dump/source evidence](MAIN_STARTUP_CRASH.md).
+resizes; the test normalizer that hid this SDK behavior is removed. All 127 non-build checks pass.
+See [dump/source evidence](MAIN_STARTUP_CRASH.md). A later maintainer system-profile log identifies
+`6af2e3639c69` and reaches one-PC Main refresh, two discovery cycles, paired Connect and four
+Apps cells without the previous crash. Initial cold-start timing, natural timeout vs explicit
+Stop, >8 hosts and stream/error paths are not separately verified by it.
 Do not treat earlier passing host-list source checks as device/allocator validation.
 
 ## User runtime follow-up — 2026-10-20
