@@ -27,17 +27,16 @@ def write_png(path, width, height, alpha):
                      chunk(b'IDAT', zlib.compress(pixels, 9)) + chunk(b'IEND', b''))
 
 
-def hill(x, y):
+def light_bar(x, y):
+    # DS4 reference: almost straight top, rounded ends and a deeper lower center.
     x = abs(x + 0.5 - 100)
-    bottom_y = 36 - y - 0.5
-    if x >= 78:
-        distance = math.hypot(x - 78, bottom_y)
-        return 0.55 * math.exp(-distance * distance / 18)
-    cap = 16 * (1 - (x / 78) ** 2) ** 0.6
-    distance = bottom_y - cap
-    if distance <= 0:
-        return 0.58 + 0.28 * math.exp(-distance * distance / 2)
-    return 0.55 * math.exp(-distance * distance / 18)
+    top = 6
+    bottom = 32 - 14 * (min(x / 82, 1) ** 1.6)
+    # Rounded box distance with the lower edge following the lens taper.
+    dx = x - 77
+    dy = abs(y + 0.5 - (top + bottom) / 2) - (bottom - top) / 2 + 5
+    distance = math.hypot(max(dx, 0), max(dy, 0)) + min(max(dx, dy), 0) - 5
+    return 0.70 * (0.5 - 0.5 * math.tanh(distance / 0.65)) + 0.16 * math.exp(-distance * distance / 4.5)
 
 
 def edge(x, y):
@@ -48,7 +47,7 @@ def edge(x, y):
 
 
 def main():
-    write_png(TEXTURES / 'controller_light_ds4.png', 200, 36, hill)
+    write_png(TEXTURES / 'controller_light_ds4.png', 200, 36, light_bar)
     write_png(TEXTURES / 'controller_light_left.png', 16, 128, edge)
     write_png(TEXTURES / 'controller_light_right.png', 16, 128,
               lambda x, y: edge(15 - x, y))

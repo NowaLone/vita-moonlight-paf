@@ -799,7 +799,10 @@ statistics, touch/controller input and infobar behavior are unchanged.
 Appearance is project artwork, **not measured Sony UI or hardware-verified geometry**:
 
 - Like DualShock 4: a **200 x 36 px [code]** white/alpha mask anchored at bottom center. Its
-  curved cap is **16 px [code]** high at the center with a soft outer halo. Host RGB tints it.
+  light-bar lens has an almost straight top, rounded ends and a deeper curved lower center,
+  with a soft halo. Host RGB tints it. The silhouette follows the maintainer's DS4 photo:
+  blue lens bounds **x=348..833, y=493..571 [shot]**, about **6.2:1 [shot]** width/height;
+  the source lens spans approximately **164 x 26 px [code]** inside the existing plane.
 - Like DualSense: two **24 x 448 px [code]** planes flush to the left/right edges, vertically
   centered. Mirrored **16 x 128 px [code]** alpha masks fade inward and toward both ends.
 - All three planes appear after video and before statistics in CXML. Both style and planeobj
@@ -816,6 +819,15 @@ reproducible alpha assets. A software composition preview checks source artwork 
 compilation, real callback ordering, PAF alpha/tint, AppSettings persistence and both modes over
 video (including stop/restart, paused frames, crop/fit, statistics and Quick Actions) remain
 **[open]** for the maintainer's build/Vita validation. No agent build or device run.
+
+**Maintainer follow-up, 2026-10-22:** the user reports both modes work **[hw, user-reported]**
+and supplies `2026-10-22-154233.jpg` showing the prior orange DS4 cap over a running stream
+**[shot]**. This establishes the reported basic RGB/display path, not the entire lifetime,
+settings-persistence or performance matrix above. The DS4-only source mask is now reshaped to
+match the supplied real light-bar photo (`codex-clipboard-7de963d3-463a-4830-a94e-38bdd7a2016e.png`);
+its plane size/anchor and DualSense assets are unchanged. Software preview and existing mask
+checks verify source artwork; the revised shape still needs maintainer RCO rebuild/Vita viewing
+**[open]**. No agent build or device run.
 
 ## 5. Components and their measured look
 

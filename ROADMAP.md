@@ -11,7 +11,10 @@ or blocked self-unpair; they do not make the inventory unfinished. The next inde
 is exact toolchain/dependency revisions and a reproducible setup procedure (§2).
 
 The independent bff5712 controller-RGB feature is source-implemented and documented in UI §4.10;
-Off/DS4/DualSense overlays use existing host feedback. Its Vita/build acceptance remains open.
+Off/DS4/DualSense overlays use existing host feedback. On 2026-10-22 the maintainer reports both
+modes work and supplies the DS4 in-stream screenshot. Basic RGB/display is user-verified;
+broader lifetime/persistence/performance gates remain open. The requested DS4 light-bar shape
+revision is source-only and still needs maintainer RCO rebuild/Vita viewing; see UI §4.10.
 The current committed-source gate is 147 non-build checks; older counts below belong to their stages.
 
 - [x] **Pairing error provenance source correction (2026-10-22).** Local RNG/crypto and parser/
