@@ -4,7 +4,14 @@ Non-build checks (Python 3 and pycparser):
 
     PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_*.py'
 
-The pairing check interprets the actual verification expression with mocked EVP results.
+The pairing check interprets the actual verification helper with mocked EVP results (-1/0/1/2
+at Init/Update/Final, 64 combinations); only success at all three stages may accept a proof.
+`test_pairing_errors.py` adds ten source checks for typed local/OOM/security/PIN classification,
+RNG/AES/RSA/certificate/parser/HTTP failure propagation, cleanup and final XML-response pin
+rollback, server error payload/409, cancellation without a failure event and response-error reset.
+The actual helpers and selected caller guards/API completion fragment are interpreted; pointer,
+buffer, allocation, crypto, curl, XML and mutex behavior is modeled. This is not a complete
+handshake or actual library/ABI/native-dialog/device validation. All 137 Python checks pass.
 The server-trust checks interpret the actual X509 comparison expression with mocked comparison
 results and check enrollment/rollback ordering. They do not execute OpenSSL, TLS or file I/O.
 C grammar checks are not compilation or type checking.

@@ -1,14 +1,13 @@
-"""Non-build checks of the actual pairing verification expression (requires pycparser).
+"""Non-build checks of the actual pairing verification helper (requires pycparser).
 
 These exercise return-code logic with mocked EVP results, not OpenSSL or Vita runtime.
 Run: python3 -m unittest discover -s tests -p 'test_*.py'
 """
 from pathlib import Path
 import itertools
-import re
 import unittest
 
-from pycparser import c_ast, c_parser
+from pycparser import c_ast
 
 
 SOURCE = (Path(__file__).resolve().parents[1] /
@@ -33,21 +32,18 @@ def evaluate(node, results):
 
 class PairingVerification(unittest.TestCase):
     def test_only_successful_evp_results_accept_proof(self):
-        body = SOURCE.split('static bool verify_signature(', 1)[1]
-        body = body.split('static int encrypt_ecb(', 1)[0]
-        expression = re.search(r'\bresult\s*=\s*(.*?);', body, re.S).group(1)
-        unit = c_parser.CParser().parse(
-            'int check(void) { int result; result = ' + expression + '; }')
-        node = unit.ext[0].body.block_items[1].rvalue
-        names = ['EVP_DigestVerifyInit', 'EVP_DigestVerifyUpdate', 'EVP_DigestVerifyFinal']
-        for values in itertools.product((-1, 0, 1), repeat=3):
+        from test_pairing_errors import Harness
+        for values in itertools.product((-1, 0, 1, 2), repeat=3):
             with self.subTest(results=values):
-                self.assertEqual(evaluate(node, dict(zip(names, values))),
-                                 int(values == (1, 1, 1)))
+                harness = Harness()
+                for name, result in zip(('EVP_DigestVerifyInit', 'EVP_DigestVerifyUpdate', 'EVP_DigestVerifyFinal'), values):
+                    harness.values[name] = lambda *args, result=result: result
+                accepted = harness.invoke('verify_signature', 1, 16, 2, 256, 'PEM') == harness.code('OK')
+                self.assertEqual(accepted, values == (1, 1, 1))
 
     def test_authenticate_before_wrong_pin_classification(self):
         body = SOURCE.split('static int pair(', 1)[1]
-        self.assertLess(body.index('if (!verify_signature('),
+        self.assertLess(body.index('step_result = verify_signature('),
                         body.index('memcmp(challenge_response, expected_response_hash'))
 
 

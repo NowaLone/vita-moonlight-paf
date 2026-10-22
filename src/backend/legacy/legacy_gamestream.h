@@ -20,6 +20,9 @@ extern "C" {
 #define LEGACY_GAMESTREAM_NOT_PAIRED -9
 #define LEGACY_GAMESTREAM_SECURITY_ERROR -10
 #define LEGACY_GAMESTREAM_CANCELLED -11
+/* Local execution failure and authenticated PIN mismatch, never inferred from log text. */
+#define LEGACY_GAMESTREAM_INTERNAL_ERROR -12
+#define LEGACY_GAMESTREAM_INCORRECT_PIN -13
 
 typedef struct LegacyGameStreamServer {
     char address[256];

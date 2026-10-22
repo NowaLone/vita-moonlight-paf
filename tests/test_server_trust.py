@@ -39,7 +39,7 @@ class ServerTrust(unittest.TestCase):
 
     def test_pairing_pin_is_temporary_until_https_challenge_succeeds(self):
         pair = SOURCE.split('static int pair(', 1)[1].split('typedef struct InitArgs', 1)[0]
-        self.assertLess(pair.index('if (!verify_signature('), pair.index('server->server_certificate = candidate'))
+        self.assertLess(pair.index('step_result = verify_signature('), pair.index('server->server_certificate = candidate'))
         self.assertLess(pair.index('memcmp(challenge_response, expected_response_hash'),
                         pair.index('server->server_certificate = candidate'))
         self.assertLess(pair.index('GameStream rejected HTTPS pairing challenge'),

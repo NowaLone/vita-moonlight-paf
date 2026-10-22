@@ -122,6 +122,7 @@ static int run_on_worker(int (*function)(void *), void *argument)
 typedef struct HttpBuffer {
     char *memory;
     size_t size;
+    bool allocation_failed;
 } HttpBuffer;
 
 typedef struct XmlFindContext {
@@ -576,6 +577,7 @@ static size_t http_write_callback(void *contents, size_t size, size_t count, voi
     char *new_memory = (char *)realloc(buffer->memory, buffer->size + length + 1);
 
     if (!new_memory) {
+        buffer->allocation_failed = true;
         return 0;
     }
 
@@ -591,6 +593,7 @@ static void http_buffer_init(HttpBuffer *buffer)
 {
     buffer->memory = (char *)malloc(1);
     buffer->size = 0;
+    buffer->allocation_failed = !buffer->memory;
 
     if (buffer->memory) {
         buffer->memory[0] = '\0';
@@ -602,6 +605,7 @@ static void http_buffer_free(HttpBuffer *buffer)
     free(buffer->memory);
     buffer->memory = NULL;
     buffer->size = 0;
+    buffer->allocation_failed = false;
 }
 
 static int verify_pinned_certificate(X509_STORE_CTX *context, void *expected)
@@ -735,6 +739,7 @@ static int http_request(
     http_buffer_init(response);
 
     if (!response->memory) {
+        set_error("Unable to allocate GameStream response");
         pthread_mutex_unlock(&s_http_mutex);
         return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
     }
@@ -752,7 +757,7 @@ static int http_request(
         curl_easy_setopt((CURL *)server->curl, CURLOPT_XFERINFOFUNCTION, NULL);
         set_error("Unable to configure cancellable GameStream transfer");
         pthread_mutex_unlock(&s_http_mutex);
-        return LEGACY_GAMESTREAM_FAILED;
+        return LEGACY_GAMESTREAM_INTERNAL_ERROR;
     }
 #ifdef MOONLIGHT_HTTP_DISCONNECT_TEST
     MoonlightHttpTestTransfer http_test;
@@ -783,6 +788,10 @@ static int http_request(
         return LEGACY_GAMESTREAM_CANCELLED;
     }
     if (curl_result != CURLE_OK) {
+        if (response->allocation_failed || curl_result == CURLE_OUT_OF_MEMORY) {
+            set_error("Unable to allocate GameStream response");
+            return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
+        }
         set_error(curl_easy_strerror(curl_result));
         if (curl_result == CURLE_PEER_FAILED_VERIFICATION)
             return LEGACY_GAMESTREAM_SECURITY_ERROR;
@@ -902,6 +911,7 @@ static int xml_find_value(
 
     parser = XML_ParserCreate("UTF-8");
     if (!parser) {
+        set_error("Unable to allocate GameStream XML parser");
         return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
     }
 
@@ -956,6 +966,7 @@ static int xml_status_ok(const char *data, size_t length, LegacyGameStreamPairin
 
     parser = XML_ParserCreate("UTF-8");
     if (!parser) {
+        set_error("Unable to allocate GameStream XML parser");
         return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
     }
 
@@ -1135,6 +1146,40 @@ static int load_server_status(LegacyGameStreamServer *server)
     return result;
 }
 
+/* Keep parser allocation failures distinct from host rejection/malformed data. */
+static int read_pairing_response(const HttpBuffer *response, LegacyGameStreamPairingError *error,
+                                 const char *field, char *output, size_t output_size)
+{
+    char paired[8];
+    int result = xml_status_ok(response->memory, response->size, error);
+    if (result != LEGACY_GAMESTREAM_OK) return result;
+    result = xml_find_value(response->memory, response->size, "paired", paired, sizeof(paired));
+    if (result != LEGACY_GAMESTREAM_OK) return result;
+    if (strcmp(paired, "1") != 0) return LEGACY_GAMESTREAM_FAILED;
+    if (!field) return LEGACY_GAMESTREAM_OK;
+    return xml_find_value(response->memory, response->size, field, output, output_size);
+}
+
+static int read_pairing_certificate(const char *pem, X509 **certificate)
+{
+    *certificate = NULL;
+    BIO *bio = BIO_new(BIO_s_mem());
+    if (!bio) return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
+    size_t length = strlen(pem);
+    if (BIO_write(bio, pem, (int)length) != (int)length) {
+        BIO_free(bio);
+        return LEGACY_GAMESTREAM_INTERNAL_ERROR;
+    }
+    ERR_clear_error();
+    *certificate = PEM_read_bio_X509(bio, NULL, NULL, NULL);
+    BIO_free(bio);
+    if (!*certificate) {
+        return ERR_GET_REASON(ERR_peek_last_error()) == ERR_R_MALLOC_FAILURE
+            ? LEGACY_GAMESTREAM_OUT_OF_MEMORY : LEGACY_GAMESTREAM_SECURITY_ERROR;
+    }
+    return LEGACY_GAMESTREAM_OK;
+}
+
 static int rsa_sign(
     const unsigned char *message,
     size_t message_length,
@@ -1149,7 +1194,7 @@ static int rsa_sign(
 
     context = EVP_MD_CTX_create();
     if (!context) {
-        return LEGACY_GAMESTREAM_FAILED;
+        return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
     }
 
     if (EVP_DigestSignInit(context, NULL, EVP_sha256(), NULL, s_private_key) != 1 ||
@@ -1157,7 +1202,7 @@ static int rsa_sign(
         EVP_DigestSignFinal(context, NULL, &required_length) != 1 ||
         required_length == 0) {
         EVP_MD_CTX_destroy(context);
-        return LEGACY_GAMESTREAM_FAILED;
+        return LEGACY_GAMESTREAM_INTERNAL_ERROR;
     }
 
     *signature = (unsigned char *)OPENSSL_malloc(required_length);
@@ -1173,103 +1218,91 @@ static int rsa_sign(
         *signature = NULL;
         *signature_length = 0;
         EVP_MD_CTX_destroy(context);
-        return LEGACY_GAMESTREAM_FAILED;
+        return LEGACY_GAMESTREAM_INTERNAL_ERROR;
     }
 
     EVP_MD_CTX_destroy(context);
     return LEGACY_GAMESTREAM_OK;
 }
 
-static bool get_certificate_signature(
+static int get_certificate_signature(
     const char *certificate_pem,
     unsigned char *signature,
     size_t signature_capacity,
     size_t *signature_length)
 {
-    BIO *bio;
     X509 *certificate;
     ASN1_BIT_STRING *certificate_signature;
 
     if (!certificate_pem || !signature || !signature_length) {
-        return false;
+        return LEGACY_GAMESTREAM_INTERNAL_ERROR;
     }
 
     *signature_length = 0;
 
-    bio = BIO_new(BIO_s_mem());
-    if (!bio) {
-        return false;
-    }
-
-    BIO_write(bio, certificate_pem, (int)strlen(certificate_pem));
-    certificate = PEM_read_bio_X509(bio, NULL, NULL, NULL);
-    BIO_free(bio);
-
-    if (!certificate) {
-        return false;
-    }
+    int result = read_pairing_certificate(certificate_pem, &certificate);
+    if (result != LEGACY_GAMESTREAM_OK) return result;
 
     X509_get0_signature(&certificate_signature, NULL, certificate);
     if (!certificate_signature ||
         certificate_signature->length == 0 ||
         (size_t)certificate_signature->length > signature_capacity) {
         X509_free(certificate);
-        return false;
+        return LEGACY_GAMESTREAM_SECURITY_ERROR;
     }
 
     memcpy(signature, certificate_signature->data, certificate_signature->length);
     *signature_length = (size_t)certificate_signature->length;
 
     X509_free(certificate);
-    return true;
+    return LEGACY_GAMESTREAM_OK;
 }
 
-static bool verify_signature(
+static int verify_signature(
     const unsigned char *data,
     size_t data_length,
     const unsigned char *signature,
     size_t signature_length,
     const char *certificate_pem)
 {
-    BIO *bio;
     X509 *certificate;
     EVP_PKEY *public_key;
     EVP_MD_CTX *context;
     int result;
 
-    bio = BIO_new(BIO_s_mem());
-    if (!bio) {
-        return false;
-    }
+    result = read_pairing_certificate(certificate_pem, &certificate);
+    if (result != LEGACY_GAMESTREAM_OK) return result;
 
-    BIO_write(bio, certificate_pem, (int)strlen(certificate_pem));
-    certificate = PEM_read_bio_X509(bio, NULL, NULL, NULL);
-    BIO_free(bio);
-
-    if (!certificate) {
-        return false;
-    }
-
+    ERR_clear_error();
     public_key = X509_get_pubkey(certificate);
-    context = EVP_MD_CTX_create();
+    if (!public_key) {
+        X509_free(certificate);
+        return ERR_GET_REASON(ERR_peek_last_error()) == ERR_R_MALLOC_FAILURE
+            ? LEGACY_GAMESTREAM_OUT_OF_MEMORY : LEGACY_GAMESTREAM_SECURITY_ERROR;
+    }
 
-    if (!public_key || !context) {
+    context = EVP_MD_CTX_create();
+    if (!context) {
         X509_free(certificate);
         EVP_PKEY_free(public_key);
-        EVP_MD_CTX_destroy(context);
-        return false;
+        return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
     }
-
-    result =
-        EVP_DigestVerifyInit(context, NULL, EVP_sha256(), NULL, public_key) == 1 &&
-        EVP_DigestVerifyUpdate(context, data, data_length) == 1 &&
-        EVP_DigestVerifyFinal(context, signature, signature_length) == 1;
+    if (EVP_DigestVerifyInit(context, NULL, EVP_sha256(), NULL, public_key) != 1 ||
+        EVP_DigestVerifyUpdate(context, data, data_length) != 1) {
+        result = LEGACY_GAMESTREAM_INTERNAL_ERROR;
+    } else {
+        int verified = EVP_DigestVerifyFinal(context, signature, signature_length);
+        /* Zero rejects the proof; negative values indicate execution failure.
+         * Both fail closed, and neither can become an incorrect-PIN result. */
+        result = verified == 1 ? LEGACY_GAMESTREAM_OK
+            : verified == 0 ? LEGACY_GAMESTREAM_SECURITY_ERROR : LEGACY_GAMESTREAM_INTERNAL_ERROR;
+    }
 
     EVP_MD_CTX_destroy(context);
     EVP_PKEY_free(public_key);
     X509_free(certificate);
 
-    return result == 1;
+    return result;
 }
 
 static int encrypt_ecb(
@@ -1294,7 +1327,7 @@ static int encrypt_ecb(
         EVP_CIPHER_CTX_set_padding(context, 0) != 1 ||
         EVP_EncryptUpdate(context, ciphertext, &output_length, plaintext, (int)plaintext_length) != 1) {
         EVP_CIPHER_CTX_free(context);
-        return LEGACY_GAMESTREAM_FAILED;
+        return LEGACY_GAMESTREAM_INTERNAL_ERROR;
     }
 
     EVP_CIPHER_CTX_free(context);
@@ -1323,7 +1356,7 @@ static int decrypt_ecb(
         EVP_CIPHER_CTX_set_padding(context, 0) != 1 ||
         EVP_DecryptUpdate(context, plaintext, &output_length, ciphertext, (int)ciphertext_length) != 1) {
         EVP_CIPHER_CTX_free(context);
-        return LEGACY_GAMESTREAM_FAILED;
+        return LEGACY_GAMESTREAM_INTERNAL_ERROR;
     }
 
     EVP_CIPHER_CTX_free(context);
@@ -1385,7 +1418,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
 
     if (RAND_bytes(salt_data, sizeof(salt_data)) != 1) {
         set_error("Unable to generate pairing salt");
-        return LEGACY_GAMESTREAM_FAILED;
+        return LEGACY_GAMESTREAM_INTERNAL_ERROR;
     }
 
     bytes_to_hex(salt_data, salt_hex, sizeof(salt_data));
@@ -1404,6 +1437,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
 
     http_buffer_init(&response);
     if (!response.memory) {
+        set_error("Unable to allocate GameStream response");
         return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
     }
 
@@ -1426,13 +1460,11 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
 
     vita_debug_log("[GameStream] pairing phase=getservercert response received");
 
-    if (xml_status_ok(response.memory, response.size, error) != LEGACY_GAMESTREAM_OK ||
-        xml_find_value(response.memory, response.size, "paired", result, sizeof(result)) != LEGACY_GAMESTREAM_OK ||
-        strcmp(result, "1") != 0 ||
-        xml_find_value(response.memory, response.size, "plaincert", result, sizeof(result)) != LEGACY_GAMESTREAM_OK) {
+    step_result = read_pairing_response(&response, error, "plaincert", result, sizeof(result));
+    if (step_result != LEGACY_GAMESTREAM_OK) {
         http_buffer_free(&response);
         if (!s_error[0]) set_error("GameStream rejected pairing request");
-        return LEGACY_GAMESTREAM_FAILED;
+        return step_result;
     }
 
     result_length = strlen(result);
@@ -1464,11 +1496,16 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
         memset(aes_key + 20, 0, sizeof(aes_key) - 20);
     }
 
-    if (RAND_bytes(challenge_data, sizeof(challenge_data)) != 1 ||
-        encrypt_ecb(challenge_data, sizeof(challenge_data), aes_key, challenge_enc) != LEGACY_GAMESTREAM_OK) {
+    if (RAND_bytes(challenge_data, sizeof(challenge_data)) != 1) {
         http_buffer_free(&response);
         set_error("Unable to build pairing challenge");
-        return LEGACY_GAMESTREAM_FAILED;
+        return LEGACY_GAMESTREAM_INTERNAL_ERROR;
+    }
+    step_result = encrypt_ecb(challenge_data, sizeof(challenge_data), aes_key, challenge_enc);
+    if (step_result != LEGACY_GAMESTREAM_OK) {
+        http_buffer_free(&response);
+        set_error("Unable to encrypt pairing challenge");
+        return step_result;
     }
 
     bytes_to_hex(challenge_enc, challenge_hex, sizeof(challenge_enc));
@@ -1492,13 +1529,11 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
         return step_result;
     }
 
-    if (xml_status_ok(response.memory, response.size, error) != LEGACY_GAMESTREAM_OK ||
-        xml_find_value(response.memory, response.size, "paired", result, sizeof(result)) != LEGACY_GAMESTREAM_OK ||
-        strcmp(result, "1") != 0 ||
-        xml_find_value(response.memory, response.size, "challengeresponse", result, sizeof(result)) != LEGACY_GAMESTREAM_OK) {
+    step_result = read_pairing_response(&response, error, "challengeresponse", result, sizeof(result));
+    if (step_result != LEGACY_GAMESTREAM_OK) {
         http_buffer_free(&response);
         if (!s_error[0]) set_error("GameStream rejected client challenge");
-        return LEGACY_GAMESTREAM_FAILED;
+        return step_result;
     }
 
     result_length = strlen(result);
@@ -1522,21 +1557,22 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
         }
     }
 
-    if (decrypt_ecb(
+    step_result = decrypt_ecb(
             challenge_response_enc,
             challenge_response_length,
             aes_key,
-            challenge_response) != LEGACY_GAMESTREAM_OK) {
+            challenge_response);
+    if (step_result != LEGACY_GAMESTREAM_OK) {
         http_buffer_free(&response);
         set_error("Unable to decrypt server challenge");
-        return LEGACY_GAMESTREAM_FAILED;
+        return step_result;
     }
 
     if (RAND_bytes(client_secret, sizeof(client_secret)) != 1 ||
         !s_cert) {
         http_buffer_free(&response);
         set_error("Unable to generate client pairing secret");
-        return LEGACY_GAMESTREAM_FAILED;
+        return LEGACY_GAMESTREAM_INTERNAL_ERROR;
     }
 
     X509_get0_signature(&certificate_signature, NULL, s_cert);
@@ -1544,7 +1580,7 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
         certificate_signature->length > SIGNATURE_LEN) {
         http_buffer_free(&response);
         set_error("Invalid client certificate signature");
-        return LEGACY_GAMESTREAM_FAILED;
+        return LEGACY_GAMESTREAM_INTERNAL_ERROR;
     }
 
     memset(challenge_response_hash, 0, sizeof(challenge_response_hash));
@@ -1564,14 +1600,15 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
     }
 
     memset(challenge_response_hash_enc, 0, sizeof(challenge_response_hash_enc));
-    if (encrypt_ecb(
+    step_result = encrypt_ecb(
             challenge_response_hash,
             sizeof(challenge_response_hash_enc),
             aes_key,
-            challenge_response_hash_enc) != LEGACY_GAMESTREAM_OK) {
+            challenge_response_hash_enc);
+    if (step_result != LEGACY_GAMESTREAM_OK) {
         http_buffer_free(&response);
         set_error("Unable to encrypt server challenge response");
-        return LEGACY_GAMESTREAM_FAILED;
+        return step_result;
     }
 
     bytes_to_hex(
@@ -1599,13 +1636,11 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
         return step_result;
     }
 
-    if (xml_status_ok(response.memory, response.size, error) != LEGACY_GAMESTREAM_OK ||
-        xml_find_value(response.memory, response.size, "paired", result, sizeof(result)) != LEGACY_GAMESTREAM_OK ||
-        strcmp(result, "1") != 0 ||
-        xml_find_value(response.memory, response.size, "pairingsecret", result, sizeof(result)) != LEGACY_GAMESTREAM_OK) {
+    step_result = read_pairing_response(&response, error, "pairingsecret", result, sizeof(result));
+    if (step_result != LEGACY_GAMESTREAM_OK) {
         http_buffer_free(&response);
         if (!s_error[0]) set_error("GameStream rejected server challenge");
-        return LEGACY_GAMESTREAM_FAILED;
+        return step_result;
     }
 
     result_length = strlen(result);
@@ -1627,15 +1662,17 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
     }
 
     /* Authenticate the proof before attributing a challenge mismatch to the PIN. */
-    if (!verify_signature(
+    step_result = verify_signature(
             pairing_secret,
             16,
             pairing_secret + 16,
             SIGNATURE_LEN,
-            plaincert)) {
+            plaincert);
+    if (step_result != LEGACY_GAMESTREAM_OK) {
         http_buffer_free(&response);
-        set_error("MITM attack detected");
-        return LEGACY_GAMESTREAM_FAILED;
+        set_error(step_result == LEGACY_GAMESTREAM_SECURITY_ERROR
+            ? "Server pairing proof rejected" : "Unable to verify server pairing proof");
+        return step_result;
     }
 
     {
@@ -1644,14 +1681,15 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
         unsigned char expected_response_hash[SHA256_DIGEST_LENGTH];
         size_t server_certificate_signature_length = 0;
 
-        if (!get_certificate_signature(
+        step_result = get_certificate_signature(
                 plaincert,
                 server_certificate_signature,
                 sizeof(server_certificate_signature),
-                &server_certificate_signature_length)) {
+                &server_certificate_signature_length);
+        if (step_result != LEGACY_GAMESTREAM_OK) {
             http_buffer_free(&response);
             set_error("Unable to parse server certificate signature");
-            return LEGACY_GAMESTREAM_FAILED;
+            return step_result;
         }
 
         memcpy(expected_response_input, challenge_data, sizeof(challenge_data));
@@ -1679,20 +1717,20 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
         if (memcmp(challenge_response, expected_response_hash, (size_t)hash_length) != 0) {
             http_buffer_free(&response);
             set_error("Incorrect pairing PIN");
-            return LEGACY_GAMESTREAM_FAILED;
+            return LEGACY_GAMESTREAM_INCORRECT_PIN;
         }
     }
 
-    if (rsa_sign(
+    step_result = rsa_sign(
             client_secret,
             sizeof(client_secret),
             &signature,
-            &signature_length) != LEGACY_GAMESTREAM_OK ||
-        signature_length != SIGNATURE_LEN) {
+            &signature_length);
+    if (step_result != LEGACY_GAMESTREAM_OK || signature_length != SIGNATURE_LEN) {
         OPENSSL_free(signature);
         http_buffer_free(&response);
         set_error("Failed to sign client pairing secret");
-        return LEGACY_GAMESTREAM_FAILED;
+        return step_result != LEGACY_GAMESTREAM_OK ? step_result : LEGACY_GAMESTREAM_INTERNAL_ERROR;
     }
 
     memcpy(pairing_secret, client_secret, sizeof(client_secret));
@@ -1724,12 +1762,11 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
         return step_result;
     }
 
-    if (xml_status_ok(response.memory, response.size, error) != LEGACY_GAMESTREAM_OK ||
-        xml_find_value(response.memory, response.size, "paired", result, sizeof(result)) != LEGACY_GAMESTREAM_OK ||
-        strcmp(result, "1") != 0) {
+    step_result = read_pairing_response(&response, error, NULL, NULL, 0);
+    if (step_result != LEGACY_GAMESTREAM_OK) {
         http_buffer_free(&response);
         if (!s_error[0]) set_error("GameStream rejected client pairing secret");
-        return LEGACY_GAMESTREAM_FAILED;
+        return step_result;
     }
 
     generate_uuid(uuid);
@@ -1738,13 +1775,12 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
 
     /* The signature and PIN-bound challenge above have now authenticated plaincert.
      * Use it temporarily to authenticate the final HTTPS exchange; roll back on failure. */
-    BIO *certificate_bio = BIO_new_mem_buf(plaincert, -1);
-    X509 *candidate = certificate_bio ? PEM_read_bio_X509(certificate_bio, NULL, NULL, NULL) : NULL;
-    BIO_free(certificate_bio);
-    if (!candidate) {
+    X509 *candidate = NULL;
+    step_result = read_pairing_certificate(plaincert, &candidate);
+    if (step_result != LEGACY_GAMESTREAM_OK) {
         http_buffer_free(&response);
-        set_error("Invalid pairing server certificate");
-        return LEGACY_GAMESTREAM_SECURITY_ERROR;
+        set_error("Unable to read pairing server certificate");
+        return step_result;
     }
     pthread_mutex_lock(&s_http_mutex);
     X509 *previous = (X509 *)server->server_certificate;
@@ -1770,16 +1806,15 @@ static int pair(LegacyGameStreamServer *server, const char *pin, LegacyGameStrea
         return step_result;
     }
 
-    if (xml_status_ok(response.memory, response.size, error) != LEGACY_GAMESTREAM_OK ||
-        xml_find_value(response.memory, response.size, "paired", result, sizeof(result)) != LEGACY_GAMESTREAM_OK ||
-        strcmp(result, "1") != 0) {
+    step_result = read_pairing_response(&response, error, NULL, NULL, 0);
+    if (step_result != LEGACY_GAMESTREAM_OK) {
         pthread_mutex_lock(&s_http_mutex);
         server->server_certificate = previous;
         X509_free(candidate);
         pthread_mutex_unlock(&s_http_mutex);
         http_buffer_free(&response);
         if (!s_error[0]) set_error("GameStream rejected HTTPS pairing challenge");
-        return LEGACY_GAMESTREAM_FAILED;
+        return step_result;
     }
 
     http_buffer_free(&response);

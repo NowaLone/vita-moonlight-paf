@@ -9,10 +9,11 @@ Apps storage, TLS pinning and several transport/foreground ownership fixes have 
 their scoped evidence is in the API audit. Snapshot-pressure event loss now has the source
 correction below; its broader build/Vita checks remain pending. Host persistence error propagation,
 dynamic host lists and discovery lifecycle have since received separate source corrections.
-The 2026-10-22 API recheck identifies the next narrow implementation: preserve local pairing error
-provenance instead of reporting RNG/EVP/parser/allocation failures as protocol, security or network
-failures. See [the current source chains and minimal fix](docs/SUNSHINE_API_AUDIT.md#68-source-recheck-and-next-minimal-fix--2026-10-22).
-That recheck changes documentation only; it adds no endpoint or hardware claim.
+The 2026-10-22 API recheck identified local pairing error-provenance loss. Its separate source
+correction now propagates typed local/OOM/security/PIN outcomes; all 137 non-build checks pass.
+See [the source chains](docs/SUNSHINE_API_AUDIT.md#68-source-recheck-and-next-minimal-fix--2026-10-22)
+and [implementation/validation limits](docs/SUNSHINE_API_AUDIT.md#69-pairing-error-provenance-source-correction--2026-10-22).
+No endpoint or UI/storage format change; maintainer build/Vita validation remains pending.
 
 ## Scope
 

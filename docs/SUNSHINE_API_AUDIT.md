@@ -22,8 +22,13 @@ These corrections add no protocol endpoint.
 **Source recheck, 2026-10-22 (local c27e788):** the remaining `partial` entries were compared
 with current implementation and freshly resolved upstream snapshots. No additional required
 ordinary-client endpoint was identified. A06 has confirmed local error-provenance loss, including
-allocation failures presented as NETWORK/PROTOCOL/SECURITY. This is the next narrow implementation
-task; the present recheck changes documentation only. See [the findings and minimal fix](#68-source-recheck-and-next-minimal-fix--2026-10-22).
+allocation failures presented as NETWORK/PROTOCOL/SECURITY. This selected the separate correction
+below; the recheck itself changed documentation only. See [the findings and minimal fix](#68-source-recheck-and-next-minimal-fix--2026-10-22).
+
+**Separate A06 source correction, 2026-10-22:** typed legacy results now preserve local/internal,
+allocation, security and PIN causes through pairing and the Moonlight API. Ten new non-build
+checks plus the existing suite pass (137 total); build/Vita validation remains pending.
+See [implementation and verification limits](#69-pairing-error-provenance-source-correction--2026-10-22).
 
 **Startup regression takes priority, 2026-10-22:** the maintainer's new core shows a Main null
 write consistent with the installed PAF sized-vector constructor reading uninitialized capacity.
@@ -569,11 +574,11 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Endpoint / purpose / auth:** errors from A05; distinguish PIN mismatch, security, network,
   protocol and local failure without presenting storage failure as bad PIN.
 - **Semantics:** XML rejection/`paired=0` differs from curl failure and cryptographic proof failure.
-- **Current:** L1 recognizes PIN/security error strings, explicit certificate security failures,
-  selected curl errors and direct OOM. Helpers' local errors can be collapsed before L1 sees them:
-  RNG/AES/signing/XML allocation failures become PROTOCOL, response-buffer allocation failure
-  becomes NETWORK, and verification-context allocation failure becomes SECURITY. See §6.8 for
-  the source chain and separate minimal correction. The F4 source
+- **Current:** L3 now returns explicit PIN/security/local-internal/OOM results; L1 maps these
+  without interpreting diagnostic strings. Pairing preserves parser/AES/signing results, response
+  allocation failure is internal, and verification execution failure is distinct from rejected proof.
+  XML rejection status/reason and cancellation remain separate. §6.8 records the former defect;
+  §6.9 records the source correction and remaining native/runtime validation. The F4 source
   follow-up checks signature before the PIN-bound hash and accepts only successful EVP return codes.
   Tests exercise mocked return logic; actual malformed-proof/TLS runtime coverage remains pending.
 - **Upstream / Sunshine:** QP has explicit failed/PIN/in-progress results; S can reject ordering,
@@ -2462,10 +2467,10 @@ proven leak or leak-free guarantee. Earlier quality/audio-warning observations r
    real kernel/socket/PAF or Vita proof. Existing volatile state, socket-init error coverage and
    permanent wait-error handling remain separate concerns; the inherited Stop wait loop is not
    given a new timing guarantee. Next: maintainer build and ordinary Search reopen/connect smoke.
-4. **Pairing error provenance (A06): confirmed source gap, next separate fix.** Local RNG,
-   crypto and parser/allocation errors lose their cause before semantic classification; a local
-   response allocation failure is even classified as NETWORK. See §6.8 for exact branches,
-   upstream comparison, the minimal typed-result correction and regression requirements.
+4. **Pairing error provenance (A06): source-addressed; build/Vita pending.** Typed results now
+   preserve local RNG/crypto, parser and response allocation failures through the API. Ten new
+   checks cover mocked helper/guard/category/cleanup/error-event paths; all 137 pass. See §6.8
+   for the original source chains and upstream comparison, and §6.9 for the isolated correction.
    Fixed media capabilities and bypassed legacy version bounds (A03/A23) remain compatibility
    limits, with no concrete case justifying a codec/timeout/version-policy change in this recheck.
 
@@ -2514,10 +2519,10 @@ TLS weakening, delayed retry or host workaround is proposed to reduce testing sc
   complete; maintainer build/Vita gate open.** Backend discovery capacity is still 16.
 - **Discovery source gate: direct lifecycle/status, exact start errors and native reaping;
   126 non-build checks complete; maintainer build/Vita gate open.** Network polling stays threaded.
-- **Next implementation priority: preserve local pairing error provenance (A06 / §6.8).**
-  The later scoped Main/discovery/Connect/Apps/playback evidence is recorded above; broader
-  discovery failure/natural-completion and >8-PC acceptance remain open. No new automatic
-  streaming test variant or endpoint is needed for this source-proven classification correction.
+- **Pairing error source gate: typed local/security/PIN results and 137 non-build checks complete;
+  maintainer build/Vita gate open (A06 / §6.9).** Ordinary correct-PIN → Apps and a wrong-PIN
+  native error are the immediate smoke check after the maintainer builds. Rare injected local
+  failures remain source-modeled; no new automatic streaming variant or endpoint was added.
 - **Release/compatibility gate: open.** Deferred error/security/version/shutdown/stress tests,
   broader shared-state ownership and the separate build/license requirements remain pending.
 
@@ -2651,3 +2656,54 @@ XML 409 → PROTOCOL; connect failure → NETWORK. Lower-layer failure origins w
 source reading; the interpretation does not execute allocation, RNG, OpenSSL, Expat, curl or Vita.
 No new permanent test/runtime code was added. Build/hardware validation of the future correction
 remains pending; the existing C parser fixtures and broader release catalogue remain as before.
+
+### 6.9 Pairing error provenance source correction — 2026-10-22
+
+This is the separate runtime change authorized after §6.8; local baseline `901d5b1` was clean.
+The handshake order, challenge bytes, public Moonlight pairing enum, native UI/navigation, host
+storage and protocol endpoints remain unchanged. No timeout/retry or Sunshine change is included.
+
+**Implementation.** L3 adds legacy INTERNAL_ERROR and INCORRECT_PIN result codes. Salt/challenge/
+secret RNG and EVP execution failures are local; AES/signing allocation results propagate instead
+of becoming generic FAILED. A shared response helper preserves status/field parser OOM while
+still requiring XML success and paired=1 in all five phases. XML server status/reason, including
+409, remain available to the native error dialog. The existing parser now supplies an allocation
+diagnostic when parser creation fails.
+
+HttpBuffer records response allocation failure, reset at init/free. A failed realloc keeps the
+original buffer for cleanup and becomes OOM rather than NETWORK; curl OOM and cancellable-option
+setup failure are also internal. Other curl transport errors retain their prior network mapping.
+Request-scoped callbacks are still cleared before their userdata can be released, and observed
+cancellation takes precedence over transfer errors.
+
+The shared pairing-certificate reader separates BIO allocation/write failure and explicit OpenSSL
+malloc failure from rejected certificate data. The verifier reports local context/setup failure
+separately from a rejected proof, releases BIO/certificate/key/context owners, and accepts only
+EVP success=1 at every step. For Final, 0 maps to SECURITY and other non-1 values to INTERNAL;
+[OpenSSL's return contract](https://docs.openssl.org/1.0.2/man3/EVP_DigestVerifyInit/#return-values)
+notes that negative errors may also involve malformed signatures. This category does not prove
+the peer benign or the problem exclusively local: every non-success still rejects pairing.
+PEM/key errors map to OOM only when the inspected error reason explicitly reports malloc failure;
+other parse/key rejection remains SECURITY. No exhaustive OpenSSL allocation-failure attribution
+is claimed. Only an authenticated challenge-hash mismatch returns INCORRECT_PIN. The temporary
+pin is still installed after proof/PIN validation and rolled back on final HTTPS transfer/XML error.
+Pin/metadata persistence failure after successful proof remains separate from protocol success.
+
+L1 classifies by typed result and curl status, never by strings such as `Incorrect pairing PIN`
+or `MITM attack detected`. Existing UI messages and event payloads are unchanged, including
+INTERNAL's generic native error. No new diagnostics are emitted during successful operation.
+
+**Verification.** All **137 non-build Python checks pass**, including ten new actual-source
+checks in `tests/test_pairing_errors.py`. They interpret helpers and caller guards with injected
+local/RNG/AES/RSA/certificate/XML/HTTP failures; check response/context/key/signature cleanup,
+XML status/reason forwarding, final-response pin rollback, OOM versus network classification,
+reset of the response failure marker, typed wrong PIN, API error payload and cancellation without
+a failure event. The existing strict verification check now executes the typed helper with mocked
+Init/Update/Final values -1/0/1/2 (64 combinations). Existing trust ordering and successful pairing
+despite metadata failure checks also pass. `git diff --check` passes.
+
+These are serial source interpretations with mocked allocation, crypto, curl, XML and ownership;
+caller fragments are not a complete real handshake. No compilation/type/ABI, OpenSSL/Expat/curl
+execution, sockets, actual low-memory behavior, native dialog or Vita proof is established.
+Maintainer build and ordinary pairing/error smoke remain pending. Broader A06/T3/A22 security,
+transport and storage-failure cases remain partial; the accepted F6 compatibility limit is unchanged.

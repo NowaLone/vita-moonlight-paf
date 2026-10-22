@@ -4,14 +4,25 @@ This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordere
 
 ## Current API work decision (2026-10-21)
 
+- [x] **Pairing error provenance source correction (2026-10-22).** Local RNG/crypto and parser/
+  response allocation failures now preserve explicit internal/OOM results; PIN/security are typed
+  instead of inferred from log text. All five pairing responses retain server status/reason,
+  including 409. Verification rejects every non-success; temporary pin rollback, cancellation and
+  pairing success independent of persistence remain. Ten new non-build checks bring the suite to
+  137 passing checks. See [scope and limits](docs/SUNSHINE_API_AUDIT.md#69-pairing-error-provenance-source-correction--2026-10-22).
+  No page/protocol/storage/dependency change, agent build or hardware run.
+- [ ] Maintainer build and pairing smoke: correct PIN → Apps; wrong PIN → one native error.
+  Injected rare local failures have source coverage only; no new streaming test cycle is required.
+
 **API source recheck, 2026-10-22 (local c27e788):** reviewed the remaining partial entries against
 current API/stream/legacy/adapter/services and newly resolved Sunshine, Moonlight Qt/common-c,
 xyzz, NetStream and BHBB snapshots. No additional required ordinary-client endpoint was found.
-The next concrete implementation is **pairing error provenance (A06)**: local RNG/EVP/parser
+The concrete implementation selected by that recheck was **pairing error provenance (A06)**: local RNG/EVP/parser
 errors collapse into PROTOCOL/SECURITY, and response-buffer realloc failure is called NETWORK.
 Preserve typed local/OOM results at their origin before mapping to the public pairing enum;
 keep PIN/409/cancellation/trust behavior. See [source chains and minimal fix](docs/SUNSHINE_API_AUDIT.md#68-source-recheck-and-next-minimal-fix--2026-10-22).
-This recheck changes documentation only. All 127 existing non-build checks pass; ten additional
+That recheck changed documentation only; the separate correction above is now source-complete.
+All 127 existing non-build checks passed at the recheck; ten additional
 mocked actual-classifier source cases confirm the category gap. No build, new device/host test,
 endpoint, Sunshine patch or dependency update. Self-unpair remains blocked by the absent client
 route; fixed media/list limits and deferred release tests remain explicitly scoped.

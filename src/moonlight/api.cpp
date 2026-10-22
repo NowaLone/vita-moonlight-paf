@@ -164,7 +164,6 @@ static bool is_pairing_network_error(int error_code)
     case CURLE_SEND_ERROR:
     case CURLE_GOT_NOTHING:
     case CURLE_SSL_CONNECT_ERROR:
-    case CURLE_WRITE_ERROR:
         return true;
     default:
         return false;
@@ -173,27 +172,26 @@ static bool is_pairing_network_error(int error_code)
 
 static int classify_pairing_error(int legacy_result)
 {
-    const char *error = legacy_gamestream_error();
-
     if (legacy_result == LEGACY_GAMESTREAM_OK) {
         return MOONLIGHT_PAIRING_SUCCESS;
     }
 
-    if (error && strcmp(error, "Incorrect pairing PIN") == 0) {
+    if (legacy_result == LEGACY_GAMESTREAM_INCORRECT_PIN) {
         return MOONLIGHT_PAIRING_ERROR_INCORRECT_PIN;
     }
 
-    if (legacy_result == LEGACY_GAMESTREAM_SECURITY_ERROR ||
-        (error && strcmp(error, "MITM attack detected") == 0)) {
+    if (legacy_result == LEGACY_GAMESTREAM_SECURITY_ERROR) {
         return MOONLIGHT_PAIRING_ERROR_SECURITY;
+    }
+
+    if (legacy_result == LEGACY_GAMESTREAM_OUT_OF_MEMORY ||
+        legacy_result == LEGACY_GAMESTREAM_INTERNAL_ERROR ||
+        legacy_gamestream_last_http_error() == CURLE_OUT_OF_MEMORY) {
+        return MOONLIGHT_PAIRING_ERROR_INTERNAL;
     }
 
     if (is_pairing_network_error(legacy_gamestream_last_http_error())) {
         return MOONLIGHT_PAIRING_ERROR_NETWORK;
-    }
-
-    if (legacy_result == LEGACY_GAMESTREAM_OUT_OF_MEMORY) {
-        return MOONLIGHT_PAIRING_ERROR_INTERNAL;
     }
 
     /*
