@@ -13,6 +13,7 @@ class TouchEvents(unittest.TestCase):
         source = (ROOT / 'src/moonlight/vita_touch.c').read_text()
         names = ('send_touch_event', 'process_touch_points') if 'static void process_touch_points(' in source else (
             'process_ds4_touch', 'process_tablet')
+        names += ('release_touch_state',)
         code = '\n'.join(function(source, name) for name in names)
         code = code.replace('++i', 'i = i + 1')
         preamble = 'typedef int bool;'
@@ -45,7 +46,8 @@ class TouchEvents(unittest.TestCase):
                 values = dict(SCE_TOUCH_MAX_REPORT=6, VITA_TOUCH_WIDTH=960.0, VITA_TOUCH_HEIGHT=544.0,
                               true=1, false=0, s_mode=mode, s_points=points,
                               LI_TOUCH_EVENT_DOWN=1, LI_TOUCH_EVENT_MOVE=2, LI_TOUCH_EVENT_UP=3,
-                              LI_ROT_UNKNOWN=0)
+                              LI_TOUCH_EVENT_CANCEL_ALL=4, LI_ROT_UNKNOWN=0,
+                              s_left_mouse_down=0, s_two_finger_active=0)
 
                 def controller(controller, kind, identity, x, y, pressure):
                     events.append((kind, identity, x, y, pressure))
@@ -82,6 +84,10 @@ class TouchEvents(unittest.TestCase):
                 self.assertEqual(frame((2, 96, 54)), [(1, 2, 96 / 960, 54 / 544, 1.0)])
                 self.assertEqual(frame((9, 48, 27)), [
                     (1, 0, 48 / 960, 27 / 544, 1.0), (3, 2, 96 / 960, 54 / 544, 0.0)])
+                invoke('release_touch_state')
+                self.assertEqual(events, [(3, 0, 48 / 960, 27 / 544, 0.0)] if mode == 1 else [
+                    (4, 0, 0.0, 0.0, 0.0)])
+                self.assertEqual(points, [0] * 6)
 
 
 if __name__ == '__main__':

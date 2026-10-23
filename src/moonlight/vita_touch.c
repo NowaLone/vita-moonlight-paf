@@ -30,6 +30,18 @@ static bool s_two_finger_active = false;
 static int s_two_finger_last_y = 0;
 
 
+static void send_touch_event(int type, unsigned int id, int x, int y, float pressure)
+{
+    if (s_mode == 1) {
+        LiSendControllerTouchEvent(0, type, id,
+            (float)x / VITA_TOUCH_WIDTH, (float)y / VITA_TOUCH_HEIGHT, pressure);
+    } else {
+        LiSendTouchEvent(type, id,
+            (float)x / VITA_TOUCH_WIDTH, (float)y / VITA_TOUCH_HEIGHT, pressure,
+            0.0f, 0.0f, LI_ROT_UNKNOWN);
+    }
+}
+
 static void release_touch_state(void)
 {
     unsigned int i;
@@ -37,13 +49,7 @@ static void release_touch_state(void)
     if (s_mode == 1) {
         for (i = 0; i < SCE_TOUCH_MAX_REPORT; ++i) {
             if (s_points[i].active) {
-                LiSendControllerTouchEvent(
-                    0,
-                    LI_TOUCH_EVENT_UP,
-                    i,
-                    (float)s_points[i].x / VITA_TOUCH_WIDTH,
-                    (float)s_points[i].y / VITA_TOUCH_HEIGHT,
-                    0.0f);
+                send_touch_event(LI_TOUCH_EVENT_UP, i, s_points[i].x, s_points[i].y, 0.0f);
             }
         }
     } else if (s_mode == 3) {
@@ -127,18 +133,6 @@ void vita_touch_stop(void)
     release_touch_state();
 
     vita_debug_log("[Touch] stop");
-}
-
-static void send_touch_event(int type, unsigned int id, int x, int y, float pressure)
-{
-    if (s_mode == 1) {
-        LiSendControllerTouchEvent(0, type, id,
-            (float)x / VITA_TOUCH_WIDTH, (float)y / VITA_TOUCH_HEIGHT, pressure);
-    } else {
-        LiSendTouchEvent(type, id,
-            (float)x / VITA_TOUCH_WIDTH, (float)y / VITA_TOUCH_HEIGHT, pressure,
-            0.0f, 0.0f, LI_ROT_UNKNOWN);
-    }
 }
 
 static void process_touch_points(void)
