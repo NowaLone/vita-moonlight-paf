@@ -440,9 +440,10 @@ Rows are 80 px tall and 960 px wide. The first row's top edge is at y = 96 and d
 - Blending is plain encoded-space `result = background * (1 - a) + colour * a`; there is no gamma step.
 - `planeobj` colours are 0..1 (`(14, 27, 119)` is `0.055, 0.106, 0.467`).
 - A 1 px plane works as a line. An RGBA PNG through `<texturetable>` and `<plane texture="...">` works
-  (`bg.png`, `header_line.png`).
-- The system `_common_texture_ruled_line` is almost invisible in this app (1-2 levels of change), although it is
-  strong in PS4 Link. Do not rely on it for a visible line.
+  (`bg.png`). Header separators now use the system `_common_texture_ruled_line` **[code, 2026-10-23]**.
+- The earlier near-invisible system-line observation (1-2 RGB levels) predates the native-height
+  correction. The supplied common RCO contains a 4 px-high image with transparent outer rows;
+  both header separator planes now retain that height. Appearance remains **[open]** on Vita.
 
 ### 2.4 Text
 
@@ -610,9 +611,20 @@ Currently unused leftovers (safe to remove when touching nearby): `style_plane_f
 
 ### 4.4 Textures
 
-`_bg_texture` (`texture/bg.png`, page background), `_header_line_texture` (`texture/header_line.png`, 960 x 2 RGBA:
-20% black row over 18% white row, faded in from x ~ 40 and out to ~ 900). Add a texture by copying the file into
+`_bg_texture` (`texture/bg.png`, page background). Add a texture by copying the file into
 `cxml/texture/`, adding a `<texture src id type="texture/png">` entry, and rebuilding the RCO (`build_cxml.sh`).
+
+Header separators use `_common_texture_ruled_line` from the already-loaded common PAF resource;
+the former project PNG and `_header_line_texture` definition are removed **[code, 2026-10-23]**.
+The maintainer-supplied `common_resource.rco` (SHA-256
+`6ee58e58d1e78fecd99ea93e585c81efde3e940e3e0ca5cec4e64ba7cacdc806`)
+defines this texture as a 328 x 4 GIM with `div_mode="3x1"`, `div_ratio_h="0.49"`.
+Only rows 1/2 contain visible pixels; maximum alpha is 90/255 for black and 18/255 for white
+**[code, extracted resource]**. Search and Main/Apps use 960 x 4 planes. Search's top edge is
+y = 94 (`pos="0, -94"`), and the shared title separator is centred at y = 96, so both target
+the visible dark/light pair at y = 95/96 without reducing the source height. These are layout
+values, not proof of PAF filtering/division or final pixels. Rebuilt RCO/Vita appearance checks
+remain **[open]**; the common RCO and extracted GIM/PNG are not bundled in the project.
 
 `tex_pc` (`texture/pc.png`, 80 x 80 RGBA) is the original Sony Music PC-source icon,
 extracted from the maintainer-supplied `musicbrowser_plugin.rco` and converted from GIM
@@ -852,11 +864,12 @@ checks verify source artwork; the revised shape still needs maintainer RCO rebui
 |---|---|---|
 | Flow page header (`style_text_header`) | 26 px regular, text origin x = 64, cap centre y = 61.5 | PS4 Link search page **[shot]** |
 | List screen header | same style, text origin x = 80 | PS4 Link "Which feature..." **[shot]** |
-| Flow header line | rows y = 95 (dark) / 96 (light), fades in x 40-260, out 700-900 | `header_line.png` **[shot]** |
+| Header separator | system `_common_texture_ruled_line`, 960 x 4 plane targeting visible rows y = 95/96 | source geometry **[code, 2026-10-23]**; Vita appearance **[open]** |
 | Paragraph (`style_text_paragraph`) | 26 px, line pitch 40, x = 64, first line centre y = 108, wrap width about 790 | PS4 Link pairing page **[shot]** |
 
-On list screens the dark/light pair at y = 95 / 96 is the first row's top edge, so the shared title bar does not draw
-that line itself.
+The PS4 Link reference has a dark/light pair at y = 95/96 **[shot]**. Search and the shared
+Main/Apps title bar now explicitly draw the native separator at that boundary **[code]**;
+the first list row can also contribute its own edge. Final combined appearance needs a Vita check.
 
 ### 5.2 List rows (PS4 Link "Which feature...") **[shot]**
 
@@ -958,7 +971,8 @@ Do not introduce a settings file or a custom settings screen.
 
 - `DeleteCell(0, 0, existing - 1)` leaves a stale row.
 - A `style_plane` colour set in both the style and the `planeobj` is squared.
-- `_common_texture_ruled_line` is nearly invisible in this app.
+- `_common_texture_ruled_line` has a 4 px source height with transparent outer rows; do not
+  compress it to the former 2 px project-line height without checking the rendered result.
 - `SetActivate()` does not dim a button; `Widget::SetColor()` on a disabled button was rejected in favour of the native
   disabled state.
 - Showing and hiding a checkbox on a shared row template misbehaves; use the select template.

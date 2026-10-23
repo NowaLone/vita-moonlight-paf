@@ -59,8 +59,8 @@
 
       <template_ref id="search_list_ref" template="template_list_view_generic" />
 
-      <plane texture="_header_line_texture" id="plane_search_header_line">
-        <layout_hint anchor="0, 2" align="0, 2" size="960, 2" pos="0, -95" />
+      <plane texture="_common_texture_ruled_line" id="plane_search_header_line">
+        <layout_hint anchor="0, 2" align="0, 2" size="960, 4" pos="0, -94" />
       </plane>
 
       <text style="style_text_header" label="msg_no_pcs_found" id="text_search_status">
@@ -296,7 +296,6 @@
 
   <texturetable>
     <texture src="texture/bg.png" id="_bg_texture" type="texture/png" />
-    <texture src="texture/header_line.png" id="_header_line_texture" type="texture/png" />
     <texture src="texture/pc.png" id="tex_pc" type="texture/png" />
     <texture src="texture/controller_light_ds4.png" id="_controller_light_ds4" type="texture/png" />
     <texture src="texture/controller_light_left.png" id="_controller_light_left" type="texture/png" />
@@ -348,7 +347,7 @@
             <layout_hint anchor="1, 2" align="1, 2" size="780, 0" pos="80, -15" adjust="0, 2" />
           </text>
           <plane texture="_common_texture_ruled_line" id="plane_top_separator">
-            <layout_hint size="960, 2" pos="0, 0" anchor="0, 1" />
+            <layout_hint size="960, 4" pos="0, 0" anchor="0, 1" />
           </plane>
         </plane>
       </template>
