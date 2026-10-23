@@ -14,6 +14,10 @@ import test_adapter_lifecycle as c_runtime
 from test_xml_source import ROOT, strip_directives
 
 
+class ContinueDispatch(Exception):
+    pass
+
+
 class Buffer:
     def __init__(self, text='', size=256):
         self.data = list(text.encode()) + [0]
@@ -58,10 +62,16 @@ class EventQueue(unittest.TestCase):
         dispatch = dispatch.replace('app->m_connection.GetCompletedJobEvent', 'job_completion')
         dispatch = dispatch.replace('app->m_connection.PrepareCompletion', 'prepare_completion')
         dispatch = dispatch.replace('app->m_hosts.PollAvailability', 'poll_availability')
+        dispatch = dispatch.replace('app->m_discovery.Poll', 'poll_discovery')
+        dispatch = dispatch.replace('app->m_discovery.Accepts', 'accepts_discovery')
+        dispatch = dispatch.replace('page::Base::GetCurrent()', 'current_page()')
+        dispatch = dispatch.replace('page::Main::Instance()', 'main_page()')
+        dispatch = dispatch.replace('app->QueueEvent(&discovery)',
+                                    'moonlight_event_queue_push(&app->m_events, &discovery)')
         dispatch = dispatch.replace('app->QueueEvent(&availability)',
                                     'moonlight_event_queue_push(&app->m_events, &availability)')
         cls.unit = c_parser.CParser().parse(
-            'typedef unsigned short uint16_t; typedef unsigned long long uint64_t; typedef int bool;'
+            'typedef unsigned int uint32_t; typedef unsigned short uint16_t; typedef unsigned long long uint64_t; typedef int bool;'
             + types + header + source +
             'typedef void (*MoonlightAppEventCallback)(MoonlightEvent *, void *);'
             'typedef struct { MoonlightEventQueue m_events; MoonlightAppEventCallback m_event_callback;'
@@ -85,7 +95,8 @@ class EventQueue(unittest.TestCase):
         self.base_expression = c_runtime.expression
         self.base_execute = c_runtime.execute
         self.library = dict(self.constants, strncpy=self.strncpy, sce_paf_strncpy=self.strncpy,
-                            poll_availability=lambda event: 0)
+                            poll_availability=lambda event: 0, poll_discovery=lambda event: 0,
+                            accepts_discovery=lambda event: True, current_page=lambda: 1, main_page=lambda: 1)
         for name in self.functions:
             self.library[name] = lambda *args, name=name: self.invoke(name, *args)
         self.invoke('moonlight_event_queue_reset', self.queue)
@@ -133,6 +144,15 @@ class EventQueue(unittest.TestCase):
         if isinstance(node, c_ast.Assignment):
             self.assertEqual(node.op, '=')
             self.assign(node.lvalue, self.expression(node.rvalue, values), values)
+        elif isinstance(node, c_ast.Continue):
+            raise ContinueDispatch()
+        elif isinstance(node, c_ast.While):
+            steps = 0
+            while self.expression(node.cond, values):
+                steps += 1
+                self.assertLess(steps, 100)
+                try: self.execute(node.stmt, values)
+                except ContinueDispatch: pass
         elif isinstance(node, c_ast.DeclList):
             for declaration in node.decls:
                 self.execute(declaration, values)
@@ -194,7 +214,7 @@ class EventQueue(unittest.TestCase):
         self.assertIsNone(self.peek())
 
     def test_failures_and_scan_boundaries_remain_ordered_and_are_not_coalesced(self):
-        kinds = ['HOST_SCAN_STARTED', 'HOST_SCAN_FAILED', 'HOST_SCAN_FINISHED',
+        kinds = ['CONNECTION_STARTED', 'APPLICATIONS_FAILED', 'APPLICATIONS_READY',
                  'PAIRING_REQUIRED', 'PAIRING_FAILED', 'STREAM_FAILED', 'SETTINGS_CLOSED']
         for n, name in enumerate(kinds):
             for occurrence in range(2):
@@ -308,6 +328,22 @@ class EventQueue(unittest.TestCase):
         self.library['poll_availability'] = poll
         self.dispatch(lambda event: 1, lambda event: seen.append(event['result']))
         self.assertEqual(seen, [39, 42])
+
+    def test_background_discovery_is_coalesced_and_hidden_or_stale_results_are_dropped(self):
+        for n in range(40):
+            self.assertEqual(self.push('DISCOVERY_CHANGED', n), 0)
+        self.assertEqual(self.queue['count'], 0)
+        seen = []
+        self.dispatch(lambda event: 1, lambda event: seen.append(event['result']))
+        self.assertEqual(seen, [39])
+        for stale, hidden in ((True, False), (False, True), (True, True)):
+            self.library['accepts_discovery'] = lambda event, stale=stale: not stale
+            self.library['current_page'] = lambda hidden=hidden: 2 if hidden else 1
+            self.push('DISCOVERY_CHANGED', 42)
+            self.push('CONNECTION_CLOSED', 43)
+            self.dispatch(lambda event: 1, lambda event: seen.append(event['result']))
+            self.assertEqual(seen[-1], 43)
+            self.assertNotIn(42, seen)
 
     def test_dispatch_waits_for_worker_without_replaying_or_losing_following_close(self):
         self.push('STREAM_FAILED', -7, Buffer('host'))

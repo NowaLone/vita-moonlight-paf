@@ -52,6 +52,7 @@ public:
 
     virtual void Run()
     {
+        m_backend.WaitForHostSearchIdle();
         HostService::WaitForAvailability(m_probe_barrier);
         int result = m_backend.ConnectHost(m_host);
         if (result != 0) {
@@ -104,6 +105,7 @@ int ConnectionService::BeginOperation(ForegroundOperation operation)
 {
     if (operation == Operation_None || IsBusy()) return -1;
 
+    m_backend.StopHostSearch();
     m_hosts.CancelAvailability();
     m_operation = operation;
     __atomic_store_n(&m_worker_done, 0, __ATOMIC_RELEASE);

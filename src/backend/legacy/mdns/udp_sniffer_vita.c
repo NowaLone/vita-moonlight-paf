@@ -15,8 +15,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include "udp_sniffer_vita.h"
-#define MDNS_LOG vita_debug_log
-#include "../debug.h"
 
 #define BUF_SIZE 2048
 #define MCAST_ADDR "224.0.0.251"
@@ -115,7 +113,6 @@ static void update_sunshine_ip_by_target(const char* target, const char* ip) {
 static moonlight_found_cb g_found_cb = NULL;
 
 void udp_sniffer_vita_set_callback(moonlight_found_cb cb) {
-    MDNS_LOG("[mdns_log] udp_sniffer_vita_set_callback: cb=%p\n", cb);
     g_found_cb = cb;
 }
 
@@ -123,12 +120,10 @@ static void check_and_print_ready_entries_vita() {
     for (int i = 0; i < MAX_SUNSHINE; ++i) {
         if (sunshine_table[i].host[0] && sunshine_table[i].target[0] && sunshine_table[i].ip[0] && sunshine_table[i].port > 0) {
             moonlight_count++;
-            MDNS_LOG("[mdns_log] check_and_print_ready_entries_vita: idx=%d host=%s target=%s ip=%s port=%d\n", moonlight_count, sunshine_table[i].host, sunshine_table[i].target, sunshine_table[i].ip, sunshine_table[i].port);
+
             if (g_found_cb) {
-                MDNS_LOG("[mdns_log] g_found_cb IS NOT NULL, calling callback...\n");
+
                 g_found_cb(moonlight_count, sunshine_table[i].host, sunshine_table[i].target, sunshine_table[i].ip, sunshine_table[i].port);
-            } else {
-                MDNS_LOG("[mdns_log] WARNING! g_found_cb is NULL when trying to notify host\n");
             }
             sunshine_table[i].host[0] = '\0';
             sunshine_table[i].ip[0] = '\0';
@@ -138,62 +133,72 @@ static void check_and_print_ready_entries_vita() {
     }
 }
 
-void udp_sniffer_vita_poll(void) {
+static int open_socket(void) {
     if (!initialized) {
-        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: START lazy initialization\n");
+
         sock = sceNetSocket("mdns", SCE_NET_AF_INET, SCE_NET_SOCK_DGRAM, 0);
-        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: after sceNetSocket, sock=%d\n", sock);
-        if (sock < 0) { MDNS_LOG("[VITA] sceNetSocket() failed\n"); return; }
+
+        if (sock < 0) return sock;
         SceNetSockaddrIn addr;
         memset(&addr, 0, sizeof(addr));
         addr.sin_family = SCE_NET_AF_INET;
         addr.sin_addr.s_addr = sceNetHtonl(SCE_NET_INADDR_ANY);
         addr.sin_port = sceNetHtons(MCAST_PORT);
         int bindres = sceNetBind(sock, (SceNetSockaddr*)&addr, sizeof(addr));
-        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: after sceNetBind, res=%d\n", bindres);
-        if (bindres < 0) { MDNS_LOG("[VITA] sceNetBind() failed\n"); sceNetSocketClose(sock); sock = -1; return; }
+
+        if (bindres < 0) { sceNetSocketClose(sock); sock = -1; return bindres; }
         struct SceNetIpMreq mreq;
         // Reemplazo de sceNetInetAddr por sceNetInetPton
         int ptonres = sceNetInetPton(SCE_NET_AF_INET, MCAST_ADDR, &mreq.imr_multiaddr.s_addr);
-        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: after sceNetInetPton, res=%d\n", ptonres);
+
         (void)ptonres;
         mreq.imr_interface.s_addr = sceNetHtonl(SCE_NET_INADDR_ANY);
         int sockoptres = sceNetSetsockopt(sock, SCE_NET_IPPROTO_IP, SCE_NET_IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
-        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: after sceNetSetsockopt(IP_ADD_MEMBERSHIP), res=%d\n", sockoptres);
-        if (sockoptres < 0) { MDNS_LOG("[VITA] sceNetSetsockopt(IP_ADD_MEMBERSHIP) failed\n"); sceNetSocketClose(sock); sock = -1; return; }
-        // Send active mDNS query
-        unsigned char query[] = {
-            0x00,0x00,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,
-            9,'_','n','v','s','t','r','e','a','m',
-            4,'_','t','c','p',
-            5,'l','o','c','a','l',0x00,
-            0x00,0x0C,0x00,0x01
-        };
-        SceNetSockaddrIn mcast_addr;
-        memset(&mcast_addr, 0, sizeof(mcast_addr));
-        mcast_addr.sin_family = SCE_NET_AF_INET;
-        int ptonres2 = sceNetInetPton(SCE_NET_AF_INET, MCAST_ADDR, &mcast_addr.sin_addr.s_addr);
-        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: after sceNetInetPton (mcast_addr), res=%d\n", ptonres2);
-        (void)ptonres2;
-        mcast_addr.sin_port = sceNetHtons(MCAST_PORT);
-        int sendto_res = sceNetSendto(sock, query, sizeof(query), 0, (SceNetSockaddr*)&mcast_addr, sizeof(mcast_addr));
-        MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: after sceNetSendto, res=%d\n", sendto_res);
-        (void)sendto_res;
-        memset(sunshine_table, 0, sizeof(sunshine_table));
+
+        if (sockoptres < 0) { sceNetSocketClose(sock); sock = -1; return sockoptres; }
         initialized = 1;
-        MDNS_LOG("[VITA] mDNS UDP Sniffer initialized.\n");
-        //psvDebugScreenPrintf("[VITA] mDNS UDP Sniffer initialized.\n");
     }
-    if (sock < 0) return;
+    return 0;
+}
+
+int udp_sniffer_vita_query(void) {
+    int result = open_socket();
+    if (result < 0) return result;
+    unsigned char query[] = {
+        0x00,0x00,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,
+        9,'_','n','v','s','t','r','e','a','m',
+        4,'_','t','c','p',
+        5,'l','o','c','a','l',0x00,
+        0x00,0x0C,0x00,0x01
+    };
+    SceNetSockaddrIn mcast_addr;
+    memset(&mcast_addr, 0, sizeof(mcast_addr));
+    mcast_addr.sin_family = SCE_NET_AF_INET;
+    int ptonres2 = sceNetInetPton(SCE_NET_AF_INET, MCAST_ADDR, &mcast_addr.sin_addr.s_addr);
+
+    (void)ptonres2;
+    mcast_addr.sin_port = sceNetHtons(MCAST_PORT);
+    int sendto_res = sceNetSendto(sock, query, sizeof(query), SCE_NET_MSG_DONTWAIT, (SceNetSockaddr*)&mcast_addr, sizeof(mcast_addr));
+
+    if (sendto_res == sizeof(query)) return 0;
+    return sendto_res < 0 ? sendto_res : -1;
+}
+
+int udp_sniffer_vita_poll(void) {
+    if (!initialized || sock < 0) return -1;
     char buffer[BUF_SIZE];
     SceNetSockaddrIn from;
     unsigned int fromlen = sizeof(from);
-    int n = sceNetRecvfrom(sock, buffer, sizeof(buffer), SCE_NET_MSG_DONTWAIT, (SceNetSockaddr*)&from, &fromlen);
-    if (n <= 0) return; // No data
+    int n = sceNetRecvfrom(sock, buffer, sizeof(buffer), SCE_NET_MSG_DONTWAIT,
+                          (SceNetSockaddr*)&from, &fromlen);
+    if (n < 0) {
+        int error = sceNetErrnoLoc() ? *sceNetErrnoLoc() : 0;
+        return error == SCE_NET_EAGAIN ? 0 : n;
+    }
+    if (n == 0) return 0;
     const unsigned char* pkt = (const unsigned char*)buffer;
     int msglen = n;
     int qdcount = 0, ancount = 0;
-    //MDNS_LOG("[mdns_log] udp_sniffer_vita_poll: before mDNS parsing, msglen=%d\n", msglen);
     if (msglen > 12) {
         qdcount = (pkt[4]<<8) | pkt[5];
         ancount = (pkt[6]<<8) | pkt[7];
@@ -203,23 +208,23 @@ void udp_sniffer_vita_poll(void) {
         for (int q = 0; q < qdcount && pos < msglen; ++q) {
             char qname[256];
             int l = decode_dns_name(pkt, msglen, pos, qname, sizeof(qname));
-            if (l < 0 || l > msglen - pos - 4) return;
+            if (l < 0 || l > msglen - pos - 4) return 0;
             pos += l + 4;
         }
         int total_rr = ancount + nscount + arcount;
         for (int i = 0; i < total_rr && pos < msglen; ++i) {
             char rrname[256];
             int l = decode_dns_name(pkt, msglen, pos, rrname, sizeof(rrname));
-            if (l < 0 || l > msglen - pos - 10) return;
+            if (l < 0 || l > msglen - pos - 10) return 0;
             pos += l;
             int type = (pkt[pos]<<8) | pkt[pos+1];
             int rdlength = (pkt[pos+8]<<8) | pkt[pos+9];
             pos += 10;
-            if (rdlength > msglen - pos) return;
+            if (rdlength > msglen - pos) return 0;
             if (type == 12) { // PTR
                 char ptrname[256];
                 int name_length = decode_dns_name(pkt, msglen, pos, ptrname, sizeof(ptrname));
-                if (name_length < 0 || name_length > rdlength) return;
+                if (name_length < 0 || name_length > rdlength) return 0;
                 if (strstr(ptrname, "_nvstream._tcp.local") != NULL) {
                     update_sunshine(ptrname, 0, NULL);
                 }
@@ -228,7 +233,7 @@ void udp_sniffer_vita_poll(void) {
                 int srv_port = (pkt[pos+4]<<8) | pkt[pos+5];
                 char target[256] = {0};
                 int name_length = decode_dns_name(pkt, msglen, pos+6, target, sizeof(target));
-                if (name_length < 0 || name_length > rdlength - 6) return;
+                if (name_length < 0 || name_length > rdlength - 6) return 0;
                 size_t len = strlen(rrname);
                 const char* suffix = "._nvstream._tcp.local";
                 size_t suffixlen = strlen(suffix);
@@ -247,6 +252,7 @@ void udp_sniffer_vita_poll(void) {
         }
         check_and_print_ready_entries_vita();
     }
+    return 0;
 }
 
 void udp_sniffer_vita_deinit(void) {
@@ -266,5 +272,6 @@ void udp_sniffer_vita_init(void) {
     memset(sunshine_table, 0, sizeof(sunshine_table));
 }
 #else
-void udp_sniffer_vita_poll(void) {}
+int udp_sniffer_vita_poll(void) { return -1; }
+int udp_sniffer_vita_query(void) { return -1; }
 #endif

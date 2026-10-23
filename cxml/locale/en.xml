@@ -2,15 +2,12 @@
 <stringset>
   <string src="Moonlight" id="msg_moonlight_title" />
   <string src="No PCs registered." id="msg_no_pcs" />
-  <string src="Search PCs" id="msg_search_pcs" />
   <string src="Enter PC hostname or IP address" id="msg_add_pc_placeholder" />
   <string src="Settings" id="msg_settings" />
   <string src="Delete" id="msg_delete" />
   <string src="Cancel" id="msg_cancel" />
   <string src="Back" id="msg_back" />
   <string src="Select All" id="msg_select_all" />
-  <string src="Search for available PCs on your network." id="msg_search_pcs_description" />
-  <string src="No PCs found." id="msg_no_pcs_found" />
   <string src="Apps" id="msg_apps" />
   <string src="No applications available." id="msg_no_applications" />
   <string src="To pair this system with your PC, enter the PIN&#10;shown below in Sunshine." id="msg_pairing_instruction" />

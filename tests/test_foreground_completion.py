@@ -46,7 +46,7 @@ class ForegroundCompletion(unittest.TestCase):
         predicate = predicate.replace('ConnectionService::', '')
         types = strip_directives((ROOT / 'include/moonlight/types.h').read_text())
         unit = c_parser.CParser().parse(
-            'typedef unsigned short uint16_t; typedef int bool;' + types +
+            'typedef unsigned int uint32_t; typedef unsigned short uint16_t; typedef int bool;' + types +
             'typedef enum {' + operation_body + '} ForegroundOperation;' + predicate)
         values = {'false': 0}
         for declaration in unit.ext:

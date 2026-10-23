@@ -23,8 +23,10 @@ void moonlight_api_shutdown(void);
 
 int moonlight_api_set_event_callback(MoonlightEventCallback callback, void *userdata);
 
-int moonlight_api_get_discovered_hosts(MoonlightHost *out, int capacity);
-int moonlight_api_search_hosts(void);
+int moonlight_api_read_discovery(MoonlightDiscoverySnapshot *snapshot);
+int moonlight_api_search_hosts(uint32_t *generation);
+int moonlight_api_host_search_idle(void);
+void moonlight_api_wait_host_search_idle(void);
 int moonlight_api_stop_host_search(void);
 int moonlight_api_add_host(const char *address, uint16_t port, const char *name);
 

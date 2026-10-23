@@ -43,7 +43,9 @@ void udp_sniffer_vita_set_callback(moonlight_found_cb cb);
  * Processes an mDNS packet if available (non-blocking).
  * Call periodically from the main loop.
  */
-void udp_sniffer_vita_poll(void);
+int udp_sniffer_vita_poll(void);
+/* Send one query on the worker-owned socket; no reset of partial/result state. */
+int udp_sniffer_vita_query(void);
 
 /**
  * Closes the UDP sniffer and frees resources. Must be called before restarting a search.

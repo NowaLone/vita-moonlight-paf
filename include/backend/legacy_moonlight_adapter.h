@@ -16,9 +16,12 @@ public:
     virtual int SetEventCallback(MoonlightEventCallback callback, void *userdata);
 
     virtual int GetHosts(MoonlightHost *out, int capacity);
-    virtual int GetDiscoveredHosts(MoonlightHost *out, int capacity);
-    virtual int SearchHosts();
+    virtual int ReadDiscovery(MoonlightDiscoverySnapshot *snapshot);
+    virtual int SearchHosts(uint32_t *generation);
     virtual int StopHostSearch();
+    virtual bool IsHostSearchIdle();
+    /* Worker-only barrier; UI control never waits for the network thread. */
+    virtual void WaitForHostSearchIdle();
     virtual int AddHost(const char *address, uint16_t port, const char *name);
     virtual int DeleteHost(const MoonlightHost &host);
 

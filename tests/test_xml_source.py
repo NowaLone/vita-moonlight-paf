@@ -17,7 +17,7 @@ class XmlSource(unittest.TestCase):
         types = strip_directives((ROOT / 'include/moonlight/types.h').read_text())
         header = strip_directives((ROOT / 'include/moonlight/gamestream_xml.h').read_text())
         header = header.replace('extern "C" {', '').replace('\n}\n', '\n')
-        preamble = 'typedef unsigned int size_t; typedef unsigned short uint16_t; '
+        preamble = 'typedef unsigned int size_t; typedef unsigned int uint32_t; typedef unsigned short uint16_t; '
         preamble += 'typedef void *XML_Parser; typedef char XML_Char;'
         for path in ('src/moonlight/gamestream_xml.c', 'tests/gamestream_xml_test.c'):
             source = strip_directives((ROOT / path).read_text()).replace('XMLCALL', '')

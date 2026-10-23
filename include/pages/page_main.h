@@ -26,14 +26,15 @@ public:
     static Main *Instance();
     void SuspendForSystemSettings();
     void RestoreAfterSystemSettings();
-    void OpenSearch();
+    void SuspendBackground();
     void OpenAddPc();
     void RestoreEventCallback();
 
     void EnterSelectionMode();
-    bool HasHosts() const { return m_host_count > 0; }
+    bool HasHosts() const { return m_saved_count > 0; }
 
 private:
+    static void BackgroundTask(void *userdata);
     static void AvailabilityTask(void *userdata);
     static void OnHostButton(int32_t type, paf::ui::Handler *self, paf::ui::Event *event, void *userdata);
     static void InitialRefreshTask(void *userdata);
@@ -46,7 +47,10 @@ private:
     static void SelectionDialogPollTask(void *userdata);
 
     paf::ui::ListItem *CreateListItem(paf::ui::listview::ItemFactory::CreateParam &param);
+    bool CanDiscover() const;
+    bool ReadHostRows(paf::vector<MoonlightHost> &hosts);
     void RefreshHosts();
+    void UpdateHostItem(paf::ui::Widget *item, int index);
     void SelectHost(int index);
     void HideStatus();
     void ShowIdleStatus();
@@ -64,17 +68,27 @@ private:
     void DeleteSelectedHosts();
 
     struct HostRowState {
+        bool saved;
+        bool selection_template;
         uint32_t token;
         uint32_t checkbox_token;
         bool selected;
-        paf::ui::CheckBox *checkbox;
     };
     int FindHostIndex(uint32_t token) const;
 
     paf::vector<MoonlightHost> m_hosts;
+    paf::vector<MoonlightHost> m_saved_hosts;
     paf::vector<HostRowState> m_rows;
     uint32_t m_next_host_token;
     int m_host_count;
+    int m_saved_count;
+    enum PendingAction { Pending_None, Pending_AddPc, Pending_Settings };
+    PendingAction m_pending_action;
+    uint64_t m_discovery_retry_at;
+    int m_discovery_error;
+    uint64_t m_app_state_poll_at;
+    bool m_system_ui_overlaid;
+    bool m_list_ready;
     bool m_connecting;
     bool m_settings_suspended;
     int m_initial_refresh_attempts;

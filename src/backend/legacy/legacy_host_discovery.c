@@ -1,234 +1,251 @@
-#include <psp2/kernel/threadmgr.h>
-#include <stddef.h>
+#include <pthread.h>
 #include <string.h>
+#include <psp2/kernel/processmgr.h>
+#include <psp2/kernel/threadmgr.h>
 
 #include "legacy_host_discovery.h"
 #include "mdns/udp_sniffer_vita.h"
+#include "debug.h"
 
-#define LEGACY_HOST_DISCOVERY_MAX_HOSTS 16
-#define LEGACY_HOST_DISCOVERY_DURATION_TICKS 100
-#define LEGACY_HOST_DISCOVERY_TICK_USEC 100000
+#define DISCOVERY_QUERY_USEC 5000000ull
+#define DISCOVERY_EXPIRY_USEC 15000000ull
+#define DISCOVERY_LEASE_USEC 250000ull
+#define DISCOVERY_POLL_USEC 10000
 
-enum {
-    DISCOVERY_IDLE = 0,
-    DISCOVERY_RUNNING = 1,
-    DISCOVERY_STOP_REQUESTED = 2
-};
-
-static volatile int s_status = DISCOVERY_IDLE;
-static volatile int s_suppress_events = 0;
+static pthread_mutex_t s_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t s_wake = PTHREAD_COND_INITIALIZER;
 static SceUID s_thread = -1;
-static LegacyHostDiscoveryCallback s_callback = NULL;
-static void *s_userdata = NULL;
+static int s_enabled;
+static int s_shutdown;
+static uint32_t s_generation;
+static uint32_t s_active_generation;
+static uint64_t s_lease_until;
+static MoonlightDiscoverySnapshot s_snapshot;
+/* Ages advance only during active, successful network polling, never across pause/error. */
+static uint64_t s_healthy_time;
+static uint64_t s_seen[MOONLIGHT_MAX_DISCOVERED_HOSTS];
+static int s_last_error;
 
-static MoonlightHost s_hosts[LEGACY_HOST_DISCOVERY_MAX_HOSTS];
-static int s_host_count = 0;
-
-static void emit_event(LegacyHostDiscoveryEventType type, const MoonlightHost *host)
+static void report_error(int result)
 {
-    if (s_suppress_events) {
-        return;
-    }
-
-    LegacyHostDiscoveryCallback callback = s_callback;
-    if (callback != NULL) {
-        callback(type, host, s_userdata);
-    }
+    if (result != s_last_error && result < 0)
+        vita_debug_log("[Discovery] background search error=%d", result);
+    /* Do not repeat the same outage every five seconds. Reset after recovery. */
+    s_last_error = result;
 }
 
-static void clear_hosts(void)
+static int generation_active(uint32_t generation, uint64_t now)
 {
-    memset(s_hosts, 0, sizeof(s_hosts));
-    s_host_count = 0;
+    return s_enabled && !s_shutdown && generation == s_generation && now < s_lease_until;
 }
 
-static int find_host(const char *name, const char *address, uint16_t port)
-{
-    int i;
-    for (i = 0; i < s_host_count; ++i) {
-        if (strcmp(s_hosts[i].name, name) == 0 &&
-            strcmp(s_hosts[i].internal, address) == 0 &&
-            s_hosts[i].port == port) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-static void on_mdns_host(
-    int idx,
-    const char *host,
-    const char *pcname,
-    const char *ip,
-    int port)
+static void on_mdns_host(int idx, const char *service, const char *name,
+                         const char *ip, int port)
 {
     (void)idx;
-    (void)host;
-
-    if (s_status != DISCOVERY_RUNNING || s_suppress_events) {
+    (void)service;
+    if (!name || !ip || !name[0] || !ip[0] || port <= 0 || port > 65535) return;
+    pthread_mutex_lock(&s_mutex);
+    if (!generation_active(s_active_generation, sceKernelGetProcessTimeWide())) {
+        pthread_mutex_unlock(&s_mutex);
         return;
     }
-
-    if (pcname == NULL || ip == NULL || pcname[0] == '\0' || ip[0] == '\0' || port <= 0) {
-        return;
+    int index;
+    for (index = 0; index < s_snapshot.count; ++index) {
+        if (s_snapshot.hosts[index].port == port &&
+            strcmp(s_snapshot.hosts[index].internal, ip) == 0) break;
     }
-
-    if (find_host(pcname, ip, (uint16_t)port) >= 0) {
-        return;
+    if (index < MOONLIGHT_MAX_DISCOVERED_HOSTS) {
+        MoonlightHost *host = &s_snapshot.hosts[index];
+        if (index == s_snapshot.count) {
+            memset(host, 0, sizeof(*host));
+            host->id = -1;
+            strncpy(host->internal, ip, sizeof(host->internal) - 1);
+            host->port = (uint16_t)port;
+            ++s_snapshot.count;
+            ++s_snapshot.revision;
+        }
+        if (strncmp(host->name, name, sizeof(host->name) - 1) != 0) {
+            strncpy(host->name, name, sizeof(host->name) - 1);
+            host->name[sizeof(host->name) - 1] = 0;
+            ++s_snapshot.revision;
+        }
+        s_seen[index] = s_healthy_time;
     }
+    pthread_mutex_unlock(&s_mutex);
+}
 
-    if (s_host_count >= LEGACY_HOST_DISCOVERY_MAX_HOSTS) {
-        return;
+static void expire_hosts(void)
+{
+    for (int i = s_snapshot.count - 1; i >= 0; --i) {
+        if (s_healthy_time - s_seen[i] >= DISCOVERY_EXPIRY_USEC) {
+            --s_snapshot.count;
+            memmove(&s_snapshot.hosts[i], &s_snapshot.hosts[i + 1],
+                    (s_snapshot.count - i) * sizeof(MoonlightHost));
+            memmove(&s_seen[i], &s_seen[i + 1],
+                    (s_snapshot.count - i) * sizeof(uint64_t));
+            ++s_snapshot.revision;
+        }
     }
-
-    MoonlightHost *entry = &s_hosts[s_host_count];
-    memset(entry, 0, sizeof(*entry));
-
-    entry->id = s_host_count;
-    strncpy(entry->name, pcname, sizeof(entry->name) - 1);
-    strncpy(entry->internal, ip, sizeof(entry->internal) - 1);
-    entry->port = (uint16_t)port;
-    entry->paired = 0;
-    entry->online = 1;
-    entry->prefer_external = 0;
-
-    ++s_host_count;
-    emit_event(LEGACY_HOST_DISCOVERY_FOUND, entry);
 }
 
 static int discovery_thread(SceSize args, void *argp)
 {
-    int ticks = 0;
     (void)args;
     (void)argp;
+    for (;;) {
+        pthread_mutex_lock(&s_mutex);
+        while (!s_shutdown && (!s_enabled ||
+               sceKernelGetProcessTimeWide() >= s_lease_until))
+            pthread_cond_wait(&s_wake, &s_mutex);
+        if (s_shutdown) {
+            pthread_mutex_unlock(&s_mutex);
+            return 0;
+        }
+        uint32_t generation = s_generation;
+        s_active_generation = generation;
+        pthread_mutex_unlock(&s_mutex);
 
-    udp_sniffer_vita_deinit();
-    udp_sniffer_vita_init();
-    udp_sniffer_vita_set_callback(on_mdns_host);
-
-    while (s_status == DISCOVERY_RUNNING &&
-           ticks < LEGACY_HOST_DISCOVERY_DURATION_TICKS) {
-        udp_sniffer_vita_poll();
-        sceKernelDelayThread(LEGACY_HOST_DISCOVERY_TICK_USEC);
-        ++ticks;
+        udp_sniffer_vita_init();
+        udp_sniffer_vita_set_callback(on_mdns_host);
+        uint64_t next_query = 0;
+        uint64_t last_tick = sceKernelGetProcessTimeWide();
+        int healthy = 0;
+        for (;;) {
+            uint64_t now = sceKernelGetProcessTimeWide();
+            pthread_mutex_lock(&s_mutex);
+            int active = generation_active(generation, now);
+            pthread_mutex_unlock(&s_mutex);
+            if (!active) break;
+            if (now >= next_query) {
+                int result = udp_sniffer_vita_query();
+                healthy = result >= 0;
+                if (result < 0) {
+                    report_error(result);
+                    udp_sniffer_vita_deinit();
+                }
+                /* Completion-to-next-query, no catch-up bursts after delay/suspend. */
+                next_query = sceKernelGetProcessTimeWide() + DISCOVERY_QUERY_USEC;
+                last_tick = sceKernelGetProcessTimeWide();
+            }
+            int result = healthy ? udp_sniffer_vita_poll() : -1;
+            if (result < 0 && healthy) {
+                healthy = 0;
+                report_error(result);
+                udp_sniffer_vita_deinit();
+            }
+            if (healthy) report_error(0);
+            now = sceKernelGetProcessTimeWide();
+            pthread_mutex_lock(&s_mutex);
+            if (healthy && generation_active(generation, sceKernelGetProcessTimeWide())) {
+                s_healthy_time += now >= last_tick ? now - last_tick : 0;
+                expire_hosts();
+            }
+            pthread_mutex_unlock(&s_mutex);
+            last_tick = now;
+            sceKernelDelayThread(DISCOVERY_POLL_USEC);
+        }
+        udp_sniffer_vita_set_callback(NULL);
+        udp_sniffer_vita_deinit();
+        pthread_mutex_lock(&s_mutex);
+        s_active_generation = 0;
+        pthread_cond_broadcast(&s_wake);
+        pthread_mutex_unlock(&s_mutex);
     }
+}
 
-    udp_sniffer_vita_set_callback(NULL);
-    udp_sniffer_vita_deinit();
-
-    if (s_status == DISCOVERY_RUNNING) {
-        s_status = DISCOVERY_IDLE;
-        emit_event(LEGACY_HOST_DISCOVERY_FINISHED, NULL);
-    } else {
-        s_status = DISCOVERY_IDLE;
-    }
-
+int legacy_host_discovery_init(void)
+{
+    s_shutdown = 0;
+    s_enabled = 0;
+    s_generation = 0;
+    s_active_generation = 0;
+    s_healthy_time = 0;
+    s_last_error = 0;
+    memset(&s_snapshot, 0, sizeof(s_snapshot));
     return 0;
 }
 
-int legacy_host_discovery_init(LegacyHostDiscoveryCallback callback, void *userdata)
+int legacy_host_discovery_start(uint32_t *generation)
 {
-    s_callback = callback;
-    s_userdata = userdata;
-    s_status = DISCOVERY_IDLE;
-    s_suppress_events = 0;
-    s_thread = -1;
-    clear_hosts();
-    return 0;
-}
-
-void legacy_host_discovery_shutdown(void)
-{
-    legacy_host_discovery_stop();
-    s_callback = NULL;
-    s_userdata = NULL;
-    clear_hosts();
-}
-
-int legacy_host_discovery_start(void)
-{
-    if (s_status == DISCOVERY_RUNNING) {
-        return 0;
+    pthread_mutex_lock(&s_mutex);
+    uint64_t now = sceKernelGetProcessTimeWide();
+    if (s_shutdown) {
+        pthread_mutex_unlock(&s_mutex);
+        return -1;
     }
-
-    if (s_thread >= 0) {
-        /* FINISHED is emitted just before the worker returns. Join it before
-         * replacing its UID, even if its scan state already says IDLE. */
-        int result = legacy_host_discovery_stop();
-        if (result != 0) return result;
-    }
-
-    clear_hosts();
-    s_suppress_events = 0;
-    s_status = DISCOVERY_RUNNING;
-
-    s_thread = sceKernelCreateThread(
-        "mlmdns",
-        discovery_thread,
-        0x10000100,
-        0x10000,
-        0,
-        0,
-        NULL
-    );
-
     if (s_thread < 0) {
+        s_thread = sceKernelCreateThread("mlmdns", discovery_thread,
+                                        0x10000100, 0x10000, 0, 0, NULL);
         int result = s_thread;
-        s_status = DISCOVERY_IDLE;
-        s_thread = -1;
-        return result;
+        if (result >= 0) result = sceKernelStartThread(s_thread, 0, NULL);
+        if (result < 0) {
+            if (s_thread >= 0) sceKernelDeleteThread(s_thread);
+            s_thread = -1;
+            pthread_mutex_unlock(&s_mutex);
+            return result;
+        }
     }
-
-    int result = sceKernelStartThread(s_thread, 0, NULL);
-    if (result < 0) {
-        sceKernelDeleteThread(s_thread);
-        s_thread = -1;
-        s_status = DISCOVERY_IDLE;
-        return result;
+    if (!s_enabled || now >= s_lease_until) {
+        if (++s_generation == 0) ++s_generation;
+        s_snapshot.generation = s_generation;
+        ++s_snapshot.revision;
+        pthread_cond_broadcast(&s_wake);
     }
-
+    s_enabled = 1;
+    s_lease_until = now + DISCOVERY_LEASE_USEC;
+    *generation = s_generation;
+    pthread_mutex_unlock(&s_mutex);
     return 0;
 }
 
 int legacy_host_discovery_stop(void)
 {
-    s_suppress_events = 1;
-
-    if (s_status == DISCOVERY_RUNNING) {
-        s_status = DISCOVERY_STOP_REQUESTED;
-    }
-
-    if (s_thread >= 0) {
-        SceUInt timeout = LEGACY_HOST_DISCOVERY_TICK_USEC;
-        int result;
-
-        do {
-            result = sceKernelWaitThreadEnd(s_thread, NULL, &timeout);
-        } while (result < 0);
-
-        sceKernelDeleteThread(s_thread);
-        s_thread = -1;
-    }
-
-    s_status = DISCOVERY_IDLE;
-    s_suppress_events = 0;
+    pthread_mutex_lock(&s_mutex);
+    s_enabled = 0;
+    pthread_mutex_unlock(&s_mutex);
     return 0;
 }
 
-int legacy_host_discovery_is_running(void)
+int legacy_host_discovery_is_idle(void)
 {
-    return s_status == DISCOVERY_RUNNING ||
-           s_status == DISCOVERY_STOP_REQUESTED;
+    pthread_mutex_lock(&s_mutex);
+    int idle = s_active_generation == 0;
+    pthread_mutex_unlock(&s_mutex);
+    return idle;
 }
 
-int legacy_host_discovery_get_hosts(MoonlightHost *out, int capacity)
+void legacy_host_discovery_wait_idle(void)
 {
-    int count = s_host_count;
-    int copy_count = count < capacity ? count : capacity;
+    pthread_mutex_lock(&s_mutex);
+    while (s_active_generation != 0) pthread_cond_wait(&s_wake, &s_mutex);
+    pthread_mutex_unlock(&s_mutex);
+}
 
-    if (out != NULL && copy_count > 0) {
-        memcpy(out, s_hosts, sizeof(MoonlightHost) * copy_count);
+int legacy_host_discovery_read(MoonlightDiscoverySnapshot *snapshot)
+{
+    pthread_mutex_lock(&s_mutex);
+    int changed = -1;
+    if (generation_active(s_generation, sceKernelGetProcessTimeWide())) {
+        changed = snapshot->generation != s_snapshot.generation ||
+                  snapshot->revision != s_snapshot.revision;
+        if (changed) *snapshot = s_snapshot;
     }
+    pthread_mutex_unlock(&s_mutex);
+    return changed;
+}
 
-    return count;
+void legacy_host_discovery_shutdown(void)
+{
+    pthread_mutex_lock(&s_mutex);
+    s_enabled = 0;
+    s_shutdown = 1;
+    pthread_cond_broadcast(&s_wake);
+    pthread_mutex_unlock(&s_mutex);
+    if (s_thread >= 0) {
+        while (sceKernelWaitThreadEnd(s_thread, NULL, NULL) < 0)
+            sceKernelDelayThread(DISCOVERY_POLL_USEC);
+        sceKernelDeleteThread(s_thread);
+        s_thread = -1;
+    }
 }

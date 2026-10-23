@@ -81,6 +81,15 @@ typedef struct MoonlightHost {
     int prefer_external;
 } MoonlightHost;
 
+/* Backend publication: copied under its lock; consumed only on the main thread. */
+enum { MOONLIGHT_MAX_DISCOVERED_HOSTS = 16 };
+typedef struct MoonlightDiscoverySnapshot {
+    uint32_t generation;
+    uint32_t revision;
+    int count;
+    MoonlightHost hosts[MOONLIGHT_MAX_DISCOVERED_HOSTS];
+} MoonlightDiscoverySnapshot;
+
 typedef struct MoonlightApplication {
     int id;
     char name[256];
@@ -99,9 +108,6 @@ typedef enum MoonlightConnectionState {
 
 typedef enum MoonlightEventType {
     MOONLIGHT_EVENT_NONE = 0,
-    MOONLIGHT_EVENT_HOST_SCAN_STARTED,
-    MOONLIGHT_EVENT_HOST_SCAN_FINISHED,
-    MOONLIGHT_EVENT_HOST_SCAN_FAILED,
     MOONLIGHT_EVENT_HOSTS_CHANGED,
     MOONLIGHT_EVENT_PAIRING_REQUIRED,
     MOONLIGHT_EVENT_PAIRING_FINISHED,
@@ -117,7 +123,8 @@ typedef enum MoonlightEventType {
     MOONLIGHT_EVENT_APPLICATIONS_FAILED,
     MOONLIGHT_EVENT_SETTINGS_CHANGED,
     MOONLIGHT_EVENT_SETTINGS_CLOSED,
-    MOONLIGHT_EVENT_HOST_AVAILABILITY_CHANGED
+    MOONLIGHT_EVENT_HOST_AVAILABILITY_CHANGED,
+    MOONLIGHT_EVENT_DISCOVERY_CHANGED
 } MoonlightEventType;
 
 typedef enum MoonlightPairingResult {
@@ -148,6 +155,7 @@ typedef struct MoonlightEvent {
     char server_status_message[256];
     /* Active host app from the authenticated snapshot that rejected a launch. */
     int running_application_id;
+    uint32_t discovery_generation;
 } MoonlightEvent;
 
 typedef void (*MoonlightEventCallback)(const MoonlightEvent *, void *);

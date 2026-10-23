@@ -1,251 +1,279 @@
-"""Interpret actual discovery service/API/native lifecycle with serial kernel mocks.
+"""Interpret real discovery worker/control/publication with serial clock/kernel/socket mocks.
 
-No PAF jobs, Vita threads, socket I/O, compilation or real synchronization is executed.
+No compilation, real pthread scheduling, socket latency or Vita behavior is established.
 """
+import ast
+import copy
 import re
 import unittest
 from unittest.mock import patch
-
 from pycparser import c_ast, c_parser
 import test_adapter_lifecycle as runtime
+from test_host_lists import ContinueLoop, function, host
 from test_xml_source import ROOT, strip_directives
 
 
-def function(source, name):
-    start = re.search(r'^(?:static )?(?:int|void) ' + name + r'\(', source, re.M).start()
-    return source[start:source.index('\n}', start) + 2]
-
-
 class Scope:
-    def __init__(self, shared, parameters):
-        self.shared, self.local = shared, parameters
+    def __init__(self, shared, parameters): self.shared, self.local = shared, parameters
+    def __getitem__(self, key): return self.local[key] if key in self.local else self.shared[key]
+    def __setitem__(self, key, value): (self.shared if key.startswith('s_') else self.local)[key] = value
+    def __contains__(self, key): return key in self.local or key in self.shared
 
-    def __getitem__(self, key):
-        return self.local[key] if key in self.local else self.shared[key]
 
-    def __setitem__(self, key, value):
-        (self.shared if key.startswith('s_') else self.local)[key] = value
+def empty_host():
+    entry = host(0, host_id='\0', name='\0', internal='\0', external='\0')
+    entry.update(id=0, paired=0, online=0, prefer_external=0, port=0)
+    for key in ('host_id', 'name', 'internal', 'external', 'mac'):
+        entry[key] = [0] * (256 if key not in ('host_id', 'mac') else 33 if key == 'host_id' else 18)
+    return entry
 
-    def __contains__(self, key):
-        return key in self.local or key in self.shared
+
+def snapshot(): return dict(generation=0, revision=0, count=0, hosts=[empty_host() for _ in range(16)])
+
+
+class NativeModel:
+    def __init__(self, functions, constants):
+        self.functions = functions
+        self.now, self.end_at, self.latency, self.query_result, self.poll_result = 1, 12000001, 0, 0, 0
+        self.create_result, self.start_result = 10, 0
+        self.renew = True
+        self.calls, self.queries, self.logs = [], [], []
+        self.on_poll = lambda: None
+        self.base_expression, self.base_execute = runtime.expression, runtime.execute
+        self.values = dict(constants, NULL=0, s_snapshot=snapshot(), s_seen=[0]*16,
+                           s_mutex=0, s_wake=0, s_thread=-1, s_enabled=0, s_shutdown=0,
+                           s_generation=0, s_active_generation=0, s_lease_until=0,
+                           s_healthy_time=0, s_last_error=0, discovery_thread=0,
+                           sceKernelGetProcessTimeWide=lambda: self.now,
+                           sceKernelCreateThread=lambda *args: self.record('create', self.create_result),
+                           sceKernelStartThread=lambda *args: self.record('start', self.start_result),
+                           sceKernelWaitThreadEnd=lambda *args: self.record('join', 0),
+                           sceKernelDeleteThread=lambda *args: self.record('delete', 0),
+                           sceKernelDelayThread=self.delay,
+                           udp_sniffer_vita_init=lambda: self.record('open', 0),
+                           udp_sniffer_vita_deinit=lambda: self.record('close', 0),
+                           udp_sniffer_vita_set_callback=lambda *args: None,
+                           udp_sniffer_vita_query=self.query, udp_sniffer_vita_poll=self.poll,
+                           pthread_mutex_lock=lambda *args: None, pthread_mutex_unlock=lambda *args: None,
+                           pthread_cond_broadcast=lambda *args: None, pthread_cond_wait=self.wait,
+                           vita_debug_log=lambda *args: self.logs.append(args), memset=self.memset,
+                           strncpy=self.strncpy, strcmp=lambda a,b: 0 if self.text(a)==self.text(b) else 1,
+                           strncmp=lambda a,b,n: 0 if self.text(a)[:n]==self.text(b)[:n] else 1,
+                           set_generation=lambda value: self.record('generation', value),
+                           shift_hosts=lambda i: self.shift('hosts', i), shift_seen=lambda i: self.shift('seen', i))
+        for name in functions:
+            self.values[name] = lambda *args, name=name: self.invoke(name, *args)
+
+    def record(self, name, result): self.calls.append(name); return result
+    @staticmethod
+    def text(value): return value if isinstance(value, str) else bytes(value[:value.index(0)]).decode()
+    @staticmethod
+    def strncpy(destination, source, count):
+        data = list((NativeModel.text(source)).encode())
+        destination[:count] = (data + [0]*count)[:count]
+    @staticmethod
+    def memset(destination, value, count):
+        fresh = snapshot() if 'hosts' in destination else empty_host()
+        destination.clear(); destination.update(fresh)
+    def shift(self, kind, index):
+        entries = self.values['s_snapshot']['hosts'] if kind == 'hosts' else self.values['s_seen']
+        count = self.values['s_snapshot']['count'] - index
+        entries[index:index+count] = copy.deepcopy(entries[index+1:index+1+count])
+    def query(self):
+        self.queries.append(self.now)
+        self.now += self.latency
+        return self.query_result
+    def poll(self): self.on_poll(); return self.poll_result
+    def delay(self, duration):
+        self.now += duration
+        if self.now >= self.end_at: self.invoke('legacy_host_discovery_stop')
+        elif self.renew: self.invoke('legacy_host_discovery_start', 0)
+    def wait(self, *args):
+        self.calls.append('wait')
+        self.values['s_shutdown'] = 1  # Stop the serial worker at its inactive wait point.
+        self.values['s_active_generation'] = 0
+    def assign(self, node, value, values):
+        if isinstance(node, c_ast.ID): values[node.name] = value
+        elif isinstance(node, c_ast.StructRef): self.expression(node.name, values)[node.field.name] = value
+        elif isinstance(node, c_ast.ArrayRef): self.expression(node.name, values)[self.expression(node.subscript, values)] = value
+        elif isinstance(node, c_ast.UnaryOp) and node.op == '*':
+            destination = self.expression(node.expr, values)
+            destination.clear(); destination.update(copy.deepcopy(value))
+        else: raise AssertionError(node)
+    def expression(self, node, values):
+        if isinstance(node, c_ast.Constant):
+            if node.type == 'string': return ast.literal_eval(node.value)
+            if node.type == 'char': return ord(ast.literal_eval(node.value))
+            return int(re.sub('[uUlL]+$', '', node.value), 0)
+        if isinstance(node, c_ast.UnaryOp):
+            if node.op == 'sizeof':
+                if isinstance(node.expr, c_ast.Typename): return 1
+                operand = self.expression(node.expr, values)
+                return len(operand) if isinstance(operand, list) else 1
+            if node.op == '&': return self.expression(node.expr, values)
+            if node.op == '*': return self.expression(node.expr, values)
+            if node.op in ('++','--'):
+                value = self.expression(node.expr, values) + (1 if node.op=='++' else -1)
+                self.assign(node.expr, value, values); return value
+        if isinstance(node, c_ast.BinaryOp) and node.op in ('<=','*'):
+            a,b=self.expression(node.left, values),self.expression(node.right, values)
+            return a<=b if node.op=='<=' else a*b
+        return self.base_expression(node, values)
+    def execute(self, node, values):
+        if isinstance(node, c_ast.Assignment):
+            result = self.expression(node.rvalue, values)
+            if node.op == '+=': result += self.expression(node.lvalue, values)
+            elif node.op != '=': raise AssertionError(node.op)
+            self.assign(node.lvalue, result, values)
+        elif isinstance(node, c_ast.Continue): raise ContinueLoop()
+        elif isinstance(node, (c_ast.For, c_ast.While)):
+            if isinstance(node, c_ast.For): self.execute(node.init, values)
+            steps=0
+            while node.cond is None or self.expression(node.cond, values):
+                steps+=1
+                assert steps < 10000
+                try: self.execute(node.stmt, values)
+                except ContinueLoop: pass
+                except runtime.BreakSwitch: break
+                if isinstance(node, c_ast.For): self.execute(node.next, values)
+        elif isinstance(node, (c_ast.UnaryOp, c_ast.Cast)): self.expression(node, values)
+        elif isinstance(node, c_ast.DeclList):
+            for declaration in node.decls: self.execute(declaration, values)
+        else: self.base_execute(node, values)
+    def invoke(self, name, *args):
+        fn=self.functions[name]
+        parameters=fn.decl.type.args.params if fn.decl.type.args else []
+        values=Scope(self.values, dict(zip((p.name for p in parameters), args)))
+        with patch.object(runtime, 'expression', self.expression), patch.object(runtime, 'execute', self.execute):
+            try: self.execute(fn.body, values)
+            except runtime.Returned as result: return result.value
 
 
 class DiscoveryLifecycle(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.service = (ROOT / 'src/services/host_discovery_service.cpp').read_text()
-        native = (ROOT / 'src/backend/legacy/legacy_host_discovery.c').read_text()
-        api = (ROOT / 'src/moonlight/api.cpp').read_text()
-        bodies = []
-        for name in ('Start', 'Stop'):
-            body = function(cls.service, 'HostDiscoveryService::' + name)
-            body = body.replace('HostDiscoveryService::', 'service_')
-            body = body.replace('m_backend.SearchHosts()', 'moonlight_api_search_hosts()')
-            body = body.replace('m_backend.StopHostSearch()', 'moonlight_api_stop_host_search()')
-            bodies.append(body)
-        for name in ('clear_hosts', 'emit_event', 'discovery_thread',
-                     'legacy_host_discovery_start', 'legacy_host_discovery_stop',
-                     'legacy_host_discovery_is_running', 'legacy_host_discovery_shutdown'):
-            bodies.append(function(native, name))
-        for name in ('on_discovery_event', 'moonlight_api_search_hosts', 'moonlight_api_stop_host_search'):
-            bodies.append(function(api, name))
-        search = (ROOT / 'src/pages/page_search.cpp').read_text()
-        body = search[search.index('    int result = MoonlightApp::Instance()->Discovery().Start();'):]
-        body = body[:body.index('\n}')]
-        body = body.replace('MoonlightApp::Instance()->Discovery().Start()', 'service_Start()')
-        body = body.replace('MoonlightApp::Instance()->Connection().ShowError(', 'show_error(')
-        bodies.append('void search_open(void) {\n' + body + '\n}')
-        source = '\n'.join(bodies)
-        source = re.sub(r'//[^\n]*', '', strip_directives(source))
-        preamble = '''typedef int SceSize, SceUInt, LegacyHostDiscoveryEventType;
-        typedef void (*LegacyHostDiscoveryCallback)(int, void *, void *);
-        typedef struct {int id; char *internal;} MoonlightHost;'''
-        unit = c_parser.CParser().parse(preamble + source)
-        cls.functions = {item.decl.name: item for item in unit.ext if isinstance(item, c_ast.FuncDef)}
+        cls.native=(ROOT/'src/backend/legacy/legacy_host_discovery.c').read_text()
+        source=strip_directives(cls.native)
+        source=source[source.index('static void report_error'):]
+        source=source.replace('*generation = s_generation;', 'set_generation(s_generation);')
+        source=re.sub(r'memmove\(&s_snapshot.hosts\[i\].*?;', 'shift_hosts(i);', source, flags=re.S)
+        source=re.sub(r'memmove\(&s_seen\[i\].*?;', 'shift_seen(i);', source, flags=re.S)
+        preamble='''typedef int SceSize; typedef unsigned int uint32_t; typedef unsigned short uint16_t;
+        typedef unsigned long long uint64_t;
+        typedef struct { int id; char host_id[33], name[256], internal[256], external[256], mac[18];
+        int port,paired,online,prefer_external;} MoonlightHost;
+        typedef struct {uint32_t generation,revision; int count; MoonlightHost hosts[16];} MoonlightDiscoverySnapshot;'''
+        service = (ROOT/'src/services/host_discovery_service.cpp').read_text()
+        accepts = function(service, 'HostDiscoveryService::Accepts')
+        accepts = accepts.replace('HostDiscoveryService::Accepts', 'accepts').replace(
+            'const MoonlightEvent &event', 'const MoonlightEvent *event').replace(' const\n', '\n')
+        preamble += 'typedef int bool; typedef struct {uint32_t discovery_generation;} MoonlightEvent;'
+        unit=c_parser.CParser().parse(preamble+source+accepts)
+        cls.functions={item.decl.name:item for item in unit.ext if isinstance(item,c_ast.FuncDef)}
+        cls.constants={name:int(re.sub('[uUlL]+$','',value),0)
+                       for name,value in re.findall(r'^#define (DISCOVERY_\w+) (\w+)',cls.native,re.M)}
+        cls.constants['MOONLIGHT_MAX_DISCOVERED_HOSTS']=16
 
-    def setUp(self):
-        self.events, self.errors, self.calls = [], [], []
-        self.dead = False
-        self.create_result, self.start_result = 10, 0
-        self.interrupt_on_poll = False
-        self.wait_failures = 0
-        self.original_expression, self.original_execute = runtime.expression, runtime.execute
-        self.values = dict(NULL=0, DISCOVERY_IDLE=0, DISCOVERY_RUNNING=1, DISCOVERY_STOP_REQUESTED=2,
-                           LEGACY_HOST_DISCOVERY_FINISHED=1, LEGACY_HOST_DISCOVERY_FOUND=0,
-                           MOONLIGHT_EVENT_HOST_SCAN_STARTED=10, MOONLIGHT_EVENT_HOST_SCAN_FINISHED=11,
-                           MOONLIGHT_EVENT_HOSTS_CHANGED=12, MOONLIGHT_EVENT_HOST_SCAN_FAILED=13,
-                           LEGACY_HOST_DISCOVERY_DURATION_TICKS=100,
-                           LEGACY_HOST_DISCOVERY_TICK_USEC=100000,
-                           s_status=0, s_thread=-1, s_suppress_events=0, s_host_count=0,
-                           s_hosts=[], s_userdata=0, on_mdns_host=99,
-                           memset=lambda *args: None, sceKernelCreateThread=self.create,
-                           sceKernelStartThread=self.start, sceKernelWaitThreadEnd=self.wait,
-                           sceKernelDeleteThread=self.delete, sceKernelDelayThread=lambda *args: None,
-                           udp_sniffer_vita_init=lambda: self.calls.append('network_init'),
-                           udp_sniffer_vita_deinit=lambda: self.calls.append('network_deinit'),
-                           udp_sniffer_vita_set_callback=lambda *args: None,
-                           udp_sniffer_vita_poll=self.poll,
-                           emit=lambda *args: self.events.append(args),
-                           show_error=lambda *args: self.errors.append(args))
-        for name in self.functions:
-            self.values[name] = lambda *args, name=name: self.invoke(name, *args)
-        self.values['s_callback'] = lambda kind, host, userdata: self.invoke(
-            'on_discovery_event', kind, host, userdata)
+    def setUp(self): self.model=NativeModel(self.functions,self.constants)
 
-    def invoke(self, name, *args):
-        declaration = self.functions[name].decl.type.args
-        parameters = declaration.params if declaration else []
-        values = Scope(self.values, dict(zip((arg.name for arg in parameters), args)))
-        with patch.object(runtime, 'expression', self.expression), patch.object(runtime, 'execute', self.execute):
-            try:
-                self.execute(self.functions[name].body, values)
-            except runtime.Returned as result:
-                return result.value
+    def test_five_second_queries_in_one_worker_no_catch_up(self):
+        m=self.model; m.latency=80000
+        self.assertEqual(m.invoke('legacy_host_discovery_start',0),0)
+        m.invoke('discovery_thread',0,0)
+        self.assertEqual(m.queries,[1,5080001,10160001])
+        self.assertEqual(m.calls.count('create'),1)
+        self.assertNotIn('join',m.calls)
+        self.assertEqual(m.calls.count('close'),1)
 
-    def expression(self, node, values):
-        if isinstance(node, c_ast.Constant) and node.type == 'int':
-            return int(node.value, 0)
-        if isinstance(node, c_ast.UnaryOp) and node.op == '++':
-            value = self.expression(node.expr, values) + 1
-            values[node.expr.name] = value
-            return value
-        return self.original_expression(node, values)
+    def test_stop_restart_preserves_worker_and_rejects_old_observation(self):
+        m=self.model; m.invoke('legacy_host_discovery_start',0)
+        generation=m.values['s_generation'];m.values['s_active_generation']=generation
+        m.invoke('on_mdns_host',0,'service','PC','192.0.2.1',47989)
+        m.invoke('legacy_host_discovery_stop')
+        m.invoke('legacy_host_discovery_start',0)
+        self.assertGreater(m.values['s_generation'],generation)
+        m.invoke('on_mdns_host',0,'service','Old result','192.0.2.2',47989)
+        self.assertEqual(m.values['s_snapshot']['count'],1)
+        self.assertNotIn('join',m.calls)
+        self.assertEqual(m.calls.count('create'),1)
 
-    def execute(self, node, values):
-        if isinstance(node, (c_ast.UnaryOp, c_ast.Cast)):
-            self.expression(node, values)
-        elif isinstance(node, (c_ast.While, c_ast.DoWhile)):
-            iterations = 0
-            first = isinstance(node, c_ast.DoWhile)
-            while first or self.expression(node.cond, values):
-                first = False
-                iterations += 1
-                self.assertLess(iterations, 1000)
-                self.execute(node.stmt, values)
-        else:
-            self.original_execute(node, values)
+    def test_snapshot_is_value_copy_unchanged_read_is_noop_and_cancel_rejects(self):
+        m=self.model;m.invoke('legacy_host_discovery_start',0)
+        m.values['s_active_generation']=m.values['s_generation']
+        m.invoke('on_mdns_host',0,'service','PC','192.0.2.1',47989)
+        out=snapshot()
+        self.assertEqual(m.invoke('legacy_host_discovery_read',out),1)
+        m.values['s_snapshot']['hosts'][0]['name'][0]=ord('X')
+        self.assertNotEqual(out['hosts'][0]['name'],m.values['s_snapshot']['hosts'][0]['name'])
+        self.assertEqual(m.invoke('legacy_host_discovery_read',out),0)
+        m.invoke('legacy_host_discovery_stop')
+        self.assertEqual(m.invoke('legacy_host_discovery_read',out),-1)
 
-    def create(self, *args):
-        self.calls.append('create')
-        self.dead = False
-        return self.create_result
+    def test_last_observation_refreshes_expiry_and_name_does_not_deduplicate(self):
+        m=self.model;m.invoke('legacy_host_discovery_start',0)
+        m.values['s_active_generation']=m.values['s_generation']
+        for ip in ('192.0.2.1','192.0.2.2'):
+            m.invoke('on_mdns_host',0,'service','Same name',ip,47989)
+        m.values['s_healthy_time']=10000000
+        m.invoke('on_mdns_host',0,'service','Renamed','192.0.2.1',47989)
+        m.values['s_healthy_time']=14999999;m.invoke('expire_hosts')
+        self.assertEqual(m.values['s_snapshot']['count'],2)
+        m.values['s_healthy_time']=15000000;m.invoke('expire_hosts')
+        self.assertEqual(m.values['s_snapshot']['count'],1)
+        self.assertEqual(m.text(m.values['s_snapshot']['hosts'][0]['name']),'Renamed')
+        m.values['s_healthy_time']=25000000;m.invoke('expire_hosts')
+        self.assertEqual(m.values['s_snapshot']['count'],0)
 
-    def start(self, *args):
-        self.calls.append('start')
-        return self.start_result
+    def test_failed_network_freezes_age_and_deduplicates_log(self):
+        m=self.model;m.query_result=-15;m.invoke('legacy_host_discovery_start',0)
+        m.invoke('discovery_thread',0,0)
+        self.assertEqual(m.values['s_healthy_time'],0)
+        self.assertEqual(len(m.logs),1)
+        self.assertEqual(len(m.queries),3)
 
-    def poll(self):
-        self.calls.append('poll')
-        if self.interrupt_on_poll:
-            self.values['s_status'] = 2
+    def test_unrenewed_ui_lease_closes_socket_without_waiting_on_ui(self):
+        m=self.model;m.renew=False;m.invoke('legacy_host_discovery_start',0)
+        m.invoke('discovery_thread',0,0)
+        self.assertLessEqual(m.now,260001)
+        self.assertEqual(m.calls.count('close'),1)
+        self.assertNotIn('join',m.calls)
+        self.assertTrue(m.invoke('legacy_host_discovery_is_idle'))
 
-    def finish_scan(self):
-        self.invoke('discovery_thread', 0, 0)
-        self.dead = True
+    def test_exact_start_errors_retry_and_final_shutdown_joins(self):
+        m=self.model;m.create_result=-123
+        self.assertEqual(m.invoke('legacy_host_discovery_start',0),-123)
+        self.assertEqual(m.values['s_thread'],-1)
+        m.create_result=10;m.start_result=-234
+        self.assertEqual(m.invoke('legacy_host_discovery_start',0),-234)
+        self.assertEqual(m.calls[-1],'delete')
+        m.start_result=0;m.invoke('legacy_host_discovery_start',0)
+        m.invoke('legacy_host_discovery_shutdown')
+        self.assertEqual(m.calls[-2:],['join','delete'])
+        self.assertEqual(m.values['s_thread'],-1)
 
-    def wait(self, *args):
-        self.calls.append('wait')
-        if self.wait_failures:
-            self.wait_failures -= 1
-            return -5
-        if not self.dead:
-            self.finish_scan()
-        return 0
+    def test_service_generation_acceptance_requires_current_active_search(self):
+        m=self.model
+        for active, delivered, expected in ((0,0,False),(0,1,False),(2,1,False),(2,2,True)):
+            m.values['m_generation']=active
+            self.assertEqual(bool(m.invoke('accepts',dict(discovery_generation=delivered))),expected)
 
-    def delete(self, *args):
-        self.calls.append('delete')
-        # Failed StartThread has no running worker; otherwise join must precede deletion.
-        self.assertTrue(self.dead or self.start_result < 0)
-        return 0
-
-    def test_start_only_schedules_native_scan_and_is_idempotent_while_running(self):
-        self.assertEqual(self.invoke('service_Start'), 0)
-        self.assertEqual(self.calls, ['create', 'start'])
-        self.assertEqual(self.values['s_status'], 1)
-        self.assertEqual(self.invoke('service_Start'), 0)
-        self.assertEqual(self.calls, ['create', 'start'])
-        self.assertEqual([event[0] for event in self.events], [10])
-
-    def test_natural_completion_allows_restart_and_reaps_old_worker(self):
-        self.invoke('service_Start')
-        self.finish_scan()
-        self.assertEqual(self.values['s_status'], 0)
-        self.assertEqual([event[0] for event in self.events], [10, 11])
-        self.calls.clear()
-        self.create_result = 20
-        self.assertEqual(self.invoke('service_Start'), 0)
-        self.assertEqual(self.calls, ['wait', 'delete', 'create', 'start'])
-        self.assertEqual(self.values['s_thread'], 20)
-
-    def test_finished_notification_before_thread_return_is_joined_before_restart(self):
-        self.invoke('service_Start')
-        self.values['s_status'] = 0  # worker published FINISHED, not yet returned
-        self.dead = False
-        self.calls.clear()
-        self.assertEqual(self.invoke('service_Start'), 0)
-        self.assertLess(self.calls.index('wait'), self.calls.index('delete'))
-        self.assertLess(self.calls.index('delete'), self.calls.index('create'))
-
-    def test_create_error_reaches_search_once_and_retry_is_not_stuck(self):
-        self.create_result = -123
-        self.invoke('search_open')
-        self.assertEqual(self.errors, [('Unable to start PC search.', -123)])
-        self.assertEqual(self.values['s_status'], 0)
-        self.assertEqual(self.values['s_thread'], -1)
-        self.assertNotIn(13, [event[0] for event in self.events])  # no delayed second error
-        self.create_result = 10
-        self.assertEqual(self.invoke('service_Start'), 0)
-        self.assertEqual(self.values['s_status'], 1)
-
-    def test_start_thread_error_is_exact_and_failed_uid_is_deleted(self):
-        self.start_result = -234
-        self.invoke('search_open')
-        self.assertEqual(self.errors, [('Unable to start PC search.', -234)])
-        self.assertEqual(self.calls, ['create', 'start', 'delete'])
-        self.assertEqual((self.values['s_status'], self.values['s_thread']), (0, -1))
-        self.start_result = 0
-        self.assertEqual(self.invoke('service_Start'), 0)
-
-    def test_stop_reaps_even_completed_or_not_yet_scheduled_native_worker(self):
-        for natural in (False, True):
-            self.setUp()
-            self.invoke('service_Start')
-            if natural:
-                self.finish_scan()
-            self.calls.clear()
-            self.assertEqual(self.invoke('service_Stop'), 0)
-            self.assertEqual((self.values['s_status'], self.values['s_thread']), (0, -1))
-            self.assertEqual(self.calls[0], 'wait')
-            self.assertEqual(self.calls[-1], 'delete')
-            before = list(self.calls)
-            self.invoke('service_Stop')
-            self.assertEqual(self.calls, before)
-            self.assertEqual([event[0] for event in self.events], [10, 11] if natural else [10])
-
-    def test_cancelled_scan_cleans_network_without_finished_event(self):
-        self.invoke('service_Start')
-        self.interrupt_on_poll = True
-        self.finish_scan()
-        self.assertEqual(self.values['s_status'], 0)
-        self.assertEqual(self.calls.count('poll'), 1)
-        self.assertEqual(self.calls[-1], 'network_deinit')
-        self.assertEqual([event[0] for event in self.events], [10])
-
-    def test_stop_waits_through_transient_timeout_and_shutdown_clears_callback(self):
-        self.invoke('service_Start')
-        self.wait_failures = 1
-        self.invoke('legacy_host_discovery_shutdown')
-        self.assertEqual(self.calls.count('wait'), 2)
-        self.assertEqual(self.values['s_callback'], 0)
-        self.assertEqual(self.values['s_thread'], -1)
-
-    def test_service_has_no_queued_start_or_shadow_running_state(self):
-        header = (ROOT / 'include/services/host_discovery_service.h').read_text()
-        self.assertNotIn('m_running', header + self.service)
-        self.assertNotIn('DiscoveryJob', self.service)
-        self.assertNotIn('Enqueue', self.service)
-        self.assertNotIn('paf::job', self.service)
+    def test_only_connect_worker_waits_ui_uses_idle_poll_and_app_dispatch(self):
+        connection=(ROOT/'src/services/connection_service.cpp').read_text()
+        run=connection.split('virtual void Run()',1)[1].split('virtual void Finish()',1)[0]
+        self.assertLess(run.index('WaitForHostSearchIdle'),run.index('ConnectHost'))
+        main=(ROOT/'src/pages/page_main.cpp').read_text()
+        self.assertNotIn('WaitForHostSearchIdle',main)
+        self.assertIn('app->Discovery().IsIdle()',main)
+        self.assertIn('app->Discovery().Start()',main)
+        self.assertIn('m_system_ui_overlaid',main)
+        stop=function(self.native,'legacy_host_discovery_stop')
+        self.assertNotIn('Wait',stop)
+        self.assertNotIn('Join',stop)
+        app=(ROOT/'src/app/moonlight_app.cpp').read_text()
+        self.assertIn('!app->m_discovery.Accepts(event)',app)
+        self.assertIn('page::Base::GetCurrent() != page::Main::Instance()',app)
+        # Worker never sends callbacks to whichever page currently owns the app callback.
+        self.assertNotIn('s_callback',self.native)
 
 
-if __name__ == '__main__':
-    unittest.main()
+if __name__=='__main__': unittest.main()

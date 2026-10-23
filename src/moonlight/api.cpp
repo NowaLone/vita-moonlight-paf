@@ -125,37 +125,6 @@ static void emit_pairing_required(const char pin[5])
     s_callback(&event, s_userdata);
 }
 
-static void on_discovery_event(
-    LegacyHostDiscoveryEventType type,
-    const MoonlightHost *host,
-    void *userdata)
-{
-    (void)userdata;
-
-    if (type == LEGACY_HOST_DISCOVERY_FOUND) {
-        if (!host) return;
-
-        emit(
-            MOONLIGHT_EVENT_HOSTS_CHANGED,
-            0,
-            host->id,
-            -1,
-            host->internal
-        );
-        return;
-    }
-
-    if (type == LEGACY_HOST_DISCOVERY_FINISHED) {
-        emit(
-            MOONLIGHT_EVENT_HOST_SCAN_FINISHED,
-            0,
-            -1,
-            -1,
-            NULL
-        );
-    }
-}
-
 static bool is_pairing_network_error(int error_code)
 {
     switch ((CURLcode)error_code) {
@@ -305,7 +274,7 @@ int moonlight_api_init(void)
     s_game_stream_initialized = false;
     memset(&s_server, 0, sizeof(s_server));
 
-    return legacy_host_discovery_init(on_discovery_event, NULL);
+    return legacy_host_discovery_init();
 }
 
 void moonlight_api_shutdown(void)
@@ -350,24 +319,29 @@ int moonlight_api_set_event_callback(MoonlightEventCallback callback, void *user
     return 0;
 }
 
-int moonlight_api_get_discovered_hosts(MoonlightHost *out, int capacity)
+int moonlight_api_read_discovery(MoonlightDiscoverySnapshot *snapshot)
 {
-    return legacy_host_discovery_get_hosts(out, capacity);
+    return legacy_host_discovery_read(snapshot);
 }
 
-int moonlight_api_search_hosts(void)
+int moonlight_api_search_hosts(uint32_t *generation)
 {
-    if (legacy_host_discovery_is_running()) return 0;
-
-    /* Preserve attempt-before-worker event order. Start errors are synchronous:
-     * Search already displays the returned error, so do not queue it a second time. */
-    emit(MOONLIGHT_EVENT_HOST_SCAN_STARTED, 0, -1, -1, NULL);
-    return legacy_host_discovery_start();
+    return legacy_host_discovery_start(generation);
 }
 
 int moonlight_api_stop_host_search(void)
 {
     return legacy_host_discovery_stop();
+}
+
+int moonlight_api_host_search_idle(void)
+{
+    return legacy_host_discovery_is_idle();
+}
+
+void moonlight_api_wait_host_search_idle(void)
+{
+    legacy_host_discovery_wait_idle();
 }
 
 int moonlight_api_add_host(const char *address, uint16_t port, const char *name)

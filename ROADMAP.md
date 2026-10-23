@@ -2,6 +2,20 @@
 
 This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordered by risk reduction and release readiness, not by a promise that every item must be completed before development continues. Keep individual changes small and verify device-specific behavior on real PS Vita hardware.
 
+## Main background discovery (source implementation, 2026-10-23)
+
+Search PC and its button are removed. Main combines saved rows with temporary discoveries;
+only saved PCs have TCP availability indicators and participate in Delete. One backend worker
+repeats mDNS queries five seconds after send completion, publishes locked generations/snapshots,
+pauses without a UI join and retains observations for 15 seconds of active healthy discovery.
+Selection persists/canonicalizes a captured host before ordinary connection; Apps/PIN return
+straight to Main. See [UI policy and pending acceptance](docs/UI.md#main-background-discovery--2026-10-23)
+and the earlier [official Wi-Fi evidence](docs/WIFI_BACKGROUND_SEARCH_RESEARCH.md).
+Non-build source checks cover the changed logic; no agent build/RCO/packaging/deployment.
+Maintainer validation remains open for focus/scroll, responsive search/cancellation, PC aging,
+repeated connect/pairing returns, Delete/IME/Settings and suspension/no discovery during stream.
+Historical Search runtime evidence below does not validate the replacement; no device gate is ticked.
+
 ## Current API work decision (2026-10-21)
 
 **Repeat Ponytail audit, 2026-10-23:** current-source pass from 07b1410 through

@@ -232,6 +232,7 @@ void MoonlightApp::Shutdown()
         paf::common::MainThreadCallList::Unregister(ProcessEventTask, this);
     }
 
+    m_discovery.Stop();
     m_pairing.Cancel();
     m_hosts.Shutdown();
     m_connection.Shutdown();
@@ -306,6 +307,9 @@ void MoonlightApp::ProcessEventTask(void *userdata)
     disconnect_test_poll(*app);
 #endif
 
+    MoonlightEvent discovery;
+    if (app->m_discovery.Poll(&discovery)) app->QueueEvent(&discovery);
+
     MoonlightEvent availability;
     if (app->m_hosts.PollAvailability(&availability)) app->QueueEvent(&availability);
 
@@ -356,6 +360,10 @@ void MoonlightApp::ProcessEventTask(void *userdata)
 #ifdef MOONLIGHT_DISCONNECT_TEST
         disconnect_test_event(*app, event);
 #endif
+        if (event.type == MOONLIGHT_EVENT_DISCOVERY_CHANGED &&
+            (!app->m_discovery.Accepts(event) ||
+             page::Base::GetCurrent() != page::Main::Instance())) continue;
+
         if (callback) {
             callback(&event, callback_userdata);
         }

@@ -7,7 +7,6 @@
 #include "app/moonlight_app.h"
 #include "pages/page_stream.h"
 #include "pages/page_main.h"
-#include "pages/page_search.h"
 #include "pages/page_pairing.h"
 
 namespace page {
@@ -57,12 +56,6 @@ Apps::~Apps() {
     Pairing *pairing = static_cast<Pairing *>(Base::Find("page_pairing"));
     if (pairing) {
         pairing->RestoreEventCallback();
-        return;
-    }
-
-    Search *search = static_cast<Search *>(Base::Find("page_search_pcs"));
-    if (search) {
-        search->RestoreEventCallback();
         return;
     }
 

@@ -94,9 +94,18 @@ Foreground Connect, Apps loading and stream setup use PAF CommonGuiDialog's comp
 `s_dialogTextSmallBusy`. Errors and Delete OK/Cancel use SceMessageDialog. Pages show static
 empty-list labels and pairing instructions; no inline progress or success/status fallback.
 
-The main page contains a saved-PC list, an inline PC address input using the native Vita IME, Search PCs, and access to the system AppSettings UI.
+Main contains one list: saved PCs first, temporary LAN discoveries below. Discovery runs
+quietly in one backend worker, repeating the mDNS query five seconds after the previous send
+completes. There is no Search PC page/button or search modal. Only saved rows have the existing
+TCP availability indicator; temporary rows keep the same columns without a dot. Add PC uses the
+native Vita IME, and the corner menu opens Delete/Settings. Discovery pauses during those flows,
+foreground operations, other pages and app suspension; UI never waits for its worker.
+Temporary results age out after 15 seconds of active healthy discovery without another observation;
+pause and detected network failures freeze aging. Clicking a temporary PC saves it before ordinary
+connection; discovery alone writes nothing. See [UI behavior and validation limits](docs/UI.md#main-background-discovery--2026-10-23).
+This replacement is source-checked; RCO/application build and Vita acceptance remain pending.
 
-Saved hosts use the Vita system-app selection/action pattern. The standard bottom-right corner button opens a project-owned PAF `speech_balloon` action menu (not a discovered Sony system action-menu API) with **Delete** at the top and **Settings** at the bottom. Choosing Delete turns the saved-PC list into multi-selection mode with PAF checkboxes (tapping or activating a row toggles it) and a bottom action bar with Cancel, Select All/Deselect All, and Delete. Delete asks for confirmation through the native `SceMessageDialog`; no host-copy/clipboard action is provided. The selection UI has been verified on Vita, including popup placement, Delete/Settings focus, row/checkbox positioning, action-bar layout, Select All/Deselect All focus, disabled Delete behavior, confirmation, and post-delete list refresh/focus. Delete is disabled when there are no saved PCs or nothing is selected; its disabled appearance uses PAF `ButtonBase` state and keeps the button background black while rendering the label gray.
+Saved hosts use the Vita system-app selection/action pattern. The standard bottom-right corner button opens a project-owned PAF `speech_balloon` action menu (not a discovered Sony system action-menu API) with **Delete** at the top and **Settings** at the bottom. Choosing Delete turns the saved-PC list into multi-selection mode with PAF checkboxes (tapping or activating a row toggles it) and a bottom action bar with Cancel, Select All/Deselect All, and Delete. Delete asks for confirmation through the native `SceMessageDialog`; no host-copy/clipboard action is provided. The earlier saved-only selection UI was verified on Vita, including popup placement, Delete/Settings focus, row/checkbox positioning, action-bar layout, Select All/Deselect All focus, disabled Delete behavior, confirmation, and post-delete list refresh/focus. Delete is disabled when there are no saved PCs or nothing is selected; its disabled appearance uses PAF `ButtonBase` state and keeps the button background black while rendering the label gray.
 
 PAF uses a **center-origin 960×544 coordinate system**:
 

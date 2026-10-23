@@ -21,9 +21,6 @@
           <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_add_pc_placeholder" id="btn_add_pc">
             <layout_hint size="500, 60" />
           </button>
-          <button sound="_common_sound_button_enter" style="_common_default_style_button" label="msg_search_pcs" id="btn_search_pcs">
-            <layout_hint size="202, 60" />
-          </button>
         </box>
       </plane>
 
@@ -50,21 +47,6 @@
       </plane>
 
       <corner_button style="_common_style_corner_bottom_right" id="settings_button" />
-    </page>
-
-    <page id="page_search_pcs">
-      <plane texture="_bg_texture" id="plane_search_bg">
-        <layout_hint size="960, 544" />
-      </plane>
-
-      <template_ref id="search_title_ref" template="template_top_title_bar" />
-      <template_ref id="search_list_ref" template="template_list_view_generic" />
-
-      <text style="style_text_main_status" label="msg_no_pcs_found" id="text_search_status">
-        <layout_hint anchor="0, 2" align="0, 2" size="760, 0" pos="0, -220" adjust="0, 2" />
-      </text>
-
-      <corner_button style="_common_style_corner_bottom_left" id="btn_close_search" />
     </page>
 
     <page id="page_pairing">
@@ -338,6 +320,25 @@
           </plane>
           <plane texture="tex_host_unconfirmed" id="plane_host_availability">
             <layout_hint anchor="1, 0" align="0, 0" size="27, 27" pos="178, 0" />
+          </plane>
+          <text style="style_text_row_title" id="text_host_title">
+            <layout_hint anchor="1, 2" align="1, 2" size="572, 0" pos="208, -9" adjust="0, 2" />
+          </text>
+          <text style="style_text_row_desc" id="text_host_desc">
+            <layout_hint anchor="1, 2" align="1, 2" size="572, 0" pos="208, -45" adjust="0, 2" />
+          </text>
+        </list_item>
+      </template>
+
+      <template fast_open="1" id="template_host_list_item_discovered">
+        <list_item style="style_list_view_item_generic" id="list_item_host">
+          <layout_hint size="960, 80" />
+          <image_button sound="_common_sound_image_button" enable_long_press_text_auto_scroll="1" style="style_image_button_host" id="image_button_host">
+            <focus_hint focus_shape="3" />
+            <layout_hint size="840, 80" />
+          </image_button>
+          <plane texture="tex_pc" id="plane_host_pc">
+            <layout_hint anchor="2, 0" align="2, 0" size="80, 80" pos="-80, 0" />
           </plane>
           <text style="style_text_row_title" id="text_host_title">
             <layout_hint anchor="1, 2" align="1, 2" size="572, 0" pos="208, -9" adjust="0, 2" />

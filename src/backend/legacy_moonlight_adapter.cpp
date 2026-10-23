@@ -80,19 +80,29 @@ int LegacyMoonlightAdapter::GetHosts(MoonlightHost *out, int capacity)
     return legacy_device_store_get_hosts(out, capacity);
 }
 
-int LegacyMoonlightAdapter::GetDiscoveredHosts(MoonlightHost *out, int capacity)
+int LegacyMoonlightAdapter::ReadDiscovery(MoonlightDiscoverySnapshot *snapshot)
 {
-    return moonlight_api_get_discovered_hosts(out, capacity);
+    return moonlight_api_read_discovery(snapshot);
 }
 
-int LegacyMoonlightAdapter::SearchHosts()
+int LegacyMoonlightAdapter::SearchHosts(uint32_t *generation)
 {
-    return moonlight_api_search_hosts();
+    return moonlight_api_search_hosts(generation);
 }
 
 int LegacyMoonlightAdapter::StopHostSearch()
 {
     return moonlight_api_stop_host_search();
+}
+
+bool LegacyMoonlightAdapter::IsHostSearchIdle()
+{
+    return moonlight_api_host_search_idle() != 0;
+}
+
+void LegacyMoonlightAdapter::WaitForHostSearchIdle()
+{
+    moonlight_api_wait_host_search_idle();
 }
 
 int LegacyMoonlightAdapter::AddHost(const char *address, uint16_t port, const char *name)

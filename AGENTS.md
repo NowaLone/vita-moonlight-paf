@@ -53,7 +53,7 @@ The long-term goal is to keep the frontend architecture native to PAF while cont
 
 The application currently provides:
 
-- Main PC screen with native PAF title bar, saved host list, inline Add PC address input, Search PCs, and system-settings entry.
+- Main PC screen with native PAF title bar, saved/temporary host list, quiet five-second background discovery, inline Add PC address input, and system-settings entry (new discovery integration is source-only; build/Vita pending).
 - Saved-host management is implemented in the PAF UI with Delete-only multi-selection: the corner button opens the current `OptionMenu`, Delete enters selection mode, saved-PC rows use `template_host_list_item_select` with native PAF `paf::ui::CheckBox` controls, and a bottom action bar provides Cancel, Select All/Deselect All, and Delete.
 - mDNS/LAN host discovery.
 - Persistent saved hosts.
@@ -169,12 +169,18 @@ recipes for common UI changes live in [`docs/UI.md`](docs/UI.md). Read it before
 - Match system-app references by measuring screenshots, not by eye (`docs/UI.md` section 7). Tag numbers `[hw]`, `[shot]`, `[code]` or `[open]`; a screenshot measurement is not hardware verification.
 - Layout and appearance belong in `cxml/vita_moonlight_ui.xml`; code fills content, state and events. Choose a row template by mode; never show/hide a checkbox on a shared row template (Apps uses `template_list_item_generic`).
 - Disable buttons only with `set_button_enabled()`. Return Main to its idle status only with `Main::ShowIdleStatus()`; a direct `SetStatus("Select a PC to connect.")` draws over the rows.
-- `ListView::DeleteCell()` takes a cell count: pass the full existing count (`Main`, `Search`, `Apps` all do). `existing - 1` leaves a stale duplicate row.
-- Main/Search use dynamic page-owned host snapshots and per-refresh widget row tokens with page
-  userdata; never bind callbacks to vector element addresses. Remove old cells before swapping
-  backing data, reject obsolete tokens and preserve Main deletion selection by host identity.
-  Search resolves a selection against the full saved list by address/port, not display name.
-  Source checks pass; >8-PC PAF scrolling/selection still needs maintainer build/Vita validation.
+- `ListView::DeleteCell()` takes a cell count. Main applies single-row edits; Apps passes the full
+  existing count on replacement. `existing - 1` leaves a stale duplicate row.
+- Main uses page-owned saved/temporary snapshots and stable per-row tokens with page userdata;
+  never bind callbacks to vector element addresses. Retained rows keep tokens/widgets. Invalidate
+  removed/retemplated tokens before edits; use PAF BlockSync/UnblockSync around snapshot/cell changes.
+  Preserve selection/focus by identity and choose the nearest remaining row if focused identity vanishes.
+  No cell edits on an unchanged snapshot; availability events only change textures.
+- Search PC and Search PCs are removed. Main lists saved hosts first, temporary discoveries below.
+  Only saved hosts have an availability plane and enter TCP probes. Temporary CXML rows keep the same
+  text/icon columns without a dot, label, section header or spinner. Delete mode contains saved rows only.
+  A temporary selection copies the host, saves it and canonicalizes against all saved PCs by address/port.
+  Save failure never connects. Apps/PIN cancel/error return to Main; build/Vita integration remains pending.
 - Default-construct PAF vectors and then resize; do not use the installed SDK's sized vector
   constructor for row storage. It reads _capacity before initialization and caused the Main
   startup null-write regression. On system build 6af2e3639c69 the maintainer log reaches one-PC
@@ -227,11 +233,19 @@ recipes for common UI changes live in [`docs/UI.md`](docs/UI.md). Read it before
   do not cover the PIN-entry page with a generic WAIT dialog. A new conflicting operation starts only
   after the previous operation releases its local resources. Host-side pending pairing may still return 409.
 - Asynchronous backend callbacks must not mutate PAF UI directly from worker threads.
-- Discovery Start/Stop are serialized main-thread lifecycle calls; the backend owns the native
-  scan worker. Do not wrap SearchHosts in another PAF job or duplicate its running state in the
-  service. Start failures return synchronously to the caller's native error dialog, without a
-  second queued failure; found/finished events still use main-thread dispatch. Stop also reaps
-  naturally finished workers, and restart joins the old worker before replacing its UID.
+- Main background discovery is an explicitly authorized exception to foreground modality. It owns
+  one persistent backend worker: immediate mDNS query, then a five-second completion-to-next-send
+  delay using monotonic time; no overlapping scans, catch-up runs, per-query threads or PAF jobs.
+  Keep prior discoveries; expire after 15 seconds of active healthy polling since last observation.
+  Pause/cancel/detected network errors freeze age; saved records never expire. Errors are deduplicated
+  log-only, including start failures. Discovery does not authenticate hosts or invent UUIDs.
+- Start/Stop are serialized main-thread control calls. Stop requests cancellation and invalidates
+  service delivery without joining. The worker releases its own socket; Connect's existing worker
+  waits for cleanup, IME/Settings use idle polling. Final application teardown joins before NetTerm.
+  A 250 ms lease, renewed only by eligible Main, also stops work if PAF callbacks cease during suspend;
+  AppMgr overlay checks gate renewal. Pause on OptionMenu/Delete/IME/Settings/foreground busy/other pages.
+  Locked coherent snapshots have generation/revision. MoonlightApp polls/dispatches coalesced discovery
+  invalidations only to active Main and rejects cancelled generations. Never copy a mutable array unlocked.
 - `LegacyMoonlightAdapter` is the compatibility boundary between the service/backend layer and the legacy Moonlight code.
 - Pairing events use semantic `MoonlightPairingResult` values at the Moonlight API boundary. Only `MOONLIGHT_PAIRING_ERROR_INCORRECT_PIN` means the cryptographic PIN check failed; transport, protocol, security, and local/internal failures remain distinguishable.
 - Preserve typed legacy pairing results through parser/crypto/transfer callers; never infer PIN
@@ -323,7 +337,7 @@ ux0:data/moonlight/
 
 `host_id` is the GameStream/Sunshine server UUID returned by `/serverinfo`. The client never generates a host identity. Client `uniqueid.dat` and key/certificate material are never stored in a host directory.
 
-Discovery results are temporary. Search PC selections are persisted before connection. Add Manually does not persist the entered address up front; a successful GameStream connection stores or updates the host through the server UUID returned by /serverinfo. Failed manual connections therefore do not leave a new saved host entry. Successful pairing updates the same record with paired state and MAC.
+Discovery results are temporary. Main selections of discovered PCs are persisted before connection. Add Manually does not persist the entered address up front; a successful GameStream connection stores or updates the host through the server UUID returned by /serverinfo. Failed manual connections therefore do not leave a new saved host entry. Successful pairing updates the same record with paired state and MAC.
 
 Host identity resolution is ordered as `host_id`, MAC, internal/external address, then display name. The stable server UUID is the primary persistent identity once it is known.
 
@@ -335,7 +349,7 @@ Subsequent HTTPS requests verify the complete paired leaf certificate. Old recor
 fails closed: remove that saved PC locally and add/pair it again to establish new trust.
 Local deletion removes its server pin as part of the host directory; it does not revoke the
 Vita identity on Sunshine. Host metadata writes return failure on open, write or flush/close
-errors through Add/MarkPaired/SetHostId. Search uses its existing native save-error dialog;
+errors through Add/MarkPaired/SetHostId. Main discovery selection uses the native save-error dialog;
 successful connection/pairing log metadata failures separately without becoming protocol failures.
 Normalization logs failed rewrites and keeps usable in-memory records. This is checked error
 reporting, not atomic persistence: failed writes can leave partial files and in-memory updates.

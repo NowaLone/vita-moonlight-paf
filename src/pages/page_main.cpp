@@ -1,4 +1,7 @@
 #include <paf.h>
+#include <vector>
+#include <psp2/appmgr.h>
+#include <psp2/kernel/processmgr.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -10,7 +13,6 @@
 #include "pages/page_main.h"
 #include "pages/host_list.h"
 #include "pages/host_availability.h"
-#include "pages/page_search.h"
 #include "pages/page_apps.h"
 #include "pages/page_pairing.h"
 #include "option_menu.h"
@@ -156,13 +158,6 @@ static bool ParseHostPort(
 
 }
 
-static void onSearch(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata)
-{
-    (void)type; (void)self; (void)e; (void)userdata;
-    Main *main = Main::Instance();
-    if (main) main->OpenSearch();
-}
-
 static void onAdd(int32_t type, paf::ui::Handler *self, paf::ui::Event *e, void *userdata)
 {
     (void)type; (void)self; (void)e; (void)userdata;
@@ -181,9 +176,6 @@ static void onOptionMenu(OptionMenu::EventType type, int button_index, void *use
     switch (button_index) {
     case OptionMenu::Button_Settings:
         main->SuspendForSystemSettings();
-        if (MoonlightApp::Instance()->Settings().Open() != 0) {
-            main->RestoreAfterSystemSettings();
-        }
         break;
 
     case OptionMenu::Button_Delete:
@@ -200,6 +192,7 @@ static void onSettingsButton(int32_t type, paf::ui::Handler *self, paf::ui::Even
     (void)type; (void)self; (void)e;
     Main *main = (Main *)userdata;
     if (OptionMenu::Instance() != NULL) return;
+    if (main) main->SuspendBackground();
     new OptionMenu(
         onOptionMenu,
         NULL,
@@ -215,6 +208,10 @@ void Main::RestoreEventCallback()
 {
     if (MoonlightApp::Instance()->IsInitialized()) {
         MoonlightApp::Instance()->SetEventCallback(OnMoonlightEvent, this);
+        m_connecting = false;
+        RefreshHosts();
+        paf::ui::Widget *list = root ? root->FindChild("list_view_main") : NULL;
+        if (list) list->SetActivate(true);
     }
 }
 
@@ -224,6 +221,13 @@ Main::Main()
            paf::Plugin::TransitionType_None),
       m_next_host_token(0),
       m_host_count(0),
+      m_saved_count(0),
+      m_pending_action(Pending_None),
+      m_discovery_retry_at(0),
+      m_discovery_error(0),
+      m_app_state_poll_at(0),
+      m_system_ui_overlaid(true),
+      m_list_ready(false),
       m_connecting(false),
       m_settings_suspended(false),
       m_initial_refresh_attempts(0),
@@ -256,7 +260,6 @@ Main::Main()
         list->SetSegmentLayoutType(0, paf::ui::ListView::LAYOUT_TYPE_LIST);
     }
 
-    bind_decide(root, "btn_search_pcs", onSearch, this);
     bind_decide(root, "btn_add_pc", onAdd, this);
     bind_decide(root, "settings_button", onSettingsButton, this);
     bind_decide(root, "btn_selection_cancel", OnSelectionCancel, this);
@@ -277,6 +280,60 @@ Main::Main()
     HideStatus();
     paf::common::MainThreadCallList::Register(InitialRefreshTask, this);
     paf::common::MainThreadCallList::Register(AvailabilityTask, this);
+    paf::common::MainThreadCallList::Register(BackgroundTask, this);
+}
+
+void Main::SuspendBackground()
+{
+    MoonlightApp::Instance()->Discovery().Stop();
+    MoonlightApp::Instance()->Hosts().StopAvailability(this);
+}
+
+bool Main::CanDiscover() const
+{
+    return Base::GetCurrent() == this && m_list_ready && !m_system_ui_overlaid &&
+           !m_connecting && !m_selection_mode && !m_settings_suspended &&
+           !m_ime_open && !m_ime_retry_pending && m_pending_action == Pending_None &&
+           !m_delete_dialog_open && !MoonlightApp::Instance()->Connection().IsBusy();
+}
+
+void Main::BackgroundTask(void *userdata)
+{
+    Main *main = static_cast<Main *>(userdata);
+    MoonlightApp *app = MoonlightApp::Instance();
+    if (!app->IsInitialized()) return;
+    uint64_t now = sceKernelGetProcessTimeWide();
+    if (now >= main->m_app_state_poll_at) {
+        SceAppMgrAppState state;
+        memset(&state, 0, sizeof(state));
+        int result = _sceAppMgrGetAppState(&state, sizeof(state), 0);
+        /* Failed lifecycle reads cannot authorize background networking. */
+        main->m_system_ui_overlaid = result < 0 || state.isSystemUiOverlaid != 0;
+        main->m_app_state_poll_at = now + 100000;
+    }
+    bool visible = Base::GetCurrent() == main && !main->m_system_ui_overlaid;
+    if (visible && main->m_pending_action != Pending_None && app->Discovery().IsIdle()) {
+        PendingAction action = main->m_pending_action;
+        main->m_pending_action = Pending_None;
+        if (action == Pending_AddPc) {
+            if (main->root) main->root->SetActivate(true);
+            main->OpenAddPc();
+        } else if (app->Settings().Open() != 0) {
+            main->RestoreAfterSystemSettings();
+        }
+    }
+    if (!main->CanDiscover()) {
+        main->SuspendBackground();
+        return;
+    }
+    if (now < main->m_discovery_retry_at) return;
+    int result = app->Discovery().Start();
+    if (result < 0) {
+        if (result != main->m_discovery_error)
+            vita_debug_log("[Main] background discovery start error=%d", result);
+        main->m_discovery_retry_at = now + 5000000;
+    }
+    main->m_discovery_error = result;
 }
 
 void Main::AvailabilityTask(void *userdata)
@@ -285,11 +342,12 @@ void Main::AvailabilityTask(void *userdata)
     MoonlightApp *app = MoonlightApp::Instance();
     if (!app->IsInitialized() || Base::GetCurrent() != main || main->m_connecting ||
         main->m_settings_suspended || main->m_ime_open || main->m_ime_retry_pending ||
-        main->m_delete_dialog_open || app->Connection().IsBusy()) {
+        main->m_delete_dialog_open || main->m_system_ui_overlaid ||
+        main->m_pending_action != Pending_None || app->Connection().IsBusy()) {
         app->Hosts().StopAvailability(main);
         return;
     }
-    app->Hosts().CheckAvailability(main, main->m_hosts);
+    app->Hosts().CheckAvailability(main, main->m_saved_hosts);
 }
 
 void Main::InitialRefreshTask(void *userdata)
@@ -343,12 +401,16 @@ void Main::InitialRefreshTask(void *userdata)
             cell_count,
             main->m_initial_refresh_stable_count,
             warmup_expired ? 1 : 0);
+        main->m_list_ready = true;
         paf::common::MainThreadCallList::Unregister(InitialRefreshTask, userdata);
     }
 }
 
 Main::~Main()
 {
+    SuspendBackground();
+    paf::common::MainThreadCallList::Unregister(BackgroundTask, this);
+    paf::common::MainThreadCallList::Unregister(InitialRefreshTask, this);
     paf::common::MainThreadCallList::Unregister(AvailabilityTask, this);
     MoonlightApp::Instance()->Hosts().StopAvailability(this);
 
@@ -401,17 +463,15 @@ paf::ui::ListItem *Main::CreateListItem(
 
     /*
      * Checkboxes live in a dedicated template instead of being shown/hidden
-     * on the shared one: RefreshHosts() rebuilds every cell when the mode
-     * changes, so the right template is simply picked here.
+     * on the shared one. A mode/saved-state change replaces only affected cells.
      */
-    m_rows[param.cell_index].checkbox = NULL;
-
     paf::Plugin::TemplateOpenParam tmp;
     g_plugin->TemplateOpen(
         param.parent,
         m_selection_mode
             ? "template_host_list_item_select"
-            : "template_host_list_item",
+            : (m_rows[param.cell_index].saved
+                ? "template_host_list_item" : "template_host_list_item_discovered"),
         tmp);
 
     paf::ui::Widget *item = param.parent->GetChild(
@@ -447,32 +507,26 @@ paf::ui::ListItem *Main::CreateListItem(
 
             /* Focus stays on the row; the checkbox mirrors its state. */
             set_widget_focusable(checkbox, false);
-            m_rows[param.cell_index].checkbox = checkbox;
         }
     }
 
-    vita_debug_log(
-        "[Main] cell %d/%d selection=%d button=%p checkbox=%p",
-        param.cell_index,
-        m_host_count,
-        m_selection_mode ? 1 : 0,
-        button,
-        m_rows[param.cell_index].checkbox);
-
-    const MoonlightHost &host = m_hosts[param.cell_index];
-    set_host_availability(item, host);
-
-    /* Name as the title, address as the lighter description, like PS4 Link. */
-    set_child_text(
-        item,
-        m_selection_mode ? "text_host_select_title" : "text_host_title",
-        host.name[0] ? host.name : "PC");
-    set_child_text(
-        item,
-        m_selection_mode ? "text_host_select_desc" : "text_host_desc",
-        host.internal[0] ? host.internal : "Unknown host");
+    UpdateHostItem(item, param.cell_index);
 
     return static_cast<paf::ui::ListItem *>(item);
+}
+
+void Main::UpdateHostItem(paf::ui::Widget *item, int index)
+{
+    if (!item) return;
+    const MoonlightHost &host = m_hosts[index];
+    if (m_rows[index].saved) set_host_availability(item, host);
+    set_child_text(item, m_selection_mode ? "text_host_select_title" : "text_host_title",
+                   host.name[0] ? host.name : "PC");
+    set_child_text(item, m_selection_mode ? "text_host_select_desc" : "text_host_desc",
+                   host.internal[0] ? host.internal : "Unknown host");
+    paf::ui::Widget *checkbox = item->FindChild("checkbox_host_select");
+    if (checkbox) static_cast<paf::ui::CheckBox *>(checkbox)->SetCheck(
+        m_rows[index].selected, 0.0f, false);
 }
 
 void Main::OnHostButton(
@@ -526,94 +580,159 @@ void Main::OnHostSelection(
     }
 }
 
+bool Main::ReadHostRows(paf::vector<MoonlightHost> &hosts)
+{
+    MoonlightApp *app = MoonlightApp::Instance();
+    paf::vector<MoonlightHost> saved;
+    if (!read_host_snapshot(app->Hosts(), saved)) { HideStatus(); return false; }
+    m_saved_count = (int)saved.size();
+    m_saved_hosts.swap(saved);
+    for (int i = 0; i < m_saved_count; ++i) hosts.push_back(m_saved_hosts[i]);
+    if (!m_selection_mode) {
+        paf::vector<MoonlightHost> discovered;
+        if (!read_host_snapshot(app->Discovery(), discovered)) return false;
+        for (int i = 0; i < (int)discovered.size(); ++i) {
+            bool duplicate = false;
+            for (int j = 0; j < (int)hosts.size(); ++j) {
+                if (same_discovered_host(hosts[j], discovered[i])) { duplicate = true; break; }
+            }
+            if (!duplicate) hosts.push_back(discovered[i]);
+        }
+    }
+    return true;
+}
+
 void Main::RefreshHosts()
 {
     if (!root || m_connecting) return;
-
-    MoonlightApp *app = MoonlightApp::Instance();
-    if (!app) return;
-
     paf::ui::ListView *list = static_cast<paf::ui::ListView *>(
         root->FindChild("list_view_main"));
     if (!list) return;
-
     paf::vector<MoonlightHost> hosts;
-    if (!read_host_snapshot(app->Hosts(), hosts)) {
-        /* An unavailable store is not a confirmed empty saved-host list. */
-        HideStatus();
-        return;
-    }
-    /* The installed PAF count constructor reads _capacity before initialization.
-     * Start empty so resize computes growth from an initialized capacity. */
+    if (!ReadHostRows(hosts)) return;
     paf::vector<HostRowState> rows;
     rows.resize(hosts.size());
     for (int i = 0; i < (int)hosts.size(); ++i) {
-        /* Fresh tokens reject callbacks from cells destroyed by this refresh. */
-        if (++m_next_host_token == 0) ++m_next_host_token;
-        rows[i].token = m_next_host_token;
-        if (++m_next_host_token == 0) ++m_next_host_token;
-        rows[i].checkbox_token = m_next_host_token;
-        if (m_selection_mode) {
-            for (int j = 0; j < m_host_count; ++j) {
-                if (m_rows[j].selected && same_host_identity(hosts[i], m_hosts[j])) {
-                    rows[i].selected = true;
-                    break;
-                }
-            }
+        rows[i].saved = i < m_saved_count;
+        rows[i].selection_template = m_selection_mode;
+        for (int j = 0; j < m_host_count; ++j) {
+            if (!same_discovered_host(hosts[i], m_hosts[j])) continue;
+            rows[i].selected = m_rows[j].selected;
+            if (rows[i].saved == m_rows[j].saved &&
+                rows[i].selection_template == m_rows[j].selection_template)
+                rows[i] = m_rows[j];
+            break;
+        }
+        if (!rows[i].token) {
+            if (++m_next_host_token == 0) ++m_next_host_token;
+            rows[i].token = m_next_host_token;
+            if (++m_next_host_token == 0) ++m_next_host_token;
+            rows[i].checkbox_token = m_next_host_token;
         }
     }
 
-    /* Invalidate callbacks/widget pointers before removing the old cells. */
-    m_host_count = 0;
-    m_rows.clear();
-    int existing = list->GetCellNum(0);
-    if (existing > 0) {
-        /* DeleteCell's third argument is a cell count, not the last index. */
-        list->DeleteCell(0, 0, existing);
+    std::vector<uint32_t> cells;
+    int focused_index = -1;
+    MoonlightHost focused_host = {};
+    uint32_t focused_token = 0;
+    for (int i = 0; i < m_host_count; ++i) {
+        cells.push_back(m_rows[i].token);
+        paf::ui::ListItem *item = list->GetListItem(0, i);
+        paf::ui::Widget *button = item ? item->FindChild(
+            m_rows[i].selection_template ? "image_button_host_select" : "image_button_host") : NULL;
+        if (button && button->IsFocused()) {
+            focused_index = i;
+            focused_host = m_hosts[i];
+            focused_token = m_rows[i].token;
+        }
     }
-    const int cells_after_delete = list->GetCellNum(0);
-
+    /* Block native generation while the final backing snapshot and cell edits change.
+     * Retained rows keep their tokens/widgets; removed/retemplated tokens are invalid now. */
+    list->BlockSync();
     m_hosts.swap(hosts);
     m_rows.swap(rows);
     m_host_count = (int)m_hosts.size();
-    if (m_selection_mode) UpdateSelectionCount();
-
-    if (m_host_count > 0) {
-        list->InsertCell(0, 0, m_host_count);
+    std::vector<uint32_t> desired;
+    for (int i = 0; i < m_host_count; ++i) desired.push_back(m_rows[i].token);
+    int from = 0, to = 0, edit;
+    while ((edit = next_host_cell_edit(cells.data(), (int)cells.size(),
+                                       desired.data(), m_host_count, &from, &to)) != 0) {
+        if (edit == 1) {
+            list->DeleteCell(0, from, 1);
+            cells.erase(cells.begin() + from);
+        } else if (edit == 2) {
+            uint32_t token = cells[from];
+            cells.erase(cells.begin() + from);
+            cells.insert(cells.begin() + to, token);
+            list->MoveCell(0, from, to);
+        } else {
+            cells.insert(cells.begin() + to, desired[to]);
+            list->InsertCell(0, to, 1);
+        }
     }
+    list->UnblockSync();
+    for (int i = 0; i < m_host_count; ++i) {
+        int previous = -1;
+        for (int j = 0; j < (int)rows.size(); ++j)
+            if (rows[j].token == m_rows[i].token) { previous = j; break; }
+        if (previous < 0 || strcmp(hosts[previous].name, m_hosts[i].name) != 0 ||
+            strcmp(hosts[previous].internal, m_hosts[i].internal) != 0 ||
+            rows[previous].selected != m_rows[i].selected)
+            UpdateHostItem(list->GetListItem(0, i), i);
+    }
+    /* Native surviving cells retain focus and viewport. Only a removed/retemplated
+     * focused cell needs a replacement: same PC, then the nearest remaining index. */
+    if (focused_index >= 0 && FindHostIndex(focused_token) < 0 && m_host_count > 0) {
+        int target = focused_index < m_host_count ? focused_index : m_host_count - 1;
+        for (int i = 0; i < m_host_count; ++i)
+            if (same_discovered_host(focused_host, m_hosts[i])) { target = i; break; }
+        list->SetFocus(0, target, paf::ui::ListView::FOCUS_ALIGN_TYPE_HEAD, NULL);
+    }
+    if (m_selection_mode) UpdateSelectionCount();
     ShowIdleStatus();
-
-    /*
-     * If after_insert is larger than hosts, DeleteCell() left cells behind and
-     * the extra rows were built from a stale template.
-     */
-    vita_debug_log(
-        "[Main] RefreshHosts hosts=%d cells before=%d after_delete=%d after_insert=%d selection=%d",
-        m_host_count,
-        existing,
-        cells_after_delete,
-        list->GetCellNum(0),
-        m_selection_mode ? 1 : 0);
 }
 
 void Main::SelectHost(int index)
 {
-    if (m_connecting || index < 0 || index >= m_host_count) return;
-
+    MoonlightApp *app = MoonlightApp::Instance();
+    if (m_connecting || m_selection_mode || m_ime_open || m_ime_retry_pending ||
+        m_pending_action != Pending_None || app->Connection().IsBusy() ||
+        index < 0 || index >= m_host_count) return;
+    /* Copy before any save/event/refresh can reorder the list. */
+    MoonlightHost host = m_hosts[index];
+    bool saved = m_rows[index].saved;
     m_connecting = true;
-
+    SuspendBackground();
+    if (!saved) {
+        int result = app->Hosts().Add(host.internal, host.port,
+                                      host.name[0] ? host.name : host.internal);
+        if (result != 0) {
+            m_connecting = false;
+            app->Connection().ShowError("Unable to save PC.", result);
+            return;
+        }
+        paf::vector<MoonlightHost> saved_hosts;
+        if (!read_host_snapshot(app->Hosts(), saved_hosts)) {
+            m_connecting = false;
+            app->Connection().ShowError("Unable to read saved PCs.");
+            return;
+        }
+        int canonical = canonical_host_index(saved_hosts.data(), (int)saved_hosts.size(), host);
+        if (canonical < 0) {
+            m_connecting = false;
+            app->Connection().ShowError("Unable to find saved PC.");
+            return;
+        }
+        host = saved_hosts[canonical];
+    }
     paf::ui::ListView *list = static_cast<paf::ui::ListView *>(
         root->FindChild("list_view_main"));
-    if (list) {
-        list->SetActivate(false);
-    }
-
-    HideStatus(); /* ConnectionService owns the native progress message. */
-
-    int result = MoonlightApp::Instance()->Connection().Connect(m_hosts[index]);
+    if (list) list->SetActivate(false);
+    HideStatus();
+    int result = app->Connection().Connect(host);
     if (result != 0) {
         m_connecting = false;
-        ShowIdleStatus();
+        RefreshHosts();
         if (list) list->SetActivate(true);
     }
 }
@@ -630,9 +749,8 @@ void Main::ToggleHostSelection(int index)
      */
     m_rows[index].selected = !m_rows[index].selected;
 
-    if (m_rows[index].checkbox) {
-        m_rows[index].checkbox->SetCheck(m_rows[index].selected, 0.0f, false);
-    }
+    paf::ui::ListView *list = static_cast<paf::ui::ListView *>(root->FindChild("list_view_main"));
+    UpdateHostItem(list ? list->GetListItem(0, index) : NULL, index);
 
     UpdateSelectionCount();
 }
@@ -656,8 +774,9 @@ void Main::ToggleSelectAll()
 
     UpdateSelectionCount();
 
-    /* Rebuild the cells so every checkbox picks up the new state. */
-    RefreshHosts();
+    paf::ui::ListView *list = static_cast<paf::ui::ListView *>(root->FindChild("list_view_main"));
+    for (int i = 0; i < m_host_count; ++i)
+        UpdateHostItem(list ? list->GetListItem(0, i) : NULL, i);
 }
 
 void Main::UpdateSelectionCount()
@@ -697,10 +816,11 @@ void Main::UpdateSelectionActionBar()
 void Main::EnterSelectionMode()
 {
     if (m_connecting || m_ime_open || m_ime_retry_pending ||
-        m_host_count <= 0) {
+        m_saved_count <= 0) {
         return;
     }
 
+    SuspendBackground();
     m_selection_mode = true;
     m_selected_count = 0;
     for (int i = 0; i < m_host_count; ++i) m_rows[i].selected = false;
@@ -930,18 +1050,18 @@ void Main::HideStatus()
     }
 }
 
-void Main::OpenSearch()
-{
-    if (Base::IsOpen("page_search_pcs")) return;
-
-    Search *search = new Search();
-    if (!search->IsValid()) delete search;
-}
-
 void Main::OpenAddPc()
 {
-    if (m_connecting || m_ime_open || m_ime_retry_pending ||
+    if (Base::GetCurrent() != this || m_selection_mode || m_settings_suspended ||
+        m_pending_action != Pending_None || m_connecting || m_ime_open || m_ime_retry_pending ||
         MoonlightApp::Instance()->Connection().IsBusy()) {
+        return;
+    }
+
+    SuspendBackground();
+    if (!MoonlightApp::Instance()->Discovery().IsIdle()) {
+        m_pending_action = Pending_AddPc;
+        if (root) root->SetActivate(false);
         return;
     }
 
@@ -1073,6 +1193,7 @@ void Main::StartManualConnection(const char *address)
     host.internal[sizeof(host.internal) - 1] = '\0';
 
     m_connecting = true;
+    SuspendBackground();
 
     paf::ui::ListView *list = static_cast<paf::ui::ListView *>(
         root->FindChild("list_view_main"));
@@ -1141,12 +1262,21 @@ void Main::OnMoonlightEvent(const MoonlightEvent *event, void *userdata)
             main->root->FindChild("list_view_main")), main->m_hosts);
         break;
 
+    case MOONLIGHT_EVENT_DISCOVERY_CHANGED:
+        if (main->CanDiscover() &&
+            MoonlightApp::Instance()->Discovery().Accepts(*event)) main->RefreshHosts();
+        break;
+
     case MOONLIGHT_EVENT_HOSTS_CHANGED:
         main->RefreshHosts();
         break;
 
     case MOONLIGHT_EVENT_CONNECTION_READY:
         main->m_connecting = false;
+        {
+            paf::ui::Widget *list = main->root->FindChild("list_view_main");
+            if (list) list->SetActivate(true);
+        }
 
         if (MoonlightApp::Instance()->Connection().State() ==
             MOONLIGHT_CONNECTION_PAIRED) {
@@ -1183,7 +1313,7 @@ void Main::OnMoonlightEvent(const MoonlightEvent *event, void *userdata)
     case MOONLIGHT_EVENT_CONNECTION_FAILED:
     case MOONLIGHT_EVENT_CONNECTION_CLOSED:
         main->m_connecting = false;
-        main->ShowIdleStatus();
+        main->RefreshHosts();
         {
             paf::ui::ListView *list = static_cast<paf::ui::ListView *>(
                 main->root->FindChild("list_view_main"));
@@ -1202,7 +1332,7 @@ void Main::OnMoonlightEvent(const MoonlightEvent *event, void *userdata)
          * than silently doing nothing.
          */
         main->m_connecting = false;
-        MoonlightApp::Instance()->Connection().ShowError("This PC needs pairing. Use Search PCs.");
+        MoonlightApp::Instance()->Connection().ShowError("This PC needs pairing. Select it again to pair.");
         {
             paf::ui::ListView *list = static_cast<paf::ui::ListView *>(
                 main->root->FindChild("list_view_main"));
@@ -1217,8 +1347,9 @@ void Main::OnMoonlightEvent(const MoonlightEvent *event, void *userdata)
 
 void Main::SuspendForSystemSettings()
 {
+    SuspendBackground();
     m_settings_suspended = true;
-    MoonlightApp::Instance()->Hosts().StopAvailability(this);
+    m_pending_action = Pending_Settings;
     if (!root) return;
     root->SetActivate(false);
 }

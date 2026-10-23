@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-enum { MOONLIGHT_EVENT_QUEUE_CAPACITY = 16, MOONLIGHT_EVENT_SNAPSHOT_COUNT = 3 };
+enum { MOONLIGHT_EVENT_QUEUE_CAPACITY = 16, MOONLIGHT_EVENT_SNAPSHOT_COUNT = 4 };
 
 typedef struct MoonlightQueuedEvent {
     MoonlightEvent event;

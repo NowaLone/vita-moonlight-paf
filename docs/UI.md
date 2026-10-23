@@ -7,6 +7,12 @@ measured numbers behind every layout decision. Read this before changing anythin
 Companion documents: `AGENTS.md` (hard rules for agents), `ROADMAP.md` (plan and hardware checks), `README.md`
 (overview and build).
 
+**Main background discovery, 2026-10-23 [code; build/Vita pending]:** Main now owns the
+combined saved/temporary PC presentation. Search PC and its button, resources, strings and
+callback restoration branches are removed. The current behavior is specified in
+[Main background discovery](#main-background-discovery--2026-10-23). Dated Search evidence below
+belongs to the former interface; it does not verify the replacement.
+
 **Current-state review, 2026-10-22:** foreground progress uses PAF CommonGuiDialog
 `s_dialogTextSmallBusy`; errors/Delete confirmation use SceMessageDialog. The maintainer
 accepted the compact busy and pairing appearance; ordinary handoffs/stop have scoped logs.
@@ -88,6 +94,84 @@ log is scoped below; other hardware checks remain **[open]**. No agent build.
    when it is re-checked.
 7. **Small, reversible changes.** One visual decision per commit; put the measured numbers and their source in the
    commit message and in this guide.
+
+### Main background discovery — 2026-10-23
+
+The maintainer explicitly permits **non-modal discovery on active Main** as an exception to
+sequential foreground work. Connect/Apps/launch and PIN/error ownership remain unchanged.
+The [official Wi-Fi investigation](WIFI_BACKGROUND_SEARCH_RESEARCH.md) supports one page with
+saved/discovered rows and asynchronous scheduling. Its private AP APIs, fixed row counts,
+70 px geometry and local spinner are not copied. Focus/expiry choices below are Moonlight
+policies, not recovered Sony behavior.
+
+- Main keeps saved hosts in store order, then appends distinct temporary discoveries. There
+  are no section labels, search counts, progress strings or spinner. Add PC/native IME and
+  the Delete/Settings corner remain; the Search button and page are gone.
+- `template_host_list_item_discovered` has the same **80 px [code]** row and title/address/PC
+  icon coordinates as `template_host_list_item`, with no availability plane. Only saved hosts
+  enter `HostService::CheckAvailability`; their TCP freshness/15-second repeat/30-second expiry
+  are unchanged. A discovery is not a successful TCP check or an authenticated host.
+- A single backend native worker is created on first activation and retained until final
+  application teardown. Inactive it sleeps on a condition variable with its socket closed.
+  While active it sends the existing mDNS query immediately and **5,000,000 µs [code] after
+  the previous send completes**, polling nonblocking packets between sends. Monotonic process
+  time schedules the next send; delayed cycles do not accumulate catch-up work. No per-query
+  thread/PAF job or timed worker recreation is used.
+- Results are retained between queries and activations. A temporary endpoint expires after
+  **15,000,000 µs [code] of active healthy polling since its last observation**. Pause, cancelled
+  generations and detected socket/send/receive failure do not advance this age; recovery
+  resumes it. Silent packet loss still ages results. Saved records never expire this way.
+  Query/receive failures close the socket and retry at the next five-second deadline; identical
+  repeated failure codes are logged once until recovery. No discovery error modal is opened.
+- The worker alone owns socket/parser state. A dedicated pthread mutex protects control,
+  generation/revision, observations and complete fixed-capacity publications (existing backend
+  limit **16 discoveries [code]**). `HostDiscoveryService` caches coherent value copies on the
+  main thread. `MoonlightApp::ProcessEventTask` polls those publications and queues a separate
+  coalesced `DISCOVERY_CHANGED` invalidation. Dispatch rejects cancelled generations and any
+  current page other than Main; Main also checks discovery eligibility before touching widgets.
+- Main's existing deferred initial list warm-up gates activation. Leaving Main, OptionMenu,
+  Delete mode, IME, Settings, foreground busy/error ownership and system UI overlay request
+  cancellation. AppMgr overlay state is read at **100 ms [code]**; an unavailable state blocks
+  discovery. Main renews a **250 ms [code]** backend lease while eligible. If PAF callbacks stop
+  during suspension, the worker checks that lease before further network work and closes its
+  socket when it next runs. This supplements explicit Stop without another lifecycle thread
+  or consuming system events owned by PAF. Native suspend/resume timing remains **[open]**.
+- `Stop()` invalidates service delivery immediately and only requests cancellation. UI never
+  joins/waits for the worker. Connect's existing job waits for socket cleanup before its usual
+  availability barrier/backend call. IME/Settings defer opening until a main-thread idle poll
+  confirms worker cleanup; no polling sleep or search modal is introduced. Final teardown,
+  after the PAF run loop, joins the dormant/finishing worker before network shutdown.
+- Identity uses real UUID, then real MAC when both sides provide them, then matching usable
+  internal/external route and port. Equal names do not merge discoveries. Current mDNS supplies
+  no UUID/MAC; no background authentication or speculative identity is added.
+- Main computes desired rows and applies only necessary `DeleteCell(..., 1)`, `MoveCell` and
+  `InsertCell(..., 1)` edits between `BlockSync`/`UnblockSync`. These methods, `GetListItem`,
+  `Widget::IsFocused` and `ListView::SetFocus` are declared by the installed PAF headers.
+  Unchanged rows keep tokens/widgets; metadata updates fill existing items. Availability
+  updates change only textures. Surviving native cells keep ownership of focus/viewport;
+  a removed/retemplated focused row selects the same PC if present, otherwise its nearest
+  remaining index (last row when the old index is beyond the end). This is the intended
+  source behavior; native focus/scroll effects of edits still require Vita validation.
+- Row callbacks use page userdata and tokens, not element addresses. Removed/retemplated
+  tokens are invalid before native edits; mode and saved-state transitions replace affected
+  templates. Selection checkboxes are resolved from currently generated items instead of
+  keeping pointers across virtualization. Select/Clear All updates them without rebuilding.
+- Clicking a temporary row captures a value copy, stops discovery, saves it, reads the full
+  saved snapshot and resolves its exact address/port before ordinary Main connection. A save/
+  canonical-read failure opens the existing native error and never connects. Discovery alone
+  does not write storage or establish trust. Pairing/Apps return directly to Main, which
+  restores list activation and its callback. The completed successful PIN page remains removed.
+- Delete mode contains saved rows only; temporary rows return afterward. A deleted online PC
+  can reappear as temporary, without a dot. Delete is not a network blocklist.
+
+Non-build checks interpret the actual worker/control/expiry/publication, Main eligibility,
+merge/token/selection/canonical lookup and cell-edit logic, plus main-thread event dispatch.
+Serial clock/kernel/socket/vector/UI mocks do not prove real concurrency, native ABI, PAF
+rendering or device responsiveness. Build/RCO and Vita acceptance remain **[open]**: empty and
+>8-PC startup; appear/disappear/reappear; same names/duplicate endpoints; focus/scroll during
+insertion/removal/reordering; temporary-to-saved; repeated paired connection and PIN cancel/error;
+Delete/IME/OptionMenu/Settings; system overlay/suspend/resume; no queries during streaming.
+No agent application/resource compilation, packaging or deployment.
 
 ### Sequential foreground workflow — maintainer direction, 2026-10-20
 
@@ -470,26 +554,22 @@ Rows are 80 px tall and 960 px wide. The first row's top edge is at y = 96 and d
 
 | Class (`page::Type`) | XML page | Purpose | Back mechanism |
 |---|---|---|---|
-| `Main` | `page_main` | saved-PC list, inline Add PC / Search PCs, selection mode | none (bottom of the stack) |
-| `Search` | `page_search_pcs` | LAN discovery list; static text only when empty | corner button `btn_close_search` |
+| `Main` | `page_main` | saved + temporary PCs, background discovery, inline Add PC, selection mode | none (bottom of the stack) |
 | `Pairing` | `page_pairing` | shows the PIN, pairs as soon as it opens | bar button `btn_close_pairing` |
 | `Apps` | `page_apps` | application list of the connected PC | corner button `btn_close_apps` |
 | `Stream` | `page_stream` | full-screen video plane, black background, optional statistics overlay; no chrome | none (closed by stream events) |
 | `OptionMenu` | `page_settings_bubble` | speech-balloon overlay: Delete, Settings | dismiss button over the whole screen |
 
-Navigation **[code]**: Main -> `OptionMenu` -> (Settings = the system AppSettings plugin | Delete = selection mode on
-Main). Main -> Search -> connect -> Pairing (unpaired host) or Apps (paired host). Main -> Add PC (inline button,
-`SceImeDialog`) -> connect -> Pairing or Apps. Pairing -> Apps. Apps -> Stream.
+Navigation **[code, 2026-10-23]**: Main -> OptionMenu -> Settings (native AppSettings) or
+Delete (saved-only selection on Main). Selecting a saved/discovered PC or using inline Add PC
+(native IME) -> connect -> Pairing or Apps -> Stream. Apps/Pairing cancel/error return to Main.
+Successful Pairing is removed from the Base stack only after Apps opens successfully; if Apps
+cannot open, Pairing stays with an error. Main callback restoration refreshes rows and reactivates
+the list. The new routes and background integration need maintainer build/Vita validation.
 
-Successful Pairing is removed from the existing Base stack only after Apps opens successfully;
-Apps then reclaims the event callback that Pairing's destructor temporarily returns to the parent.
-Back from Apps returns to Search when pairing began there, or to Main for a Main/manual connection,
-without revisiting the completed PIN page **[code]**. Search callback restoration clears the previous
-selection guard and restores empty-state visibility so another PC can be selected **[code]**. If Apps fails
-to open, Pairing stays available with an error **[code]**. User verified Search → successful Pairing →
-Apps → Back → Search and selecting a PC again on 2026-10-19 **[hw, tested Vita]**. The Main/manual path,
-already-paired path, Pairing cancel and stream-event regression checks remain **[open]**.
-Pairing failure coverage is recorded below.
+**Historical Search navigation evidence:** on 2026-10-19 the maintainer verified Search ->
+successful Pairing -> Apps -> Back -> Search and selecting a PC again. That evidence concerns
+the removed Search page, not the new Main return path. Earlier pairing error evidence follows.
 
 Pairing failure ends the current attempt **[code, 2026-10-20]**. After its native OK
 error dialog finishes, Pairing returns to the existing parent PC page. Dismissing an
@@ -613,11 +693,12 @@ ownership remains in ConnectionService.
 
 | Template | Child ids | Used by | Purpose |
 |---|---|---|---|
-| `template_top_title_bar` | `plane_top`, `box_top_title`, `text_top`, `plane_top_separator` | Main, Search, Apps | Settings-style plane/box/text header, centred 32 px bold title over the system ruled-line separator |
-| `template_list_view_generic` | `list_view_generic` (960 x 448) | Search, Apps | list that runs to the bottom of the screen |
+| `template_top_title_bar` | `plane_top`, `box_top_title`, `text_top`, `plane_top_separator` | Main, Apps | Settings-style plane/box/text header, centred 32 px bold title over the system ruled-line separator |
+| `template_list_view_generic` | `list_view_generic` (960 x 448) | Apps | list that runs to the bottom of the screen |
 | `template_list_view_main` | `list_view_main` (960 x 384) | Main | list that ends where the bar starts (y = 480) |
 | `template_list_item_generic` | `list_item_generic`, `image_button_list_item` | Apps | single-label row |
-| `template_host_list_item` | `list_item_host`, `image_button_host`, `plane_host_pc`, `text_host_title`, `text_host_desc` | Main, Search | saved/found PC row: PC icon, title and description |
+| `template_host_list_item` | `list_item_host`, `image_button_host`, `plane_host_pc`, `text_host_title`, `text_host_desc` | Main | saved PC row: availability dot, PC icon, title and description |
+| `template_host_list_item_discovered` | same scoped ids as the normal host row, without `plane_host_availability` | Main | temporary PC; same columns, no dot |
 | `template_host_list_item_select` | `list_item_host_select`, `image_button_host_select`, `plane_host_select_pc`, `text_host_select_title`, `text_host_select_desc`, `checkbox_host_select` | Main (selection mode) | same row with a checkbox |
 | `template_flow_bar` | `plane_flow_bar` + three edge planes | Pairing | opaque PS4 Link style bottom bar (no buttons) |
 
@@ -628,7 +709,7 @@ Planes: `style_plane_selection_bar` (+ `_edge_dark`, `_edge_light`) for the Phot
 
 Text: `style_text_header` (32 bold, centred), `style_text_paragraph` (26 regular, line pitch 40, wrapped),
 `style_text_row_title` (28 regular), `style_text_row_desc` (22, 85% white), `style_text_pin` (48 bold),
-`style_text_main_status` (22, centred; Main/Search/Apps empty-list text),
+`style_text_main_status` (22, centred; Main/Apps empty-list text),
 `style_text_stream_statistics` (18, yellow, left/top, unwrapped, 20 px line pitch; streaming diagnostics).
 
 The stream statistics overlay uses `plane_stream_statistics` (660 x 136, top-left offset 16/-12)
