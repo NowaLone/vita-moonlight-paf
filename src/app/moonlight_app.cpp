@@ -37,58 +37,6 @@ static int set_infobar_visible(bool visible)
     return result;
 }
 
-static int InitializeNetwork()
-{
-    if (s_net_initialized) {
-        return 0;
-    }
-
-    int result = sceSysmoduleLoadModule(SCE_SYSMODULE_NET);
-    if (result < 0) {
-        return result;
-    }
-    s_net_module_loaded = true;
-
-    s_net_memory = sce_paf_malloc(kNetMemorySize);
-    if (s_net_memory == NULL) {
-        sceSysmoduleUnloadModule(SCE_SYSMODULE_NET);
-        s_net_module_loaded = false;
-        return -1;
-    }
-
-    SceNetInitParam net_param;
-    sce_paf_memset(&net_param, 0, sizeof(net_param));
-    net_param.memory = s_net_memory;
-    net_param.size = kNetMemorySize;
-    net_param.flags = 0;
-
-    result = sceNetInit(&net_param);
-    if (result < 0) {
-        sce_paf_free(s_net_memory);
-        s_net_memory = NULL;
-        sceSysmoduleUnloadModule(SCE_SYSMODULE_NET);
-        s_net_module_loaded = false;
-        return result;
-    }
-    s_net_initialized = true;
-
-    result = sceNetCtlInit();
-    if (result < 0) {
-        sceNetTerm();
-        s_net_initialized = false;
-
-        sce_paf_free(s_net_memory);
-        s_net_memory = NULL;
-
-        sceSysmoduleUnloadModule(SCE_SYSMODULE_NET);
-        s_net_module_loaded = false;
-        return result;
-    }
-    s_netctl_initialized = true;
-
-    return 0;
-}
-
 static void ShutdownNetwork()
 {
     if (s_netctl_initialized) {
@@ -110,6 +58,47 @@ static void ShutdownNetwork()
         sceSysmoduleUnloadModule(SCE_SYSMODULE_NET);
         s_net_module_loaded = false;
     }
+}
+
+static int InitializeNetwork()
+{
+    if (s_net_initialized) {
+        return 0;
+    }
+
+    int result = sceSysmoduleLoadModule(SCE_SYSMODULE_NET);
+    if (result < 0) {
+        return result;
+    }
+    s_net_module_loaded = true;
+
+    s_net_memory = sce_paf_malloc(kNetMemorySize);
+    if (s_net_memory == NULL) {
+        ShutdownNetwork();
+        return -1;
+    }
+
+    SceNetInitParam net_param;
+    sce_paf_memset(&net_param, 0, sizeof(net_param));
+    net_param.memory = s_net_memory;
+    net_param.size = kNetMemorySize;
+    net_param.flags = 0;
+
+    result = sceNetInit(&net_param);
+    if (result < 0) {
+        ShutdownNetwork();
+        return result;
+    }
+    s_net_initialized = true;
+
+    result = sceNetCtlInit();
+    if (result < 0) {
+        ShutdownNetwork();
+        return result;
+    }
+    s_netctl_initialized = true;
+
+    return 0;
 }
 }
 
