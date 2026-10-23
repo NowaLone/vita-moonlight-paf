@@ -997,23 +997,18 @@ void Main::HandleAddPcImeResult()
     SceImeDialogResult result;
     memset(&result, 0, sizeof(result));
 
-    if (sceImeDialogGetResult(&result) < 0) {
-        sceImeDialogTerm();
-        m_ime_open = false;
-        if (m_ime_task_registered) {
-            paf::common::MainThreadCallList::Unregister(ImePollTask, this);
-            m_ime_task_registered = false;
-        }
-        MoonlightApp::Instance()->Connection().ShowError("Unable to read the PC address.");
-        return;
-    }
-
+    int get_result = sceImeDialogGetResult(&result);
     sceImeDialogTerm();
     m_ime_open = false;
 
     if (m_ime_task_registered) {
         paf::common::MainThreadCallList::Unregister(ImePollTask, this);
         m_ime_task_registered = false;
+    }
+
+    if (get_result < 0) {
+        MoonlightApp::Instance()->Connection().ShowError("Unable to read the PC address.");
+        return;
     }
 
     if (result.button == SCE_IME_DIALOG_BUTTON_CLOSE) {

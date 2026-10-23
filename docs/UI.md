@@ -535,6 +535,10 @@ shutdown, stress/alternating-host and normal binary-profile checks remain **[ope
 No recurring main-thread heartbeat or changed PIN timeout is introduced.
 
 Add PC is an inline control on Main; there is no Add PC page.
+IME result handling shares one cleanup sequence for success and read failure: read the result,
+terminate the dialog, clear the open state and unregister its poll before handling the outcome
+**[code, 2026-10-23]**. Abort-on-destruction, module ownership and retry behavior are unchanged;
+source checks model the ordering, while maintainer build/Vita validation remains **[open]**.
 
 ## 4. Building blocks
 
