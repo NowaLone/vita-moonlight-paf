@@ -37,7 +37,6 @@ struct StreamContext {
 
 struct StreamThreadArgs {
     LegacyGameStreamServer *server;
-    char unique_path[512];
     int application_id;
     int quit_application_id;
     MoonlightSettings settings;
@@ -346,7 +345,6 @@ static int make_hex(
 
 static int load_launch_session(
     LegacyGameStreamServer *server,
-    const char *unique_path,
     int application_id,
     int quit_application_id,
     const MoonlightSettings *settings,
@@ -363,7 +361,7 @@ static int load_launch_session(
     MoonlightGameStreamResponse response;
     int result;
 
-    if (!server || !server->curl || !unique_path || !settings ||
+    if (!server || !server->curl || !settings ||
         !session_url || session_url_size == 0) {
         return -1;
     }
@@ -458,7 +456,6 @@ static int load_launch_session(
 
 static int run_stream_session(
     LegacyGameStreamServer *server,
-    const char *unique_path,
     int application_id,
     int quit_application_id,
     const MoonlightSettings *settings)
@@ -477,7 +474,6 @@ static int run_stream_session(
 
     result = load_launch_session(
             server,
-            unique_path,
             application_id,
             quit_application_id,
             settings,
@@ -582,7 +578,7 @@ static void *stream_thread_main(void *arg)
     moonlight_log_memory_budget("stream-before-setup");
     moonlight_log_heap_trace("stream-before-setup");
     result = stream_cancel_requested() ? -7 : run_stream_session(
-        args->server, args->unique_path, args->application_id,
+        args->server, args->application_id,
         args->quit_application_id, &args->settings);
     vita_debug_log("[Stream] setup finished app=%d result=%d", args->application_id, result);
     moonlight_log_memory_budget("stream-after-setup");
@@ -682,8 +678,6 @@ extern "C" int moonlight_stream_start(
     pthread_mutex_unlock(&s_stream_mutex);
 
     args->server = server;
-    strncpy(args->unique_path, unique_path, sizeof(args->unique_path) - 1);
-    args->unique_path[sizeof(args->unique_path) - 1] = '\0';
     args->application_id = application_id;
     args->quit_application_id = quit_application_id;
     args->settings = *settings;

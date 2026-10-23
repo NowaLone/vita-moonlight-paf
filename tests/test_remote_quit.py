@@ -325,8 +325,21 @@ class RemoteQuit(unittest.TestCase):
             return quit_result
         h.values.update(stream_cancel_requested=cancelled, legacy_gamestream_refresh_server_info=refresh,
                         legacy_gamestream_quit_app=quit_app)
-        result = h.invoke('load_launch_session', server, 'uniqueid', 42, expected, 1, 1, 256, 1, 1)
+        result = h.invoke('load_launch_session', server, 42, expected, 1, 1, 256, 1, 1)
         return h, result
+
+    def test_public_start_still_rejects_null_identity_path_before_allocating(self):
+        source = (ROOT / 'src/moonlight/stream_session.cpp').read_text()
+        start = source.index('extern "C" int moonlight_stream_start(')
+        start = source.index('    if (!server', start)
+        guard = source[start:source.index('    args = (StreamThreadArgs *)malloc', start)]
+        body = c_parser.CParser().parse('int admission(void) {\n' + guard + 'return 0;\n}').ext[0].body
+        for path, expected in ((0, -1), (b'\0', 0), (b'global/client/uniqueid.dat', 0)):
+            with self.subTest(path=path):
+                values = dict(server=dict(curl=1, address=b'host'), settings=1, unique_path=path)
+                with self.assertRaises(runtime.Returned) as result:
+                    runtime.execute(body, values)
+                self.assertEqual(result.exception.value, expected)
 
     def test_fresh_snapshot_blocks_unconfirmed_and_stale_quit_but_resumes_same_app(self):
         for fresh, expected, result, calls in ((99, 0, -8, ['refresh']),
