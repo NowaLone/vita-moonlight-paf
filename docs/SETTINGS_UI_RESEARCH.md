@@ -158,16 +158,23 @@ pitch and title origin x≈208. This matches the 27 px slot and -302 position in
 
 ## Consequences for Moonlight
 
-Main/Apps already have a comparable PAF plane/text/separator composition, but use
-26 px regular left-aligned text at x=80, without the centred adjusting box. Search
-has an independent separator and a conditional empty-list label at x=64, rather
-than a persistent title. Pairing and Stream deliberately lack this standard header.
-Keep these differences explicit; resource reuse alone does not make every page's
-header identical to Settings.
+At the research baseline, Main/Apps had a comparable PAF plane/text/separator
+composition, but used 26 px regular left-aligned text at x=80, without the centred
+adjusting box. Search had an independent separator and a conditional empty-list
+label at x=64, rather than a persistent title. Pairing and Stream lacked this
+standard header. Resource reuse alone did not make those headers identical to Settings.
 
 The previous replacement of the project's PNG with `_common_texture_ruled_line`
 reuses a native PAF resource, but does **not** reproduce the exact Settings header
-texture. No reversal or further appearance change is made by this investigation.
+texture. The investigation itself did not change appearance.
+
+**Requested implementation follow-up, 2026-10-23 [code]:** Main/Search/Apps now
+share the Settings-style plane/horizontal-box/centred-text composition, with a
+32 px bold title and a 760 px text slot. The maintainer explicitly chose
+`_common_texture_ruled_line` for the separator; its plane retains 960 x 4 geometry.
+Search's permanent localized title is separate from its conditional empty-list
+label. Pairing/Stream retain their existing layouts and corner-button navigation
+is unchanged. See UI.md section 5.1 for current details and pending Vita validation.
 
 The sphere artwork can be reused for a PC availability indicator, but availability
 is a separate product meaning. Saved-host `fill_host()` currently sets `online=0`;

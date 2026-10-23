@@ -613,7 +613,7 @@ ownership remains in ConnectionService.
 
 | Template | Child ids | Used by | Purpose |
 |---|---|---|---|
-| `template_top_title_bar` | `plane_top`, `text_top`, `plane_top_separator` | Main, Apps | left-aligned header (x = 80, `style_text_header`) over the system ruled-line separator |
+| `template_top_title_bar` | `plane_top`, `box_top_title`, `text_top`, `plane_top_separator` | Main, Search, Apps | Settings-style plane/box/text header, centred 32 px bold title over the system ruled-line separator |
 | `template_list_view_generic` | `list_view_generic` (960 x 448) | Search, Apps | list that runs to the bottom of the screen |
 | `template_list_view_main` | `list_view_main` (960 x 384) | Main | list that ends where the bar starts (y = 480) |
 | `template_list_item_generic` | `list_item_generic`, `image_button_list_item` | Apps | single-label row |
@@ -626,9 +626,9 @@ ownership remains in ConnectionService.
 Planes: `style_plane_selection_bar` (+ `_edge_dark`, `_edge_light`) for the Photos style selection bar;
 `style_plane_flow_bar` (+ `_edge1/2/3`) for the PS4 Link bar; `style_plane_stream_black` for the stream backdrop.
 
-Text: `style_text_header` (26 regular, left), `style_text_paragraph` (26 regular, line pitch 40, wrapped),
+Text: `style_text_header` (32 bold, centred), `style_text_paragraph` (26 regular, line pitch 40, wrapped),
 `style_text_row_title` (28 regular), `style_text_row_desc` (22, 85% white), `style_text_pin` (48 bold),
-`style_text_main_status` (22, centred; page status text),
+`style_text_main_status` (22, centred; Main/Search/Apps empty-list text),
 `style_text_stream_statistics` (18, yellow, left/top, unwrapped, 20 px line pitch; streaming diagnostics).
 
 The stream statistics overlay uses `plane_stream_statistics` (660 x 136, top-left offset 16/-12)
@@ -684,9 +684,9 @@ The maintainer-supplied `common_resource.rco` (SHA-256
 `6ee58e58d1e78fecd99ea93e585c81efde3e940e3e0ca5cec4e64ba7cacdc806`)
 defines this texture as a 328 x 4 GIM with `div_mode="3x1"`, `div_ratio_h="0.49"`.
 Only rows 1/2 contain visible pixels; maximum alpha is 90/255 for black and 18/255 for white
-**[code, extracted resource]**. Search and Main/Apps use 960 x 4 planes. Search's top edge is
-y = 94 (`pos="0, -94"`), and the shared title separator is centred at y = 96, so both target
-the visible dark/light pair at y = 95/96 without reducing the source height. These are layout
+**[code, extracted resource]**. Main/Search/Apps share a single 960 x 4 separator plane
+in `template_top_title_bar`, centred at y = 96 (`anchor="0, 1"` inside the title plane),
+targeting the visible dark/light pair at y = 95/96 without reducing the source height. These are layout
 values, not proof of PAF filtering/division or final pixels. Rebuilt RCO/Vita appearance checks
 remain **[open]**; the common RCO and extracted GIM/PNG are not bundled in the project.
 
@@ -778,8 +778,10 @@ Only these `_common_*` names appear in the XML and are known to resolve: `_commo
 
 ### 4.8 Status text
 
-- Main/Apps show only static empty-list labels in the list area; Search uses its header text for the
-  empty state. Pairing keeps static instructions and the PIN. Progress/errors use native dialogs.
+- Main/Search/Apps show static empty-list labels in the list area, independently of their permanent
+  titles. Search's `text_search_status` uses the same 22 px centred style and y=220 placement as Apps;
+  `ShowEmptyState()`/`HideStatus()` affect that label only **[code, 2026-10-23]**.
+  Pairing keeps static instructions and the PIN. Progress/errors use native dialogs.
 - On Main every return to idle goes through `Main::ShowIdleStatus()`: it shows the localized
   `msg_no_pcs` only with no hosts, outside selection/connection. The label would otherwise overlap
   the rows **[shot]**. Apps controls its empty state in `ShowApps()`.
@@ -928,22 +930,34 @@ The supplied official Settings resources and ELF are now traced in
 [Settings UI research](SETTINGS_UI_RESEARCH.md) **[code, 2026-10-23]**. Its shared
 header uses a transparent 960 x 64 plane, a centred horizontal box with 32 px bold
 text, and a **local 960 x 2 separator** (`ID hash 0x69cb3790`), rather than
-`_common_texture_ruled_line`. Our common-resource separator and left-aligned
-26 px title remain the current implementation; they are not an exact copy of the
-Settings header. The same research confirms that the Wi-Fi sphere is a connection
+`_common_texture_ruled_line`. Following the maintainer's request, Main/Search/Apps
+now share that plane/box/text composition with the common-resource separator instead
+of Sony's local texture **[code, 2026-10-23]**. The same research confirms that the Wi-Fi sphere is a connection
 indicator (animated green while connecting, steady green when connected, dim
-otherwise), not a reachability indicator for every listed AP. No UI change or
-hardware verification follows from this reference investigation.
+otherwise), not a reachability indicator for every listed AP.
+
+`template_top_title_bar` keeps the transparent 960 x 64 plane in y=32..96. Its
+centred horizontal `box_top_title` has `adjust="2, 2"`, zero spacing and a 760 px
+text slot (`align="0, 4"`, `adjust="0, 2"`), matching the decoded Settings layout.
+`style_text_header` binds a 32 px bold white text object with centred X/Y and ellipsis;
+the former title auto-scroll is removed. Main retains `Connect to a PC`, Apps retains
+`Applications`, and Search sets localized `msg_search_pcs` once in its constructor.
+Search no longer hides its title when hosts appear; only its separate empty-list
+label is hidden. Existing corner-button navigation and list geometry remain.
+Pairing's PS4 Link flow layout and Stream's full-screen video retain no standard
+header. Native AppSettings owns its own header. These are source changes; CXML/C++
+build, PAF box/text layout, clipping and rendered separator alignment need maintainer
+Vita validation **[open]**. No agent build or hardware test.
 
 | Item | Value | Source |
 |---|---|---|
-| Flow page header (`style_text_header`) | 26 px regular, text origin x = 64, cap centre y = 61.5 | PS4 Link search page **[shot]** |
-| List screen header | same style, text origin x = 80 | PS4 Link "Which feature..." **[shot]** |
+| Shared Main/Search/Apps header (`style_text_header`) | 32 px bold white, centred in a 760 px text slot within a horizontal box | decoded Settings resources and current CXML **[code]**; Vita appearance **[open]** |
+| Earlier flow/list header references | 26 px regular, text origin x = 64 / 80, cap centre y = 61.5 | PS4 Link search / "Which feature..." **[shot]**; superseded for the shared header |
 | Header separator | system `_common_texture_ruled_line`, 960 x 4 plane targeting visible rows y = 95/96 | source geometry **[code, 2026-10-23]**; Vita appearance **[open]** |
 | Paragraph (`style_text_paragraph`) | 26 px, line pitch 40, x = 64, first line centre y = 108, wrap width about 790 | PS4 Link pairing page **[shot]** |
 
-The PS4 Link reference has a dark/light pair at y = 95/96 **[shot]**. Search and the shared
-Main/Apps title bar now explicitly draw the native separator at that boundary **[code]**;
+The PS4 Link reference has a dark/light pair at y = 95/96 **[shot]**. The shared
+Main/Search/Apps title bar explicitly draws the native separator at that boundary **[code]**;
 the first list row can also contribute its own edge. Final combined appearance needs a Vita check.
 
 ### 5.2 List rows (PS4 Link "Which feature...") **[shot]**

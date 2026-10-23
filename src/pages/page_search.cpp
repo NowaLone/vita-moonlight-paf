@@ -26,6 +26,13 @@ Search::Search()
 
     if (!IsValid()) return;
 
+    paf::ui::Widget *title = root->FindChild("text_top");
+    const wchar_t *title_label = g_plugin->GetString("msg_search_pcs");
+    if (title && title_label) {
+        static_cast<paf::ui::Text *>(title)->SetString(
+            paf::wstring(title_label));
+    }
+
     m_list = static_cast<paf::ui::ListView *>(
         root->FindChild("list_view_generic"));
 
