@@ -44,12 +44,16 @@ private:
     void CloseWaitDialog();
     void ShowConnectionError();
     void TryShowError();
+    void ConfirmQuitAndStart(int application_id, int running_application_id);
+    int StartConfirmed(int application_id, int quit_application_id);
 
     MoonlightBackend &m_backend;
     PairingService &m_pairing;
     int32_t m_progress_dialog_slot;
     bool m_error_dialog_open;
     bool m_error_pending;
+    int m_confirm_application_id;
+    int m_confirm_running_id;
     bool m_dialog_task_registered;
     ForegroundOperation m_operation;
     int m_worker_done;

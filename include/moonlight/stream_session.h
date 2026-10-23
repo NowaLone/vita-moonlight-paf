@@ -18,6 +18,7 @@ int moonlight_stream_start(
     LegacyGameStreamServer *server,
     const char *unique_path,
     int application_id,
+    int quit_application_id,
     const MoonlightSettings *settings,
     MoonlightStreamEventCallback callback,
     void *userdata);

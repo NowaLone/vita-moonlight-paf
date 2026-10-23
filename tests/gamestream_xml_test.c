@@ -55,5 +55,30 @@ int main(void)
     };
     for (unsigned int i = 0; i < sizeof(bad_launches) / sizeof(bad_launches[0]); ++i)
         assert(moonlight_xml_parse_launch(bad_launches[i], strlen(bad_launches[i]), 0, &reply) != 0);
+
+    const char *cancel = "<root status_code='200'><cancel>1</cancel></root>";
+    assert(moonlight_xml_parse_cancel(cancel, strlen(cancel), &reply) == MOONLIGHT_XML_OK);
+    assert(reply.status_code == 200 && !reply.session_url_present);
+    assert(moonlight_xml_parse_launch(cancel, strlen(cancel), 0, &reply) == MOONLIGHT_XML_INVALID);
+    assert(moonlight_xml_parse_cancel(launch, strlen(launch), &reply) == MOONLIGHT_XML_INVALID);
+    assert(moonlight_xml_parse_cancel(denied, strlen(denied), &reply) == MOONLIGHT_XML_SERVER_ERROR);
+    assert(reply.status_code == 401 && strcmp(reply.status_message, "Not & paired") == 0);
+    const char *bad_cancels[] = {
+        "<root status_code='200'/>",
+        "<root status_code='200'><cancel>0</cancel></root>",
+        "<root status_code='200'><cancel>2</cancel></root>",
+        "<root status_code='200'><cancel/></root>",
+        "<root status_code='200'><cancel>1x</cancel></root>",
+        "<root status_code='200'><cancel>2147483648</cancel></root>",
+        "<root status_code='200'><cancel>1</cancel><cancel>1</cancel></root>",
+        "<root status_code='200'><cancel><value>1</value></cancel></root>",
+        "<root status_code='200'><nested><cancel>1</cancel></nested></root>",
+        "<root status_code='200'><cancel>1</cancel>",
+        "<root><cancel>1</cancel></root>",
+        "<!DOCTYPE root [<!ENTITY x '1'>]><root status_code='200'><cancel>&x;</cancel></root>",
+        "<html status_code='200'><cancel>1</cancel></html>"
+    };
+    for (unsigned int i = 0; i < sizeof(bad_cancels) / sizeof(bad_cancels[0]); ++i)
+        assert(moonlight_xml_parse_cancel(bad_cancels[i], strlen(bad_cancels[i]), &reply) != MOONLIGHT_XML_OK);
     return 0;
 }

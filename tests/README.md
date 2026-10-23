@@ -60,6 +60,20 @@ Unregister before outcome handling, with both state flags cleared. The check pas
 and after the cleanup refactor. It mocks the dialog and call list, excludes address processing,
 and does not validate native IME/module behavior or PAF. The combined source gate is 153 checks.
 
+`test_remote_quit.py` adds 13 non-build checks for the confirmed conflict → Quit → launch flow.
+It interprets service busy/completion/message/poll methods, the stream's pre-launch decision,
+API conflict identity payload and native Quit helper. Cases include Yes/No, canceled/aborted
+dialog results with stale Yes, GetResult/Init/Term failure and cleanup retry, immutable pending
+confirmation, fresh/stale/absent/same-app IDs, local cancellation, pinned/paired admission,
+`/cancel` request parameters, response freeing, parser/transport/refresh failure and a host app
+still running after Quit. One adapter check covers forwarding the confirmed target unchanged.
+Time, dialog/call-list, HTTP/XML, pointers and globals are serial mocks; the stream prefix stops
+before key generation and actual launch. These do not establish native ABI, real scheduling,
+TLS, Expat parsing, PAF appearance or host/Vita behavior. The cancel parser's actual C fixtures
+cover success, malformed/missing/duplicate/false fields, DTD and server errors, but remain
+uncompiled/unrun by the agent. The combined non-build gate passes all 167 checks.
+Maintainer build/Vita/host acceptance is pending.
+
 `test_host_lists.py` interprets the shared host-snapshot/identity helpers, actual Main/Search
 refresh/token-lookup functions, Main Select/Clear All/count/delete and Search's canonical lookup
 fragment. Nine checks model 40 saved/16 discovered hosts, discovery growth between count/copy,

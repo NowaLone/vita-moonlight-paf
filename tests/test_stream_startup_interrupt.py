@@ -208,7 +208,7 @@ class StreamStartupInterrupt(unittest.TestCase):
                       show_error=lambda message, result: calls.append(('error', result)),
                       show_empty=lambda: calls.append('empty'))
         execute(unit.ext[-1].body, values)
-        self.assertEqual(calls, ['schedule', ('error', -7), 'empty'])
+        self.assertEqual(calls, ['schedule', 'empty'])
         self.assertEqual(values['apps']['m_launching'], 0)
 
         page = (ROOT / 'src/pages/page_stream.cpp').read_text()

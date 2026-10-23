@@ -14,7 +14,7 @@ typedef struct ParseContext {
     int capacity;
     int count;
     int list_mode;
-    int resume;
+    const char *result_field;
     int depth;
     int invalid;
     int root_seen;
@@ -110,7 +110,7 @@ static void XMLCALL start_element(void *userdata, const char *name, const char *
             }
         }
     } else if (ctx->depth == 2) {
-        if (strcmp(name, ctx->resume ? "resume" : "gamesession") == 0) {
+        if (strcmp(name, ctx->result_field) == 0) {
             if (ctx->have_session) reject(ctx);
             else begin_field(ctx, FIELD_SESSION);
         } else if (strcmp(name, "sessionUrl0") == 0) {
@@ -243,6 +243,16 @@ int moonlight_xml_parse_launch(const char *data, size_t length, int resume,
     ParseContext ctx;
     memset(&ctx, 0, sizeof(ctx));
     ctx.response = response;
-    ctx.resume = resume;
+    ctx.result_field = resume ? "resume" : "gamesession";
+    return parse_response(data, length, &ctx);
+}
+
+int moonlight_xml_parse_cancel(const char *data, size_t length,
+    MoonlightGameStreamResponse *response)
+{
+    ParseContext ctx;
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.response = response;
+    ctx.result_field = "cancel";
     return parse_response(data, length, &ctx);
 }

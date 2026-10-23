@@ -42,7 +42,7 @@ int moonlight_api_prepare_pairing(char out_pin[5]);
 int moonlight_api_pair_current_host(const char pin[5], const MoonlightCancellation *cancel);
 
 int moonlight_api_get_applications(MoonlightApplication *out, int capacity);
-int moonlight_api_start_application(int application_id);
+int moonlight_api_start_application(int application_id, int quit_application_id);
 int moonlight_api_stop_application(void);
 /* Zero accepts deferred cleanup (or an idle/duplicate no-op), not final closure.
  * CONNECTION_CLOSED publishes completion; new host requests stay excluded until

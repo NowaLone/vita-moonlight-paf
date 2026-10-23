@@ -39,6 +39,7 @@ struct StreamThreadArgs {
     LegacyGameStreamServer *server;
     char unique_path[512];
     int application_id;
+    int quit_application_id;
     MoonlightSettings settings;
     uint32_t stats_generation;
 };
@@ -347,6 +348,7 @@ static int load_launch_session(
     LegacyGameStreamServer *server,
     const char *unique_path,
     int application_id,
+    int quit_application_id,
     const MoonlightSettings *settings,
     char *session_url,
     size_t session_url_size,
@@ -373,8 +375,15 @@ static int load_launch_session(
     if (server->current_game != 0 && server->current_game != application_id) {
         vita_debug_log("[GameStream] app conflict selected=%d active=%d",
             application_id, server->current_game);
-        return LEGACY_GAMESTREAM_APP_CONFLICT;
+        /* Approval applies only to the app the user was warned about. /cancel
+         * is host-wide and cannot atomically enforce this snapshot comparison. */
+        if (quit_application_id != server->current_game) {
+            return LEGACY_GAMESTREAM_APP_CONFLICT;
+        }
+        result = legacy_gamestream_quit_app(server);
+        if (result != 0) return result;
     }
+    if (stream_cancel_requested()) return -7;
     const int resume = server->current_game != 0;
 
     if (sceKernelGetRandomNumber(remote_key, 16) < 0 ||
@@ -451,6 +460,7 @@ static int run_stream_session(
     LegacyGameStreamServer *server,
     const char *unique_path,
     int application_id,
+    int quit_application_id,
     const MoonlightSettings *settings)
 {
     char session_url[256];
@@ -469,6 +479,7 @@ static int run_stream_session(
             server,
             unique_path,
             application_id,
+            quit_application_id,
             settings,
             session_url,
             sizeof(session_url),
@@ -571,7 +582,8 @@ static void *stream_thread_main(void *arg)
     moonlight_log_memory_budget("stream-before-setup");
     moonlight_log_heap_trace("stream-before-setup");
     result = stream_cancel_requested() ? -7 : run_stream_session(
-        args->server, args->unique_path, args->application_id, &args->settings);
+        args->server, args->unique_path, args->application_id,
+        args->quit_application_id, &args->settings);
     vita_debug_log("[Stream] setup finished app=%d result=%d", args->application_id, result);
     moonlight_log_memory_budget("stream-after-setup");
     moonlight_log_heap_trace("stream-after-setup");
@@ -625,6 +637,7 @@ extern "C" int moonlight_stream_start(
     LegacyGameStreamServer *server,
     const char *unique_path,
     int application_id,
+    int quit_application_id,
     const MoonlightSettings *settings,
     MoonlightStreamEventCallback callback,
     void *userdata)
@@ -672,6 +685,7 @@ extern "C" int moonlight_stream_start(
     strncpy(args->unique_path, unique_path, sizeof(args->unique_path) - 1);
     args->unique_path[sizeof(args->unique_path) - 1] = '\0';
     args->application_id = application_id;
+    args->quit_application_id = quit_application_id;
     args->settings = *settings;
     args->stats_generation = moonlight_stats_begin(settings);
 

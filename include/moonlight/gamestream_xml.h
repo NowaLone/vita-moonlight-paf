@@ -32,6 +32,10 @@ int moonlight_xml_parse_applications(const char *data, size_t length,
 int moonlight_xml_parse_launch(const char *data, size_t length, int resume,
     MoonlightGameStreamResponse *response);
 
+/* Remote Quit succeeds only with a valid root status 200 and one cancel=1 field. */
+int moonlight_xml_parse_cancel(const char *data, size_t length,
+    MoonlightGameStreamResponse *response);
+
 #ifdef __cplusplus
 }
 #endif

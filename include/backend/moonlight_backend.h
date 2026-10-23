@@ -36,7 +36,8 @@ public:
     virtual int PairCurrentHost(const char pin[5], const MoonlightCancellation *cancel) = 0;
 
     virtual int GetApplications(MoonlightApplication *out, int capacity) = 0;
-    virtual int StartApplication(int application_id) = 0;
+    /* Nonzero quit ID is supplied only after explicit remote-quit confirmation. */
+    virtual int StartApplication(int application_id, int quit_application_id = 0) = 0;
     virtual int StopApplication() = 0;
     virtual int DisconnectHost() = 0;
     virtual MoonlightConnectionState GetConnectionState() const = 0;

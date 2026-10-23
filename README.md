@@ -37,6 +37,8 @@ The current application supports:
 - Native delete confirmation and persistent host removal.
 - Moonlight PIN pairing.
 - Retrieving the application list from a paired PC.
+- Confirmed remote Quit when another application blocks launch, followed by the selected app
+  (source implemented; maintainer build/Vita validation pending).
 - H.264 video streaming and Vita AVC presentation.
 - Opus audio playback.
 - Optional stream statistics overlay: video rates, missing/local-drop estimates, RTT,

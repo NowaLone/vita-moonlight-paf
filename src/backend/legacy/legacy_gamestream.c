@@ -11,6 +11,7 @@
  */
 
 #include "legacy_gamestream.h"
+#include "moonlight/gamestream_xml.h"
 #ifdef MOONLIGHT_HTTP_DISCONNECT_TEST
 #include "moonlight/http_disconnect_test.h"
 #endif
@@ -1113,6 +1114,51 @@ int legacy_gamestream_refresh_server_info(LegacyGameStreamServer *server)
         return LEGACY_GAMESTREAM_WRONG_STATE;
     }
     return result;
+}
+
+int legacy_gamestream_quit_app(LegacyGameStreamServer *server)
+{
+    if (!server || !server->curl || !server->paired || !server->server_certificate) {
+        set_error("Remote Quit requires a paired host");
+        return LEGACY_GAMESTREAM_WRONG_STATE;
+    }
+
+    char *body = NULL;
+    size_t length = 0;
+    int result = legacy_gamestream_request(server, "cancel", NULL, 30L, &body, &length);
+    if (result != LEGACY_GAMESTREAM_OK) {
+        free(body);
+        vita_debug_log("[GameStream] quit request failed result=%d", result);
+        return result;
+    }
+
+    MoonlightGameStreamResponse response;
+    result = moonlight_xml_parse_cancel(body, length, &response);
+    free(body);
+    if (result != MOONLIGHT_XML_OK) {
+        set_error(response.status_message[0] ? response.status_message : "Invalid remote Quit response");
+        vita_debug_log("[GameStream] quit response rejected result=%d status=%d: %s",
+            result, response.status_code, s_error);
+        if (result == MOONLIGHT_XML_OUT_OF_MEMORY) return LEGACY_GAMESTREAM_OUT_OF_MEMORY;
+        if (result == MOONLIGHT_XML_SERVER_ERROR) {
+            return response.status_code == 401 ? LEGACY_GAMESTREAM_NOT_PAIRED : LEGACY_GAMESTREAM_FAILED;
+        }
+        return LEGACY_GAMESTREAM_INVALID;
+    }
+
+    result = legacy_gamestream_refresh_server_info(server);
+    if (result != LEGACY_GAMESTREAM_OK) {
+        vita_debug_log("[GameStream] quit verification failed result=%d", result);
+        return result;
+    }
+    if (server->current_game != 0) {
+        set_error("Host application is still running; quit it on the host or original device");
+        vita_debug_log("[GameStream] quit did not stop active app=%d", server->current_game);
+        return LEGACY_GAMESTREAM_QUIT_FAILED;
+    }
+
+    vita_debug_log("[GameStream] remote app quit verified");
+    return LEGACY_GAMESTREAM_OK;
 }
 
 static int load_server_status(LegacyGameStreamServer *server)

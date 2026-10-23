@@ -130,7 +130,8 @@ void Apps::OnAppButton(int32_t type,
 }
 
 void Apps::SelectApp(int index) {
-    if (m_launching || index < 0 || index >= m_app_count) return;
+    if (m_launching || MoonlightApp::Instance()->Connection().IsBusy() ||
+        index < 0 || index >= m_app_count) return;
 
     m_launching = true;
     m_selected_index = index;
@@ -261,11 +262,8 @@ void Apps::OnMoonlightEvent(
     case MOONLIGHT_EVENT_STREAM_FAILED: {
         /* Failed/cancelled setup may have created buffers without publishing STARTED. */
         Stream::ScheduleFrameBufferRelease();
-        const bool was_launching = apps->m_launching;
         apps->m_launching = false;
-        if (was_launching) {
-            MoonlightApp::Instance()->Connection().ShowError("Unable to start stream.", event->result);
-        }
+        /* ConnectionService owns launch errors and remote-quit confirmation. */
         apps->ShowEmptyState();
         break;
     }

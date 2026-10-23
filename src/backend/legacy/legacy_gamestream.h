@@ -23,6 +23,7 @@ extern "C" {
 /* Local execution failure and authenticated PIN mismatch, never inferred from log text. */
 #define LEGACY_GAMESTREAM_INTERNAL_ERROR -12
 #define LEGACY_GAMESTREAM_INCORRECT_PIN -13
+#define LEGACY_GAMESTREAM_QUIT_FAILED -14
 
 typedef struct LegacyGameStreamServer {
     char address[256];
@@ -65,6 +66,9 @@ int legacy_gamestream_pair(
 
 /* Authenticated snapshot only; never fall back to plaintext when starting a stream. */
 int legacy_gamestream_refresh_server_info(LegacyGameStreamServer *server);
+
+/* Worker only, after explicit confirmation: quits the host app and all remote sessions. */
+int legacy_gamestream_quit_app(LegacyGameStreamServer *server);
 
 /* Assigns only the persistence destination for a newly saved host, never establishes trust. */
 int legacy_gamestream_set_certificate_path(LegacyGameStreamServer *server, const char *path);

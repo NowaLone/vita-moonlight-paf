@@ -31,7 +31,7 @@ public:
     virtual int PairCurrentHost(const char pin[5], const MoonlightCancellation *cancel);
 
     virtual int GetApplications(MoonlightApplication *out, int capacity);
-    virtual int StartApplication(int application_id);
+    virtual int StartApplication(int application_id, int quit_application_id = 0);
     virtual int StopApplication();
     virtual int DisconnectHost();
     virtual MoonlightConnectionState GetConnectionState() const;

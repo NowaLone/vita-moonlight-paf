@@ -906,17 +906,31 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
 - **Verified / runtime:** source; T7/T8 inspect Sunshine logs, pending/active sessions, input, app
   process and display separately. Pending-event expiry alone does not prove a launched app was killed.
 
-### A20 — Cancel / quit semantics — intentionally unsupported (remote Quit action)
+### A20 — Cancel / quit semantics — confirmed Quit-and-launch source implementation
 
 - **Endpoint / purpose / auth:** paired HTTPS `GET /cancel`; explicitly quit the remote application.
   `/quit` is not a registered GameStream route in S.
 - **Semantics:** S calls `terminate_sessions()`, terminates the running app and reverts display
   configuration, returning XML `cancel=1`/status 200. It is not per-request cancellation and can
   affect other clients. QH's method named `quitApp()` actually sends `/cancel` and rechecks serverinfo.
-- **Current:** no remote Quit UI/service/backend operation; StopApplication only stops local stream.
+- **Current, 2026-10-23:** explicitly requested conflict → native Yes/No → Quit-and-launch flow.
+  ConnectionService carries the selected and conflicting app IDs through dialog termination;
+  only Yes supplies an expected Quit ID to the backend/API/existing stream worker. Fresh
+  authenticated serverinfo must still match that ID before `/cancel`. Idle host or already
+  selected active app follows the normal launch/resume path. A changed conflicting ID needs
+  fresh confirmation. Strict Expat root-200/`cancel=1` validation and fresh idle serverinfo are
+  required before launching; still-active returns -14 with a native error suggesting host/
+  original-device termination. Request/XML/refresh failure never continues to launch.
+  StopApplication still stops only the local stream; shutdown clears pending confirmation.
 - **Upstream / Sunshine:** S cancel handler, QH quitApp, QS optional quit-after-graceful-stop, V gs_quit_app.
-- **Verified / runtime:** source; T9 only if an explicit remote-Quit feature is later requested.
-  Do not call this on ordinary stop, network loss or pending-launch cancellation. No endpoint added.
+- **Verified / runtime:** focused serial source checks; C/Expat fixtures remain uncompiled/unrun.
+  Maintainer build/Vita/host validation is pending: confirm No preserves the app, Yes quits and
+  starts the selection, failures never launch, and ordinary double-PS stop/reconnect is intact.
+  `/cancel` has no expected-app parameter, so the last snapshot-to-request race cannot be atomic.
+  Do not call it on ordinary stop, network loss or pending-launch cancellation.
+  Protocol/UI reference recheck: [Qt quitApp](https://github.com/moonlight-stream/moonlight-qt/blob/dc92b6d2f361064d3e9e53ce5de92f611db77220/app/backend/nvhttp.cpp),
+  [Qt confirmation/segue](https://github.com/moonlight-stream/moonlight-qt/blob/dc92b6d2f361064d3e9e53ce5de92f611db77220/app/gui/AppView.qml),
+  [Sunshine cancel handler](https://github.com/LizardByte/Sunshine/blob/d0b4a88ef727f8dabf80cc970a14739b55c885de/src/nvhttp.cpp).
 
 ### A21 — Unpair / delete saved host — missing (requested client self-revocation)
 
@@ -1064,6 +1078,11 @@ without reconnect is additionally verified on that date: launch app=1093255277, 
 setup result=0 and decoded video through frame 841. The three basic decision branches now pass on
 the tested Vita; other host-change scenarios, snapshot/request races and remaining T5/T8 cases stay open.
 The root cause below describes the older baseline.
+
+**Requested extension, 2026-10-23 [source only]:** the default remains rejection without remote
+Quit. The native confirmation described in A20 may now authorize quitting the exact conflicting
+app and launching the selected one. This is explicit user consent, not an automatic conflict
+fallback. Build/Vita/host validation of this new flow remains pending.
 
 **Root cause:** current_game is read at connect/pair time, then locally overwritten with selected
 application_id after start. L2 does not refresh before deciding launch versus resume or compare the
@@ -2521,10 +2540,11 @@ pairing/Apps and scoped playback evidence are recorded separately above and in �
   Its [admin unpair](https://github.com/LizardByte/Sunshine/blob/master/src/confighttp.cpp) requires
   separate authorization/CSRF and the server-side client UUID. Wait for a supported client
   operation; do not add an invented endpoint, host patch or global credential rotation.
-- **Remote Quit (A20): intentionally unsupported.** Current Sunshine /cancel terminates sessions/
-  process and restores display configuration. [Moonlight Qt quitApp](https://github.com/moonlight-stream/moonlight-qt/blob/master/app/backend/nvhttp.cpp)
-  sends /cancel; the function name does not make /quit a route. Rechecked 2026-10-21. No requested
-  remote-Quit UX exists here; normal stop/cancel does not acquire that host-wide meaning.
+- **Remote Quit (A20): requested/source implemented, 2026-10-23.** A native Yes/No launch-conflict
+  confirmation authorizes the existing worker to quit the confirmed app via paired HTTPS
+  `/cancel` and verify idle state before launching the selection. No preserves the host app.
+  Sunshine's endpoint ends sessions/process and restores display configuration; ordinary local
+  stop/cancel/disconnect retains its existing meaning. Build/Vita/host acceptance is pending.
 - **App artwork (A24): intentionally unsupported** for the current text list. **Sunshine admin
   API: not applicable** to the agreed client scope. HEVC/AV1/HDR/surround/multi-controller/IPv6
   are outside current media/address scope; they are not missing ordinary client HTTP calls.

@@ -129,6 +129,12 @@ typedef enum MoonlightPairingResult {
     MOONLIGHT_PAIRING_CANCELLED = -1006 /* Local cancellation; no failure event/dialog. */
 } MoonlightPairingResult;
 
+/* Stream setup results preserved across the legacy/backend/UI boundary. */
+enum {
+    MOONLIGHT_STREAM_APP_CONFLICT = -8,
+    MOONLIGHT_STREAM_QUIT_FAILED = -14
+};
+
 typedef struct MoonlightEvent {
     MoonlightEventType type;
     int result;
@@ -139,6 +145,8 @@ typedef struct MoonlightEvent {
     /* Owned response details for pairing failure; zero/empty if no server error. */
     int server_status_code;
     char server_status_message[256];
+    /* Active host app from the authenticated snapshot that rejected a launch. */
+    int running_application_id;
 } MoonlightEvent;
 
 typedef void (*MoonlightEventCallback)(const MoonlightEvent *, void *);

@@ -89,7 +89,8 @@ static void emit(MoonlightEventType type,
                  int application_id,
                  const char *address,
                  int server_status_code = 0,
-                 const char *server_status_message = NULL)
+                 const char *server_status_message = NULL,
+                 int running_application_id = 0)
 {
     if (!s_callback) return;
 
@@ -101,6 +102,7 @@ static void emit(MoonlightEventType type,
     event.application_id = application_id;
     event.address = address;
     event.server_status_code = server_status_code;
+    event.running_application_id = running_application_id;
     if (server_status_message) {
         strncpy(event.server_status_message, server_status_message,
                 sizeof(event.server_status_message) - 1);
@@ -237,7 +239,11 @@ static void on_stream_event(
         result,
         s_current_host.id,
         s_stream_application_id,
-        s_current_host.internal);
+        s_current_host.internal,
+        0, NULL,
+        type == MOONLIGHT_EVENT_STREAM_FAILED && result == LEGACY_GAMESTREAM_APP_CONFLICT &&
+            s_server.current_game != s_stream_application_id
+            ? s_server.current_game : 0);
 
     if (type == MOONLIGHT_EVENT_STREAM_STOPPED ||
         type == MOONLIGHT_EVENT_STREAM_FAILED) {
@@ -650,7 +656,7 @@ extern "C" int moonlight_launch_request(
     char *session_url,
     size_t session_url_size);
 
-int moonlight_api_start_application(int application_id)
+int moonlight_api_start_application(int application_id, int quit_application_id)
 {
     HostControlRequest request(false);
     if (!request.Acquired()) return -1;
@@ -712,6 +718,7 @@ int moonlight_api_start_application(int application_id)
         &s_server,
         unique_path,
         application_id,
+        quit_application_id,
         &settings,
         on_stream_event,
         NULL);

@@ -73,6 +73,8 @@ ConnectionService::ConnectionService(MoonlightBackend &backend, PairingService &
       m_progress_dialog_slot(-1),
       m_error_dialog_open(false),
       m_error_pending(false),
+      m_confirm_application_id(0),
+      m_confirm_running_id(0),
       m_dialog_task_registered(false),
       m_operation(Operation_None),
       m_worker_done(0),
@@ -196,6 +198,21 @@ void ConnectionService::ShowError(const char *message, int result)
     }
 }
 
+void ConnectionService::ConfirmQuitAndStart(int application_id, int running_application_id)
+{
+    if (application_id <= 0 || running_application_id <= 0 ||
+        application_id == running_application_id || IsBusy()) {
+        ShowError("Another application is running on the PC. Close it and try again.");
+        return;
+    }
+    ShowError("Another application is running on the PC. Quit it and start the selected application? "
+              "Any unsaved progress will be lost. This also ends other streaming sessions.");
+    m_confirm_application_id = application_id;
+    m_confirm_running_id = running_application_id;
+    vita_debug_log("[Workflow] remote quit confirmation selected=%d active=%d",
+        application_id, running_application_id);
+}
+
 void ConnectionService::TryShowError()
 {
     if (!m_error_pending || m_progress_dialog_slot >= 0 || m_error_dialog_open) {
@@ -208,7 +225,8 @@ void ConnectionService::TryShowError()
     memset(&user_message, 0, sizeof(user_message));
 
     sceMsgDialogParamInit(&param);
-    user_message.buttonType = SCE_MSG_DIALOG_BUTTON_TYPE_OK;
+    user_message.buttonType = m_confirm_application_id > 0
+        ? SCE_MSG_DIALOG_BUTTON_TYPE_YESNO : SCE_MSG_DIALOG_BUTTON_TYPE_OK;
     user_message.msg = (const SceChar8 *)m_error_message;
     user_message.buttonParam = NULL;
     param.mode = SCE_MSG_DIALOG_MODE_USER_MSG;
@@ -221,6 +239,8 @@ void ConnectionService::TryShowError()
                 "[Dialog] error dialog init failed: 0x%08X",
                 (unsigned int)result);
             m_error_pending = false;
+            m_confirm_application_id = 0;
+            m_confirm_running_id = 0;
         }
         return;
     }
@@ -251,6 +271,17 @@ bool ConnectionService::PrepareCompletion(const MoonlightEvent &event)
 
     if (operation == Operation_Connect && event.type == MOONLIGHT_EVENT_CONNECTION_FAILED) {
         ShowConnectionError();
+    }
+    if (operation == Operation_Launch && event.type == MOONLIGHT_EVENT_STREAM_FAILED) {
+        if (event.result == MOONLIGHT_STREAM_APP_CONFLICT &&
+            event.running_application_id > 0 && event.running_application_id != event.application_id) {
+            ConfirmQuitAndStart(event.application_id, event.running_application_id);
+        } else if (event.result == MOONLIGHT_STREAM_QUIT_FAILED) {
+            ShowError("Unable to quit the running application. Close it on the PC or "
+                      "from the device that started it, then try again.", event.result);
+        } else {
+            ShowError("Unable to start stream.", event.result);
+        }
     }
     /* Release before dispatch: success may immediately start the next step. */
     return true;
@@ -301,11 +332,26 @@ void ConnectionService::DialogPollTask(void *userdata)
 
         SceMsgDialogResult result;
         memset(&result, 0, sizeof(result));
-        sceMsgDialogGetResult(&result);
-        sceMsgDialogTerm();
+        int get_result = sceMsgDialogGetResult(&result);
+        if (get_result < 0) {
+            vita_debug_log("[Dialog] unable to read dialog result=0x%08X", (unsigned int)get_result);
+        }
+        if (sceMsgDialogTerm() < 0) return;
 
         service->m_error_dialog_open = false;
         service->m_error_message[0] = '\0';
+        const int application_id = service->m_confirm_application_id;
+        const int running_id = service->m_confirm_running_id;
+        service->m_confirm_application_id = 0;
+        service->m_confirm_running_id = 0;
+        if (get_result >= 0 && application_id > 0 &&
+            result.result == SCE_COMMON_DIALOG_RESULT_OK &&
+            result.buttonId == SCE_MSG_DIALOG_BUTTON_ID_YES) {
+            int start_result = service->StartConfirmed(application_id, running_id);
+            if (start_result != 0) {
+                service->ShowError("Unable to start stream.", start_result);
+            }
+        }
     }
 
     if (service->m_progress_dialog_slot < 0 &&
@@ -331,6 +377,8 @@ void ConnectionService::Shutdown()
     }
 
     m_error_pending = false;
+    m_confirm_application_id = 0;
+    m_confirm_running_id = 0;
     m_operation = Operation_None;
     m_error_message[0] = '\0';
 
@@ -382,6 +430,11 @@ int ConnectionService::Connect(const MoonlightHost &host)
 
 int ConnectionService::Start(int application_id)
 {
+    return StartConfirmed(application_id, 0);
+}
+
+int ConnectionService::StartConfirmed(int application_id, int quit_application_id)
+{
     vita_debug_log(
         "[ConnectionService] Start app=%d",
         application_id);
@@ -394,7 +447,7 @@ int ConnectionService::Start(int application_id)
      * operation into PAF's JobQueue only adds another asynchronous hop and
      * can hide launch failures from the caller/UI.
      */
-    int result = m_backend.StartApplication(application_id);
+    int result = m_backend.StartApplication(application_id, quit_application_id);
 #if defined(MOONLIGHT_PENDING_DISCONNECT_TEST) || defined(MOONLIGHT_STARTUP_DISCONNECT_TEST)
     disconnect_test_capture_start(application_id, result);
 #endif

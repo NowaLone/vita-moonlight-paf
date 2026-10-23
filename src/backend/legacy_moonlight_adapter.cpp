@@ -183,7 +183,7 @@ int LegacyMoonlightAdapter::GetApplications(MoonlightApplication *out, int capac
     return moonlight_api_get_applications(out, capacity);
 }
 
-int LegacyMoonlightAdapter::StartApplication(int application_id)
+int LegacyMoonlightAdapter::StartApplication(int application_id, int quit_application_id)
 {
     vita_debug_log(
         "[LegacyAdapter] StartApplication app=%d has_host=%d state=%d",
@@ -198,7 +198,7 @@ int LegacyMoonlightAdapter::StartApplication(int application_id)
 
     /* Success only schedules setup. ForwardEvent owns the STREAM_STARTED/FAILED
      * transition, which may already have arrived before the API call returns. */
-    return moonlight_api_start_application(application_id);
+    return moonlight_api_start_application(application_id, quit_application_id);
 }
 
 int LegacyMoonlightAdapter::StopApplication()

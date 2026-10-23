@@ -182,7 +182,8 @@ class AdapterLifecycle(unittest.TestCase):
                 for timing in ('before_return', 'after_return'):
                     with self.subTest(method=method, event=event, timing=timing):
                         values = dict(self.constants, m_connection_state=initial,
-                                      m_has_current_host=1, m_event_callback=0, application_id=42)
+                                      m_has_current_host=1, m_event_callback=0,
+                                      application_id=42, quit_application_id=0)
 
                         def deliver():
                             values['event'] = {'type': self.constants['MOONLIGHT_EVENT_' + event]}
@@ -204,6 +205,18 @@ class AdapterLifecycle(unittest.TestCase):
                             self.assertEqual(values['m_connection_state'], terminal)
                         self.assertEqual(values['m_has_current_host'], event != 'CONNECTION_CLOSED')
 
+    def test_confirmed_quit_target_is_forwarded_without_changing_state(self):
+        calls = []
+        initial = self.constants['MOONLIGHT_CONNECTION_PAIRED']
+        values = dict(self.constants, m_connection_state=initial, m_has_current_host=1,
+                      application_id=42, quit_application_id=99,
+                      moonlight_api_start_application=lambda *args: calls.append(args) or 0)
+        with self.assertRaises(Returned) as returned:
+            execute(self.functions['StartApplication'], values)
+        self.assertEqual(returned.exception.value, 0)
+        self.assertEqual(calls, [(42, 99)])
+        self.assertEqual(values['m_connection_state'], initial)
+
     def test_synchronous_failure_preserves_state(self):
         for method, api, state in (
                 ('StartApplication', 'moonlight_api_start_application', 'PAIRED'),
@@ -213,7 +226,7 @@ class AdapterLifecycle(unittest.TestCase):
                 with self.subTest(method=method, result=result):
                     initial = self.constants['MOONLIGHT_CONNECTION_' + state]
                     values = dict(self.constants, m_connection_state=initial,
-                                  m_has_current_host=1, application_id=42)
+                                  m_has_current_host=1, application_id=42, quit_application_id=0)
                     values[api] = lambda *args: result
                     with self.assertRaises(Returned) as returned:
                         execute(self.functions[method], values)
@@ -265,7 +278,7 @@ class AdapterLifecycle(unittest.TestCase):
             with self.subTest(method=method):
                 initial = self.constants['MOONLIGHT_CONNECTION_DISCONNECTED']
                 values = dict(self.constants, m_connection_state=initial,
-                              m_has_current_host=0, application_id=42)
+                              m_has_current_host=0, application_id=42, quit_application_id=0)
                 # No backend stub is installed: a call would fail the test.
                 with self.assertRaises(Returned) as returned:
                     execute(self.functions[method], values)

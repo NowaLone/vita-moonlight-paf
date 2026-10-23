@@ -198,6 +198,12 @@ recipes for common UI changes live in [`docs/UI.md`](docs/UI.md). Read it before
   The opt-in stream statistics/status overlay is separate and remains unchanged.
 - Measured PS4 Link and Photos values (bars, header line, paragraph, rows, popup geometry), the earlier horizontal speech-balloon observation and the Sony vertical-sample reference are in `docs/UI.md` section 5. The selection bar deliberately keeps the Photos values.
 - Do not move streaming implementation into PAF pages.
+- A different active host app triggers ConnectionService's native Yes/No remote-Quit confirmation.
+  Only Yes after dialog termination may retry with that app's expected ID. The existing worker
+  rechecks the ID, sends paired HTTPS `/cancel`, validates `cancel=1` and verifies idle host state
+  before launching the selection. No, dialog failure and ordinary stop/disconnect never quit the
+  host app. The endpoint is host-wide and its snapshot-to-request race cannot be atomic. Source
+  checks cover this flow; maintainer build/Vita validation remains pending (2026-10-23).
 
 ### Application / Services / Backend
 
