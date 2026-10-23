@@ -80,7 +80,7 @@ static void invalidate_applications()
 {
     s_applications_valid = false;
     s_application_count = 0;
-    memset(s_applications, 0, sizeof(s_applications));
+    /* Readers require validity and copy only the current count. */
 }
 
 static void emit(MoonlightEventType type,
