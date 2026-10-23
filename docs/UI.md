@@ -1122,15 +1122,32 @@ The camera/play glyph is baked into Photos' local background textures. Moonlight
 bundles a blank background reconstructed from the camera texture (see §4.4), not
 the full camera/play artwork.
 
-The maintainer reported the first **100 x 62** Main button was too large and requested
-the Photos background **[maintainer feedback, 2026-10-23]**. Main's existing
-`plane_main_actions` keeps the same centre but now contains an **86 x 46** `btn_add_pc`,
-with a **76 x 36** focus frame and **74 x 34** glow **[code, requested reduction]**.
-`style_button_header_action` uses `tex_header_action_bg` from Photos in place of the
-standard PAF button background. Child planes compose a smaller **48 x 48** `tex_pc`
-and **10 x 10** cross rotated **0.785398 radians**, shifted **4 px up [code]** into
-the monitor's screen. Both planes ignore hits and are non-focusable; the button
-owns touch, focus and the existing decide callback.
+The background's **100 x 62** source canvas must not be confused with its visible
+body. Both the original Photos camera texture and `tex_header_action_bg` have
+alpha >= **200/255** bounds **[7, 8, 93, 54)**, i.e. **86 x 46 [code, decoded pixels]**.
+At the resource's unscaled layout position, the canvas starts at screen **(2, 33)**;
+its solid body therefore occupies **[9, 41, 95, 87) [code]**, matching the screenshot
+measurement above **[shot]**. Lower-alpha shadow extends beyond that rectangle.
+Reducing the whole widget to **86 x 46** also reduced this body to about **74 x 34**;
+that was the cause of the maintainer's subsequent too-small report. The earlier
+standard PAF background was a different texture and did not establish Photos sizing.
+
+Main now matches the decoded Photos button geometry: **100 x 62** canvas centred at
+**(52, 64)**, **88 x 48** focus frame (shape **0**), and **86 x 46** glow with scale
+modes **2/2**, blend **2 [code]**. `btn_add_pc` binds `tex_header_action_bg` through
+its `texture` attribute; `style_button_header_action` leaves its background planeobj
+empty, exactly as Photos does. This replaces the previous style-level texture
+assignment. Background pixels/alpha, position and these layout/style parameters are
+source-compared; final PAF rendering is still **[open]**. The reference screenshot
+is in selection mode and the camera appears dimmed **[shot]**; this change follows
+the resource's white **1, 1, 1, 1 [code]** normal button color. State-dependent
+runtime dimming has not been measured.
+
+Child planes retain the **48 x 48** `tex_pc` and **10 x 10** cross rotated
+**0.785398 radians**, shifted **4 px up [code]** into the monitor's screen.
+The custom PC-plus artwork retains its proportions; it is not Photos' baked camera
+glyph. Both planes ignore hits and are non-focusable; the button owns touch, focus
+and the existing decide callback.
 The icon has no text label. The previous bottom-wide button/box and unused prompt
 string are removed. Main's title and host-list/selection-bar geometry stay unchanged.
 
