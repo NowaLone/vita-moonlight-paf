@@ -100,19 +100,19 @@ static int run_on_worker(int (*function)(void *), void *argument)
     call.result = LEGACY_GAMESTREAM_FAILED;
 
     if (pthread_attr_init(&attr) != 0) {
-        return function(argument);
+        return LEGACY_GAMESTREAM_INTERNAL_ERROR;
     }
 
     if (pthread_attr_setstacksize(&attr, GAMESTREAM_WORKER_STACK) != 0) {
         pthread_attr_destroy(&attr);
-        return function(argument);
+        return LEGACY_GAMESTREAM_INTERNAL_ERROR;
     }
 
     create_result = pthread_create(&thread, &attr, worker_entry, &call);
     pthread_attr_destroy(&attr);
     if (create_result != 0) {
         vita_debug_log("[GameStream] worker create failed: %d", create_result);
-        return function(argument);
+        return LEGACY_GAMESTREAM_INTERNAL_ERROR;
     }
 
     pthread_join(thread, NULL);
