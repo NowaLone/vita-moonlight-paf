@@ -1,6 +1,7 @@
 # Focused checks
 
-Latest recorded committed-source gate: **147 checks at bff5712 (2026-10-22)**. Counts in the
+Latest recorded source gate: **181 checks through 953cedb (2026-10-23)**.
+See [the refactor audit](../docs/REFACTOR_AUDIT.md) for the baseline and changes. Counts in the
 individual correction records below belong to those historical source stages. Current test
 output is authoritative for any later checkout. Device evidence and remaining acceptance
 cases are in the API audit and `runtime/README.md`; source checks do not replace those gates.
@@ -8,6 +9,40 @@ cases are in the API audit and `runtime/README.md`; source checks do not replace
 Non-build checks (Python 3 and pycparser):
 
     PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_*.py'
+
+Repository simplification adds fourteen checks beyond the 167-check remote-Quit stage:
+
+- `test_ui_resources.py`: all resource XML is well-formed, local CXML style/template/texture
+  references resolve, texture files exist, and inner `textobj` bindings are explicit. This
+  parses XML; it does not compile an RCO or render PAF. The locale check reproduced unescaped
+  ampersand/less-than attribute errors before correction, with decoded labels preserved.
+- `test_network_lifecycle.py`: module/allocation/Net/NetCtl failure cleanup, successful and
+  repeated initialization, shutdown order and idempotence, with native calls mocked.
+- `test_application_cache.py`: invalidation, bounded reads, shorter refreshes, empty lists
+  and rejected admission. It models copies in application elements, without C memory layout.
+- `test_touch_events.py`: actual DS4/tablet contact handling for Down, stationary frames,
+  movement to the origin, Up, ID reuse and out-of-range ID fallback. Coordinate sampling and
+  transport are mocked. The old tablet path reproduced the stationary-Move failure.
+- `test_mdns_bounds.py`: literal/compressed names and consumed offsets; invalid pointers,
+  cycles, truncated labels and output capacity; valid Question/PTR/SRV/A and truncated record
+  headers/data. Actual decoder/parser bodies are interpreted with byte arrays and mocked
+  callbacks. No sockets, native memory/ABI or whole discovery lifecycle is executed.
+- `test_video_scaling.py`: 30 fit/cover dimension cases covering zero/equal/narrow/wide
+  sources, rounding/alignment and wide cross-products, including modeled integer casts.
+  Decoder allocation, frame cropping and PAF presentation are outside the check.
+- `test_host_persistence.py`: an additional actual append/merge check covers 96 combinations
+  of metadata, pairing, port/address preference and fill-only host/storage identity. Another
+  drives the new-record copy tail into nonzero destination storage for lengths 0/1/254/255;
+  the old source failed NUL termination at 255 for name/internal/external. File I/O/allocation
+  remain mocked; this does not establish persistence durability or native memory behavior.
+- `test_gamestream_worker.py`: actual worker admission/entry with serial pthread mocks;
+  three nonzero errors at each init/stack/create stage reject work without invoking crypto,
+  while successful creation joins and preserves three callback results. The old inline
+  fallback failed all nine rejection cases. No real thread/stack/crypto execution occurs.
+
+Network, cache, metadata-merge and video-scaling checks passed before and after their
+refactors. These checks do not establish compilation, real threading, native UI, TLS/network
+integration or Vita behavior; maintainer build/device validation remains separate.
 
 The pairing check interprets the actual verification helper with mocked EVP results (-1/0/1/2
 at Init/Update/Final, 64 combinations); only success at all three stages may accept a proof.

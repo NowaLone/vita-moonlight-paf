@@ -190,7 +190,7 @@ Requirements:
 - [VITASDK](https://github.com/vitasdk/vitasdk)
 - [vitasdk-paf-component](https://github.com/Princess-of-Sleeping/vitasdk-paf-component)
 - [psp2cxml-tool](https://github.com/Princess-of-Sleeping/psp2cxml-tool)
-- `psp2shell_cli` for the development deploy script
+- `psp2shell_cli` only if using separate local deployment tooling
 
 Typical setup:
 
@@ -273,12 +273,6 @@ reported run. Later user tests verified longer sessions, reconnect memory baseli
 Settings, Quick Actions and returning to the suspended game with tracing disabled.
 Broader device/game, dialog/error-path and endurance coverage remains open.
 
-`dev-build-run.sh -DMOONLIGHT_SYSTEM_APP=ON` forwards the option, builds the VPK and
-stops with installation instructions. It deliberately skips SELF-only deployment
-for this profile. Development deployment explicitly selects one profile in
-`build/`, using the ordinary profile unless ON is supplied. Its clean rebuild
-removes any cached selection, so supply ON on each system-profile invocation.
-
 Enable **Debug log** in Settings for `[Memory]` snapshots, including the actual
 AppMgr mode and USER_RW/PHYCONT/CDRAM budgets. The first useful snapshot is emitted
 when Settings applies the logging preference; successful early bootstrap remains
@@ -359,13 +353,9 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 make
 ```
 
-Development rebuild + deployment:
-
-```bash
-PSVITAIP=192.168.1.123 ./dev-build-run.sh
-```
-
-The deployment script uses title ID `VLMP00001`.
+Install the generated VPK on the Vita (title ID `VLMP00001`). This checkout ships
+`build.sh` and `build_cxml.sh`; the `dev-build-run.sh` deployment helper referenced
+in older notes is absent. Deployment tooling is therefore a separate local setup.
 
 LiveArea images under `sce_sys/` must be 8-bit indexed PNG (color type 3). A 24-bit or 32-bit PNG installs as far as 99% and then fails with `0x8010113D`. `icon0.png` is 128×128 with no alpha. `pic0.png` is 960×544. `livearea/contents/bg0.png` is 840×500. `startup.png` is 280×158 and is the only one that may use palette transparency (`tRNS`). Re-exporting these from a normal editor without quantizing them will break installation again.
 
@@ -383,9 +373,10 @@ The CXML build is fail-fast: if `psp2cxml-tool` is not available, the build stop
 
 ## Runtime Validation
 
-The recorded bff5712 source gate has 147 non-build Python checks (Python 3 + pycparser), covering selected parser
-grammar, pairing/trust, host-store/list, event and lifecycle logic with mocked platform/library
-calls. See [tests/README.md](tests/README.md) for their scope and command. They do not compile
+The 953cedb source gate has 181 non-build Python checks (Python 3 + pycparser), covering selected parser
+grammar, pairing/trust, host-store/list, event, lifecycle, touch and video-size logic with mocked
+platform/library calls. See [tests/README.md](tests/README.md) for their scope and command and
+[the repository refactor audit](docs/REFACTOR_AUDIT.md) for the latest simplification changes. They do not compile
 or execute the application or replace Vita tests. C/Expat parser fixtures also exist, but their
 compilation/execution by the maintainer remains unverified.
 
