@@ -36,17 +36,25 @@ public:
         MoonlightHost host;
         int result;
         uint64_t checked_at;
+        uint64_t previous_checked_at;
+        bool previous_available;
         bool displayed;
     };
-    AvailabilityJob(MoonlightBackend &backend, const paf::vector<MoonlightHost> &hosts)
-        : JobItem("PC availability", NULL), backend(backend), cancel(), done(0)
+    AvailabilityJob(MoonlightBackend &backend, const paf::vector<MoonlightHost> &hosts,
+                    const AvailabilityJob *previous)
+        : JobItem("PC availability", NULL), backend(backend), cancel(), done(0),
+          started_at(sceKernelGetProcessTimeWide())
     {
         entries.resize(hosts.size());
         for (size_t i = 0; i < hosts.size(); ++i) {
             entries[i].host = hosts[i];
             entries[i].result = 0;
             entries[i].checked_at = 0;
-            entries[i].displayed = false;
+            /* Copy only a completed, unchanged scan. These fallback fields stay immutable. */
+            entries[i].previous_available = previous && previous->Available(previous->entries[i]);
+            entries[i].previous_checked_at = entries[i].previous_available
+                ? previous->entries[i].checked_at : 0;
+            entries[i].displayed = entries[i].previous_available;
         }
     }
     virtual void Run()
@@ -60,15 +68,29 @@ public:
         __atomic_store_n(&done, 1, __ATOMIC_RELEASE);
     }
     virtual void Finish() {}
+    bool RefreshDue() const
+    {
+        return __atomic_load_n(&done, __ATOMIC_ACQUIRE) &&
+               sceKernelGetProcessTimeWide() - started_at >= 15000000;
+    }
     bool Available(const Entry &entry) const
     {
-        if (moonlight_is_cancelled(&cancel) ||
-            __atomic_load_n(&entry.result, __ATOMIC_ACQUIRE) != 1) return false;
-        return sceKernelGetProcessTimeWide() - entry.checked_at < 30000000;
+        if (moonlight_is_cancelled(&cancel)) return false;
+        int result = __atomic_load_n(&entry.result, __ATOMIC_ACQUIRE);
+        uint64_t checked_at;
+        if (result == 0) {
+            if (!entry.previous_available) return false;
+            checked_at = entry.previous_checked_at;
+        } else {
+            if (result != 1) return false;
+            checked_at = entry.checked_at;
+        }
+        return sceKernelGetProcessTimeWide() - checked_at < 30000000;
     }
     MoonlightBackend &backend;
     MoonlightCancellation cancel;
     int done;
+    const uint64_t started_at;
     paf::vector<Entry> entries;
 };
 
@@ -85,17 +107,18 @@ void HostService::CheckAvailability(void *owner, const paf::vector<MoonlightHost
     for (size_t i = 0; unchanged && i < hosts.size(); ++i) {
         unchanged = same_probe_host(old->entries[i].host, hosts[i]);
     }
-    /* ponytail: one scan per visit/snapshot; add periodic refresh only if needed. */
-    if (unchanged) return;
-    CancelAvailability();
-    m_owner = owner;
+    if (unchanged && !old->RefreshDue()) return;
     if (!m_queue) {
         paf::job::JobQueue::Option option;
         option.workerNum = 1;
         option.workerStackSize = 64 * 1024;
         m_queue = new paf::job::JobQueue("PC availability", &option);
     }
-    m_job = paf::common::SharedPtr<paf::job::JobItem>(new AvailabilityJob(m_backend, hosts));
+    paf::common::SharedPtr<paf::job::JobItem> next(
+        new AvailabilityJob(m_backend, hosts, unchanged ? old : NULL));
+    CancelAvailability();
+    m_owner = owner;
+    m_job = next;
     if (m_queue->Enqueue(m_job) < 0) {
         AvailabilityJob *job = static_cast<AvailabilityJob *>(m_job.get());
         moonlight_cancel(&job->cancel);

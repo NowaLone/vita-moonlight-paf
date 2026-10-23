@@ -195,15 +195,17 @@ class HostAvailability(unittest.TestCase):
         source = (ROOT / 'src/services/host_service.cpp').read_text()
         predicate = re.search(r'    bool Available\(.*?\n    }', source, re.S).group()
         predicate = predicate.replace('const Entry &entry', 'const Entry *entry').replace(') const', ')')
+        refresh = re.search(r'    bool RefreshDue\(.*?\n    }', source, re.S).group().replace(') const', ')')
         identity = re.search(r'static bool same_probe_host\(.*?\n}', source, re.S).group()
         identity = re.sub(r'const MoonlightHost &(\w+)', r'const MoonlightHost *\1', identity)
         types = '''typedef int bool; typedef struct { char host_id[33], internal[256]; int port; } MoonlightHost;
-        typedef struct { int result; unsigned long long checked_at; } Entry;'''
-        unit = c_parser.CParser().parse(types + strip_directives(identity + predicate))
+        typedef unsigned long long uint64_t;
+        typedef struct { int result; uint64_t checked_at, previous_checked_at; bool previous_available; } Entry;'''
+        unit = c_parser.CParser().parse(types + strip_directives(identity + predicate + refresh))
         bodies = {n.decl.name: n.body for n in unit.ext if isinstance(n, c_ast.FuncDef)}
         original = runtime.expression
         def expression(node, scope):
-            if isinstance(node, c_ast.UnaryOp) and node.op == '&' and isinstance(node.expr, c_ast.StructRef):
+            if isinstance(node, c_ast.UnaryOp) and node.op == '&':
                 return original(node.expr, scope)
             return original(node, scope)
         values = dict(false=0, cancel=1, __ATOMIC_ACQUIRE=0,
@@ -215,10 +217,24 @@ class HostAvailability(unittest.TestCase):
             except runtime.Returned as result: return bool(result.value)
         with patch.object(runtime, 'expression', expression):
             for result, age, cancelled in itertools.product((0, 1, 2, -1, -2), (0, 29999999, 30000000), (0,1)):
-                actual = run('Available', entry=dict(result=result, checked_at=100),
+                actual = run('Available', entry=dict(result=result, checked_at=100, previous_available=0),
                              moonlight_is_cancelled=lambda token: cancelled,
                              sceKernelGetProcessTimeWide=lambda: 100+age)
                 self.assertEqual(actual, result == 1 and age < 30000000 and not cancelled)
+            # A pending refresh keeps the previous positive only until its original expiry.
+            # Negative/local/cancel results must override that fallback immediately.
+            for result, age, cancelled in itertools.product((0, 1, 2, -1, -2), (15000000, 29999999, 30000000), (0, 1)):
+                observation = dict(result=result, previous_available=1, previous_checked_at=100)
+                # The worker's timestamp is not safe to read while its result is pending.
+                if result != 0: observation['checked_at'] = 100
+                actual = run('Available', entry=observation,
+                             moonlight_is_cancelled=lambda token: cancelled,
+                             sceKernelGetProcessTimeWide=lambda: 100+age)
+                self.assertEqual(actual, result in (0, 1) and age < 30000000 and not cancelled)
+            for done, age in itertools.product((0, 1), (0, 14999999, 15000000, 30000000)):
+                self.assertEqual(run('RefreshDue', done=done, started_at=100,
+                                     sceKernelGetProcessTimeWide=lambda: 100+age),
+                                 bool(done and age >= 15000000))
             a = dict(host_id='uuid', internal='192.0.2.1', port=47989)
             self.assertTrue(run('same_probe_host', a=a, b=copy.deepcopy(a)))
             for field in a:

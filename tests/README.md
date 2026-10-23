@@ -17,7 +17,11 @@ in `test_event_queue.py`: actual TCP probe control flow with mocked native API
 results/cleanup, cancellation and timeout; DNS handling; exact 30-second expiry and
 UUID/address/port matching; failed submission preserving the previous drain barrier;
 foreground-worker/shutdown ordering; availability snapshot coalescing and main-thread
-delivery. They do not execute native threads, sockets, DNS, PAF, ABI or layout.
+delivery. The follow-up extends actual-predicate checks to the 15-second repeat
+boundary, unfinished scans never starting a repeat, and pending replacement reads
+preserving previous freshness without reading the worker's unfinished timestamp;
+negative results and cancellation override that fallback. They do not execute
+native threads, sockets, DNS, PAF, ABI or layout.
 
 The earlier simplification through bcbf30d added sixteen checks beyond the 167-check remote-Quit stage:
 

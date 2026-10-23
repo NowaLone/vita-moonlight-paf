@@ -986,8 +986,17 @@ unchecked, failed, cancelled and expired results; it does not establish power-of
 The stored/discovered `online` field is not used. Results stay in memory only.
 
 `HostService` owns one dedicated single-worker PAF job queue. Active Main/Search
-request one scan on entry/return or a changed UUID/address/port snapshot; there is
-no periodic network refresh. Page call-list tasks only manage scan ownership.
+request a scan on entry/return or a changed UUID/address/port snapshot. While the
+list remains active, unchanged snapshots are checked again after 15 seconds from
+the previous scan's start, and only after that scan finishes **[code, 2026-10-23]**.
+The fresh previous positive remains visible while its replacement is pending,
+using its original timestamp and 30-second expiry; a new negative result turns it
+dim immediately. Long scans run serially, so an observation can still expire if
+its next check cannot finish within 30 seconds. Page call-list tasks only manage
+scan ownership; hidden lists, dialogs, Settings and streaming do not schedule repeats.
+The maintainer reported Main's dot becoming dim over time in the initial trial;
+source confirmed expiry without a repeat scan. This refresh correction still
+needs maintainer build/Vita validation.
 `MoonlightApp::ProcessEventTask` collects observations/expiry and delivers a
 coalesced `HOST_AVAILABILITY_CHANGED` snapshot event. Factories initialize new
 cells; event handlers change textures on generated cells without rebuilding the

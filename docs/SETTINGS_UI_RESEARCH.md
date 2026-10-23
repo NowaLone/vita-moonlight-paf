@@ -312,8 +312,13 @@ acceptance items, not a claim established by Python mocks. No libcurl or GameStr
 session state is involved. Enqueue failure remains dim and preserves the previous
 successful job as Connect's cleanup barrier. Teardown waits for the queue before
 network termination. Background network activity runs only for a requested active
-list scan; staying on a list after the 30-second positive lifetime shows dim until
-return/re-entry triggers a new scan.
+list scan. Follow-up after the maintainer observed Main's dot dimming over time:
+active Main/Search now repeat unchanged scans at a 15-second start-to-start
+interval, waiting for the previous scan to finish. Pending replacements preserve
+fresh previous positives with their original 30-second expiry, avoiding a dark
+flash on every refresh. A failed check still turns dim immediately. Hidden lists
+and conflicting workflows cancel scheduling as before; long serial scans may
+still exhaust freshness. Periodic refresh needs maintainer build/Vita validation.
 
 Non-build checks interpret the actual probe/predicates with mocked Vita results:
 TCP immediate/pending success, refused/wrong/error readiness, SO_ERROR failures,
@@ -326,7 +331,8 @@ coalescing and main-thread dispatch. These do not run native threads/networking.
 Maintainer acceptance: build CXML/application; compare Main/Search/selection dots
 with the official screenshot; scroll enough rows to force cell reuse; confirm
 selection/focus survive result changes; test answering/refused/silent ports,
-hostnames and DNS failure, 30-second expiry and list return refresh; select a PC
+hostnames and DNS failure, active-list refresh across several minutes, disappearance
+when a PC stops answering, 30-second expiry and list return refresh; select a PC
 while a check is pending; leave/reopen Search, IME and Settings; stream/stop/return;
 exit during a pending check. A positive from an unrelated TCP service is an
 intentional limitation of this trial, not proof of authenticated Sunshine.
