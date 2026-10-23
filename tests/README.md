@@ -41,6 +41,13 @@ previous source fails 24 cases across six of these tests; that source gate had 1
 No compiler/ABI, actual filesystem/flush, concurrency, native-dialog or Vita behavior is tested.
 Atomic replacement, memory rollback and power-loss durability are outside this correction.
 
+Host-store simplification (2026-10-23): the same interpreter follows the shared metadata,
+append and save helpers. Three additional checks cover new/existing records, absent metadata,
+default/custom ports, UUID replacement versus pairing's fill-only rule, storage-directory
+selection, preserved paired/address-preference state, append failure and rejected input.
+All 150 non-build checks pass. These remain serial source checks with mocked allocation,
+directory and file operations; maintainer build/Vita persistence validation is pending.
+
 `test_host_lists.py` interprets the shared host-snapshot/identity helpers, actual Main/Search
 refresh/token-lookup functions, Main Select/Clear All/count/delete and Search's canonical lookup
 fragment. Nine checks model 40 saved/16 discovered hosts, discovery growth between count/copy,

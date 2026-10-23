@@ -11,7 +11,7 @@ from test_xml_source import ROOT, strip_directives
 
 
 def function(source, name):
-    start = re.search(r'^(?:static )?(?:int|void) ' + name + r'\(', source, re.M).start()
+    start = re.search(r'^(?:static )?(?:int |void |device_info_t \*)' + name + r'\(', source, re.M).start()
     return source[start:source.index('\n}', start) + 2]
 
 
@@ -71,6 +71,13 @@ class HostPersistence(unittest.TestCase):
         store = (ROOT / 'src/backend/legacy_device_store.cpp').read_text()
         cls.stores = {name: parse_body(function(store, 'legacy_device_store_' + name))
                       for name in ('add_host', 'mark_paired', 'set_host_id')}
+        cls.helpers = {}
+        for name, parameters in (
+                ('update_host_metadata', ('stored', 'host')),
+                ('append_host', ('host', 'host_id', 'paired')),
+                ('save_host', ('stored',))):
+            if re.search(r'\b' + name + r'\(', store):
+                cls.helpers[name] = (parse_body(function(store, name)), parameters)
         api = (ROOT / 'src/moonlight/api.cpp').read_text()
         pair = function(api, 'moonlight_api_pair_current_host')
         success = pair[pair.index('    update_host_from_server();'):]
@@ -131,38 +138,60 @@ class HostPersistence(unittest.TestCase):
         result, calls, _, _ = self.write(info=False)
         self.assertEqual((result, calls), (-1, []))
 
-    def store(self, name, *, existing, save_result=0, directory=True):
-        stored = record() if existing else None
+    def store(self, name, *, existing, save_result=0, directory=True,
+              host=None, stored=None, address='192.0.2.1', display_name='PC', port=47989,
+              host_id='uuid', append_failure=False, initialized=1):
+        stored = (stored if stored is not None else record()) if existing else None
         calls = []
-        values = dict(s_initialized=1, NULL=0, true=1, false=0,
-                      address=CString('192.0.2.1'), name=CString('PC'), port=47989,
-                      host=record(), host_id=CString('uuid'))
-
-        def memset(pointer, *args):
-            values[pointer] = record()
+        directories = []
+        values = dict(s_initialized=initialized, NULL=0, true=1, false=0,
+                      address=CString(address) if address is not None else None,
+                      name=CString(display_name) if display_name is not None else None, port=port,
+                      host=host if host is not None else record(),
+                      host_id=CString(host_id) if host_id is not None else None)
 
         def copy_string(destination, size, source):
             destination.text = str(source)
 
-        def append(pointer):
-            calls.append('append')
-            return values[pointer]
-
         values.update(find_device_by_address=lambda *args: stored,
                       find_device=lambda *args: stored, find_stored_host=lambda *args: stored,
                       strcmp=lambda left, right: 0 if str(left) == str(right) else 1,
-                      copy_string=copy_string, memset=memset, append_device=append,
-                      ensure_device_directory=lambda *args: directory,
+                      copy_string=copy_string,
+                      ensure_device_directory=lambda path: directories.append(str(path)) or directory,
                       save_device_info=lambda *args: calls.append('save') or save_result,
                       vita_debug_log=lambda *args: calls.append('log'))
-        return run(self.stores[name], values), calls
+
+        def invoke(body, arguments):
+            local = dict(values, **arguments)
+
+            def memset(pointer, *args):
+                local[pointer] = {key: CString() if isinstance(value, CString) else 0
+                                  for key, value in record().items()}
+
+            def resolve(pointer):
+                return local[pointer] if isinstance(pointer, str) else pointer
+
+            def append(pointer):
+                calls.append('append')
+                return None if append_failure else resolve(pointer)
+
+            local.update(memset=memset, append_device=append)
+            for helper, (helper_body, parameters) in self.helpers.items():
+                local[helper] = lambda *args, body=helper_body, params=parameters: invoke(
+                    body, dict(zip(params, map(resolve, args))))[0]
+            return run(body, local), local
+
+        result, local = invoke(self.stores[name], {})
+        snapshot = {key: str(value) if isinstance(value, CString) else value
+                    for key, value in (local.get('stored') or {}).items()}
+        return result, calls, snapshot, directories
 
     def test_store_preserves_save_result_for_new_and_existing_records(self):
         for name in self.stores:
             for existing in (False, True):
                 for status in (0, -1, -9):
                     with self.subTest(name=name, existing=existing, status=status):
-                        result, calls = self.store(name, existing=existing, save_result=status)
+                        result, calls, _, _ = self.store(name, existing=existing, save_result=status)
                         self.assertEqual(result, status)
                         self.assertEqual(calls.count('save'), 1)
                         if name == 'set_host_id' and status:
@@ -171,9 +200,89 @@ class HostPersistence(unittest.TestCase):
     def test_directory_failure_does_not_attempt_save(self):
         for name in self.stores:
             for existing in (False, True):
-                result, calls = self.store(name, existing=existing, directory=False)
+                result, calls, _, _ = self.store(name, existing=existing, directory=False)
                 self.assertEqual(result, -1)
                 self.assertNotIn('save', calls)
+
+    def test_metadata_creation_and_update_rules(self):
+        for name in self.stores:
+            for existing in (False, True):
+                for populated in (False, True):
+                    for port in (0, 48000):
+                        with self.subTest(name=name, existing=existing, populated=populated, port=port):
+                            host = record()
+                            for field in ('name', 'external', 'mac', 'host_id'):
+                                host[field] = CString('new-' + field if populated else '')
+                            host['internal'] = CString('192.0.2.2')
+                            host['port'] = port
+                            host['prefer_external'] = 1
+                            old = record()
+                            old['port'] = 47990
+                            old['paired'] = 0
+                            old['external'] = CString('old-external')
+                            expected = {key: str(value) if isinstance(value, CString) else value
+                                        for key, value in old.items()} if existing else {
+                                            key: '' if isinstance(value, CString) else 0
+                                            for key, value in record().items()}
+                            if name == 'add_host':
+                                expected['name'] = str(host['name']) or (
+                                    'PC' if existing else '192.0.2.2')
+                                expected['port'] = port or 47989
+                            else:
+                                for field in ('name', 'internal', 'external', 'mac'):
+                                    if str(host[field]):
+                                        expected[field] = str(host[field])
+                                expected['port'] = port or (47990 if existing else 47989)
+                                if not existing:
+                                    expected['name'] = str(host['name']) or '192.0.2.2'
+                                    expected['prefer_external'] = 1
+                                if name == 'mark_paired':
+                                    expected['paired'] = expected['prefer_external'] = 1
+                                    if not existing:
+                                        expected['host_id'] = str(host['host_id'])
+                                else:
+                                    expected['host_id'] = 'server-uuid'
+                            expected['internal'] = '192.0.2.2'
+                            result, calls, saved, directories = self.store(
+                                name, existing=existing, host=host, stored=old,
+                                address='192.0.2.2', display_name=str(host['name']), port=port,
+                                host_id='server-uuid')
+                            self.assertEqual(result, 0)
+                            self.assertEqual(calls.count('append'), int(not existing))
+                            self.assertEqual(calls.count('save'), 1)
+                            self.assertEqual(saved, expected)
+                            self.assertEqual(directories, ['PC' if existing else saved['name']])
+
+    def test_pairing_only_fills_a_missing_uuid_and_preserves_storage_name(self):
+        for uuid in ('', 'old-uuid'):
+            old = record()
+            old['host_id'] = CString(uuid)
+            old['storage_name'] = CString('original-directory')
+            result, _, saved, directories = self.store('mark_paired', existing=True, stored=old)
+            self.assertEqual(result, 0)
+            self.assertEqual(saved['host_id'], uuid or 'uuid')
+            self.assertEqual(directories, ['original-directory'])
+        old = record()
+        old['storage_name'] = CString()
+        old['paired'] = old['prefer_external'] = 1
+        host = record()
+        host['internal'] = CString()
+        result, _, saved, directories = self.store('set_host_id', existing=True, stored=old, host=host)
+        self.assertEqual(result, 0)
+        self.assertEqual((saved['internal'], saved['paired'], saved['prefer_external']),
+                         ('192.0.2.1', 1, 1))
+        self.assertEqual(directories, ['PC'])
+
+    def test_append_failure_and_invalid_input_do_not_write(self):
+        for name in self.stores:
+            result, calls, _, directories = self.store(name, existing=False, append_failure=True)
+            self.assertEqual((result, calls, directories), (-1, ['append'], []))
+            for arguments in ({'initialized': 0}, {
+                    'add_host': {'address': ''},
+                    'mark_paired': {'host': dict(record(), internal=CString())},
+                    'set_host_id': {'host_id': ''}}[name]):
+                result, calls, _, directories = self.store(name, existing=True, **arguments)
+                self.assertEqual((result, calls, directories), (-1, [], []))
 
     def test_metadata_failure_does_not_convert_proven_pairing_into_failure(self):
         for status in (0, -1):

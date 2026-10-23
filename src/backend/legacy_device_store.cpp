@@ -101,6 +101,47 @@ static void fill_host(const device_info_t *device, int id, MoonlightHost *host)
     copy_string(host->mac, sizeof(host->mac), device->mac);
 }
 
+static void update_host_metadata(device_info_t *stored, const MoonlightHost *host)
+{
+    if (host->name[0]) {
+        copy_string(stored->name, sizeof(stored->name), host->name);
+    }
+    if (host->internal[0]) {
+        copy_string(stored->internal, sizeof(stored->internal), host->internal);
+    }
+    if (host->external[0]) {
+        copy_string(stored->external, sizeof(stored->external), host->external);
+    }
+    if (host->mac[0]) {
+        copy_string(stored->mac, sizeof(stored->mac), host->mac);
+    }
+    stored->port = host->port != 0 ? host->port : stored->port;
+}
+
+static device_info_t *append_host(const MoonlightHost *host, const char *host_id, bool paired)
+{
+    device_info_t info;
+    memset(&info, 0, sizeof(info));
+    update_host_metadata(&info, host);
+    if (!info.name[0]) {
+        copy_string(info.name, sizeof(info.name), host->internal);
+    }
+    copy_string(info.host_id, sizeof(info.host_id), host_id);
+    if (!info.port) info.port = 47989;
+    info.prefer_external = host->prefer_external != 0;
+    info.paired = paired;
+    return append_device(&info);
+}
+
+static int save_host(device_info_t *stored)
+{
+    if (!stored || !ensure_device_directory(
+            stored->storage_name[0] ? stored->storage_name : stored->name)) {
+        return -1;
+    }
+    return save_device_info(stored);
+}
+
 }
 
 int legacy_device_store_init(void)
@@ -180,33 +221,16 @@ int legacy_device_store_add_host(const char *address, uint16_t port, const char 
         }
         copy_string(stored->internal, sizeof(stored->internal), address);
         stored->port = port != 0 ? port : 47989;
-
-        if (!ensure_device_directory(stored->storage_name[0]
-                ? stored->storage_name
-                : stored->name)) {
-            return -1;
-        }
-
-        return save_device_info(stored);
+    } else {
+        device_info_t info;
+        memset(&info, 0, sizeof(info));
+        copy_string(info.name, sizeof(info.name), name && name[0] ? name : address);
+        copy_string(info.internal, sizeof(info.internal), address);
+        info.port = port != 0 ? port : 47989;
+        stored = append_device(&info);
     }
 
-    device_info_t info;
-    memset(&info, 0, sizeof(info));
-    copy_string(info.name, sizeof(info.name), name && name[0] ? name : address);
-    copy_string(info.internal, sizeof(info.internal), address);
-    info.port = port != 0 ? port : 47989;
-
-    stored = append_device(&info);
-    if (!stored) {
-        return -1;
-    }
-
-    if (!ensure_device_directory(
-            stored->storage_name[0] ? stored->storage_name : stored->name)) {
-        return -1;
-    }
-
-    return save_device_info(stored);
+    return save_host(stored);
 }
 
 int legacy_device_store_mark_paired(const MoonlightHost *host)
@@ -218,48 +242,17 @@ int legacy_device_store_mark_paired(const MoonlightHost *host)
     device_info_t *stored = find_stored_host(host);
 
     if (!stored) {
-        device_info_t info;
-        memset(&info, 0, sizeof(info));
-        copy_string(info.name, sizeof(info.name), host->name[0] ? host->name : host->internal);
-        copy_string(info.internal, sizeof(info.internal), host->internal);
-        copy_string(info.external, sizeof(info.external), host->external);
-        copy_string(info.mac, sizeof(info.mac), host->mac);
-        copy_string(info.host_id, sizeof(info.host_id), host->host_id);
-        info.port = host->port != 0 ? host->port : 47989;
-        info.prefer_external = host->prefer_external != 0;
-        info.paired = true;
-
-        stored = append_device(&info);
-        if (!stored) {
-            return -1;
-        }
+        stored = append_host(host, host->host_id, true);
     } else {
-        if (host->name[0] && strcmp(stored->name, host->name) != 0) {
-            copy_string(stored->name, sizeof(stored->name), host->name);
-        }
-        if (host->internal[0]) {
-            copy_string(stored->internal, sizeof(stored->internal), host->internal);
-        }
-        if (host->external[0]) {
-            copy_string(stored->external, sizeof(stored->external), host->external);
-        }
-        if (host->mac[0]) {
-            copy_string(stored->mac, sizeof(stored->mac), host->mac);
-        }
+        update_host_metadata(stored, host);
         if (host->host_id[0] && !stored->host_id[0]) {
             copy_string(stored->host_id, sizeof(stored->host_id), host->host_id);
         }
-        stored->port = host->port != 0 ? host->port : stored->port;
         stored->prefer_external = host->prefer_external != 0;
         stored->paired = true;
     }
 
-    if (!ensure_device_directory(
-            stored->storage_name[0] ? stored->storage_name : stored->name)) {
-        return -1;
-    }
-
-    return save_device_info(stored);
+    return save_host(stored);
 }
 
 
@@ -274,47 +267,13 @@ int legacy_device_store_set_host_id(
     device_info_t *stored = find_stored_host(host);
 
     if (!stored) {
-        device_info_t info;
-        memset(&info, 0, sizeof(info));
-
-        copy_string(
-            info.name,
-            sizeof(info.name),
-            host->name[0] ? host->name : host->internal);
-        copy_string(info.internal, sizeof(info.internal), host->internal);
-        copy_string(info.external, sizeof(info.external), host->external);
-        copy_string(info.mac, sizeof(info.mac), host->mac);
-        copy_string(info.host_id, sizeof(info.host_id), host_id);
-        info.port = host->port != 0 ? host->port : 47989;
-        info.prefer_external = host->prefer_external != 0;
-
-        stored = append_device(&info);
-        if (!stored) {
-            return -1;
-        }
+        stored = append_host(host, host_id, false);
     } else {
         copy_string(stored->host_id, sizeof(stored->host_id), host_id);
-        if (host->name[0]) {
-            copy_string(stored->name, sizeof(stored->name), host->name);
-        }
-        if (host->internal[0]) {
-            copy_string(stored->internal, sizeof(stored->internal), host->internal);
-        }
-        if (host->external[0]) {
-            copy_string(stored->external, sizeof(stored->external), host->external);
-        }
-        if (host->mac[0]) {
-            copy_string(stored->mac, sizeof(stored->mac), host->mac);
-        }
-        stored->port = host->port != 0 ? host->port : stored->port;
+        update_host_metadata(stored, host);
     }
 
-    if (!ensure_device_directory(
-            stored->storage_name[0] ? stored->storage_name : stored->name)) {
-        return -1;
-    }
-
-    int result = save_device_info(stored);
+    int result = save_host(stored);
     if (result != 0) {
         return result;
     }
