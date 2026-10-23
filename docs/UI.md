@@ -156,7 +156,8 @@ policies, not recovered Sony behavior.
 - Row callbacks use page userdata and tokens, not element addresses. Removed/retemplated
   tokens are invalid before native edits; mode and saved-state transitions replace affected
   templates. Selection checkboxes are resolved from currently generated items instead of
-  keeping pointers across virtualization. Select/Clear All updates them without rebuilding.
+  keeping pointers across virtualization. After `SetName()` they must be resolved by their
+  current row tokens, not original CXML IDs. Select/Clear All updates them without rebuilding.
 - Clicking a temporary row captures a value copy, stops discovery, saves it, reads the full
   saved snapshot and resolves its exact address/port before ordinary Main connection. A save/
   canonical-read failure opens the existing native error and never connects. Discovery alone
@@ -1260,6 +1261,21 @@ Activating the row toggles it; the bottom selection bar offers Cancel, Select
 All / Clear all and Delete; Delete is disabled until something is selected and asks for confirmation through
 `SceMessageDialog`. There is no Copy or clipboard action and no `SceClipboard` dependency; do not restore it unless
 asked.
+
+**Checkmark regression, 2026-10-24 [code]:** the factory renames row buttons and checkboxes
+to callback tokens. The incremental list update incorrectly still searched for
+`checkbox_host_select`, so selection changed in the model without reaching the live
+checkbox's `SetCheck()`. `UpdateHostItem()` now looks up `checkbox_token`; focus capture
+likewise looks up the row's `token` instead of its old button template ID. Factory lookups
+before renaming remain valid. Native CheckBox/style, events, deletion confirmation and
+selection persistence are unchanged; no widget pointers are retained across virtualization.
+
+Two non-build regression checks first fail against the previous source, then pass with the
+fix. They interpret actual row/Select All toggles, item updates and focus capture using
+strict token-only widget mocks, including a list of 12 PCs and a missing/recreated item.
+These establish source lookup/state behavior, not native PAF drawing or ABI. Maintainer
+build/Vita checkmarks, row/checkbox activation, Select/Clear All and focus remain **[open]**
+for this regression; no agent build or hardware run.
 
 ## 6. Recipes
 

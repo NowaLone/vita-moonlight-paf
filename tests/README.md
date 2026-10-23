@@ -1,6 +1,6 @@
 # Focused checks
 
-Latest recorded source gate: **195 checks including Main background discovery (2026-10-23)**.
+Latest recorded source gate: **197 checks including Main checkbox token lookups (2026-10-24)**.
 See [the repeat Ponytail audit](../docs/PONYTAIL_REAUDIT_2026-10-23.md) for the latest
 baseline, per-change checks and native gates; [the earlier refactor audit](../docs/REFACTOR_AUDIT.md)
 records the preceding pass. Counts in the
@@ -31,7 +31,11 @@ retained tokens/selection, stale replaced tokens, temporary-to-saved, failed rea
 growth and no edits for unchanged rows. The linker follow-up also interprets the actual
 PAF token-buffer mutation branches (front/middle/end insertion/deletion, move, singleton/empty)
 and rejects reintroducing `std::vector` or sized PAF scratch constructors. These serial array
-checks do not verify native allocation or successful linking. XML checks compare saved/temporary columns and require
+checks do not verify native allocation or successful linking. Two checkbox regressions interpret
+actual row/Select All toggles, live-item updates and focus capture with token-only child lookup
+after widget renaming, including 12 PCs and missing/recreated virtualized items. They reproduced
+the old missing-checkmark/focus lookups and pass after correction; native PAF rendering and
+input remain maintainer validation. XML checks compare saved/temporary columns and require
 no temporary dot/Search resource. Return-to-Main routes and real installed PAF declarations are
 source-inspected. `test_event_queue.py` also executes discovery snapshot coalescing and rejection
 of stale/hidden-page delivery before subsequent connection events.

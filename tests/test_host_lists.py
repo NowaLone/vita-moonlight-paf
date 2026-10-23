@@ -55,6 +55,13 @@ def normalize(source):
                     lambda m: f'vec_{m[2]}({m[1]}' + (', ' + m[3] if m[3] else '') + ')', source)
     for method in ('DeleteCell', 'MoveCell', 'InsertCell'):
         source = source.replace('list->' + method, method)
+    source = source.replace('static_cast<paf::ui::ListView *>(root->FindChild("list_view_main"))', 'get_list()')
+    source = source.replace('static_cast<paf::ui::CheckBox *>(checkbox)->SetCheck(', 'set_check(checkbox, ')
+    source = re.sub(r'paf::ui::(?:Widget|ListView|ListItem) \*', 'int ', source)
+    source = source.replace('item->FindChild(', 'find_child(item, ')
+    source = source.replace('list->GetListItem(0, ', 'get_item(list, ')
+    source = source.replace('button->IsFocused()', 'is_focused(button)')
+    source = source.replace('0.0f', '0')
     return source.replace('Main::', 'Main_').replace(' const\n', '\n')
 
 
@@ -65,8 +72,11 @@ class HostLists(unittest.TestCase):
         helper = (ROOT / 'include/pages/host_list.h').read_text()
         helper = helper[helper.index('template<class Service>'):helper.rindex('\n}')]
         functions = [helper]
-        for name in ('CanDiscover', 'ReadHostRows', 'FindHostIndex', 'AllHostsSelected', 'UpdateSelectionCount', 'DeleteSelectedHosts'):
+        for name in ('CanDiscover', 'ReadHostRows', 'FindHostIndex', 'AllHostsSelected', 'UpdateSelectionCount', 'DeleteSelectedHosts',
+                     'UpdateHostItem', 'ToggleHostSelection', 'ToggleSelectAll'):
             functions.append(function(cls.main, 'Main::' + name))
+        capture = cls.main.index('    for (int i = 0; i < m_host_count; ++i)', cls.main.index('    uint32_t focused_token = 0;'))
+        functions.append('void capture_focus(Vector cells) {' + cls.main[capture:cls.main.index('    /* Block native generation', capture)] + '}')
         # Interpret the actual row-template/token/selection preparation before any PAF edits.
         fragment = cls.main.split('    paf::vector<HostRowState> rows;', 1)[1].split('    paf::vector<uint32_t> cells;', 1)[0]
         functions.append('void prepare_rows(Vector hosts, Vector rows) {' + fragment + '}')
@@ -112,6 +122,8 @@ class HostLists(unittest.TestCase):
         self.values['FindHostIndex'] = lambda token: self.invoke('Main_FindHostIndex', token)
         for name in self.functions:
             self.values[name] = lambda *args, name=name: self.invoke(name, *args)
+            if name.startswith('Main_'):
+                self.values[name[5:]] = self.values[name]
 
     def resize(self, vector, count):
         vector[count:] = []
@@ -172,7 +184,7 @@ class HostLists(unittest.TestCase):
         else: self.base_execute(node, values)
 
     def invoke(self, name, *args):
-        values = self.values if name.startswith(('Main_', 'prepare_rows', 'restore_focus')) else dict(self.values)
+        values = self.values if name.startswith(('Main_', 'prepare_rows', 'restore_focus', 'capture_focus')) else dict(self.values)
         parameters = self.functions[name].decl.type.args.params if self.functions[name].decl.type.args else []
         values.update(zip((arg.name for arg in parameters), args))
         with patch.object(runtime, 'expression', self.expression), patch.object(runtime, 'execute', self.execute):
@@ -258,6 +270,51 @@ class HostLists(unittest.TestCase):
         self.refresh()
         self.assertEqual(self.values['m_host_count'], 2)
         self.assertFalse(any(row['saved'] for row in self.values['m_rows']))
+
+    def test_renamed_checkboxes_follow_row_and_select_all_without_rebuilding(self):
+        self.saved = [host(i) for i in range(12)]
+        self.values['m_selection_mode'] = True
+        self.refresh()
+        # SetName replaces the template ID: live children are keyed only by tokens.
+        items = {i: {row['checkbox_token']: dict(checked=False)}
+                 for i, row in enumerate(self.values['m_rows'])}
+        self.values.update(get_list=lambda: 1, get_item=lambda _, i: items.get(i, 0),
+                           find_child=lambda item, name: item.get(name, 0),
+                           set_check=lambda checkbox, checked, *_: checkbox.update(checked=bool(checked)),
+                           set_child_text=lambda *_: None, set_host_availability=lambda *_: None)
+        row = self.values['m_rows'][10]
+        checkbox = items[10][row['checkbox_token']]
+        self.invoke('Main_ToggleHostSelection', 10)
+        self.assertTrue(checkbox['checked'])
+        self.assertEqual(self.values['m_selected_count'], 1)
+        self.invoke('Main_ToggleHostSelection', 10)
+        self.assertFalse(checkbox['checked'])
+        self.invoke('Main_ToggleSelectAll')
+        self.assertTrue(all(child['checked'] for item in items.values() for child in item.values()))
+        self.assertEqual(self.values['m_selected_count'], 12)
+        self.invoke('Main_ToggleSelectAll')
+        self.assertFalse(any(child['checked'] for item in items.values() for child in item.values()))
+        # A virtualized row has no widget; its model must still retain selection.
+        items.pop(10)
+        self.invoke('Main_ToggleSelectAll')
+        self.assertTrue(row['selected'])
+        replacement = dict(checked=False)
+        items[10] = {row['checkbox_token']: replacement}
+        self.invoke('Main_UpdateHostItem', items[10], 10)
+        self.assertTrue(replacement['checked'])
+
+    def test_focus_capture_finds_renamed_row_button(self):
+        self.saved = [host(i) for i in range(12)]
+        self.refresh()
+        items = [{row['token']: dict(focused=i == 10)}
+                 for i, row in enumerate(self.values['m_rows'])]
+        self.values.update(list=1, get_item=lambda _, i: items[i],
+                           find_child=lambda item, name: item.get(name, 0),
+                           is_focused=lambda button: button['focused'],
+                           focused_index=-1, focused_token=0, focused_host=host(99))
+        self.invoke('capture_focus', [])
+        self.assertEqual(self.values['focused_index'], 10)
+        self.assertEqual(self.values['focused_token'], self.values['m_rows'][10]['token'])
 
     def test_selection_captures_value_before_save_and_resolves_full_canonical_list(self):
         self.saved = [host(i) for i in range(20)]

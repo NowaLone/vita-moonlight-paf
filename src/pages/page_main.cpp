@@ -523,7 +523,8 @@ void Main::UpdateHostItem(paf::ui::Widget *item, int index)
                    host.name[0] ? host.name : "PC");
     set_child_text(item, m_selection_mode ? "text_host_select_desc" : "text_host_desc",
                    host.internal[0] ? host.internal : "Unknown host");
-    paf::ui::Widget *checkbox = item->FindChild("checkbox_host_select");
+    /* SetName() replaced the template ID with this row's callback token. */
+    paf::ui::Widget *checkbox = item->FindChild(m_rows[index].checkbox_token);
     if (checkbox) static_cast<paf::ui::CheckBox *>(checkbox)->SetCheck(
         m_rows[index].selected, 0.0f, false);
 }
@@ -637,8 +638,7 @@ void Main::RefreshHosts()
     for (int i = 0; i < m_host_count; ++i) {
         cells.push_back(m_rows[i].token);
         paf::ui::ListItem *item = list->GetListItem(0, i);
-        paf::ui::Widget *button = item ? item->FindChild(
-            m_rows[i].selection_template ? "image_button_host_select" : "image_button_host") : NULL;
+        paf::ui::Widget *button = item ? item->FindChild(m_rows[i].token) : NULL;
         if (button && button->IsFocused()) {
             focused_index = i;
             focused_host = m_hosts[i];
