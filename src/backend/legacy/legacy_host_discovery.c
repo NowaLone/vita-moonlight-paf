@@ -23,7 +23,6 @@ static void *s_userdata = NULL;
 
 static MoonlightHost s_hosts[LEGACY_HOST_DISCOVERY_MAX_HOSTS];
 static int s_host_count = 0;
-static int s_next_id = 0;
 
 static void emit_event(LegacyHostDiscoveryEventType type, const MoonlightHost *host)
 {
@@ -41,7 +40,6 @@ static void clear_hosts(void)
 {
     memset(s_hosts, 0, sizeof(s_hosts));
     s_host_count = 0;
-    s_next_id = 0;
 }
 
 static int find_host(const char *name, const char *address, uint16_t port)
@@ -86,7 +84,7 @@ static void on_mdns_host(
     MoonlightHost *entry = &s_hosts[s_host_count];
     memset(entry, 0, sizeof(*entry));
 
-    entry->id = s_next_id++;
+    entry->id = s_host_count;
     strncpy(entry->name, pcname, sizeof(entry->name) - 1);
     strncpy(entry->internal, ip, sizeof(entry->internal) - 1);
     entry->port = (uint16_t)port;

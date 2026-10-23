@@ -76,7 +76,7 @@ class DiscoveryLifecycle(unittest.TestCase):
                            MOONLIGHT_EVENT_HOSTS_CHANGED=12, MOONLIGHT_EVENT_HOST_SCAN_FAILED=13,
                            LEGACY_HOST_DISCOVERY_DURATION_TICKS=100,
                            LEGACY_HOST_DISCOVERY_TICK_USEC=100000,
-                           s_status=0, s_thread=-1, s_suppress_events=0, s_host_count=0, s_next_id=0,
+                           s_status=0, s_thread=-1, s_suppress_events=0, s_host_count=0,
                            s_hosts=[], s_userdata=0, on_mdns_host=99,
                            memset=lambda *args: None, sceKernelCreateThread=self.create,
                            sceKernelStartThread=self.start, sceKernelWaitThreadEnd=self.wait,
