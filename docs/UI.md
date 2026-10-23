@@ -1302,6 +1302,11 @@ add a `list` or `toggle_switch` entry (`id`, `title`, optional `hint`, `key`, `d
 `moonlight_settings_get_all()` (`src/moonlight/settings.cpp`), and a field in `MoonlightSettings` if the stream needs it.
 Do not introduce a settings file or a custom settings screen.
 
+AppSettings loads before the host store/Main during backend startup **[code, 2026-10-24]**.
+Debug log defaults off and uses the switch callback's new value immediately; closing Settings
+reapplies stored runtime values before logging/notifying closure. Both switch directions and
+restart without opening Settings still need maintainer build/Vita validation **[open]**.
+
 **Page messages.** Keep only static empty-list labels and Pairing instructions/PIN.
 Use ConnectionService's native busy/error dialogs for foreground progress/errors;
 return Main to its empty-state policy through `Main::ShowIdleStatus()`.

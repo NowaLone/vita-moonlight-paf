@@ -110,9 +110,16 @@ static int32_t on_post_create(const char *, paf::ui::Widget *)
     return SCE_OK;
 }
 
-static int32_t on_press(const char *, const char *)
+static int32_t on_press(const char *element_id, const char *new_value)
 {
-    moonlight_settings_apply_runtime();
+    if (element_id && strcmp(element_id, "debug_log") == 0) {
+        // AppSettings can still return the previous value during this callback.
+        if (new_value) {
+            vita_debug_log_set_enabled(strcmp(new_value, "1") == 0);
+        }
+    } else {
+        moonlight_settings_apply_runtime();
+    }
     emit(MOONLIGHT_EVENT_SETTINGS_CHANGED, 0);
     return SCE_OK;
 }
@@ -124,6 +131,7 @@ static int32_t on_press2(const char *, const char *)
 
 static void on_term(int32_t result)
 {
+    moonlight_settings_apply_runtime();
     moonlight_log_memory_budget("settings-closed");
     emit(MOONLIGHT_EVENT_SETTINGS_CLOSED, result);
 }

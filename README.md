@@ -132,6 +132,12 @@ src/moonlight/settings.cpp
 
 Settings such as resolution, FPS, bitrate, touch mode, controller type, gyro and other streaming/input options are stored through AppSettings.
 
+AppSettings loads during backend startup, before saved hosts and Main are populated.
+The saved **Debug log** preference therefore applies without opening Settings first.
+Its switch applies the callback's new value immediately; closing Settings reapplies
+the stored runtime values before the closing memory diagnostic. Default logging is off.
+This correction is source-checked; maintainer build and Vita validation are pending.
+
 The project does **not** use the old `moonlight.conf` settings model.
 
 ## Host Persistence
@@ -284,9 +290,9 @@ Settings, Quick Actions and returning to the suspended game with tracing disable
 Broader device/game, dialog/error-path and endurance coverage remains open.
 
 Enable **Debug log** in Settings for `[Memory]` snapshots, including the actual
-AppMgr mode and USER_RW/PHYCONT/CDRAM budgets. The first useful snapshot is emitted
-when Settings applies the logging preference; successful early bootstrap remains
-quiet. The prototype and tuning parameters are documented in
+AppMgr mode and USER_RW/PHYCONT/CDRAM budgets. With the saved preference enabled,
+the first snapshot is emitted when AppSettings loads during backend startup;
+earlier bootstrap remains quiet. The prototype and tuning parameters are documented in
 [docs/SYSTEM_APP_MODE_RESEARCH.md](docs/SYSTEM_APP_MODE_RESEARCH.md#prototype-on-codexsystem-app-mode).
 
 Repeated common-c `Waiting for IDR/RFI frame` messages are limited to one per

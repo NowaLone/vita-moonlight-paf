@@ -1,6 +1,6 @@
 # Focused checks
 
-Latest recorded source gate: **197 checks including Main checkbox token lookups (2026-10-24)**.
+Latest recorded source gate: **201 checks including Debug log settings (2026-10-24)**.
 See [the repeat Ponytail audit](../docs/PONYTAIL_REAUDIT_2026-10-23.md) for the latest
 baseline, per-change checks and native gates; [the earlier refactor audit](../docs/REFACTOR_AUDIT.md)
 records the preceding pass. Counts in the
@@ -11,6 +11,13 @@ cases are in the API audit and `runtime/README.md`; source checks do not replace
 Non-build checks (Python 3 and pycparser):
 
     PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_*.py'
+
+`test_debug_settings.py` adds four checks interpreting actual startup/callback bodies:
+AppSettings before host initialization and error propagation; toggling both ways while stored
+values are stale; missing callback arguments/other settings; and closure applying saved runtime
+values before the memory diagnostic/event. The old source fails ten subcases. AppSettings,
+logging and initialization are serial mocks; native callback timing, persistence, plugin loading,
+compilation and Vita cold-start/switch behavior remain maintainer validation.
 
 Main background discovery replaces the former Search-specific lifecycle/list checks.
 `test_discovery_lifecycle.py` interprets the actual persistent worker, activation/stop, generation

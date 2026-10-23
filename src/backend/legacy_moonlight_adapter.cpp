@@ -25,7 +25,12 @@ int LegacyMoonlightAdapter::Initialize()
     m_connection_state = MOONLIGHT_CONNECTION_DISCONNECTED;
     m_has_current_host = false;
 
-    int result = legacy_device_store_init();
+    int result = moonlight_settings_init();
+    if (result != 0) {
+        return result;
+    }
+
+    result = legacy_device_store_init();
     if (result != 0) {
         return result;
     }
