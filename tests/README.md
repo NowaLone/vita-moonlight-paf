@@ -48,6 +48,12 @@ selection, preserved paired/address-preference state, append failure and rejecte
 All 150 non-build checks pass. These remain serial source checks with mocked allocation,
 directory and file operations; maintainer build/Vita persistence validation is pending.
 
+`test_ps_button_state.py` interprets the shared PS reset and the existing tap-timing fragment.
+Two checks cover clearing stale pending input without releasing the overlay guard/PS lock,
+reset call sites, delayed single tap, double tap at the window boundary, and hold suppression.
+Time and stream-stop calls are serial mocks; controller-bit masking is replaced by a no-op.
+This does not execute the full input loop, ShellUtil, real concurrency or Vita Quick Actions.
+
 `test_host_lists.py` interprets the shared host-snapshot/identity helpers, actual Main/Search
 refresh/token-lookup functions, Main Select/Clear All/count/delete and Search's canonical lookup
 fragment. Nine checks model 40 saved/16 discovered hosts, discovery growth between count/copy,

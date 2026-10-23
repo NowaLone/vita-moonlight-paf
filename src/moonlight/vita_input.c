@@ -67,6 +67,16 @@ static SceCtrlData s_pad_old;
 static SceTouchData s_back;
 static uint32_t s_back_buttons_old = 0;
 
+static void reset_ps_button_state(void)
+{
+    s_ps_button_release_time = 0;
+    s_ps_press_time = 0;
+    s_ps_single_pending = false;
+    s_ps_physical_old = false;
+    s_ps_host_pulse_state = 0;
+    s_shell_ps_edge = 0;
+}
+
 static short vita_axis_to_limelight(unsigned char value)
 {
     /*
@@ -367,12 +377,7 @@ static void vita_input_suppress_for_system_ui(void)
     s_back_buttons_old = back_buttons;
 
     /* Do not let a pending tap become a host pulse after the overlay closes. */
-    s_ps_button_release_time = 0;
-    s_ps_press_time = 0;
-    s_ps_single_pending = false;
-    s_ps_physical_old = false;
-    s_ps_host_pulse_state = 0;
-    s_shell_ps_edge = 0;
+    reset_ps_button_state();
 }
 
 static void vita_input_process(void)
@@ -407,12 +412,7 @@ static void vita_input_process(void)
         suppress_ps_sample = true;
         s_pad.buttons &= ~SCE_CTRL_PSBUTTON;
         ps_probe_ext.buttons &= ~SCE_CTRL_PSBUTTON;
-        s_ps_physical_old = false;
-        s_ps_button_release_time = 0;
-        s_ps_press_time = 0;
-        s_ps_single_pending = false;
-        s_ps_host_pulse_state = 0;
-        s_shell_ps_edge = 0;
+        reset_ps_button_state();
 
         if (!raw_ps_pressed) {
             s_ignore_ps_until_release = false;
@@ -658,12 +658,7 @@ void vita_input_start(void)
     memset(&s_pad_old, 0, sizeof(s_pad_old));
     memset(&s_back, 0, sizeof(s_back));
     s_back_buttons_old = 0;
-    s_ps_button_release_time = 0;
-    s_ps_press_time = 0;
-    s_ps_single_pending = false;
-    s_ps_physical_old = false;
-    s_ps_host_pulse_state = 0;
-    s_shell_ps_edge = 0;
+    reset_ps_button_state();
     s_ignore_ps_until_release = false;
 
     /*
@@ -778,12 +773,7 @@ void vita_input_stop(void)
 
     memset(&s_pad, 0, sizeof(s_pad));
     memset(&s_pad_old, 0, sizeof(s_pad_old));
-    s_ps_button_release_time = 0;
-    s_ps_press_time = 0;
-    s_ps_single_pending = false;
-    s_ps_physical_old = false;
-    s_ps_host_pulse_state = 0;
-    s_shell_ps_edge = 0;
+    reset_ps_button_state();
     s_ignore_ps_until_release = false;
 
     if (s_ps_button_locked) {
