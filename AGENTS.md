@@ -10,6 +10,12 @@ These maintainer rules apply to all work in this repository:
    `build_cxml.sh` and `dev-build-run.sh`. Use non-build checks and clearly report build/hardware
    validation as pending until the maintainer provides results. Build commands below are reference
    instructions for the maintainer, not commands for the agent to execute.
+3. **Always use Ponytail.** For every task in this repository, load the
+   [Ponytail plugin](plugin://engineering-suite-ponytail@openai-curated-remote) entry skill
+   `engineering-suite-ponytail:entry-ponytail` and follow its applicable bundled workflow.
+   Use `engineering-suite-ponytail:ponytail` in **full** mode by default unless the maintainer
+   requests another mode. Reuse existing code and native platform features, and make the smallest
+   complete change. Simplicity must preserve validation, error handling, security and explicit requirements.
 
 # Project Overview
 
