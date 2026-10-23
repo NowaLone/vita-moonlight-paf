@@ -97,9 +97,10 @@ empty-list labels and pairing instructions; no inline progress or success/status
 Main contains one list: saved PCs first, temporary LAN discoveries below. Discovery runs
 quietly in one backend worker, repeating the mDNS query five seconds after the previous send
 completes. There is no Search PC page/button or search modal. Only saved rows have the existing
-TCP availability indicator; temporary rows keep the same columns without a dot. Add PC uses the
-native Vita IME, and the corner menu opens Delete/Settings. Discovery pauses during those flows,
-foreground operations, other pages and app suspension; UI never waits for its worker.
+TCP availability indicator; temporary rows keep the same columns without a dot. The top-left
+PC-plus button opens manual entry in the native Vita IME; the corner menu opens Delete/Settings.
+Discovery pauses during those flows, foreground operations, other pages and app suspension;
+UI never waits for its worker.
 Temporary results age out after 15 seconds of active healthy discovery without another observation;
 pause and detected network failures freeze aging. Clicking a temporary PC saves it before ordinary
 connection; discovery alone writes nothing. See [UI behavior and validation limits](docs/UI.md#main-background-discovery--2026-10-23).

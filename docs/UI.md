@@ -106,7 +106,8 @@ policies, not recovered Sony behavior.
 
 - Main keeps saved hosts in store order, then appends distinct temporary discoveries. There
   are no section labels, search counts, progress strings or spinner. Add PC/native IME and
-  the Delete/Settings corner remain; the Search button and page are gone.
+  the Delete/Settings corner remain; the Search button and page are gone. Manual entry is now
+  the top-left PC-plus header button (see §5.1).
 - `template_host_list_item_discovered` has the same **80 px [code]** row and title/address/PC
   icon coordinates as `template_host_list_item`, with no availability plane. Only saved hosts
   enter `HostService::CheckAvailability`; their TCP freshness/15-second repeat/30-second expiry
@@ -822,6 +823,17 @@ style owns only the background/glow, while CXML widget layout positions the icon
 The original `image_obj` placement failed in the supplied screenshot (see §5.2).
 Build and Vita appearance/focus/touch validation of the corrected layout remain **[open]**.
 
+`tex_add_pc_cross` (`texture/add_pc_cross.png`, **46 x 46 RGBA [code]**) is the
+unchanged indexed-GIM-to-PNG export of the white Wi-Fi remove/cross texture,
+ID hash `0x757ab4e8`, from the maintainer-supplied `wifi_settings_plugin.rco`
+(SHA-256 `564c0ba09f9ecdf7fd7bde1005ff481997f9c8cebfa1709e0a8f3e016dea0f37`).
+Its decoded RGBA SHA-256 is
+`2959aa00769ffbfcfcbe1454b364c787b550abbfc0e07344952209dc1a1fc440`.
+Main composes the Add PC icon from the existing `tex_pc` and this cross, rotated
+**pi/4 radians [code]** in CXML to read as an addition sign. No raster redraw,
+Wi-Fi/Photos plugin loading or new runtime image handling is needed. The common
+texture named `_common_texture_icon_plus` is the yellow PS Plus logo and is not used.
+
 ### 4.5 Code helpers (`include/common.h`)
 
 | Helper | Use |
@@ -839,7 +851,9 @@ Only these `_common_*` names appear in the XML and are known to resolve: `_commo
 `_common_sound_button_back`, `_common_sound_button_enter`, `_common_sound_image_button`,
 `_common_style_corner_bottom_left`, `_common_style_corner_bottom_right`, `_common_style_plane_transparent`,
 `_common_texture_list_70px`, `_common_texture_list_glow_70px`, `_common_texture_option_menu_base_down`,
-`_common_texture_option_menu_button_{top,bottom,single}[_glow]`, `_common_texture_ruled_line`.
+`_common_texture_option_menu_button_{top,bottom,single}[_glow]`, `_common_texture_ruled_line`,
+`_common_texture_button`, `_common_texture_button_glow`. The last two resolve to
+hashes `0x74319925` and `0x9b7bed4b` in the supplied common resource **[code]**.
 
 ### 4.7 Lists (`paf::ui::ListView`) **[code]** unless tagged
 
@@ -1083,6 +1097,36 @@ Vita validation **[open]**. No agent build or hardware test.
 The PS4 Link reference has a dark/light pair at y = 95/96 **[shot]**. The shared
 Main/Search/Apps title bar explicitly draws the native separator at that boundary **[code]**;
 the first list row can also contribute its own edge. Final combined appearance needs a Vita check.
+
+#### Main manual-entry header button — 2026-10-23
+
+The Photos camera button in `2026-10-09-193740.jpg` occupies approximately
+**x=9..95, y=41..87 [shot]**, centred at **(52, 64) [shot]**. The subsequently
+supplied `photocam_plugin.rco` (SHA-256
+`b754d14074a0244b0c51fc550cf8e78205647c44b89d2914d3d9787ceff9e3c5`)
+confirms the actual layout: templates `0x3040266a` / `0x6fe191e2` contain button
+`0x4a5c79cd` with **100 x 62**, `anchor="1, 2"`, `pos="52, -64"`, and a
+**88 x 48** focus frame, shape **0 [code, decoded resource]**. Its local style
+`0x802ab201` uses a background object and native `_common_texture_button_glow`
+with scale modes **2/2**, scale value **86 x 46**, blend **2 [code]**.
+The camera/play glyph is baked into Photos' local background textures; those
+textures are not bundled into Moonlight.
+
+Main's existing `plane_main_actions` now occupies that header position and contains
+only `btn_add_pc`, with the same button/focus geometry and glow settings **[code]**.
+`style_button_header_action` uses the existing native `_common_texture_button`
+background instead of Photos' baked camera artwork. Child planes compose a
+**64 x 64** `tex_pc` and **14 x 14** cross rotated **0.785398 radians**,
+shifted **5 px up [code]** into the monitor's screen. Both planes ignore hits
+and are non-focusable; the button owns touch, focus and the existing decide callback.
+The icon has no text label. The previous bottom-wide button/box and unused prompt
+string are removed. Main's title and host-list/selection-bar geometry stay unchanged.
+
+`btn_add_pc` still opens the existing native Vita IME. Keeping its owning container
+also preserves selection-mode hide/show and existing discovery pause/resume without
+C++ changes. Resource/XML source checks pass; RCO compilation, final background/icon
+appearance, focus navigation, touch activation and manual entry on Vita remain
+**[open]**. No agent build or hardware test.
 
 ### 5.2 List rows (PS4 Link "Which feature...") **[shot]**
 
