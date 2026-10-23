@@ -224,11 +224,8 @@ static void on_stream_event(
         s_stream_pending = false;
         s_stream_active = true;
         s_connection_state = MOONLIGHT_CONNECTION_STREAMING;
-    } else if (type == MOONLIGHT_EVENT_STREAM_STOPPED) {
-        s_stream_pending = false;
-        s_stream_active = false;
-        s_connection_state = MOONLIGHT_CONNECTION_PAIRED;
-    } else if (type == MOONLIGHT_EVENT_STREAM_FAILED) {
+    } else if (type == MOONLIGHT_EVENT_STREAM_STOPPED ||
+               type == MOONLIGHT_EVENT_STREAM_FAILED) {
         s_stream_pending = false;
         s_stream_active = false;
         s_connection_state = MOONLIGHT_CONNECTION_PAIRED;
@@ -691,9 +688,6 @@ int moonlight_api_start_application(int application_id, int quit_application_id)
     if (result != 0) {
         s_stream_pending = false;
         s_stream_application_id = -1;
-    }
-
-    if (result != 0) {
         vita_debug_log(
             "[GameStream] stream failed for app %d: %d",
             application_id,
