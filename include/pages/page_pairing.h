@@ -27,7 +27,6 @@ private:
     void SetPin(const char pin[5]);
 
     char m_pin[5];
-    bool m_pairing_started;
     bool m_dialog_open;
     bool m_dialog_task_registered;
     SceMsgDialogParam m_dialog_param;

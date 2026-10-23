@@ -599,6 +599,11 @@ notify the parent. Null userdata and null callbacks remain tolerated. The ignore
 constructor plugin/parent arguments were removed; Base still opens the same CXML
 page. Popup geometry, focus, buttons and transition behavior are unchanged.
 
+Pairing has no page-local started flag **[code, 2026-10-23 repeat audit]**:
+private `StartPairing()` is called once by a valid constructor and still rejects
+an empty PIN. The service owns the real pairing operation/cancellation; terminal
+events retain their error/navigation handling without redundant flag writes.
+
 ### 4.2 Templates (`<templatetable>`)
 
 | Template | Child ids | Used by | Purpose |

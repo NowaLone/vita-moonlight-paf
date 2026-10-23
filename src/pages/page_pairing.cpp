@@ -17,7 +17,6 @@ Pairing::Pairing(const char pin[5])
     : Base("page_pairing", "btn_close_pairing",
            paf::Plugin::TransitionType_SlideFromBottom,
            paf::Plugin::TransitionType_SlideFromBottom),
-      m_pairing_started(false),
       m_dialog_open(false),
       m_dialog_task_registered(false)
 {
@@ -109,7 +108,7 @@ void Pairing::SetPin(const char pin[5])
 
 void Pairing::StartPairing()
 {
-    if (m_pairing_started || m_pin[0] == '\0') {
+    if (m_pin[0] == '\0') {
         return;
     }
 
@@ -119,11 +118,8 @@ void Pairing::StartPairing()
         return;
     }
 
-    m_pairing_started = true;
-
     int result = app->Pairing().Pair(m_pin);
     if (result != 0) {
-        m_pairing_started = false;
         ShowPairingError(MOONLIGHT_PAIRING_ERROR_INTERNAL);
     }
 }
@@ -245,7 +241,6 @@ void Pairing::OnMoonlightEvent(
 
     switch (event->type) {
     case MOONLIGHT_EVENT_PAIRING_FINISHED:
-        pairing->m_pairing_started = false;
         if (event->result == 0) {
             if (!Base::IsOpen("page_apps")) {
                 Apps *apps = new Apps();
@@ -271,13 +266,11 @@ void Pairing::OnMoonlightEvent(
         break;
 
     case MOONLIGHT_EVENT_PAIRING_FAILED:
-        pairing->m_pairing_started = false;
         pairing->ShowPairingError(event->result, event->server_status_code,
                                   event->server_status_message);
         break;
 
     case MOONLIGHT_EVENT_CONNECTION_FAILED:
-        pairing->m_pairing_started = false;
         pairing->ShowPairingError(MOONLIGHT_PAIRING_ERROR_NETWORK);
         break;
 
