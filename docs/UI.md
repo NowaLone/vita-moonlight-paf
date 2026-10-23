@@ -597,7 +597,7 @@ Planes: `style_plane_selection_bar` (+ `_edge_dark`, `_edge_light`) for the Phot
 
 Text: `style_text_header` (26 regular, left), `style_text_paragraph` (26 regular, line pitch 40, wrapped),
 `style_text_row_title` (28 regular), `style_text_row_desc` (22, 85% white), `style_text_pin` (48 bold),
-`style_text_flow_note` (22, 85% white, wrapped), `style_text_main_status` (22, centred; page status text),
+`style_text_main_status` (22, centred; page status text),
 `style_text_stream_statistics` (18, yellow, left/top, unwrapped, 20 px line pitch; streaming diagnostics).
 
 The stream statistics overlay uses `plane_stream_statistics` (660 x 136, top-left offset 16/-12)
@@ -631,8 +631,10 @@ Buttons and lists: `style_image_button_list_button` (list row button with the em
 `style_button_option_top` / `style_button_option_bottom` (popup buttons), `style_list_view_generic`,
 `style_list_view_item_generic`.
 
-Currently unused leftovers (safe to remove when touching nearby): `style_plane_fill`, `style_text_title`,
-`style_text_body`, `style_button_option_single`.
+Repository simplification, 2026-10-23 **[code]**: removed the unreferenced fill/flow-note/title/body/
+single-option styles, unused Main/Apps selected-index fields and unused Pairing dialog title/button
+storage. Active templates, geometry, focus and native dialog messages are unchanged. XML reference/
+text-style checks pass; this does not establish RCO compilation or native rendering.
 
 ### 4.4 Textures
 

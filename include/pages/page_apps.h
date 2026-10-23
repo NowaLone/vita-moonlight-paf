@@ -35,7 +35,6 @@ private:
 
     paf::vector<MoonlightApplication> m_apps;
     int m_app_count;
-    int m_selected_index;
     bool m_launching;
     paf::ui::ListView *m_list;
 

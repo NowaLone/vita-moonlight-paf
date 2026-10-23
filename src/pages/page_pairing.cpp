@@ -161,10 +161,7 @@ void Pairing::ShowPairingError(int result, int server_status_code,
 
     memset(&m_dialog_param, 0, sizeof(m_dialog_param));
     memset(&m_dialog_user, 0, sizeof(m_dialog_user));
-    memset(&m_dialog_buttons, 0, sizeof(m_dialog_buttons));
 
-    strncpy(m_dialog_title, "Pairing failed", sizeof(m_dialog_title) - 1);
-    m_dialog_title[sizeof(m_dialog_title) - 1] = '\0';
     if (result == MOONLIGHT_PAIRING_ERROR_PROTOCOL && server_status_code > 0) {
         snprintf(m_dialog_message, sizeof(m_dialog_message),
                  "The PC returned a pairing error:\n%s (Error %d)",

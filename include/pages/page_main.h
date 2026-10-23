@@ -75,7 +75,6 @@ private:
     paf::vector<HostRowState> m_rows;
     uint32_t m_next_host_token;
     int m_host_count;
-    int m_selected_index;
     bool m_connecting;
     int m_initial_refresh_attempts;
     int m_initial_refresh_stable_count;

@@ -225,7 +225,6 @@ Main::Main()
            paf::Plugin::TransitionType_None),
       m_next_host_token(0),
       m_host_count(0),
-      m_selected_index(-1),
       m_connecting(false),
       m_initial_refresh_attempts(0),
       m_initial_refresh_stable_count(0),
@@ -583,7 +582,6 @@ void Main::SelectHost(int index)
 {
     if (m_connecting || index < 0 || index >= m_host_count) return;
 
-    m_selected_index = index;
     m_connecting = true;
 
     paf::ui::ListView *list = static_cast<paf::ui::ListView *>(

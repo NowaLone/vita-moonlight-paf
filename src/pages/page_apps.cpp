@@ -17,7 +17,6 @@ Apps::Apps()
            paf::Plugin::TransitionType_SlideFromBottom,
            paf::Plugin::TransitionType_SlideFromBottom),
       m_app_count(0),
-      m_selected_index(-1),
       m_launching(false),
       m_list(NULL) {
     if (!IsValid()) return;
@@ -134,7 +133,6 @@ void Apps::SelectApp(int index) {
         index < 0 || index >= m_app_count) return;
 
     m_launching = true;
-    m_selected_index = index;
     HideStatus();
 
     int result = MoonlightApp::Instance()->Connection().Start(
