@@ -174,13 +174,8 @@ int LegacyMoonlightAdapter::PairCurrentHost(const char pin[5], const MoonlightCa
         return -1;
     }
 
-    int result = moonlight_api_pair_current_host(pin, cancel);
-    if (result != 0) {
-        return result;
-    }
-
     /* PAIRING_FINISHED owns this transition, including callbacks before return. */
-    return 0;
+    return moonlight_api_pair_current_host(pin, cancel);
 }
 
 int LegacyMoonlightAdapter::GetApplications(MoonlightApplication *out, int capacity)
@@ -201,14 +196,9 @@ int LegacyMoonlightAdapter::StartApplication(int application_id)
         return -1;
     }
 
-    int result = moonlight_api_start_application(application_id);
-    if (result != 0) {
-        return result;
-    }
-
     /* Success only schedules setup. ForwardEvent owns the STREAM_STARTED/FAILED
      * transition, which may already have arrived before the API call returns. */
-    return 0;
+    return moonlight_api_start_application(application_id);
 }
 
 int LegacyMoonlightAdapter::StopApplication()
@@ -217,25 +207,15 @@ int LegacyMoonlightAdapter::StopApplication()
         return -1;
     }
 
-    int result = moonlight_api_stop_application();
-    if (result != 0) {
-        return result;
-    }
-
     /* The session owner reports STREAM_STOPPED after transport cleanup. */
-    return 0;
+    return moonlight_api_stop_application();
 }
 
 int LegacyMoonlightAdapter::DisconnectHost()
 {
-    int result = moonlight_api_disconnect_host();
-    if (result != 0) {
-        return result;
-    }
-
     /* The API closes admission immediately; CONNECTION_CLOSED publishes the final
      * state only after stream/GameStream cleanup. Do not overwrite an early callback. */
-    return 0;
+    return moonlight_api_disconnect_host();
 }
 
 MoonlightConnectionState LegacyMoonlightAdapter::GetConnectionState() const
