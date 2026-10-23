@@ -23,7 +23,6 @@
 #define MCAST_PORT 5353
 #define MAX_SUNSHINE 16
 #define HOSTNAME_LEN 256
-#define CACHE_TIMEOUT 10 // seconds
 
 /* Return encoded bytes consumed, or -1 for malformed/truncated/overlong names.
  * Bound pointer traversal by packet length so compression cycles cannot hang discovery. */

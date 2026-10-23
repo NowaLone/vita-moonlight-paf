@@ -1890,7 +1890,6 @@ typedef struct InitArgs {
     unsigned short http_port;
     const char *client_directory;
     const char *server_certificate_path;
-    int log_level;
     bool unsupported;
 } InitArgs;
 
@@ -1902,7 +1901,6 @@ int legacy_gamestream_init(
     unsigned short http_port,
     const char *client_directory,
     const char *server_certificate_path,
-    int log_level,
     bool unsupported)
 {
     InitArgs args;
@@ -1915,7 +1913,6 @@ int legacy_gamestream_init(
     args.http_port = http_port;
     args.client_directory = client_directory;
     args.server_certificate_path = server_certificate_path;
-    args.log_level = log_level;
     args.unsupported = unsupported;
     int result = run_on_worker(init_worker, &args);
     if (result != LEGACY_GAMESTREAM_OK) legacy_gamestream_shutdown(server);
@@ -1929,13 +1926,11 @@ static int init_worker(void *argument)
     const char *address = args->address;
     unsigned short http_port = args->http_port;
     const char *client_directory = args->client_directory;
-    int log_level = args->log_level;
     bool unsupported = args->unsupported;
     CURL *curl;
     unsigned char random_seed[0x40];
     char *certificate_path;
     char *key_path;
-    (void)log_level;
 
     if (!server || !address || !address[0] || !client_directory || !client_directory[0]) {
         set_error("Invalid GameStream initialization arguments");

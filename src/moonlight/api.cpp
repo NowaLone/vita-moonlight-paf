@@ -417,7 +417,6 @@ int moonlight_api_connect_host(const MoonlightHost *host)
         host->port,
         client_directory,
         server_certificate_path,
-        0,
         true);
 
     if (result == LEGACY_GAMESTREAM_OK && s_server.unique_id[0]) {

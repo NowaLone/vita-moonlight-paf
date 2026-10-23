@@ -55,7 +55,6 @@ int legacy_gamestream_init(
     unsigned short http_port,
     const char *client_directory,
     const char *server_certificate_path,
-    int log_level,
     bool unsupported);
 
 int legacy_gamestream_pair(
