@@ -537,7 +537,7 @@ No recurring main-thread heartbeat or changed PIN timeout is introduced.
 
 Add PC is an inline control on Main; there is no Add PC page.
 
-**Confirmed remote Quit, 2026-10-23 [code; maintainer build/Vita validation open]:**
+**Confirmed remote Quit, 2026-10-23 [code; basic flow accepted on Vita by maintainer]:**
 when fresh host state rejects launching a different application, ConnectionService closes its
 PAF busy slot and offers a native SceMessageDialog **Yes/No** confirmation. It warns that quitting
 loses unsaved progress and ends other streaming sessions. No preserves the host session. Yes is
@@ -553,8 +553,13 @@ selected active app resumes, and a different unconfirmed ID needs a new confirma
 approved ID permits paired HTTPS `/cancel`; valid XML `cancel=1` and refreshed idle host state
 are required before launching. Sunshine's host-wide endpoint cannot atomically enforce the ID
 comparison, so a change between the last snapshot and `/cancel` remains a protocol race. Ordinary
-double-PS stop, local cancellation and disconnect never call `/cancel`. Native Yes/No appearance,
-No/Yes/error handoffs, switching apps and actual host termination still require Vita/host testing.
+double-PS stop, local cancellation and disconnect never call `/cancel`.
+
+**Maintainer acceptance [hw, user-reported, 2026-10-23]:** after the implementation, the
+maintainer reports “я проверил всё ок”. This accepts the requested confirmation/Quit-and-launch
+flow on the tested Vita. No screenshot, per-case log, installed profile/revision or Sunshine
+version was supplied; individual fault/error handoffs, host-state races and broader regression
+coverage remain **[open]**. No agent build or device run.
 
 IME result handling shares one cleanup sequence for success and read failure: read the result,
 terminate the dialog, clear the open state and unregister its poll before handling the outcome

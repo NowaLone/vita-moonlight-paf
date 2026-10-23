@@ -203,7 +203,8 @@ recipes for common UI changes live in [`docs/UI.md`](docs/UI.md). Read it before
   rechecks the ID, sends paired HTTPS `/cancel`, validates `cancel=1` and verifies idle host state
   before launching the selection. No, dialog failure and ordinary stop/disconnect never quit the
   host app. The endpoint is host-wide and its snapshot-to-request race cannot be atomic. Source
-  checks cover this flow; maintainer build/Vita validation remains pending (2026-10-23).
+  checks cover this flow; the maintainer reports successful Vita testing (2026-10-23).
+  No per-case logs/profile/version were supplied; fault/race validation remains open.
 
 ### Application / Services / Backend
 

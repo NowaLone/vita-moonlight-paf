@@ -924,8 +924,10 @@ local and referenced upstream branches were read, not that the scenario ran. Tes
   StopApplication still stops only the local stream; shutdown clears pending confirmation.
 - **Upstream / Sunshine:** S cancel handler, QH quitApp, QS optional quit-after-graceful-stop, V gs_quit_app.
 - **Verified / runtime:** focused serial source checks; C/Expat fixtures remain uncompiled/unrun.
-  Maintainer build/Vita/host validation is pending: confirm No preserves the app, Yes quits and
-  starts the selection, failures never launch, and ordinary double-PS stop/reconnect is intact.
+  On 2026-10-23 the maintainer reports “я проверил всё ок”, accepting the requested basic
+  confirmation/Quit-and-launch flow on the tested Vita. No per-case logs, installed revision/
+  profile or Sunshine version were supplied. Faults, changed-host races and broader ordinary
+  stop/reconnect regression coverage remain open. No agent build/device run.
   `/cancel` has no expected-app parameter, so the last snapshot-to-request race cannot be atomic.
   Do not call it on ordinary stop, network loss or pending-launch cancellation.
   Protocol/UI reference recheck: [Qt quitApp](https://github.com/moonlight-stream/moonlight-qt/blob/dc92b6d2f361064d3e9e53ce5de92f611db77220/app/backend/nvhttp.cpp),
@@ -1079,10 +1081,10 @@ setup result=0 and decoded video through frame 841. The three basic decision bra
 the tested Vita; other host-change scenarios, snapshot/request races and remaining T5/T8 cases stay open.
 The root cause below describes the older baseline.
 
-**Requested extension, 2026-10-23 [source only]:** the default remains rejection without remote
+**Requested extension, 2026-10-23 [source; basic Vita acceptance reported]:** the default remains rejection without remote
 Quit. The native confirmation described in A20 may now authorize quitting the exact conflicting
 app and launching the selected one. This is explicit user consent, not an automatic conflict
-fallback. Build/Vita/host validation of this new flow remains pending.
+fallback. The maintainer reports successful basic Vita testing; fault/race cases remain open (A20).
 
 **Root cause:** current_game is read at connect/pair time, then locally overwritten with selected
 application_id after start. L2 does not refresh before deciding launch versus resume or compare the
@@ -2544,7 +2546,8 @@ pairing/Apps and scoped playback evidence are recorded separately above and in �
   confirmation authorizes the existing worker to quit the confirmed app via paired HTTPS
   `/cancel` and verify idle state before launching the selection. No preserves the host app.
   Sunshine's endpoint ends sessions/process and restores display configuration; ordinary local
-  stop/cancel/disconnect retains its existing meaning. Build/Vita/host acceptance is pending.
+  stop/cancel/disconnect retains its existing meaning. Basic Vita acceptance is user-reported
+  on 2026-10-23; fault/race coverage remains open (A20).
 - **App artwork (A24): intentionally unsupported** for the current text list. **Sunshine admin
   API: not applicable** to the agreed client scope. HEVC/AV1/HDR/surround/multi-controller/IPv6
   are outside current media/address scope; they are not missing ordinary client HTTP calls.

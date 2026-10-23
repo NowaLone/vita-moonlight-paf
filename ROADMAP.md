@@ -10,9 +10,11 @@ through the existing busy/stream worker, rechecks the active ID, sends paired HT
 validates the response and verifies idle host state before launching the selection. Changed IDs
 need fresh confirmation; failed Quit never launches. This is an explicitly requested extension
 of A20, separate from local stop/cancel/disconnect. Source checks and uncompiled C fixtures cover
-the new paths; native build/Vita/host acceptance is pending. Verify No preserves the running app,
-Yes switches to the selection, network/server/refused-quit errors do not launch, changed host
-state is rechecked, and normal stop/reconnect remains intact. See UI §3 and API audit A20.
+the new paths. On 2026-10-23 the maintainer reports testing completed successfully
+(“я проверил всё ок”): basic requested-flow acceptance on the tested Vita. No per-case logs,
+installed profile/revision or host version were supplied. Network/server/refused-quit faults,
+changed-host races and broader stop/reconnect regression coverage remain open. See UI §3
+and API audit A20.
 
 **Current status, 2026-10-22:** the client API inventory/source audit is complete. The normal
 client flow has scoped Vita evidence, including the latest 5db31a9 pairing/error recovery.

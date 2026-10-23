@@ -72,7 +72,8 @@ before key generation and actual launch. These do not establish native ABI, real
 TLS, Expat parsing, PAF appearance or host/Vita behavior. The cancel parser's actual C fixtures
 cover success, malformed/missing/duplicate/false fields, DTD and server errors, but remain
 uncompiled/unrun by the agent. The combined non-build gate passes all 167 checks.
-Maintainer build/Vita/host acceptance is pending.
+The maintainer reports successful basic Vita testing on 2026-10-23; no per-case log was
+supplied. This does not execute the C fixtures or close the fault/race validation gates.
 
 `test_host_lists.py` interprets the shared host-snapshot/identity helpers, actual Main/Search
 refresh/token-lookup functions, Main Select/Clear All/count/delete and Search's canonical lookup
