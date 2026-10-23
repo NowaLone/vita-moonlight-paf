@@ -50,30 +50,6 @@ int LegacyMoonlightAdapter::OpenSettings()
     return moonlight_settings_open();
 }
 
-int LegacyMoonlightAdapter::GetSettings(MoonlightSettings *out)
-{
-    if (moonlight_settings_init() != 0) {
-        return -1;
-    }
-    return moonlight_settings_get_all(out);
-}
-
-int LegacyMoonlightAdapter::GetSettingValue(MoonlightSettingKey key, int *out_value)
-{
-    if (moonlight_settings_init() != 0) {
-        return -1;
-    }
-    return moonlight_settings_get_value(key, out_value);
-}
-
-int LegacyMoonlightAdapter::SetSettingValue(MoonlightSettingKey key, int value)
-{
-    if (moonlight_settings_init() != 0) {
-        return -1;
-    }
-    return moonlight_settings_set_value(key, value);
-}
-
 int LegacyMoonlightAdapter::SetEventCallback(MoonlightEventCallback callback, void *userdata)
 {
     int result = moonlight_api_set_event_callback(OnLegacyEvent, this);
@@ -121,11 +97,6 @@ int LegacyMoonlightAdapter::StopHostSearch()
 int LegacyMoonlightAdapter::AddHost(const char *address, uint16_t port, const char *name)
 {
     return moonlight_api_add_host(address, port, name);
-}
-
-int LegacyMoonlightAdapter::MarkHostPaired(const MoonlightHost &host)
-{
-    return legacy_device_store_mark_paired(&host);
 }
 
 int LegacyMoonlightAdapter::DeleteHost(const MoonlightHost &host)

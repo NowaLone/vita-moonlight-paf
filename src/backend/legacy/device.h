@@ -33,12 +33,10 @@ device_info_t* find_device(const char *name);
 device_info_t* find_device_by_address(const char *address);
 device_info_t* find_device_by_host_id(const char *host_id);
 device_info_t* append_device(device_info_t *info);
-bool update_device(device_info_t *info);
 void load_all_known_devices();
 bool load_device_info(device_info_t *info);
 /* 0 only after all writes and fclose succeed; -1 on failure (logged). */
 int save_device_info(const device_info_t *info);
-bool remove_device(const char *name);
 bool remove_device_by_info(const device_info_t *device);
 void device_file_path(char *out, const char *dir);
 

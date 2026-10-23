@@ -32,10 +32,6 @@ void moonlight_video_set_stream_options(
     int center_region,
     int ref_frame_invalidation);
 int moonlight_video_center_region(void);
-int moonlight_video_ref_frame_invalidation(void);
-void moonlight_video_get_requested_size(
-    unsigned int *width,
-    unsigned int *height);
 
 #ifdef __cplusplus
 }

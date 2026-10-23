@@ -78,17 +78,6 @@ int legacy_gamestream_request(
     LegacyGameStreamServer *server, const char *endpoint, const char *query,
     long timeout_seconds, char **body, size_t *length);
 
-int legacy_gamestream_launch(
-    LegacyGameStreamServer *server,
-    int app_id,
-    char *session_url,
-    size_t session_url_size);
-
-int legacy_gamestream_get_server_mac(
-    LegacyGameStreamServer *server,
-    char *mac,
-    unsigned int size);
-
 void legacy_gamestream_shutdown(LegacyGameStreamServer *server);
 
 const char *legacy_gamestream_error(void);

@@ -251,7 +251,6 @@ static void on_stream_event(
     }
 }
 
-
 static void *disconnect_cleanup_worker(void *)
 {
     /* The request releases this mutex after scheduling us. New callers only trylock;
@@ -347,40 +346,11 @@ void moonlight_api_shutdown(void)
     pthread_mutex_unlock(&s_host_control_mutex);
 }
 
-int moonlight_api_open_settings(void)
-{
-    if (moonlight_settings_init() != 0) return -1;
-    return moonlight_settings_open();
-}
-
-int moonlight_api_get_settings(MoonlightSettings *out)
-{
-    if (moonlight_settings_init() != 0) return -1;
-    return moonlight_settings_get_all(out);
-}
-
-int moonlight_api_get_setting_value(MoonlightSettingKey key, int *out_value)
-{
-    if (moonlight_settings_init() != 0) return -1;
-    return moonlight_settings_get_value(key, out_value);
-}
-
-int moonlight_api_set_setting_value(MoonlightSettingKey key, int value)
-{
-    if (moonlight_settings_init() != 0) return -1;
-    return moonlight_settings_set_value(key, value);
-}
-
 int moonlight_api_set_event_callback(MoonlightEventCallback callback, void *userdata)
 {
     s_callback = callback;
     s_userdata = userdata;
     return 0;
-}
-
-int moonlight_api_get_hosts(MoonlightHost *out, int capacity)
-{
-    return legacy_device_store_get_hosts(out, capacity);
 }
 
 int moonlight_api_get_discovered_hosts(MoonlightHost *out, int capacity)
@@ -646,15 +616,6 @@ int moonlight_api_get_applications(MoonlightApplication *out, int capacity)
     emit(MOONLIGHT_EVENT_APPLICATIONS_READY, s_application_count, s_current_host.id, -1, s_current_host.internal);
     return s_application_count;
 }
-
-extern "C" int moonlight_launch_request(
-    void *curl,
-    const char *address,
-    unsigned short https_port,
-    const char *unique_path,
-    int app_id,
-    char *session_url,
-    size_t session_url_size);
 
 int moonlight_api_start_application(int application_id, int quit_application_id)
 {

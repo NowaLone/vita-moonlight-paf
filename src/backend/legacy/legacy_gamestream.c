@@ -119,7 +119,6 @@ static int run_on_worker(int (*function)(void *), void *argument)
     return call.result;
 }
 
-
 typedef struct HttpBuffer {
     char *memory;
     size_t size;
@@ -2080,33 +2079,6 @@ int legacy_gamestream_pair(LegacyGameStreamServer *server, const char *pin,
     int result = run_on_worker(pair_worker, &args);
     pthread_mutex_unlock(&s_pair_mutex);
     return result;
-}
-
-int legacy_gamestream_get_server_mac(
-    LegacyGameStreamServer *server,
-    char *mac,
-    unsigned int size)
-{
-    if (!server || !mac || size == 0) {
-        return LEGACY_GAMESTREAM_INVALID;
-    }
-
-    if (!server->mac[0]) {
-        int result = load_server_info(server, true, NULL);
-        if (result != LEGACY_GAMESTREAM_OK) {
-            return result;
-        }
-    }
-
-    if (!server->mac[0]) {
-        set_error("Server MAC address is unavailable");
-        return LEGACY_GAMESTREAM_INVALID;
-    }
-
-    strncpy(mac, server->mac, size - 1);
-    mac[size - 1] = '\0';
-
-    return LEGACY_GAMESTREAM_OK;
 }
 
 void legacy_gamestream_shutdown(LegacyGameStreamServer *server)

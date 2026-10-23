@@ -10,7 +10,6 @@ public:
 
     int GetHosts(MoonlightHost *out, int capacity);
     int Add(const char *address, uint16_t port, const char *name);
-    int MarkPaired(const MoonlightHost &host);
     int Delete(const MoonlightHost &host);
 
 private:

@@ -14,9 +14,6 @@ public:
     virtual void Shutdown() = 0;
 
     virtual int OpenSettings() = 0;
-    virtual int GetSettings(MoonlightSettings *out) = 0;
-    virtual int GetSettingValue(MoonlightSettingKey key, int *out_value) = 0;
-    virtual int SetSettingValue(MoonlightSettingKey key, int value) = 0;
 
     virtual int SetEventCallback(MoonlightEventCallback callback, void *userdata) = 0;
 
@@ -28,7 +25,6 @@ public:
     virtual int SearchHosts() = 0;
     virtual int StopHostSearch() = 0;
     virtual int AddHost(const char *address, uint16_t port, const char *name) = 0;
-    virtual int MarkHostPaired(const MoonlightHost &host) = 0;
     virtual int DeleteHost(const MoonlightHost &host) = 0;
 
     virtual int ConnectHost(const MoonlightHost &host) = 0;

@@ -272,17 +272,6 @@ int moonlight_settings_get_value(MoonlightSettingKey key, int *out_value)
     return 0;
 }
 
-int moonlight_settings_set_value(MoonlightSettingKey key, int value)
-{
-    if (!s_initialized || !s_settings) return -1;
-
-    const char *name = key_name(key);
-    if (!name) return -1;
-
-    s_settings->SetInt(name, value);
-    return 0;
-}
-
 int moonlight_settings_get_all(MoonlightSettings *out)
 {
     if (!s_initialized || !s_settings || !out) return -1;

@@ -11,23 +11,18 @@ extern "C" {
 #endif
 
 /*
- * Temporary C compatibility API.
+ * Internal C bridge for discovery and streaming sessions.
  *
  * New frontend code should depend on MoonlightBackend instead. These entry
- * points model the legacy session that will be moved behind
- * LegacyMoonlightAdapter.
+ * points are owned by LegacyMoonlightAdapter; native settings and saved-host
+ * reads use their existing adapters directly.
  */
 
 int moonlight_api_init(void);
 void moonlight_api_shutdown(void);
 
-int moonlight_api_open_settings(void);
-int moonlight_api_get_settings(MoonlightSettings *out);
-int moonlight_api_get_setting_value(MoonlightSettingKey key, int *out_value);
-int moonlight_api_set_setting_value(MoonlightSettingKey key, int value);
 int moonlight_api_set_event_callback(MoonlightEventCallback callback, void *userdata);
 
-int moonlight_api_get_hosts(MoonlightHost *out, int capacity);
 int moonlight_api_get_discovered_hosts(MoonlightHost *out, int capacity);
 int moonlight_api_search_hosts(void);
 int moonlight_api_stop_host_search(void);

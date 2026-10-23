@@ -17,7 +17,6 @@
 
 #define DEVICE_FILE "device.ini"
 
-
 #define INT(v) atoi((v))
 #define BOOL(v) strcmp((v), "true") == 0
 #define write_int(fd, key, value) fprintf(fd, "%s = %d\n", key, value)
@@ -244,21 +243,6 @@ static bool remove_device_index(int idx) {
   return true;
 }
 
-bool remove_device(const char *name) {
-  if (!name) {
-    return false;
-  }
-
-  for (int i = 0; i < known_devices.count; i++) {
-    if (!strcmp(known_devices.devices[i].name, name)) {
-      return remove_device_index(i);
-    }
-  }
-
-  vita_debug_log("remove_device: device %s not found\n", name);
-  return false;
-}
-
 bool remove_device_by_info(const device_info_t *device) {
   if (!device) {
     return false;
@@ -471,21 +455,6 @@ device_info_t* append_device(device_info_t *info) {
 
   known_devices.count++;
   return p;
-}
-
-bool update_device(device_info_t *info) {
-  device_info_t *p = find_device(info->name);
-  if (p == NULL) {
-    return false;
-  }
-
-  //strncpy(p->name, info->name, 255);
-  p->paired = info->paired;
-  strncpy(p->internal, info->internal, 255);
-  strncpy(p->external, info->external, 255);
-  p->port = info->port;
-  p->prefer_external = info->prefer_external;
-  return true;
 }
 
 void load_all_known_devices() {

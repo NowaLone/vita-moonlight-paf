@@ -172,23 +172,6 @@ int moonlight_video_center_region(void)
     return s_center_region;
 }
 
-int moonlight_video_ref_frame_invalidation(void)
-{
-    return s_ref_frame_invalidation;
-}
-
-void moonlight_video_get_requested_size(
-    unsigned int *width,
-    unsigned int *height)
-{
-    if (width) {
-        *width = s_requested_width;
-    }
-    if (height) {
-        *height = s_requested_height;
-    }
-}
-
 static int vita_video_pacer_should_drop(void)
 {
     uint64_t now;
