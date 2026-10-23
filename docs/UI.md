@@ -604,6 +604,11 @@ private `StartPairing()` is called once by a valid constructor and still rejects
 an empty PIN. The service owns the real pairing operation/cancellation; terminal
 events retain their error/navigation handling without redundant flag writes.
 
+Main shares its identical CONNECTION_FAILED/CLOSED switch body **[code,
+2026-10-23 repeat audit]**: clear the local connection flag, restore empty-state
+visibility through `ShowIdleStatus()` and reactivate the host list. Native error
+ownership remains in ConnectionService.
+
 ### 4.2 Templates (`<templatetable>`)
 
 | Template | Child ids | Used by | Purpose |

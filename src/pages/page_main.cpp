@@ -1156,16 +1156,6 @@ void Main::OnMoonlightEvent(const MoonlightEvent *event, void *userdata)
         break;
 
     case MOONLIGHT_EVENT_CONNECTION_FAILED:
-        main->m_connecting = false;
-        main->ShowIdleStatus();
-
-        {
-            paf::ui::ListView *list = static_cast<paf::ui::ListView *>(
-                main->root->FindChild("list_view_main"));
-            if (list) list->SetActivate(true);
-        }
-        break;
-
     case MOONLIGHT_EVENT_CONNECTION_CLOSED:
         main->m_connecting = false;
         main->ShowIdleStatus();
