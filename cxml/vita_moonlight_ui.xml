@@ -334,16 +334,16 @@
             <layout_hint size="840, 80" />
           </image_button>
           <plane texture="tex_pc" id="plane_host_pc">
-            <layout_hint anchor="1, 0" align="0, 0" size="80, 80" pos="120, 0" />
+            <layout_hint anchor="2, 0" align="2, 0" size="80, 80" pos="-80, 0" />
           </plane>
           <plane texture="tex_host_unconfirmed" id="plane_host_availability">
             <layout_hint anchor="1, 0" align="0, 0" size="27, 27" pos="178, 0" />
           </plane>
           <text style="style_text_row_title" id="text_host_title">
-            <layout_hint anchor="1, 2" align="1, 2" size="667, 0" pos="208, -9" adjust="0, 2" />
+            <layout_hint anchor="1, 2" align="1, 2" size="572, 0" pos="208, -9" adjust="0, 2" />
           </text>
           <text style="style_text_row_desc" id="text_host_desc">
-            <layout_hint anchor="1, 2" align="1, 2" size="667, 0" pos="208, -45" adjust="0, 2" />
+            <layout_hint anchor="1, 2" align="1, 2" size="572, 0" pos="208, -45" adjust="0, 2" />
           </text>
         </list_item>
       </template>
@@ -356,16 +356,16 @@
             <layout_hint size="840, 80" />
           </image_button>
           <plane texture="tex_pc" id="plane_host_select_pc">
-            <layout_hint anchor="1, 0" align="0, 0" size="80, 80" pos="200, 0" />
+            <layout_hint anchor="2, 0" align="2, 0" size="80, 80" pos="-80, 0" />
           </plane>
           <plane texture="tex_host_unconfirmed" id="plane_host_select_availability">
             <layout_hint anchor="1, 0" align="0, 0" size="27, 27" pos="258, 0" />
           </plane>
           <text style="style_text_row_title" id="text_host_select_title">
-            <layout_hint anchor="1, 2" align="1, 2" size="587, 0" pos="288, -9" adjust="0, 2" />
+            <layout_hint anchor="1, 2" align="1, 2" size="492, 0" pos="288, -9" adjust="0, 2" />
           </text>
           <text style="style_text_row_desc" id="text_host_select_desc">
-            <layout_hint anchor="1, 2" align="1, 2" size="587, 0" pos="288, -45" adjust="0, 2" />
+            <layout_hint anchor="1, 2" align="1, 2" size="492, 0" pos="288, -45" adjust="0, 2" />
           </text>
           <check_box style="_common_default_style_check_box" id="checkbox_host_select">
             <layout_hint anchor="1, 0" align="1, 0" size="58, 58" pos="92, 0" />

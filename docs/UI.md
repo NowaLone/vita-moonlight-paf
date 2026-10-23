@@ -966,10 +966,12 @@ the first list row can also contribute its own edge. Final combined appearance n
 
 Title 28 px regular, cap centre 25 px below the row top; description 22 px at 85% white, cap centre 58.5 px below the
 row top. PS4 Link text starts at x = 220 because of its icon column. Main/Search PC rows
-use the Music `tex_pc` icon in an 80 x 80 sibling `plane`, centred at row x = 120
-(normal) or x = 200 (selection): `anchor="1, 0"`, `align="0, 0"`, `pos="120, 0"`
-or `pos="200, 0"` **[code, 2026-10-23]**. These place the icon bounds at x=80..160
-or x=160..240, before the availability dot and text described below.
+use the Music `tex_pc` icon in an 80 x 80 sibling `plane` at the right of both
+normal and selection rows, as requested by the maintainer: `anchor="2, 0"`,
+`align="2, 0"`, `pos="-80, 0"` **[code, 2026-10-23]**. Its right edge is x=880,
+centre x=840 and left edge x=800, leaving 20 px inside the button's x=900 edge.
+Title/address stop at x=780 to leave a 20 px gap before the icon. This placement
+is a requested source-layout change; its rendered appearance remains **[open]**.
 
 The maintainer's `2026-10-23-023359.jpg` shows the original icon centred at screen
 x≈480 and overlapping PC names **[shot]**. The original ImageButton `image_obj`
@@ -982,9 +984,10 @@ check **[open]**; the supplied shot does not validate the correction.
 
 Main/Search PC rows now reuse the official Wi-Fi green/dim sphere artwork as a
 27×27 noninteractive plane **[code, trial implementation 2026-10-23; not hw]**.
-Normal rows: dot centre x=178, title/address x=208, width 667; selection rows add
-80 px (dot x=258, text x=288, width 587). The PC icon, checkbox and text right edge
-x=875 remain. Apps rows do not have this indicator. PNGs are byte-preserving
+Normal rows: dot centre x=178, title/address x=208, width 572; selection rows add
+80 px to the dot/text start (dot x=258, text x=288, width 492). Both text blocks end
+at x=780; the PC icon occupies the same right-hand slot in either mode, and the
+checkbox remains on the left. Apps rows do not have this indicator. PNGs are byte-preserving
 30×30 exports of `wifi_settings_plugin.rco` texture IDs `fbd879ae` (green) and
 `9718c305` (dim), displayed smaller by CXML.
 
