@@ -530,7 +530,7 @@ static void vita_video_cleanup(void)
         s_decoded_frames);
 }
 
-static void vita_video_release_frame_buffers_internal(void)
+void moonlight_video_release_frame_buffers(void)
 {
     int frame_index;
 
@@ -564,11 +564,6 @@ static void vita_video_release_frame_buffers_internal(void)
 
     vita_debug_log("[Video] deferred frame buffers released");
     moonlight_log_memory_budget("video-framebuffers-released");
-}
-
-void moonlight_video_release_frame_buffers(void)
-{
-    vita_video_release_frame_buffers_internal();
 }
 
 unsigned int moonlight_video_get_frame_pool_generation(void)
