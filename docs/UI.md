@@ -885,6 +885,17 @@ checks verify source artwork; the revised shape still needs maintainer RCO rebui
 
 ### 5.1 Header and paragraph
 
+The supplied official Settings resources and ELF are now traced in
+[Settings UI research](SETTINGS_UI_RESEARCH.md) **[code, 2026-10-23]**. Its shared
+header uses a transparent 960 x 64 plane, a centred horizontal box with 32 px bold
+text, and a **local 960 x 2 separator** (`ID hash 0x69cb3790`), rather than
+`_common_texture_ruled_line`. Our common-resource separator and left-aligned
+26 px title remain the current implementation; they are not an exact copy of the
+Settings header. The same research confirms that the Wi-Fi sphere is a connection
+indicator (animated green while connecting, steady green when connected, dim
+otherwise), not a reachability indicator for every listed AP. No UI change or
+hardware verification follows from this reference investigation.
+
 | Item | Value | Source |
 |---|---|---|
 | Flow page header (`style_text_header`) | 26 px regular, text origin x = 64, cap centre y = 61.5 | PS4 Link search page **[shot]** |
