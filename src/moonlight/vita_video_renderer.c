@@ -97,6 +97,7 @@ static void vita_video_calculate_output_size(
 {
     uint64_t source_is_narrower;
     uint64_t screen_is_narrower;
+    int scale_to_width;
 
     if (source_width == 0 || source_height == 0) {
         s_frame_width = VITA_SCREEN_WIDTH;
@@ -115,36 +116,23 @@ static void vita_video_calculate_output_size(
         return;
     }
 
-    if (source_is_narrower > screen_is_narrower) {
-        /* The source is narrower than the Vita screen. */
-        if (s_center_region) {
-            s_frame_width = VITA_SCREEN_WIDTH;
-            s_frame_height = align_decoder_resolution(
-                divide_round_up(
-                    (uint64_t)VITA_SCREEN_WIDTH * source_height,
-                    source_width));
-        } else {
-            s_frame_width = align_decoder_resolution(
-                divide_round_up(
-                    (uint64_t)VITA_SCREEN_HEIGHT * source_width,
-                    source_height));
-            s_frame_height = VITA_SCREEN_HEIGHT;
-        }
+    /* A narrow source fits at screen height and covers at screen width.
+     * A wide source makes the opposite choice. */
+    scale_to_width = s_center_region
+        ? source_is_narrower > screen_is_narrower
+        : source_is_narrower < screen_is_narrower;
+    if (scale_to_width) {
+        s_frame_width = VITA_SCREEN_WIDTH;
+        s_frame_height = align_decoder_resolution(
+            divide_round_up(
+                (uint64_t)VITA_SCREEN_WIDTH * source_height,
+                source_width));
     } else {
-        /* The source is wider than the Vita screen. */
-        if (s_center_region) {
-            s_frame_width = align_decoder_resolution(
-                divide_round_up(
-                    (uint64_t)VITA_SCREEN_HEIGHT * source_width,
-                    source_height));
-            s_frame_height = VITA_SCREEN_HEIGHT;
-        } else {
-            s_frame_width = VITA_SCREEN_WIDTH;
-            s_frame_height = align_decoder_resolution(
-                divide_round_up(
-                    (uint64_t)VITA_SCREEN_WIDTH * source_height,
-                    source_width));
-        }
+        s_frame_width = align_decoder_resolution(
+            divide_round_up(
+                (uint64_t)VITA_SCREEN_HEIGHT * source_width,
+                source_height));
+        s_frame_height = VITA_SCREEN_HEIGHT;
     }
 }
 
