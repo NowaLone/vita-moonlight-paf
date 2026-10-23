@@ -556,7 +556,7 @@ Add PC is an inline control on Main; there is no Add PC page.
 | `template_list_view_generic` | `list_view_generic` (960 x 448) | Search, Apps | list that runs to the bottom of the screen |
 | `template_list_view_main` | `list_view_main` (960 x 384) | Main | list that ends where the bar starts (y = 480) |
 | `template_list_item_generic` | `list_item_generic`, `image_button_list_item` | Apps | single-label row |
-| `template_host_list_item` | `list_item_host`, `image_button_host`, `text_host_title`, `text_host_desc` | Main, Search | saved/found PC row: title and description |
+| `template_host_list_item` | `list_item_host`, `image_button_host`, `text_host_title`, `text_host_desc` | Main, Search | saved/found PC row: PC icon, title and description |
 | `template_host_list_item_select` | `list_item_host_select`, `image_button_host_select`, `text_host_select_title`, `text_host_select_desc`, `checkbox_host_select` | Main (selection mode) | same row with a checkbox |
 | `template_flow_bar` | `plane_flow_bar` + three edge planes | Pairing | opaque PS4 Link style bottom bar (no buttons) |
 
@@ -597,6 +597,7 @@ waiting to acquire the frame mutex.
 See [STREAM_DIAGNOSTICS_PLAN.md](STREAM_DIAGNOSTICS_PLAN.md) for metric definitions and remaining work.
 
 Buttons and lists: `style_image_button_list_button` (list row button with the empty 102 x 70 icon slot),
+`style_image_button_host` / `style_image_button_host_select` (PC rows with the fixed 80 x 80 `tex_pc` image slot),
 `style_button_option_top` / `style_button_option_bottom` (popup buttons), `style_list_view_generic`,
 `style_list_view_item_generic`.
 
@@ -608,6 +609,14 @@ Currently unused leftovers (safe to remove when touching nearby): `style_plane_f
 `_bg_texture` (`texture/bg.png`, page background), `_header_line_texture` (`texture/header_line.png`, 960 x 2 RGBA:
 20% black row over 18% white row, faded in from x ~ 40 and out to ~ 900). Add a texture by copying the file into
 `cxml/texture/`, adding a `<texture src id type="texture/png">` entry, and rebuilding the RCO (`build_cxml.sh`).
+
+`tex_pc` (`texture/pc.png`, 80 x 80 RGBA) is the original Sony Music PC-source icon,
+extracted from the maintainer-supplied `musicbrowser_plugin.rco` and converted from GIM
+to PNG with its original dimensions and transparency. It is bundled in this application's
+RCO and bound to the native ImageButton `image_obj` in both host-row styles; loading the
+Music plugin is unnecessary. Main and Search share the ordinary template; Main deletion
+uses the selection template **[code, 2026-10-23]**. Build and Vita appearance/focus/touch
+validation of the icon and selection spacing remain **[open]**.
 
 ### 4.5 Code helpers (`include/common.h`)
 
@@ -848,8 +857,13 @@ that line itself.
 ### 5.2 List rows (PS4 Link "Which feature...") **[shot]**
 
 Title 28 px regular, cap centre 25 px below the row top; description 22 px at 85% white, cap centre 58.5 px below the
-row top. PS4 Link text starts at x = 220 because of its icon column; this app has no icons and starts at x = 175.
-`pos` for the texts is `175, -9` (title) and `175, -45` (description).
+row top. PS4 Link text starts at x = 220 because of its icon column. Main/Search PC rows
+now use the Music `tex_pc` icon in an 80 x 80 image slot centred at row x = 120
+(`planeobj pos="-360, 0"` within the centred 840 px button) **[code, 2026-10-23]**.
+Ordinary row text retains x = 175: `pos="175, -9"` (title) and `pos="175, -45"`
+(description), width 700. Selection rows shift the icon centre to x = 200 and text to
+x = 255 with width 620, preserving the right text edge at x = 875. These icon/selection
+values are source layout choices, not screenshot matches or hardware verification **[open]**.
 
 ### 5.3 Bottom bars
 
@@ -890,8 +904,10 @@ separately (**[open]**).
 
 ### 5.5 Selection mode on Main
 
-Popup -> Delete -> multi-selection: every row shows a checkbox (`checkbox_host_select`, 58 x 58 at `pos="92, 0"` in
-the empty icon slot) that mirrors the row; activating the row toggles it; the bottom selection bar offers Cancel, Select
+Popup -> Delete -> multi-selection: every row shows a checkbox (`checkbox_host_select`, 58 x 58 at `pos="92, 0"`)
+that mirrors the row. The checkbox retains its position; the PC image slot spans row x = 160-240,
+followed by text at x = 255 **[code, 2026-10-23; Vita validation open]**.
+Activating the row toggles it; the bottom selection bar offers Cancel, Select
 All / Clear all and Delete; Delete is disabled until something is selected and asks for confirmation through
 `SceMessageDialog`. There is no Copy or clipboard action and no `SceClipboard` dependency; do not restore it unless
 asked.
