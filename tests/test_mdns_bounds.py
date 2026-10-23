@@ -87,7 +87,6 @@ class MdnsBounds(unittest.TestCase):
                       snprintf=format_ip,
                       update_sunshine=lambda *args: self.calls.append('ptr'),
                       update_sunshine_ip_by_target=lambda name, ip: self.calls.append(text(ip)),
-                      merge_ip_entries=lambda: self.calls.append('merge'),
                       check_and_print_ready_entries_vita=lambda: self.calls.append('notify'))
         with patch.object(runtime, 'expression', self.expression), patch.object(runtime, 'execute', self.execute):
             return run(node.body, values)
@@ -114,7 +113,7 @@ class MdnsBounds(unittest.TestCase):
         record = lambda kind, length, data: dns('pc.local') + struct.pack('!HHIH', kind, 1, 60, length) + data
         good = header(0, 1) + record(1, 4, bytes((192, 0, 2, 1)))
         self.invoke('parse_packet', good, len(good))
-        self.assertEqual(self.calls, ['192.0.2.1', 'merge', 'notify'])
+        self.assertEqual(self.calls, ['192.0.2.1', 'notify'])
         # A question followed by PTR, SRV and A answers, with a compressed SRV target.
         service = dns('pc._nvstream._tcp.local')
         srv = b'\0\0\0\0' + struct.pack('!H', 47989) + b'\xc0\x0c'
@@ -124,7 +123,7 @@ class MdnsBounds(unittest.TestCase):
                 + record(1, 4, bytes((192, 0, 2, 1))))
         self.calls.clear()
         self.invoke('parse_packet', good, len(good))
-        self.assertEqual(self.calls, ['ptr', 'ptr', '192.0.2.1', 'merge', 'notify'])
+        self.assertEqual(self.calls, ['ptr', 'ptr', '192.0.2.1', 'notify'])
         for packet in (header(1, 0) + dns('pc.local'), header(0, 1) + dns('pc.local'),
                        header(0, 1) + b'\xc0\x0c', header(0, 1) + record(1, 4, b'\x01'),
                        header(0, 1) + record(12, 1, b'\x02'),

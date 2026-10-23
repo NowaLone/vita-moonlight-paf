@@ -73,7 +73,7 @@ static int sock = -1;
 static int initialized = 0;
 static int moonlight_count = 0;
 
-static void update_sunshine(const char* host, int port, const char* ip, const char* target) {
+static void update_sunshine(const char* host, int port, const char* target) {
     unsigned int now = sceKernelGetProcessTimeLow() / 1000;
     int idx = -1;
     for (int i = 0; i < MAX_SUNSHINE; ++i) {
@@ -94,7 +94,6 @@ static void update_sunshine(const char* host, int port, const char* ip, const ch
     }
     if (idx >= 0) {
         if (port > 0) sunshine_table[idx].port = port;
-        if (ip) strncpy(sunshine_table[idx].ip, ip, sizeof(sunshine_table[idx].ip));
         if (target && target[0]) {
             strncpy(sunshine_table[idx].target, target, sizeof(sunshine_table[idx].target) - 1);
             sunshine_table[idx].target[sizeof(sunshine_table[idx].target) - 1] = '\0';
@@ -119,23 +118,6 @@ static moonlight_found_cb g_found_cb = NULL;
 void udp_sniffer_vita_set_callback(moonlight_found_cb cb) {
     MDNS_LOG("[mdns_log] udp_sniffer_vita_set_callback: cb=%p\n", cb);
     g_found_cb = cb;
-}
-
-// Merge orphan IPs (optional, same as in win)
-static void merge_ip_entries() {
-    for (int i = 0; i < MAX_SUNSHINE; ++i) {
-        if (sunshine_table[i].host[0] && sunshine_table[i].target[0]) {
-            for (int j = 0; j < MAX_SUNSHINE; ++j) {
-                if (i != j && !sunshine_table[j].host[0] && sunshine_table[j].target[0] && sunshine_table[j].ip[0] && strcmp(sunshine_table[i].target, sunshine_table[j].target) == 0) {
-                    strncpy(sunshine_table[i].ip, sunshine_table[j].ip, sizeof(sunshine_table[i].ip));
-                    sunshine_table[j].target[0] = '\0';
-                    sunshine_table[j].ip[0] = '\0';
-                    sunshine_table[j].last_seen = 0;
-                    break;
-                }
-            }
-        }
-    }
 }
 
 static void check_and_print_ready_entries_vita() {
@@ -240,7 +222,7 @@ void udp_sniffer_vita_poll(void) {
                 int name_length = decode_dns_name(pkt, msglen, pos, ptrname, sizeof(ptrname));
                 if (name_length < 0 || name_length > rdlength) return;
                 if (strstr(ptrname, "_nvstream._tcp.local") != NULL) {
-                    update_sunshine(ptrname, 0, NULL, NULL);
+                    update_sunshine(ptrname, 0, NULL);
                 }
             }
             if (type == 33 && rdlength >= 6) { // SRV
@@ -253,7 +235,7 @@ void udp_sniffer_vita_poll(void) {
                 size_t suffixlen = strlen(suffix);
                 if (len > suffixlen && strcmp(rrname + len - suffixlen, suffix) == 0) {
                     if (target[0]) {
-                        update_sunshine(rrname, srv_port, NULL, target);
+                        update_sunshine(rrname, srv_port, target);
                     }
                 }
             }
@@ -264,7 +246,6 @@ void udp_sniffer_vita_poll(void) {
             }
             pos += rdlength;
         }
-        merge_ip_entries();
         check_and_print_ready_entries_vita();
     }
 }
