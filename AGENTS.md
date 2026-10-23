@@ -246,6 +246,10 @@ recipes for common UI changes live in [`docs/UI.md`](docs/UI.md). Read it before
   AppMgr overlay checks gate renewal. Pause on OptionMenu/Delete/IME/Settings/foreground busy/other pages.
   Locked coherent snapshots have generation/revision. MoonlightApp polls/dispatches coalesced discovery
   invalidations only to active Main and rejects cancelled generations. Never copy a mutable array unlocked.
+- Discovery's condition-waiting worker must use `pthread_create` with a checked 64 KiB stack,
+  not a raw `sceKernelCreateThread`: the supplied pause/Menu crash shows the latter lacks the
+  pthread TLS consumed by cancellable waits. Do not use pthread condition waits in the PAF
+  Connect job either; its discovery-cleanup barrier polls idle with native sleep off the UI thread.
 - `LegacyMoonlightAdapter` is the compatibility boundary between the service/backend layer and the legacy Moonlight code.
 - Pairing events use semantic `MoonlightPairingResult` values at the Moonlight API boundary. Only `MOONLIGHT_PAIRING_ERROR_INCORRECT_PIN` means the cryptographic PIN check failed; transport, protocol, security, and local/internal failures remain distinguishable.
 - Preserve typed legacy pairing results through parser/crypto/transfer callers; never infer PIN

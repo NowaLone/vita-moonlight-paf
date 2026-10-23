@@ -11,10 +11,12 @@
 #define DISCOVERY_EXPIRY_USEC 15000000ull
 #define DISCOVERY_LEASE_USEC 250000ull
 #define DISCOVERY_POLL_USEC 10000
+#define DISCOVERY_STACK_BYTES 65536
 
 static pthread_mutex_t s_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t s_wake = PTHREAD_COND_INITIALIZER;
-static SceUID s_thread = -1;
+static pthread_t s_thread;
+static int s_thread_created;
 static int s_enabled;
 static int s_shutdown;
 static uint32_t s_generation;
@@ -89,9 +91,8 @@ static void expire_hosts(void)
     }
 }
 
-static int discovery_thread(SceSize args, void *argp)
+static void *discovery_thread(void *argp)
 {
-    (void)args;
     (void)argp;
     for (;;) {
         pthread_mutex_lock(&s_mutex);
@@ -100,7 +101,7 @@ static int discovery_thread(SceSize args, void *argp)
             pthread_cond_wait(&s_wake, &s_mutex);
         if (s_shutdown) {
             pthread_mutex_unlock(&s_mutex);
-            return 0;
+            return NULL;
         }
         uint32_t generation = s_generation;
         s_active_generation = generation;
@@ -174,17 +175,20 @@ int legacy_host_discovery_start(uint32_t *generation)
         pthread_mutex_unlock(&s_mutex);
         return -1;
     }
-    if (s_thread < 0) {
-        s_thread = sceKernelCreateThread("mlmdns", discovery_thread,
-                                        0x10000100, 0x10000, 0, 0, NULL);
-        int result = s_thread;
-        if (result >= 0) result = sceKernelStartThread(s_thread, 0, NULL);
-        if (result < 0) {
-            if (s_thread >= 0) sceKernelDeleteThread(s_thread);
-            s_thread = -1;
-            pthread_mutex_unlock(&s_mutex);
-            return result;
+    if (!s_thread_created) {
+        /* pthread_cond_wait needs pthread TLS; a raw kernel thread has none. */
+        pthread_attr_t attr;
+        int result = pthread_attr_init(&attr);
+        if (result == 0) {
+            result = pthread_attr_setstacksize(&attr, DISCOVERY_STACK_BYTES);
+            if (result == 0) result = pthread_create(&s_thread, &attr, discovery_thread, NULL);
+            pthread_attr_destroy(&attr);
         }
+        if (result != 0) {
+            pthread_mutex_unlock(&s_mutex);
+            return -result; /* Keep background Start's negative-error contract. */
+        }
+        s_thread_created = 1;
     }
     if (!s_enabled || now >= s_lease_until) {
         if (++s_generation == 0) ++s_generation;
@@ -217,9 +221,9 @@ int legacy_host_discovery_is_idle(void)
 
 void legacy_host_discovery_wait_idle(void)
 {
-    pthread_mutex_lock(&s_mutex);
-    while (s_active_generation != 0) pthread_cond_wait(&s_wake, &s_mutex);
-    pthread_mutex_unlock(&s_mutex);
+    /* PAF job threads need not have pthread TLS either. This worker-only barrier
+     * follows HostService's existing native sleep/poll pattern, never the UI. */
+    while (!legacy_host_discovery_is_idle()) sceKernelDelayThread(DISCOVERY_POLL_USEC);
 }
 
 int legacy_host_discovery_read(MoonlightDiscoverySnapshot *snapshot)
@@ -242,10 +246,9 @@ void legacy_host_discovery_shutdown(void)
     s_shutdown = 1;
     pthread_cond_broadcast(&s_wake);
     pthread_mutex_unlock(&s_mutex);
-    if (s_thread >= 0) {
-        while (sceKernelWaitThreadEnd(s_thread, NULL, NULL) < 0)
+    if (s_thread_created) {
+        while (pthread_join(s_thread, NULL) != 0)
             sceKernelDelayThread(DISCOVERY_POLL_USEC);
-        sceKernelDeleteThread(s_thread);
-        s_thread = -1;
+        s_thread_created = 0;
     }
 }

@@ -111,7 +111,7 @@ policies, not recovered Sony behavior.
   icon coordinates as `template_host_list_item`, with no availability plane. Only saved hosts
   enter `HostService::CheckAvailability`; their TCP freshness/15-second repeat/30-second expiry
   are unchanged. A discovery is not a successful TCP check or an authenticated host.
-- A single backend native worker is created on first activation and retained until final
+- A single backend pthread worker (64 KiB stack) is created on first activation and retained until final
   application teardown. Inactive it sleeps on a condition variable with its socket closed.
   While active it sends the existing mDNS query immediately and **5,000,000 µs [code] after
   the previous send completes**, polling nonblocking packets between sends. Monotonic process
@@ -182,6 +182,37 @@ from the installed PAF vector (which moves the overlapping range forwards), exce
 linker flag changes or sized PAF constructors are added. The source check now interprets these
 actual mutation branches as well as the planner. Agent build/compilation remains prohibited;
 maintainer relink and native focus/scroll acceptance remain **[open]**.
+
+**Discovery pause crash, 2026-10-23 [dump/source; corrected runtime unverified]:** pressing
+`(...)` stops discovery before opening OptionMenu. In supplied
+`psp2core-1792782876-0x0000e63259-eboot.bin.psp2dmp` (gzip SHA-256
+`284c5ed67efc0fdd83411352754011eaca1c32ef72767905d470d4cfbfd6c3c6`), the
+faulting thread is **mlmdns**, data abort `0x30004`, PC `0x8125716e`, R6=0.
+The existing system ELF maps that PC (RX delta `0x4d000`) to
+`pte_osSemaphoreCancellablePend+0x16`, `ldr r7, [r6, #8]`, after loading a null
+pthread control pointer from thread-local storage. Stack return addresses map through
+`sem_timedwait` / `pthread_cond_wait` to `discovery_thread`'s inactive wait. Main is waiting,
+so this is a discovery-thread pause failure, not evidence against speech-balloon geometry.
+Core module RX/RW sizes `0x296508` / `0x73114` match the existing system VELF; normal differs.
+System debug ELF SHA-256 is `f26f558e805a5973d3491451afb79b594c640f6ca3e5f3f6f01b952eec912542`.
+The faulting code page is absent from the core: the relocation/source mapping is corroborated
+by sizes and stack, not a byte-for-byte installed executable or exact Git-revision proof.
+
+The worker had been created with `sceKernelCreateThread`, which did not establish the
+pthread runtime state consumed by the cancellable condition wait. It now uses checked
+`pthread_attr_init` / 64 KiB stack setup / `pthread_create`, with attribute cleanup on both
+create success/failure and `pthread_join` only at final teardown. POSIX setup errors remain
+negative at the background Start boundary. The Connect job's cleanup barrier also avoids
+`pthread_cond_wait`: PAF job threads are not guaranteed pthread state, so it uses the existing
+worker-only 10 ms native sleep/locked-idle polling pattern. UI Stop remains nonblocking;
+query cadence, retained snapshots, generation and OptionMenu resources are unchanged.
+
+The earlier serial kernel mocks did not model this pthread TLS requirement. Checks now
+require pthread creation before the worker condition wait, cover attribute/stack/create failure
+cleanup/retry and final join, and execute the foreign-thread-safe Connect barrier. These are
+source models, not native pthread/PAF execution. No agent build/compile/deployment; maintainer
+rebuild and repeated `(...)` open/dismiss, Delete, IME/Settings, connect and suspend/resume
+checks remain **[open]**. Raw dump, extracted memory and generated binaries stay out of Git.
 
 ### Sequential foreground workflow — maintainer direction, 2026-10-20
 

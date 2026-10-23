@@ -35,20 +35,22 @@ class NativeModel:
     def __init__(self, functions, constants):
         self.functions = functions
         self.now, self.end_at, self.latency, self.query_result, self.poll_result = 1, 12000001, 0, 0, 0
-        self.create_result, self.start_result = 10, 0
+        self.create_result, self.attr_result, self.stack_result = 0, 0, 0
+        self.pthread_worker = False
         self.renew = True
         self.calls, self.queries, self.logs = [], [], []
         self.on_poll = lambda: None
         self.base_expression, self.base_execute = runtime.expression, runtime.execute
         self.values = dict(constants, NULL=0, s_snapshot=snapshot(), s_seen=[0]*16,
-                           s_mutex=0, s_wake=0, s_thread=-1, s_enabled=0, s_shutdown=0,
+                           s_mutex=0, s_wake=0, s_thread=0, s_thread_created=0, s_enabled=0, s_shutdown=0,
                            s_generation=0, s_active_generation=0, s_lease_until=0,
                            s_healthy_time=0, s_last_error=0, discovery_thread=0,
                            sceKernelGetProcessTimeWide=lambda: self.now,
-                           sceKernelCreateThread=lambda *args: self.record('create', self.create_result),
-                           sceKernelStartThread=lambda *args: self.record('start', self.start_result),
-                           sceKernelWaitThreadEnd=lambda *args: self.record('join', 0),
-                           sceKernelDeleteThread=lambda *args: self.record('delete', 0),
+                           pthread_attr_init=lambda *args: self.record('attr_init', self.attr_result),
+                           pthread_attr_setstacksize=self.set_stack,
+                           pthread_attr_destroy=lambda *args: self.record('attr_destroy', 0),
+                           pthread_create=self.create,
+                           pthread_join=lambda *args: self.record('join', 0),
                            sceKernelDelayThread=self.delay,
                            udp_sniffer_vita_init=lambda: self.record('open', 0),
                            udp_sniffer_vita_deinit=lambda: self.record('close', 0),
@@ -79,6 +81,12 @@ class NativeModel:
         entries = self.values['s_snapshot']['hosts'] if kind == 'hosts' else self.values['s_seen']
         count = self.values['s_snapshot']['count'] - index
         entries[index:index+count] = copy.deepcopy(entries[index+1:index+1+count])
+    def set_stack(self, attr, size):
+        assert size == 65536
+        return self.record('stack', self.stack_result)
+    def create(self, *args):
+        if self.create_result == 0: self.pthread_worker = True
+        return self.record('create', self.create_result)
     def query(self):
         self.queries.append(self.now)
         self.now += self.latency
@@ -89,6 +97,7 @@ class NativeModel:
         if self.now >= self.end_at: self.invoke('legacy_host_discovery_stop')
         elif self.renew: self.invoke('legacy_host_discovery_start', 0)
     def wait(self, *args):
+        assert self.pthread_worker, 'cancellable pthread wait on a foreign kernel thread'
         self.calls.append('wait')
         self.values['s_shutdown'] = 1  # Stop the serial worker at its inactive wait point.
         self.values['s_active_generation'] = 0
@@ -158,7 +167,7 @@ class DiscoveryLifecycle(unittest.TestCase):
         source=source.replace('*generation = s_generation;', 'set_generation(s_generation);')
         source=re.sub(r'memmove\(&s_snapshot.hosts\[i\].*?;', 'shift_hosts(i);', source, flags=re.S)
         source=re.sub(r'memmove\(&s_seen\[i\].*?;', 'shift_seen(i);', source, flags=re.S)
-        preamble='''typedef int SceSize; typedef unsigned int uint32_t; typedef unsigned short uint16_t;
+        preamble='''typedef int pthread_attr_t; typedef unsigned int uint32_t; typedef unsigned short uint16_t;
         typedef unsigned long long uint64_t;
         typedef struct { int id; char host_id[33], name[256], internal[256], external[256], mac[18];
         int port,paired,online,prefer_external;} MoonlightHost;
@@ -179,7 +188,7 @@ class DiscoveryLifecycle(unittest.TestCase):
     def test_five_second_queries_in_one_worker_no_catch_up(self):
         m=self.model; m.latency=80000
         self.assertEqual(m.invoke('legacy_host_discovery_start',0),0)
-        m.invoke('discovery_thread',0,0)
+        m.invoke('discovery_thread',0)
         self.assertEqual(m.queries,[1,5080001,10160001])
         self.assertEqual(m.calls.count('create'),1)
         self.assertNotIn('join',m.calls)
@@ -226,30 +235,50 @@ class DiscoveryLifecycle(unittest.TestCase):
 
     def test_failed_network_freezes_age_and_deduplicates_log(self):
         m=self.model;m.query_result=-15;m.invoke('legacy_host_discovery_start',0)
-        m.invoke('discovery_thread',0,0)
+        m.invoke('discovery_thread',0)
         self.assertEqual(m.values['s_healthy_time'],0)
         self.assertEqual(len(m.logs),1)
         self.assertEqual(len(m.queries),3)
 
     def test_unrenewed_ui_lease_closes_socket_without_waiting_on_ui(self):
         m=self.model;m.renew=False;m.invoke('legacy_host_discovery_start',0)
-        m.invoke('discovery_thread',0,0)
+        m.invoke('discovery_thread',0)
         self.assertLessEqual(m.now,260001)
         self.assertEqual(m.calls.count('close'),1)
         self.assertNotIn('join',m.calls)
         self.assertTrue(m.invoke('legacy_host_discovery_is_idle'))
 
-    def test_exact_start_errors_retry_and_final_shutdown_joins(self):
-        m=self.model;m.create_result=-123
-        self.assertEqual(m.invoke('legacy_host_discovery_start',0),-123)
-        self.assertEqual(m.values['s_thread'],-1)
-        m.create_result=10;m.start_result=-234
-        self.assertEqual(m.invoke('legacy_host_discovery_start',0),-234)
-        self.assertEqual(m.calls[-1],'delete')
-        m.start_result=0;m.invoke('legacy_host_discovery_start',0)
+    def test_pthread_setup_errors_cleanup_retry_and_final_shutdown_joins(self):
+        m=self.model
+        m.attr_result=12
+        self.assertEqual(m.invoke('legacy_host_discovery_start',0),-12)
+        self.assertEqual(m.calls,['attr_init'])
+        self.assertFalse(m.values['s_thread_created'])
+        m.attr_result=0;m.stack_result=22;m.calls.clear()
+        self.assertEqual(m.invoke('legacy_host_discovery_start',0),-22)
+        self.assertEqual(m.calls,['attr_init','stack','attr_destroy'])
+        m.stack_result=0;m.create_result=11;m.calls.clear()
+        self.assertEqual(m.invoke('legacy_host_discovery_start',0),-11)
+        self.assertEqual(m.calls,['attr_init','stack','create','attr_destroy'])
+        self.assertFalse(m.values['s_thread_created'])
+        m.create_result=0;m.invoke('legacy_host_discovery_start',0)
+        self.assertTrue(m.values['s_thread_created'])
         m.invoke('legacy_host_discovery_shutdown')
-        self.assertEqual(m.calls[-2:],['join','delete'])
-        self.assertEqual(m.values['s_thread'],-1)
+        self.assertEqual(m.calls[-1],'join')
+        self.assertFalse(m.values['s_thread_created'])
+
+    def test_connect_barrier_has_no_cancellable_wait_on_a_paf_thread(self):
+        m=self.model;m.values['s_active_generation']=1
+        def release(duration):
+            self.assertEqual(duration,10000)
+            m.values['s_active_generation']=0
+            m.calls.append('release')
+        m.values['sceKernelDelayThread']=release
+        m.invoke('legacy_host_discovery_wait_idle')
+        self.assertEqual(m.calls,['release'])
+        self.assertFalse(m.pthread_worker)
+        self.assertNotIn('sceKernelCreateThread',self.native)
+        self.assertIn('pthread_create(&s_thread, &attr, discovery_thread, NULL)',self.native)
 
     def test_service_generation_acceptance_requires_current_active_search(self):
         m=self.model

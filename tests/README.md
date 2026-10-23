@@ -1,6 +1,6 @@
 # Focused checks
 
-Latest recorded source gate: **194 checks including Main background discovery (2026-10-23)**.
+Latest recorded source gate: **195 checks including Main background discovery (2026-10-23)**.
 See [the repeat Ponytail audit](../docs/PONYTAIL_REAUDIT_2026-10-23.md) for the latest
 baseline, per-change checks and native gates; [the earlier refactor audit](../docs/REFACTOR_AUDIT.md)
 records the preceding pass. Counts in the
@@ -19,6 +19,11 @@ five-second completion-to-send deadlines (including simulated send latency), one
 renewals/restarts, no catch-up, cancellation/stale observations, unchanged/value-copied snapshots,
 expiry refresh, error-frozen age/log deduplication, lease timeout and final cleanup. Connect's
 worker barrier and UI idle-poll wiring are also inspected.
+The pause-crash follow-up changes worker control mocks to require pthread creation before
+cancellable condition waiting, checks 64 KiB attributes and init/stack/create failure cleanup,
+retry and final join, and interprets the Connect job's worker-only idle polling without pthread
+condition waits on foreign PAF threads. The supplied core/local ELF establish the native failure
+separately (UI guide); the serial model cannot reproduce Vita pthread TLS/ABI itself.
 `test_host_lists.py` interprets actual Main eligibility, saved/discovered merging, identity,
 row-state/token preparation, incremental cell-edit planner, deletion and captured selection/
 canonicalization. It covers >8 rows, equal names, stronger conflicting identity/custom ports,
