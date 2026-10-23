@@ -585,6 +585,9 @@ source checks model the ordering, while maintainer build/Vita validation remains
 - `page_stream` is opened with `graphics_flag = 0x80` and a higher draw priority (`Base` special-cases its id).
 - Do not add a second page stack.
 
+Unused `Id()`/`Root()` accessors were removed in the 2026-10-23 simplification
+follow-up **[code]**. Existing page identity, scene ownership and navigation remain.
+
 ### 4.2 Templates (`<templatetable>`)
 
 | Template | Child ids | Used by | Purpose |

@@ -8,8 +8,6 @@ public:
     Base(const char *id,const char *back_id,paf::Plugin::TransitionType open_transition,paf::Plugin::TransitionType close_transition);
     virtual ~Base();
     virtual Type GetType() = 0;
-    const char *Id() const { return m_id; }
-    paf::ui::Scene *Root() const { return root; }
     bool IsValid() const { return m_registered; }
     static Base *GetCurrent();
     static bool IsOpen(const char *id);
