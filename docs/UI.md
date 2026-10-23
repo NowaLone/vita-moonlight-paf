@@ -823,26 +823,16 @@ style owns only the background/glow, while CXML widget layout positions the icon
 The original `image_obj` placement failed in the supplied screenshot (see §5.2).
 Build and Vita appearance/focus/touch validation of the corrected layout remain **[open]**.
 
-`tex_add_pc_cross` (`texture/add_pc_cross.png`, **46 x 46 RGBA [code]**) is the
-unchanged indexed-GIM-to-PNG export of the white Wi-Fi remove/cross texture,
-ID hash `0x757ab4e8`, from the maintainer-supplied `wifi_settings_plugin.rco`
-(SHA-256 `564c0ba09f9ecdf7fd7bde1005ff481997f9c8cebfa1709e0a8f3e016dea0f37`).
-Its decoded RGBA SHA-256 is
-`2959aa00769ffbfcfcbe1454b364c787b550abbfc0e07344952209dc1a1fc440`.
-Main composes the Add PC icon from the existing `tex_pc` and this cross, rotated
-**pi/4 radians [code]** in CXML to read as an addition sign. No raster redraw,
-Wi-Fi/Photos plugin loading or new runtime image handling is needed. The common
-texture named `_common_texture_icon_plus` is the yellow PS Plus logo and is not used.
-
-`tex_header_action_bg` (`texture/header_action_bg.png`, **100 x 62 RGBA [code]**)
-is derived from Photos' camera-button texture `0x883b82fc` in the supplied
-`photocam_plugin.rco` (file hash in §5.1). The camera occupies columns **26..73**;
-the background pixels in columns **25 and 74** are identical on every row.
-Repeating column **25** across **26..73** removes only the baked glyph while retaining
-the original gradient, rounded edges, shadow and alpha outside that strip **[code]**.
-Decoded RGBA SHA-256:
-`a2be5edda575dbab6ce7414900fcc9155d847e4fa1bb80e7de97c8029fb5f902`.
-This is a reconstructed blank Photos button background, not an unchanged Sony asset.
+`tex_add_pc` (`texture/tx_man.png`, **100 x 62 RGBA [code, 2026-10-24]**) is the
+maintainer-supplied finished Add PC button artwork. Background, monitor and plus
+are baked into this one image, as the camera is in Photos' button. The supplied
+PNG is copied byte-for-byte; no redraw, crop, resize or conversion is applied.
+File SHA-256:
+`83fb42a9a4682f3d9c6bcaf3780410f90bbedefd22077caaa996c4d5c8896fb0`.
+Its alpha >= **200/255** bounds are **[7, 8, 93, 54)**, preserving Photos' visible
+**86 x 46** body inside the source canvas **[code, decoded pixels]**. This replaces
+the former reconstructed blank background and separate Wi-Fi cross assets; both
+unused PNGs and texture definitions are removed. `tex_pc` remains the PC-row icon.
 
 ### 4.5 Code helpers (`include/common.h`)
 
@@ -1119,11 +1109,11 @@ confirms the actual layout: templates `0x3040266a` / `0x6fe191e2` contain button
 `0x802ab201` uses a background object and native `_common_texture_button_glow`
 with scale modes **2/2**, scale value **86 x 46**, blend **2 [code]**.
 The camera/play glyph is baked into Photos' local background textures. Moonlight
-bundles a blank background reconstructed from the camera texture (see §4.4), not
-the full camera/play artwork.
+now uses the maintainer's finished `tx_man.png` with PC-plus artwork baked into its
+background in the same way (see §4.4, updated 2026-10-24).
 
 The background's **100 x 62** source canvas must not be confused with its visible
-body. Both the original Photos camera texture and `tex_header_action_bg` have
+body. Both the original Photos camera texture and the supplied `tex_add_pc` have
 alpha >= **200/255** bounds **[7, 8, 93, 54)**, i.e. **86 x 46 [code, decoded pixels]**.
 At the resource's unscaled layout position, the canvas starts at screen **(2, 33)**;
 its solid body therefore occupies **[9, 41, 95, 87) [code]**, matching the screenshot
@@ -1134,20 +1124,18 @@ standard PAF background was a different texture and did not establish Photos siz
 
 Main now matches the decoded Photos button geometry: **100 x 62** canvas centred at
 **(52, 64)**, **88 x 48** focus frame (shape **0**), and **86 x 46** glow with scale
-modes **2/2**, blend **2 [code]**. `btn_add_pc` binds `tex_header_action_bg` through
+modes **2/2**, blend **2 [code]**. `btn_add_pc` binds `tex_add_pc` through
 its `texture` attribute; `style_button_header_action` leaves its background planeobj
 empty, exactly as Photos does. This replaces the previous style-level texture
-assignment. Background pixels/alpha, position and these layout/style parameters are
-source-compared; final PAF rendering is still **[open]**. The reference screenshot
+assignment. The supplied texture's alpha-body bounds, position and these layout/style
+parameters are source-compared; final PAF rendering is still **[open]**. The reference screenshot
 is in selection mode and the camera appears dimmed **[shot]**; this change follows
 the resource's white **1, 1, 1, 1 [code]** normal button color. State-dependent
 runtime dimming has not been measured.
 
-Child planes retain the **48 x 48** `tex_pc` and **10 x 10** cross rotated
-**0.785398 radians**, shifted **4 px up [code]** into the monitor's screen.
-The custom PC-plus artwork retains its proportions; it is not Photos' baked camera
-glyph. Both planes ignore hits and are non-focusable; the button owns touch, focus
-and the existing decide callback.
+The supplied texture replaces the separate PC/cross child planes. No overlay,
+rotation or icon-specific sizing remains; the native button owns the complete
+artwork, touch, focus and the existing decide callback **[code, 2026-10-24]**.
 The icon has no text label. The previous bottom-wide button/box and unused prompt
 string are removed. Main's title and host-list/selection-bar geometry stay unchanged.
 

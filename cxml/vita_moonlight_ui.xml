@@ -16,17 +16,9 @@
 
       <plane style="_common_style_plane_transparent" id="plane_main_actions">
         <layout_hint anchor="1, 2" size="100, 62" pos="52, -64" />
-        <button sound="_common_sound_button_enter" style="style_button_header_action" texture="tex_header_action_bg" id="btn_add_pc">
+        <button sound="_common_sound_button_enter" style="style_button_header_action" texture="tex_add_pc" id="btn_add_pc">
           <layout_hint size="100, 62" />
           <focus_hint focus_shape="0" focus_size="88, 48" />
-          <plane texture="tex_pc" hit_ignore="1" id="plane_add_pc_icon">
-            <layout_hint size="48, 48" />
-            <focus_hint enable="0" />
-          </plane>
-          <plane texture="tex_add_pc_cross" hit_ignore="1" id="plane_add_pc_cross">
-            <layout_hint size="10, 10" pos="0, 4" rot="0, 0, 0.785398" />
-            <focus_hint enable="0" />
-          </plane>
         </button>
       </plane>
 
@@ -261,8 +253,7 @@
     <texture src="texture/host_available.png" id="tex_host_available" type="texture/png" />
     <texture src="texture/host_unconfirmed.png" id="tex_host_unconfirmed" type="texture/png" />
     <texture src="texture/pc.png" id="tex_pc" type="texture/png" />
-    <texture src="texture/add_pc_cross.png" id="tex_add_pc_cross" type="texture/png" />
-    <texture src="texture/header_action_bg.png" id="tex_header_action_bg" type="texture/png" />
+    <texture src="texture/tx_man.png" id="tex_add_pc" type="texture/png" />
     <texture src="texture/controller_light_ds4.png" id="_controller_light_ds4" type="texture/png" />
     <texture src="texture/controller_light_left.png" id="_controller_light_left" type="texture/png" />
     <texture src="texture/controller_light_right.png" id="_controller_light_right" type="texture/png" />
