@@ -34,6 +34,7 @@ public:
     bool HasHosts() const { return m_host_count > 0; }
 
 private:
+    static void AvailabilityTask(void *userdata);
     static void OnHostButton(int32_t type, paf::ui::Handler *self, paf::ui::Event *event, void *userdata);
     static void InitialRefreshTask(void *userdata);
     static void OnMoonlightEvent(const MoonlightEvent *event, void *userdata);
@@ -75,6 +76,7 @@ private:
     uint32_t m_next_host_token;
     int m_host_count;
     bool m_connecting;
+    bool m_settings_suspended;
     int m_initial_refresh_attempts;
     int m_initial_refresh_stable_count;
 

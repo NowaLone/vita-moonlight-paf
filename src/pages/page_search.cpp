@@ -5,6 +5,7 @@
 
 #include "pages/page_search.h"
 #include "pages/host_list.h"
+#include "pages/host_availability.h"
 #include "pages/page_apps.h"
 #include "pages/page_pairing.h"
 #include "pages/page_main.h"
@@ -45,6 +46,7 @@ Search::Search()
 
     MoonlightApp::Instance()->SetEventCallback(OnMoonlightEvent, this);
 
+    paf::common::MainThreadCallList::Register(AvailabilityTask, this);
     ShowEmptyState();
     int result = MoonlightApp::Instance()->Discovery().Start();
     if (result != 0) {
@@ -53,6 +55,9 @@ Search::Search()
 }
 
 Search::~Search() {
+    paf::common::MainThreadCallList::Unregister(AvailabilityTask, this);
+    MoonlightApp::Instance()->Hosts().StopAvailability(this);
+
     MoonlightApp::Instance()->Discovery().Stop();
 
     Main *main = Main::Instance();
@@ -61,6 +66,18 @@ Search::~Search() {
     } else {
         MoonlightApp::Instance()->SetEventCallback(NULL, NULL);
     }
+}
+
+void Search::AvailabilityTask(void *userdata)
+{
+    Search *search = static_cast<Search *>(userdata);
+    MoonlightApp *app = MoonlightApp::Instance();
+    if (!app->IsInitialized() || Base::GetCurrent() != search ||
+        search->m_host_selected || app->Connection().IsBusy()) {
+        app->Hosts().StopAvailability(search);
+        return;
+    }
+    app->Hosts().CheckAvailability(search, search->m_hosts);
 }
 
 void Search::RestoreEventCallback() {
@@ -93,6 +110,7 @@ paf::ui::ListItem *Search::CreateListItem(
         this);
 
     const MoonlightHost &host = m_hosts[param.cell_index];
+    set_host_availability(item, host);
     set_child_text(item, "text_host_title", host.name[0] ? host.name : "PC");
     set_child_text(
         item,
@@ -288,6 +306,10 @@ void Search::OnMoonlightEvent(
 
     switch (event->type) {
     case MOONLIGHT_EVENT_HOST_SCAN_STARTED:
+        break;
+
+    case MOONLIGHT_EVENT_HOST_AVAILABILITY_CHANGED:
+        update_host_availability(search->m_list, search->m_hosts);
         break;
 
     case MOONLIGHT_EVENT_HOSTS_CHANGED:

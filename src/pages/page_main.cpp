@@ -9,6 +9,7 @@
 
 #include "pages/page_main.h"
 #include "pages/host_list.h"
+#include "pages/host_availability.h"
 #include "pages/page_search.h"
 #include "pages/page_apps.h"
 #include "pages/page_pairing.h"
@@ -224,6 +225,7 @@ Main::Main()
       m_next_host_token(0),
       m_host_count(0),
       m_connecting(false),
+      m_settings_suspended(false),
       m_initial_refresh_attempts(0),
       m_initial_refresh_stable_count(0),
       m_ime_open(false),
@@ -274,6 +276,20 @@ Main::Main()
 
     HideStatus();
     paf::common::MainThreadCallList::Register(InitialRefreshTask, this);
+    paf::common::MainThreadCallList::Register(AvailabilityTask, this);
+}
+
+void Main::AvailabilityTask(void *userdata)
+{
+    Main *main = static_cast<Main *>(userdata);
+    MoonlightApp *app = MoonlightApp::Instance();
+    if (!app->IsInitialized() || Base::GetCurrent() != main || main->m_connecting ||
+        main->m_settings_suspended || main->m_ime_open || main->m_ime_retry_pending ||
+        main->m_delete_dialog_open || app->Connection().IsBusy()) {
+        app->Hosts().StopAvailability(main);
+        return;
+    }
+    app->Hosts().CheckAvailability(main, main->m_hosts);
 }
 
 void Main::InitialRefreshTask(void *userdata)
@@ -333,6 +349,9 @@ void Main::InitialRefreshTask(void *userdata)
 
 Main::~Main()
 {
+    paf::common::MainThreadCallList::Unregister(AvailabilityTask, this);
+    MoonlightApp::Instance()->Hosts().StopAvailability(this);
+
     if (m_delete_dialog_task_registered) {
         paf::common::MainThreadCallList::Unregister(SelectionDialogPollTask, this);
         m_delete_dialog_task_registered = false;
@@ -441,6 +460,7 @@ paf::ui::ListItem *Main::CreateListItem(
         m_rows[param.cell_index].checkbox);
 
     const MoonlightHost &host = m_hosts[param.cell_index];
+    set_host_availability(item, host);
 
     /* Name as the title, address as the lighter description, like PS4 Link. */
     set_child_text(
@@ -1116,6 +1136,11 @@ void Main::OnMoonlightEvent(const MoonlightEvent *event, void *userdata)
     if (!main || !event) return;
 
     switch (event->type) {
+    case MOONLIGHT_EVENT_HOST_AVAILABILITY_CHANGED:
+        update_host_availability(static_cast<paf::ui::ListView *>(
+            main->root->FindChild("list_view_main")), main->m_hosts);
+        break;
+
     case MOONLIGHT_EVENT_HOSTS_CHANGED:
         main->RefreshHosts();
         break;
@@ -1192,12 +1217,15 @@ void Main::OnMoonlightEvent(const MoonlightEvent *event, void *userdata)
 
 void Main::SuspendForSystemSettings()
 {
+    m_settings_suspended = true;
+    MoonlightApp::Instance()->Hosts().StopAvailability(this);
     if (!root) return;
     root->SetActivate(false);
 }
 
 void Main::RestoreAfterSystemSettings()
 {
+    m_settings_suspended = false;
     if (!root) return;
     root->SetActivate(true);
 }

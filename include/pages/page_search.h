@@ -25,6 +25,7 @@ public:
     paf::ui::ListItem *CreateListItem(paf::ui::listview::ItemFactory::CreateParam &param);
 
 private:
+    static void AvailabilityTask(void *userdata);
     static void OnHostButton(int32_t type, paf::ui::Handler *self, paf::ui::Event *event, void *userdata);
     static void OnMoonlightEvent(const MoonlightEvent *event, void *userdata);
     void RefreshHosts();

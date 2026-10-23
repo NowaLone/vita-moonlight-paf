@@ -27,6 +27,9 @@ public:
     virtual int AddHost(const char *address, uint16_t port, const char *name) = 0;
     virtual int DeleteHost(const MoonlightHost &host) = 0;
 
+    /* Stateless TCP reachability; never selects/persists a host or initializes GameStream. */
+    virtual int ProbeHost(const MoonlightHost &host, const MoonlightCancellation *cancel) = 0;
+
     virtual int ConnectHost(const MoonlightHost &host) = 0;
     virtual int PreparePairing(char out_pin[5]) = 0;
     virtual int PairCurrentHost(const char pin[5], const MoonlightCancellation *cancel) = 0;

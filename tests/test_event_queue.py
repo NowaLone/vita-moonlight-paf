@@ -57,6 +57,9 @@ class EventQueue(unittest.TestCase):
         dispatch = dispatch.replace('paf::thread::RMutex::main_thread_mutex.Unlock()', 'main_unlock()')
         dispatch = dispatch.replace('app->m_connection.GetCompletedJobEvent', 'job_completion')
         dispatch = dispatch.replace('app->m_connection.PrepareCompletion', 'prepare_completion')
+        dispatch = dispatch.replace('app->m_hosts.PollAvailability', 'poll_availability')
+        dispatch = dispatch.replace('app->QueueEvent(&availability)',
+                                    'moonlight_event_queue_push(&app->m_events, &availability)')
         cls.unit = c_parser.CParser().parse(
             'typedef unsigned short uint16_t; typedef unsigned long long uint64_t; typedef int bool;'
             + types + header + source +
@@ -75,11 +78,14 @@ class EventQueue(unittest.TestCase):
                     cls.constants[member.name] = value
 
     def setUp(self):
-        self.queue = dict(ordered=[slot() for _ in range(16)], snapshots=[slot(), slot()],
-                          snapshot_pending=[0, 0], pending=slot())
+        snapshot_count = self.constants['MOONLIGHT_EVENT_SNAPSHOT_COUNT']
+        self.queue = dict(ordered=[slot() for _ in range(16)],
+                          snapshots=[slot() for _ in range(snapshot_count)],
+                          snapshot_pending=[0] * snapshot_count, pending=slot())
         self.base_expression = c_runtime.expression
         self.base_execute = c_runtime.execute
-        self.library = dict(self.constants, strncpy=self.strncpy, sce_paf_strncpy=self.strncpy)
+        self.library = dict(self.constants, strncpy=self.strncpy, sce_paf_strncpy=self.strncpy,
+                            poll_availability=lambda event: 0)
         for name in self.functions:
             self.library[name] = lambda *args, name=name: self.invoke(name, *args)
         self.invoke('moonlight_event_queue_reset', self.queue)
@@ -288,6 +294,20 @@ class EventQueue(unittest.TestCase):
         self.invoke('ProcessEventTask', dict(m_events=self.queue, m_event_callback=callback_unlocked,
                                             m_event_userdata=0))
         self.assertFalse(locked[0])
+
+    def test_availability_is_coalesced_and_dispatched_on_the_main_thread(self):
+        for n in range(40):
+            self.assertEqual(self.push('HOST_AVAILABILITY_CHANGED', n), 0)
+        self.assertEqual(self.queue['count'], 0)
+        seen = []
+        self.dispatch(lambda event: 1, lambda event: seen.append(event['result']))
+        self.assertEqual(seen, [39])
+        def poll(event):
+            event.update(self.event('HOST_AVAILABILITY_CHANGED', 42))
+            return 1
+        self.library['poll_availability'] = poll
+        self.dispatch(lambda event: 1, lambda event: seen.append(event['result']))
+        self.assertEqual(seen, [39, 42])
 
     def test_dispatch_waits_for_worker_without_replaying_or_losing_following_close(self):
         self.push('STREAM_FAILED', -7, Buffer('host'))

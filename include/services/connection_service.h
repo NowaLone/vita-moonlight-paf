@@ -4,10 +4,11 @@
 #include "backend/moonlight_backend.h"
 
 class PairingService;
+class HostService;
 
 class ConnectionService {
 public:
-    ConnectionService(MoonlightBackend &backend, PairingService &pairing);
+    ConnectionService(MoonlightBackend &backend, PairingService &pairing, HostService &hosts);
     ~ConnectionService();
 
     int Connect(const MoonlightHost &host);
@@ -49,6 +50,7 @@ private:
 
     MoonlightBackend &m_backend;
     PairingService &m_pairing;
+    HostService &m_hosts;
     int32_t m_progress_dialog_slot;
     bool m_error_dialog_open;
     bool m_error_pending;

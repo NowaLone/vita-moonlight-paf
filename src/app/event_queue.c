@@ -9,6 +9,7 @@ static int snapshot_index(MoonlightEventType type)
     switch (type) {
     case MOONLIGHT_EVENT_HOSTS_CHANGED: return 0;
     case MOONLIGHT_EVENT_SETTINGS_CHANGED: return 1;
+    case MOONLIGHT_EVENT_HOST_AVAILABILITY_CHANGED: return 2;
     default: return -1;
     }
 }

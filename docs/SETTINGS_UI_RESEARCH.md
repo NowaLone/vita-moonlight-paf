@@ -188,7 +188,8 @@ validate such a feature; no PC indicator has been implemented by this research.
 
 ## Applying the indicator to PC rows: implementation assessment
 
-**Source investigation, 2026-10-23; proposal, not implemented.** The useful meaning
+**Source investigation, 2026-10-23.** The proposal below was followed by the
+[trial implementation](#trial-implementation); hardware validation remains open. The useful meaning
 for the PC browser is recent reachability of the configured GameStream endpoint.
 It should not inherit Wi-Fi's connected/connecting meaning without an explicit
 product decision. Neither a stored `paired` flag nor `ConnectionService::State()`
@@ -290,3 +291,42 @@ discovery can establish service presence without establishing trust, and pairing
 remains a separate action. HTTP reachability does not mean that `currentgame` is
 zero; a busy Sunshine host can still answer and the existing remote-Quit flow
 owns launch conflicts. Keep network/state changes separate from the artwork change.
+
+
+### Trial implementation
+
+Implemented on 2026-10-23: the minimum TCP reachability variant, two static Wi-Fi
+spheres in Main/Search and selection rows, no connecting pulse. Current geometry,
+refresh/expiry policy and ownership are canonical in [UI.md §5.2](UI.md).
+HostService owns a dedicated one-worker PAF queue, and the adapter exposes a
+stateless native socket probe. Immutable per-job host snapshots isolate obsolete
+results. UUID plus exact address/port binds observations to rows; names and row
+indices do not carry identity. Cancelling a scan invalidates all of its positives.
+The active job is checked on the main thread; observations and expiration become
+a coalesced MoonlightApp event, not worker-to-widget calls.
+
+The trial requests native resolver timeout/retry 1/1 and checks cancellation when
+that call returns. TCP waits have a one-second process-clock deadline, checking
+cancellation every 10 ms. DNS timing and resolver cancellation latency are native
+acceptance items, not a claim established by Python mocks. No libcurl or GameStream
+session state is involved. Enqueue failure remains dim and preserves the previous
+successful job as Connect's cleanup barrier. Teardown waits for the queue before
+network termination. Background network activity runs only for a requested active
+list scan; staying on a list after the 30-second positive lifetime shows dim until
+return/re-entry triggers a new scan.
+
+Non-build checks interpret the actual probe/predicates with mocked Vita results:
+TCP immediate/pending success, refused/wrong/error readiness, SO_ERROR failures,
+creation/setup/poll failures and acquired-handle cleanup, timeout/cancellation,
+DNS success/failure/cancellation, identity replacement and the exact TTL boundary.
+Submission failure preserves the drain barrier; source wiring checks cancellation
+at foreground admission and waiting inside Connect's worker. Event checks cover
+coalescing and main-thread dispatch. These do not run native threads/networking.
+
+Maintainer acceptance: build CXML/application; compare Main/Search/selection dots
+with the official screenshot; scroll enough rows to force cell reuse; confirm
+selection/focus survive result changes; test answering/refused/silent ports,
+hostnames and DNS failure, 30-second expiry and list return refresh; select a PC
+while a check is pending; leave/reopen Search, IME and Settings; stream/stop/return;
+exit during a pending check. A positive from an unrelated TCP service is an
+intentional limitation of this trial, not proof of authenticated Sunshine.

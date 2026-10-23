@@ -1,6 +1,6 @@
 # Focused checks
 
-Latest recorded source gate: **184 checks through 166bf56 (2026-10-23)**.
+Latest recorded source gate: **191 checks including the PC availability trial (2026-10-23)**.
 See [the repeat Ponytail audit](../docs/PONYTAIL_REAUDIT_2026-10-23.md) for the latest
 baseline, per-change checks and native gates; [the earlier refactor audit](../docs/REFACTOR_AUDIT.md)
 records the preceding pass. Counts in the
@@ -11,6 +11,13 @@ cases are in the API audit and `runtime/README.md`; source checks do not replace
 Non-build checks (Python 3 and pycparser):
 
     PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_*.py'
+
+The PC availability trial adds six checks in `test_host_availability.py` and one
+in `test_event_queue.py`: actual TCP probe control flow with mocked native API
+results/cleanup, cancellation and timeout; DNS handling; exact 30-second expiry and
+UUID/address/port matching; failed submission preserving the previous drain barrier;
+foreground-worker/shutdown ordering; availability snapshot coalescing and main-thread
+delivery. They do not execute native threads, sockets, DNS, PAF, ABI or layout.
 
 The earlier simplification through bcbf30d added sixteen checks beyond the 167-check remote-Quit stage:
 

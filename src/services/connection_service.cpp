@@ -10,6 +10,7 @@
 #include "services/connection_service.h"
 #include "common.h"
 #include "services/pairing_service.h"
+#include "services/host_service.h"
 #include "debug.h"
 #ifdef MOONLIGHT_DISCONNECT_TEST
 #include "app/disconnect_test.h"
@@ -38,11 +39,12 @@ static bool completes_operation(ConnectionService::ForegroundOperation operation
 
 class ConnectJob : public paf::job::JobItem {
 public:
-    ConnectJob(MoonlightBackend &backend, const MoonlightHost &host, ConnectionService &connection)
+    ConnectJob(MoonlightBackend &backend, const MoonlightHost &host, ConnectionService &connection, HostService &hosts)
         : paf::job::JobItem("ConnectionService::ConnectJob", NULL),
           m_backend(backend),
           m_host(host),
-          m_connection(connection)
+          m_connection(connection),
+          m_probe_barrier(hosts.AvailabilityBarrier())
     {
     }
 
@@ -50,6 +52,7 @@ public:
 
     virtual void Run()
     {
+        HostService::WaitForAvailability(m_probe_barrier);
         int result = m_backend.ConnectHost(m_host);
         if (result != 0) {
             vita_debug_log("[ConnectionService] Connect job failed result=%d", result);
@@ -63,13 +66,15 @@ private:
     MoonlightBackend &m_backend;
     MoonlightHost m_host;
     ConnectionService &m_connection;
+    paf::common::SharedPtr<paf::job::JobItem> m_probe_barrier;
 };
 
 }
 
-ConnectionService::ConnectionService(MoonlightBackend &backend, PairingService &pairing)
+ConnectionService::ConnectionService(MoonlightBackend &backend, PairingService &pairing, HostService &hosts)
     : m_backend(backend),
       m_pairing(pairing),
+      m_hosts(hosts),
       m_progress_dialog_slot(-1),
       m_error_dialog_open(false),
       m_error_pending(false),
@@ -99,6 +104,7 @@ int ConnectionService::BeginOperation(ForegroundOperation operation)
 {
     if (operation == Operation_None || IsBusy()) return -1;
 
+    m_hosts.CancelAvailability();
     m_operation = operation;
     __atomic_store_n(&m_worker_done, 0, __ATOMIC_RELEASE);
     m_worker_result = 0;
@@ -416,7 +422,7 @@ int ConnectionService::Connect(const MoonlightHost &host)
     }
 
     paf::common::SharedPtr<paf::job::JobItem> item(
-        new ConnectJob(m_backend, host, *this)
+        new ConnectJob(m_backend, host, *this, m_hosts)
     );
 
     int result = paf::job::JobQueue::default_queue->Enqueue(item);

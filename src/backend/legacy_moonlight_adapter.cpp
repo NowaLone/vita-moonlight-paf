@@ -6,6 +6,7 @@
 #include "moonlight/settings.h"
 #include "backend/legacy_device_store.h"
 #include "debug.h"
+#include "legacy/legacy_host_probe.h"
 
 LegacyMoonlightAdapter::LegacyMoonlightAdapter()
     : m_connection_state(MOONLIGHT_CONNECTION_DISCONNECTED),
@@ -102,6 +103,11 @@ int LegacyMoonlightAdapter::AddHost(const char *address, uint16_t port, const ch
 int LegacyMoonlightAdapter::DeleteHost(const MoonlightHost &host)
 {
     return legacy_device_store_delete_host(&host);
+}
+
+int LegacyMoonlightAdapter::ProbeHost(const MoonlightHost &host, const MoonlightCancellation *cancel)
+{
+    return legacy_host_probe(&host, cancel);
 }
 
 int LegacyMoonlightAdapter::ConnectHost(const MoonlightHost &host)

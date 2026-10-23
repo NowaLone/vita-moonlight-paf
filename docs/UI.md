@@ -971,10 +971,44 @@ Ordinary row text retains x = 175: `pos="175, -9"` (title) and `pos="175, -45"`
 x = 255 with width 620, preserving the right text edge at x = 875. These icon/selection
 values are source layout choices, not screenshot matches or hardware verification **[open]**.
 
-The [PC indicator assessment](SETTINGS_UI_RESEARCH.md#applying-the-indicator-to-pc-rows-implementation-assessment)
-records how the Wi-Fi artwork could fit these rows, current discovery/connection
-limitations and a bounded reachability-check proposal **[code investigation, 2026-10-23]**.
-This is a design proposal; no availability indicator, probe or polling loop is implemented.
+Main/Search PC rows now reuse the official Wi-Fi green/dim sphere artwork as a
+27×27 noninteractive plane **[code, trial implementation 2026-10-23; not hw]**.
+Normal rows: dot centre x=178, title/address x=208, width 667; selection rows add
+80 px (dot x=258, text x=288, width 587). The PC icon, checkbox and text right edge
+x=875 remain. Apps rows do not have this indicator. PNGs are byte-preserving
+30×30 exports of `wifi_settings_plugin.rco` texture IDs `fbd879ae` (green) and
+`9718c305` (dim), displayed smaller by CXML.
+
+Green means the configured `internal` IPv4/hostname + GameStream port accepted TCP
+within the last 30 seconds. It does not authenticate Sunshine or establish pairing,
+app idleness or streaming readiness. Dim means no fresh confirmation, including
+unchecked, failed, cancelled and expired results; it does not establish power-off.
+The stored/discovered `online` field is not used. Results stay in memory only.
+
+`HostService` owns one dedicated single-worker PAF job queue. Active Main/Search
+request one scan on entry/return or a changed UUID/address/port snapshot; there is
+no periodic network refresh. Page call-list tasks only manage scan ownership.
+`MoonlightApp::ProcessEventTask` collects observations/expiry and delivers a
+coalesced `HOST_AVAILABILITY_CHANGED` snapshot event. Factories initialize new
+cells; event handlers change textures on generated cells without rebuilding the
+list or replacing row tokens. Focus, scrolling and selection are preserved by design.
+
+Leaving/hiding the list, IME, Delete confirmation, Settings and foreground busy
+cancel the owned scan. Foreground admission cancels any probe; Connect's existing
+worker waits for the last successfully queued scan before touching GameStream.
+The single-worker FIFO also drains older cancelled scans; failed submissions do
+not replace that barrier. Ordinary cancellation never joins on the PAF thread.
+Application teardown drains/deletes this queue before backend/network shutdown.
+
+`legacy_host_probe.c` uses an isolated nonblocking socket, a one-second monotonic
+connect budget and 10 ms cancellation polling. Numeric IPv4 bypasses DNS; native
+resolver timeout/retry parameters are 1/1, with cancellation checked on return
+(the native DNS call itself is not interrupted). No HTTP, credentials, server
+selection or curl/crypto initialization occurs. DNS timing/cancellation latency,
+PAF queue operation, scrolling texture changes and actual layout still require a
+maintainer build/Vita run. Source mocks do not verify native timing or ABI.
+See the [assessment and trial notes](SETTINGS_UI_RESEARCH.md#trial-implementation)
+for the design limits and acceptance cases.
 
 ### 5.3 Bottom bars
 

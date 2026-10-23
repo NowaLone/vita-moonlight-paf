@@ -109,7 +109,7 @@ MoonlightApp::MoonlightApp()
       m_hosts(m_backend),
       m_discovery(m_backend),
       m_pairing(m_backend),
-      m_connection(m_backend, m_pairing),
+      m_connection(m_backend, m_pairing, m_hosts),
       m_applications(m_backend, m_connection),
       m_settings(m_backend),
       m_event_callback(NULL),
@@ -233,6 +233,7 @@ void MoonlightApp::Shutdown()
     }
 
     m_pairing.Cancel();
+    m_hosts.Shutdown();
     m_connection.Shutdown();
     moonlight_log_memory_budget("app-shutdown");
     m_backend.Shutdown();
@@ -304,6 +305,9 @@ void MoonlightApp::ProcessEventTask(void *userdata)
 #ifdef MOONLIGHT_DISCONNECT_TEST
     disconnect_test_poll(*app);
 #endif
+
+    MoonlightEvent availability;
+    if (app->m_hosts.PollAvailability(&availability)) app->QueueEvent(&availability);
 
     while (true) {
         MoonlightEvent event;
