@@ -244,15 +244,8 @@
       <planeobj texture0="_common_texture_list_glow_70px" blend="2" id="plane_obj1" />
     </style_image_button>
 
-    <style_image_button layout_type_x="0" layout_type_y="0" color="1, 1, 1, 1" glow_obj="plane_obj1" bg_obj="plane_obj2" image_obj="plane_obj3" id="style_image_button_host">
+    <style_image_button layout_type_x="0" layout_type_y="0" color="1, 1, 1, 1" glow_obj="plane_obj1" bg_obj="plane_obj2" id="style_image_button_host">
       <planeobj texture0="_common_texture_list_70px" id="plane_obj2" />
-      <planeobj texture0="tex_pc" scale_mode_y="3" scale_mode_x="3" size="80, 80" pos="-360, 0" id="plane_obj3" />
-      <planeobj texture0="_common_texture_list_glow_70px" blend="2" id="plane_obj1" />
-    </style_image_button>
-
-    <style_image_button layout_type_x="0" layout_type_y="0" color="1, 1, 1, 1" glow_obj="plane_obj1" bg_obj="plane_obj2" image_obj="plane_obj3" id="style_image_button_host_select">
-      <planeobj texture0="_common_texture_list_70px" id="plane_obj2" />
-      <planeobj texture0="tex_pc" scale_mode_y="3" scale_mode_x="3" size="80, 80" pos="-280, 0" id="plane_obj3" />
       <planeobj texture0="_common_texture_list_glow_70px" blend="2" id="plane_obj1" />
     </style_image_button>
 
@@ -340,6 +333,9 @@
             <focus_hint focus_shape="3" />
             <layout_hint size="840, 80" />
           </image_button>
+          <plane texture="tex_pc" id="plane_host_pc">
+            <layout_hint anchor="1, 0" align="0, 0" size="80, 80" pos="120, 0" />
+          </plane>
           <plane texture="tex_host_unconfirmed" id="plane_host_availability">
             <layout_hint anchor="1, 0" align="0, 0" size="27, 27" pos="178, 0" />
           </plane>
@@ -355,10 +351,13 @@
       <template fast_open="1" id="template_host_list_item_select">
         <list_item style="style_list_view_item_generic" id="list_item_host_select">
           <layout_hint size="960, 80" />
-          <image_button sound="_common_sound_image_button" enable_long_press_text_auto_scroll="1" style="style_image_button_host_select" id="image_button_host_select">
+          <image_button sound="_common_sound_image_button" enable_long_press_text_auto_scroll="1" style="style_image_button_host" id="image_button_host_select">
             <focus_hint focus_shape="3" />
             <layout_hint size="840, 80" />
           </image_button>
+          <plane texture="tex_pc" id="plane_host_select_pc">
+            <layout_hint anchor="1, 0" align="0, 0" size="80, 80" pos="200, 0" />
+          </plane>
           <plane texture="tex_host_unconfirmed" id="plane_host_select_availability">
             <layout_hint anchor="1, 0" align="0, 0" size="27, 27" pos="258, 0" />
           </plane>

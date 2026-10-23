@@ -617,8 +617,8 @@ ownership remains in ConnectionService.
 | `template_list_view_generic` | `list_view_generic` (960 x 448) | Search, Apps | list that runs to the bottom of the screen |
 | `template_list_view_main` | `list_view_main` (960 x 384) | Main | list that ends where the bar starts (y = 480) |
 | `template_list_item_generic` | `list_item_generic`, `image_button_list_item` | Apps | single-label row |
-| `template_host_list_item` | `list_item_host`, `image_button_host`, `text_host_title`, `text_host_desc` | Main, Search | saved/found PC row: PC icon, title and description |
-| `template_host_list_item_select` | `list_item_host_select`, `image_button_host_select`, `text_host_select_title`, `text_host_select_desc`, `checkbox_host_select` | Main (selection mode) | same row with a checkbox |
+| `template_host_list_item` | `list_item_host`, `image_button_host`, `plane_host_pc`, `text_host_title`, `text_host_desc` | Main, Search | saved/found PC row: PC icon, title and description |
+| `template_host_list_item_select` | `list_item_host_select`, `image_button_host_select`, `plane_host_select_pc`, `text_host_select_title`, `text_host_select_desc`, `checkbox_host_select` | Main (selection mode) | same row with a checkbox |
 | `template_flow_bar` | `plane_flow_bar` + three edge planes | Pairing | opaque PS4 Link style bottom bar (no buttons) |
 
 ### 4.3 Styles (`<styletable>`)
@@ -658,7 +658,7 @@ waiting to acquire the frame mutex.
 See [STREAM_DIAGNOSTICS_PLAN.md](STREAM_DIAGNOSTICS_PLAN.md) for metric definitions and remaining work.
 
 Buttons and lists: `style_image_button_list_button` (list row button with the empty 102 x 70 icon slot),
-`style_image_button_host` / `style_image_button_host_select` (PC rows with the fixed 80 x 80 `tex_pc` image slot),
+`style_image_button_host` (shared PC-row background/glow; `tex_pc` is a separate 80 x 80 plane),
 `style_button_option_top` / `style_button_option_bottom` (popup buttons), `style_list_view_generic`,
 `style_list_view_item_generic`.
 
@@ -693,10 +693,12 @@ remain **[open]**; the common RCO and extracted GIM/PNG are not bundled in the p
 `tex_pc` (`texture/pc.png`, 80 x 80 RGBA) is the original Sony Music PC-source icon,
 extracted from the maintainer-supplied `musicbrowser_plugin.rco` and converted from GIM
 to PNG with its original dimensions and transparency. It is bundled in this application's
-RCO and bound to the native ImageButton `image_obj` in both host-row styles; loading the
-Music plugin is unnecessary. Main and Search share the ordinary template; Main deletion
-uses the selection template **[code, 2026-10-23]**. Build and Vita appearance/focus/touch
-validation of the icon and selection spacing remain **[open]**.
+RCO and drawn by the row's separate `plane_host_pc` / `plane_host_select_pc`;
+loading the Music plugin is unnecessary. Main and Search share the ordinary template;
+Main deletion uses the selection template **[code, 2026-10-23]**. A shared ImageButton
+style owns only the background/glow, while CXML widget layout positions the icon.
+The original `image_obj` placement failed in the supplied screenshot (see §5.2).
+Build and Vita appearance/focus/touch validation of the corrected layout remain **[open]**.
 
 ### 4.5 Code helpers (`include/common.h`)
 
@@ -964,12 +966,19 @@ the first list row can also contribute its own edge. Final combined appearance n
 
 Title 28 px regular, cap centre 25 px below the row top; description 22 px at 85% white, cap centre 58.5 px below the
 row top. PS4 Link text starts at x = 220 because of its icon column. Main/Search PC rows
-now use the Music `tex_pc` icon in an 80 x 80 image slot centred at row x = 120
-(`planeobj pos="-360, 0"` within the centred 840 px button) **[code, 2026-10-23]**.
-Ordinary row text retains x = 175: `pos="175, -9"` (title) and `pos="175, -45"`
-(description), width 700. Selection rows shift the icon centre to x = 200 and text to
-x = 255 with width 620, preserving the right text edge at x = 875. These icon/selection
-values are source layout choices, not screenshot matches or hardware verification **[open]**.
+use the Music `tex_pc` icon in an 80 x 80 sibling `plane`, centred at row x = 120
+(normal) or x = 200 (selection): `anchor="1, 0"`, `align="0, 0"`, `pos="120, 0"`
+or `pos="200, 0"` **[code, 2026-10-23]**. These place the icon bounds at x=80..160
+or x=160..240, before the availability dot and text described below.
+
+The maintainer's `2026-10-23-023359.jpg` shows the original icon centred at screen
+x≈480 and overlapping PC names **[shot]**. The original ImageButton `image_obj`
+`planeobj pos="-360, 0"` / `"-280, 0"` did not produce its intended position in
+that run. The correction uses widget layout for the icon, alongside the row's text
+and availability plane, avoiding ImageButton's internal image positioning.
+Both modes share the background/glow style; button ids, focus and selection callbacks
+are unchanged. Corrected appearance and touch/focus still require a rebuilt RCO/Vita
+check **[open]**; the supplied shot does not validate the correction.
 
 Main/Search PC rows now reuse the official Wi-Fi green/dim sphere artwork as a
 27×27 noninteractive plane **[code, trial implementation 2026-10-23; not hw]**.
