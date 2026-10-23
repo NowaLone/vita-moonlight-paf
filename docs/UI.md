@@ -643,6 +643,12 @@ single-option styles, unused Main/Apps selected-index fields and unused Pairing 
 storage. Active templates, geometry, focus and native dialog messages are unchanged. XML reference/
 text-style checks pass; this does not establish RCO compilation or native rendering.
 
+Locale XML hygiene, 2026-10-23 **[code]**: escaped the ampersand in `msg_swap_xo`
+and the less-than sign in `msg_swap_shoulders` so `cxml/locale/en.xml` is well-formed
+XML. The decoded labels remain `Swap X & O for Moonlight` and
+`Swap R1/L1 <-> R2/L2`. All resource XML files now have a parsing check;
+RCO compilation and native label appearance remain maintainer validation.
+
 ### 4.4 Textures
 
 `_bg_texture` (`texture/bg.png`, page background). Add a texture by copying the file into

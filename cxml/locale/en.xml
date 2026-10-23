@@ -28,7 +28,7 @@
   <string src="Enable local audio" id="msg_local_audio" />
 
   <string src="System" id="msg_system_settings" />
-  <string src="Swap X & O for Moonlight" id="msg_swap_xo" />
+  <string src="Swap X &amp; O for Moonlight" id="msg_swap_xo" />
   <string src="Display stream statistics" id="msg_show_fps" />
   <string src="Use center region only" id="msg_center_region_only" />
   <string src="Debug log" id="msg_debug_log" />
@@ -47,7 +47,7 @@
   <string src="PlayStation" id="msg_controller_playstation" />
   <string src="Nintendo" id="msg_controller_nintendo" />
   <string src="Generic" id="msg_controller_generic" />
-  <string src="Swap R1/L1 <-> R2/L2" id="msg_swap_shoulders" />
+  <string src="Swap R1/L1 &lt;-> R2/L2" id="msg_swap_shoulders" />
   <string src="Mouse acceleration" id="msg_mouse_acceleration" />
   <string src="Enable PS button capture" id="msg_ps_button_capture" />
   <string src="Enable touchscreen special keys" id="msg_front_touchzones" />

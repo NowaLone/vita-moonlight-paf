@@ -6,6 +6,11 @@ from test_xml_source import ROOT
 
 
 class UiResources(unittest.TestCase):
+    def test_all_resource_xml_files_are_well_formed(self):
+        for path in (ROOT / 'cxml').rglob('*.xml'):
+            with self.subTest(path=path.relative_to(ROOT)):
+                ET.parse(path)
+
     def test_local_resource_references_resolve(self):
         root = ET.parse(ROOT / 'cxml/vita_moonlight_ui.xml').getroot()
         definitions = {
