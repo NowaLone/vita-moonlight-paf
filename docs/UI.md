@@ -971,6 +971,11 @@ Ordinary row text retains x = 175: `pos="175, -9"` (title) and `pos="175, -45"`
 x = 255 with width 620, preserving the right text edge at x = 875. These icon/selection
 values are source layout choices, not screenshot matches or hardware verification **[open]**.
 
+The [PC indicator assessment](SETTINGS_UI_RESEARCH.md#applying-the-indicator-to-pc-rows-implementation-assessment)
+records how the Wi-Fi artwork could fit these rows, current discovery/connection
+limitations and a bounded reachability-check proposal **[code investigation, 2026-10-23]**.
+This is a design proposal; no availability indicator, probe or polling loop is implemented.
+
 ### 5.3 Bottom bars
 
 | Bar | Look | Source |
