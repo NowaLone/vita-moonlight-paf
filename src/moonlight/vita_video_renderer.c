@@ -742,16 +742,19 @@ static int vita_video_submit(PDECODE_UNIT decode_unit)
              * required. Triple buffering keeps this buffer out of PAF's
              * current presentation while the decoder reuses it.
              */
-            for (row = 0; row < VITA_SCREEN_HEIGHT; ++row) {
-                unsigned char *destination =
-                    buffer + (size_t)row * VITA_SCREEN_WIDTH * 4u;
-                const unsigned char *source =
-                    buffer +
-                    ((size_t)(row + crop_y) * s_frame_width + crop_x) * 4u;
-                memmove(
-                    destination,
-                    source,
-                    (size_t)VITA_SCREEN_WIDTH * 4u);
+            if (s_frame_width != VITA_SCREEN_WIDTH ||
+                s_frame_height != VITA_SCREEN_HEIGHT) {
+                for (row = 0; row < VITA_SCREEN_HEIGHT; ++row) {
+                    unsigned char *destination =
+                        buffer + (size_t)row * VITA_SCREEN_WIDTH * 4u;
+                    const unsigned char *source =
+                        buffer +
+                        ((size_t)(row + crop_y) * s_frame_width + crop_x) * 4u;
+                    memmove(
+                        destination,
+                        source,
+                        (size_t)VITA_SCREEN_WIDTH * 4u);
+                }
             }
 
             if (generation) {
