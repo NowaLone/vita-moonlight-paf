@@ -519,6 +519,13 @@ Error 409 is visible in the Vita dialog on 2026-10-20 **[hw, user-reported]**; t
 supplied log independently confirms server_status=409. Other codes and long/Unicode
 message clipping/layout remain **[open]**. The OK → parent PC page behavior is unchanged.
 
+Pairing error preparation **[code, 2026-10-23]**: `ShowPairingError()` formats the
+message and delegates parameter initialization to `ShowSystemError()`. The latter
+clears the user-message structure and calls the VitaSDK `sceMsgDialogParamInit()`,
+which clears the complete parameter structure before setting its native metadata.
+The redundant earlier clears were removed; messages, buttons and dialog lifecycle
+are unchanged. Native regression validation remains with the maintainer.
+
 Pairing page destruction now requests local cancellation through PairingService
 **[code, 2026-10-20]**. A new connection also cancels any prior pairing before enqueue.
 This is nonblocking on the UI thread; queued jobs skip work, and an active HTTP pairing
