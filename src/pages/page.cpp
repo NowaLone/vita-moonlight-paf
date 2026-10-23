@@ -157,19 +157,4 @@ void Base::DefaultBackButtonCB(int32_t type,
     CloseCurrent();
 }
 
-void Base::CloseType(Type type)
-{
-    for (int i = (int)stack().size() - 1; i >= 0; --i) {
-        if (stack()[i] && stack()[i]->GetType() == type) {
-            delete stack()[i];
-            return;
-        }
-    }
-}
-
-Base *Find(const char *id)
-{
-    return Base::Find(id);
-}
-
 } // namespace page

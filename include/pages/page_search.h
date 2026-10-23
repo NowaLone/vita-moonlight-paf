@@ -20,7 +20,6 @@ public:
 
     Search();
     virtual ~Search();
-    virtual Type GetType() { return Type_Search; }
 
     void RestoreEventCallback();
     paf::ui::ListItem *CreateListItem(paf::ui::listview::ItemFactory::CreateParam &param);

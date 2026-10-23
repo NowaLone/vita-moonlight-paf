@@ -13,7 +13,6 @@ class Pairing : public Base {
 public:
     explicit Pairing(const char pin[5]);
     virtual ~Pairing();
-    virtual Type GetType() { return Type_Pairing; }
 
     void RestoreEventCallback();
 

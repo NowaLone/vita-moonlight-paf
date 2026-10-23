@@ -20,7 +20,6 @@ public:
 
     Apps();
     virtual ~Apps();
-    virtual Type GetType() { return Type_Apps; }
 
     void RestoreEventCallback();
     paf::ui::ListItem *CreateListItem(paf::ui::listview::ItemFactory::CreateParam &param);

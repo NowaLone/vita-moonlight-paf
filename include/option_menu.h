@@ -21,7 +21,6 @@ public:
     OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent, EventCb cb, void *userdata,
                bool host_actions_enabled = true);
     virtual ~OptionMenu();
-    virtual page::Type GetType() { return page::Type_OptionMenu; }
 
     static OptionMenu *Instance();
 

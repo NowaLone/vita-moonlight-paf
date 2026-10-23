@@ -470,12 +470,12 @@ Rows are 80 px tall and 960 px wide. The first row's top edge is at y = 96 and d
 
 | Class (`page::Type`) | XML page | Purpose | Back mechanism |
 |---|---|---|---|
-| `Main` (`Type_Main`) | `page_main` | saved-PC list, inline Add PC / Search PCs, selection mode | none (bottom of the stack) |
-| `Search` (`Type_Search`) | `page_search_pcs` | LAN discovery list; static text only when empty | corner button `btn_close_search` |
-| `Pairing` (`Type_Pairing`) | `page_pairing` | shows the PIN, pairs as soon as it opens | bar button `btn_close_pairing` |
-| `Apps` (`Type_Apps`) | `page_apps` | application list of the connected PC | corner button `btn_close_apps` |
-| `Stream` (`Type_Stream`) | `page_stream` | full-screen video plane, black background, optional statistics overlay; no chrome | none (closed by stream events) |
-| `OptionMenu` (`Type_OptionMenu`) | `page_settings_bubble` | speech-balloon overlay: Delete, Settings | dismiss button over the whole screen |
+| `Main` | `page_main` | saved-PC list, inline Add PC / Search PCs, selection mode | none (bottom of the stack) |
+| `Search` | `page_search_pcs` | LAN discovery list; static text only when empty | corner button `btn_close_search` |
+| `Pairing` | `page_pairing` | shows the PIN, pairs as soon as it opens | bar button `btn_close_pairing` |
+| `Apps` | `page_apps` | application list of the connected PC | corner button `btn_close_apps` |
+| `Stream` | `page_stream` | full-screen video plane, black background, optional statistics overlay; no chrome | none (closed by stream events) |
+| `OptionMenu` | `page_settings_bubble` | speech-balloon overlay: Delete, Settings | dismiss button over the whole screen |
 
 Navigation **[code]**: Main -> `OptionMenu` -> (Settings = the system AppSettings plugin | Delete = selection mode on
 Main). Main -> Search -> connect -> Pairing (unpaired host) or Apps (paired host). Main -> Add PC (inline button,
@@ -587,6 +587,11 @@ source checks model the ordering, while maintainer build/Vita validation remains
 
 Unused `Id()`/`Root()` accessors were removed in the 2026-10-23 simplification
 follow-up **[code]**. Existing page identity, scene ownership and navigation remain.
+
+The repeat audit removes the unused `CloseType()`/`Type`/`GetType()` family, free
+`page::Find()` alias and `Stream::Instance()` getter **[code, 2026-10-23]**. Pages
+still use `Base::Find()`/`IsOpen()` by CXML ID and the same stack/virtual destructor.
+These project classes are not native PAF interfaces or exported module APIs.
 
 ### 4.2 Templates (`<templatetable>`)
 

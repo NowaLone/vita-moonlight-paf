@@ -22,7 +22,6 @@ public:
 
     Main();
     virtual ~Main();
-    virtual Type GetType() { return Type_Main; }
 
     static Main *Instance();
     void SuspendForSystemSettings();

@@ -310,11 +310,6 @@ Stream::~Stream()
     m_video_plane = NULL;
 }
 
-Stream *Stream::Instance()
-{
-    return s_instance;
-}
-
 void Stream::PresentTask(void *userdata)
 {
     Stream *stream = static_cast<Stream *>(userdata);

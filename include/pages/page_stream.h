@@ -11,9 +11,7 @@ class Stream : public Base {
 public:
     Stream();
     virtual ~Stream();
-    virtual Type GetType() { return Type_Stream; }
 
-    static Stream *Instance();
     static void QueueFrame(
         void *buffer,
         unsigned int width,
