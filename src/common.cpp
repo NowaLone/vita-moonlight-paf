@@ -35,10 +35,6 @@ extern "C" void vita_debug_log(const char *fmt, ...)
     if (length < 0) {
         return;
     }
-    if (length >= (int)sizeof(line)) {
-        length = (int)sizeof(line) - 1;
-    }
-
     sceClibPrintf("%s\n", line);
 
 }
