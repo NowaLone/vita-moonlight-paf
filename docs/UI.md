@@ -834,6 +834,16 @@ Main composes the Add PC icon from the existing `tex_pc` and this cross, rotated
 Wi-Fi/Photos plugin loading or new runtime image handling is needed. The common
 texture named `_common_texture_icon_plus` is the yellow PS Plus logo and is not used.
 
+`tex_header_action_bg` (`texture/header_action_bg.png`, **100 x 62 RGBA [code]**)
+is derived from Photos' camera-button texture `0x883b82fc` in the supplied
+`photocam_plugin.rco` (file hash in §5.1). The camera occupies columns **26..73**;
+the background pixels in columns **25 and 74** are identical on every row.
+Repeating column **25** across **26..73** removes only the baked glyph while retaining
+the original gradient, rounded edges, shadow and alpha outside that strip **[code]**.
+Decoded RGBA SHA-256:
+`a2be5edda575dbab6ce7414900fcc9155d847e4fa1bb80e7de97c8029fb5f902`.
+This is a reconstructed blank Photos button background, not an unchanged Sony asset.
+
 ### 4.5 Code helpers (`include/common.h`)
 
 | Helper | Use |
@@ -852,8 +862,7 @@ Only these `_common_*` names appear in the XML and are known to resolve: `_commo
 `_common_style_corner_bottom_left`, `_common_style_corner_bottom_right`, `_common_style_plane_transparent`,
 `_common_texture_list_70px`, `_common_texture_list_glow_70px`, `_common_texture_option_menu_base_down`,
 `_common_texture_option_menu_button_{top,bottom,single}[_glow]`, `_common_texture_ruled_line`,
-`_common_texture_button`, `_common_texture_button_glow`. The last two resolve to
-hashes `0x74319925` and `0x9b7bed4b` in the supplied common resource **[code]**.
+`_common_texture_button_glow` (hash `0x9b7bed4b` in the supplied common resource) **[code]**.
 
 ### 4.7 Lists (`paf::ui::ListView`) **[code]** unless tagged
 
@@ -1109,16 +1118,19 @@ confirms the actual layout: templates `0x3040266a` / `0x6fe191e2` contain button
 **88 x 48** focus frame, shape **0 [code, decoded resource]**. Its local style
 `0x802ab201` uses a background object and native `_common_texture_button_glow`
 with scale modes **2/2**, scale value **86 x 46**, blend **2 [code]**.
-The camera/play glyph is baked into Photos' local background textures; those
-textures are not bundled into Moonlight.
+The camera/play glyph is baked into Photos' local background textures. Moonlight
+bundles a blank background reconstructed from the camera texture (see §4.4), not
+the full camera/play artwork.
 
-Main's existing `plane_main_actions` now occupies that header position and contains
-only `btn_add_pc`, with the same button/focus geometry and glow settings **[code]**.
-`style_button_header_action` uses the existing native `_common_texture_button`
-background instead of Photos' baked camera artwork. Child planes compose a
-**64 x 64** `tex_pc` and **14 x 14** cross rotated **0.785398 radians**,
-shifted **5 px up [code]** into the monitor's screen. Both planes ignore hits
-and are non-focusable; the button owns touch, focus and the existing decide callback.
+The maintainer reported the first **100 x 62** Main button was too large and requested
+the Photos background **[maintainer feedback, 2026-10-23]**. Main's existing
+`plane_main_actions` keeps the same centre but now contains an **86 x 46** `btn_add_pc`,
+with a **76 x 36** focus frame and **74 x 34** glow **[code, requested reduction]**.
+`style_button_header_action` uses `tex_header_action_bg` from Photos in place of the
+standard PAF button background. Child planes compose a smaller **48 x 48** `tex_pc`
+and **10 x 10** cross rotated **0.785398 radians**, shifted **4 px up [code]** into
+the monitor's screen. Both planes ignore hits and are non-focusable; the button
+owns touch, focus and the existing decide callback.
 The icon has no text label. The previous bottom-wide button/box and unused prompt
 string are removed. Main's title and host-list/selection-bar geometry stay unchanged.
 

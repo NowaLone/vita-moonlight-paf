@@ -15,16 +15,16 @@
       </text>
 
       <plane style="_common_style_plane_transparent" id="plane_main_actions">
-        <layout_hint anchor="1, 2" size="100, 62" pos="52, -64" />
+        <layout_hint anchor="1, 2" size="86, 46" pos="52, -64" />
         <button sound="_common_sound_button_enter" style="style_button_header_action" id="btn_add_pc">
-          <layout_hint size="100, 62" />
-          <focus_hint focus_shape="0" focus_size="88, 48" />
+          <layout_hint size="86, 46" />
+          <focus_hint focus_shape="0" focus_size="76, 36" />
           <plane texture="tex_pc" hit_ignore="1" id="plane_add_pc_icon">
-            <layout_hint size="64, 64" />
+            <layout_hint size="48, 48" />
             <focus_hint enable="0" />
           </plane>
           <plane texture="tex_add_pc_cross" hit_ignore="1" id="plane_add_pc_cross">
-            <layout_hint size="14, 14" pos="0, 5" rot="0, 0, 0.785398" />
+            <layout_hint size="10, 10" pos="0, 4" rot="0, 0, 0.785398" />
             <focus_hint enable="0" />
           </plane>
         </button>
@@ -149,8 +149,8 @@
 
   <styletable>
     <style_button color="1, 1, 1, 1" bg_obj="plane_obj_header_action" glow_obj="plane_obj_header_action_glow" id="style_button_header_action">
-      <planeobj texture0="_common_texture_button" id="plane_obj_header_action" />
-      <planeobj texture0="_common_texture_button_glow" scale_mode_x="2" scale_mode_y="2" scale_value="86, 46" blend="2" id="plane_obj_header_action_glow" />
+      <planeobj texture0="tex_header_action_bg" id="plane_obj_header_action" />
+      <planeobj texture0="_common_texture_button_glow" scale_mode_x="2" scale_mode_y="2" scale_value="74, 34" blend="2" id="plane_obj_header_action_glow" />
     </style_button>
 
     <style_plane color="0, 0, 0, 1" planeobj="plane_obj_stream_black" id="style_plane_stream_black">
@@ -262,6 +262,7 @@
     <texture src="texture/host_unconfirmed.png" id="tex_host_unconfirmed" type="texture/png" />
     <texture src="texture/pc.png" id="tex_pc" type="texture/png" />
     <texture src="texture/add_pc_cross.png" id="tex_add_pc_cross" type="texture/png" />
+    <texture src="texture/header_action_bg.png" id="tex_header_action_bg" type="texture/png" />
     <texture src="texture/controller_light_ds4.png" id="_controller_light_ds4" type="texture/png" />
     <texture src="texture/controller_light_left.png" id="_controller_light_left" type="texture/png" />
     <texture src="texture/controller_light_right.png" id="_controller_light_right" type="texture/png" />
