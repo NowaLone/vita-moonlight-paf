@@ -463,8 +463,8 @@ Rows are 80 px tall and 960 px wide. The first row's top edge is at y = 96 and d
   `image_button_host_select`); code picks the id by mode.
 - No XML comments inside elements: none exist in the project and they have not been tested with `psp2cxml-tool`.
   Put explanations in docs and commit messages.
-- `cxml/locale/en.xml` contains raw `&` and `<->` in some attributes. The project's tool accepts them; a strict XML
-  parser does not.
+- Escape reserved XML characters in locale attributes (`&amp;`, `&lt;`). All current
+  resource XML files pass strict parsing; decoded labels retain their literal symbols.
 
 ## 3. Pages
 
@@ -1007,8 +1007,8 @@ asked.
 ## 6. Recipes
 
 **Add a page.** Add `<page id="page_x">` to the XML (first child: a `plane texture="_bg_texture"` of size
-`960, 544`). Add a class deriving `page::Base` with `Base("page_x", "btn_close_x", open, close)`, a `Type_X` value and
-`GetType()`, and add the `.cpp` to `add_executable` in `CMakeLists.txt` (sources are listed explicitly). Own the event
+`960, 544`). Add a class deriving `page::Base` with `Base("page_x", "btn_close_x", open, close)`
+and add the `.cpp` to `add_executable` in `CMakeLists.txt` (sources are listed explicitly). Own the event
 callback and hand it back in the destructor. Open it with `new X(); if (!x->IsValid()) delete x;`. Add strings to
 `cxml/locale/en.xml`.
 
@@ -1029,7 +1029,9 @@ add a `list` or `toggle_switch` entry (`id`, `title`, optional `hint`, `key`, `d
 `moonlight_settings_get_all()` (`src/moonlight/settings.cpp`), and a field in `MoonlightSettings` if the stream needs it.
 Do not introduce a settings file or a custom settings screen.
 
-**Show a status message.** `SetStatus(...)`. Return to idle with `Main::ShowIdleStatus()` on Main.
+**Page messages.** Keep only static empty-list labels and Pairing instructions/PIN.
+Use ConnectionService's native busy/error dialogs for foreground progress/errors;
+return Main to its empty-state policy through `Main::ShowIdleStatus()`.
 
 ## 7. Matching a reference screenshot
 
@@ -1051,6 +1053,6 @@ Do not introduce a settings file or a custom settings screen.
 - `SetActivate()` does not dim a button; `Widget::SetColor()` on a disabled button was rejected in favour of the native
   disabled state.
 - Showing and hiding a checkbox on a shared row template misbehaves; use the select template.
-- Transient status messages still overlap the rows; the idle hint must not (use `ShowIdleStatus()`).
+- Main's empty-state label must stay hidden over nonempty rows (use `ShowIdleStatus()`).
 - Do not restore host Copy / `SceClipboard`, and do not add long-press or per-item popup menus.
 - Hardware-only checks are tracked in `ROADMAP.md`; do not tick them without a Vita run.

@@ -4,6 +4,13 @@ This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordere
 
 ## Current API work decision (2026-10-21)
 
+**Repeat Ponytail audit, 2026-10-23:** current-source pass from 07b1410 through
+166bf56 applies 12 independently committed simplifications (140 fewer production
+lines) and passes 184 non-build checks. Per-change proofs, native/build gates,
+coverage limits and approximately 39 unimplemented potential lines are recorded
+in [PONYTAIL_REAUDIT_2026-10-23.md](docs/PONYTAIL_REAUDIT_2026-10-23.md).
+No build/push or broad lifecycle/security/protocol redesign; release gates remain open.
+
 **Requested repository simplification, 2026-10-23:** the Ponytail audit and focused refactors
 are recorded in [REFACTOR_AUDIT.md](docs/REFACTOR_AUDIT.md). Unused API/UI state and resources,
 duplicated cleanup/metadata/touch/scaling logic and unnecessary cache clearing were removed.
@@ -36,7 +43,7 @@ Off/DS4/DualSense overlays use existing host feedback. On 2026-10-22 the maintai
 modes work and supplies the DS4 in-stream screenshot. Basic RGB/display is user-verified;
 broader lifetime/persistence/performance gates remain open. The requested DS4 light-bar shape
 revision is source-only and still needs maintainer RCO rebuild/Vita viewing; see UI §4.10.
-The current source gate is 183 non-build checks; older counts below belong to their stages.
+The current source gate is 184 non-build checks; older counts below belong to their stages.
 
 - [x] **Pairing error provenance source correction (2026-10-22).** Local RNG/crypto and parser/
   response allocation failures now preserve explicit internal/OOM results; PIN/security are typed

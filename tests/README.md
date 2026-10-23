@@ -1,7 +1,9 @@
 # Focused checks
 
-Latest recorded source gate: **183 checks through bcbf30d (2026-10-23)**.
-See [the refactor audit](../docs/REFACTOR_AUDIT.md) for the baseline and changes. Counts in the
+Latest recorded source gate: **184 checks through 166bf56 (2026-10-23)**.
+See [the repeat Ponytail audit](../docs/PONYTAIL_REAUDIT_2026-10-23.md) for the latest
+baseline, per-change checks and native gates; [the earlier refactor audit](../docs/REFACTOR_AUDIT.md)
+records the preceding pass. Counts in the
 individual correction records below belong to those historical source stages. Current test
 output is authoritative for any later checkout. Device evidence and remaining acceptance
 cases are in the API audit and `runtime/README.md`; source checks do not replace those gates.
@@ -10,7 +12,7 @@ Non-build checks (Python 3 and pycparser):
 
     PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_*.py'
 
-Repository simplification adds sixteen checks beyond the 167-check remote-Quit stage:
+The earlier simplification through bcbf30d added sixteen checks beyond the 167-check remote-Quit stage:
 
 - `test_ui_resources.py`: all resource XML is well-formed, local CXML style/template/texture
   references resolve, texture files exist, and inner `textobj` bindings are explicit. This
@@ -50,6 +52,14 @@ Repository simplification adds sixteen checks beyond the 167-check remote-Quit s
 Network, cache, metadata-merge and video-scaling checks passed before and after their
 refactors. These checks do not establish compilation, real threading, native UI, TLS/network
 integration or Vita behavior; maintainer build/device validation remains separate.
+
+The repeat audit adds `test_option_menu.py`: one actual-source check covers all
+three native action callbacks, null userdata/callback, captured payloads and
+delete-before-notify order (9 subcases), passing before and after consolidation.
+C++ names/delete are normalized to serial mocks; PAF destruction/focus/native
+transitions are not executed. The touch check additionally covers DS4 release,
+tablet CANCEL_ALL and clearing contacts before/after sharing the dispatch helper.
+The full gate passes 184 checks; compilation and Vita validation remain pending.
 
 The pairing check interprets the actual verification helper with mocked EVP results (-1/0/1/2
 at Init/Update/Final, 64 combinations); only success at all three stages may accept a proof.
