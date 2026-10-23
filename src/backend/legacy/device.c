@@ -418,9 +418,12 @@ device_info_t* append_device(device_info_t *info) {
   ensure_host_identity(info);
 
   strncpy(p->name, info->name, 255);
+  p->name[255] = '\0';
   p->paired = info->paired;
   strncpy(p->internal, info->internal, 255);
+  p->internal[255] = '\0';
   strncpy(p->external, info->external, 255);
+  p->external[255] = '\0';
   strncpy(p->mac, info->mac, 17);
   p->mac[17] = '\0';
   strncpy(p->host_id, info->host_id, sizeof(p->host_id) - 1);

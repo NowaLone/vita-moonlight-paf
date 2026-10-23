@@ -355,6 +355,39 @@ class HostPersistence(unittest.TestCase):
             self.assertEqual(events, [(11, 0, 1, -1, '192.0.2.1')])
             self.assertEqual(len(logs), int(status != 0))
 
+    def test_new_device_terminates_full_length_strings_in_uninitialized_storage(self):
+        source = (ROOT / 'src/backend/legacy/device.c').read_text()
+        start = source.index('  device_info_t *p = &known_devices.devices[known_devices.count];')
+        tail = source[start:source.index('\n}', start) + 2]
+        tail = tail.replace('known_devices.count++;', 'known_devices.count = known_devices.count + 1;')
+        append = parse_body('device_info_t *append_new(device_info_t *info) {\n' + tail)
+        harness = event_runtime.EventQueue()
+        harness.base_expression, harness.base_execute = runtime.expression, runtime.execute
+        for length in (0, 1, 254, 255):
+            with self.subTest(length=length):
+                incoming, destination = record(), record()
+                for field in ('name', 'internal', 'external'):
+                    incoming[field] = CString('x' * length)
+                for field, value in incoming.items():
+                    if isinstance(value, CString):
+                        size = 18 if field == 'mac' else (33 if field == 'host_id' else 256)
+                        incoming[field] = event_runtime.Buffer(str(value), size)
+                        destination[field] = event_runtime.Buffer('!' * size, size)
+                devices = dict(devices=[destination], count=0)
+                values = dict(info=incoming, known_devices=devices,
+                              strncpy=event_runtime.EventQueue.strncpy,
+                              ensure_host_identity=lambda info: None,
+                              vita_debug_log=lambda *args: None)
+                with patch.object(runtime, 'expression', harness.expression), \
+                        patch.object(runtime, 'execute', harness.execute):
+                    self.assertIs(run(append, values), destination)
+                self.assertEqual(devices['count'], 1)
+                for field, value in incoming.items():
+                    with self.subTest(field=field):
+                        actual = destination[field]
+                        self.assertEqual(actual.text() if isinstance(actual, event_runtime.Buffer) else actual,
+                                         value.text() if isinstance(value, event_runtime.Buffer) else value)
+
 
 if __name__ == '__main__':
     unittest.main()
