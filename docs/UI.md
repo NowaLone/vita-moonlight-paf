@@ -173,6 +173,16 @@ insertion/removal/reordering; temporary-to-saved; repeated paired connection and
 Delete/IME/OptionMenu/Settings; system overlay/suspend/resume; no queries during streaming.
 No agent application/resource compilation, packaging or deployment.
 
+**Linker follow-up, 2026-10-23 [maintainer build log; correction is source-only]:** the
+initial Main implementation instantiated `std::vector<uint32_t>` and the Vita link failed
+on undefined `std::__throw_length_error(char const*)`. The token scratch buffers now use
+empty-constructed `paf::vector<uint32_t>`. Cell deletion compacts forwards, insertion shifts
+backwards after `push_back`, and a move shifts the intervening tokens in place. No `insert`
+from the installed PAF vector (which moves the overlapping range forwards), exception stubs,
+linker flag changes or sized PAF constructors are added. The source check now interprets these
+actual mutation branches as well as the planner. Agent build/compilation remains prohibited;
+maintainer relink and native focus/scroll acceptance remain **[open]**.
+
 ### Sequential foreground workflow — maintainer direction, 2026-10-20
 
 **Current implementation, 2026-10-21:** the compact PAF busy-dialog follow-up below supersedes

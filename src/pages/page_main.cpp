@@ -1,5 +1,4 @@
 #include <paf.h>
-#include <vector>
 #include <psp2/appmgr.h>
 #include <psp2/kernel/processmgr.h>
 #include <stdlib.h>
@@ -631,7 +630,7 @@ void Main::RefreshHosts()
         }
     }
 
-    std::vector<uint32_t> cells;
+    paf::vector<uint32_t> cells;
     int focused_index = -1;
     MoonlightHost focused_host = {};
     uint32_t focused_token = 0;
@@ -652,21 +651,26 @@ void Main::RefreshHosts()
     m_hosts.swap(hosts);
     m_rows.swap(rows);
     m_host_count = (int)m_hosts.size();
-    std::vector<uint32_t> desired;
+    paf::vector<uint32_t> desired;
     for (int i = 0; i < m_host_count; ++i) desired.push_back(m_rows[i].token);
     int from = 0, to = 0, edit;
     while ((edit = next_host_cell_edit(cells.data(), (int)cells.size(),
                                        desired.data(), m_host_count, &from, &to)) != 0) {
         if (edit == 1) {
             list->DeleteCell(0, from, 1);
-            cells.erase(cells.begin() + from);
+            for (int i = from; i + 1 < (int)cells.size(); ++i) cells[i] = cells[i + 1];
+            cells.pop_back();
         } else if (edit == 2) {
             uint32_t token = cells[from];
-            cells.erase(cells.begin() + from);
-            cells.insert(cells.begin() + to, token);
+            /* The planner moves an existing later cell toward the desired prefix. */
+            for (int i = from; i > to; --i) cells[i] = cells[i - 1];
+            cells[to] = token;
             list->MoveCell(0, from, to);
         } else {
-            cells.insert(cells.begin() + to, desired[to]);
+            cells.push_back(0);
+            /* Shift backwards: the installed PAF vector's insert uses forward move. */
+            for (int i = (int)cells.size() - 1; i > to; --i) cells[i] = cells[i - 1];
+            cells[to] = desired[to];
             list->InsertCell(0, to, 1);
         }
     }

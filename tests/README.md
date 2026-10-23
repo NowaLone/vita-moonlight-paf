@@ -23,7 +23,10 @@ worker barrier and UI idle-poll wiring are also inspected.
 row-state/token preparation, incremental cell-edit planner, deletion and captured selection/
 canonicalization. It covers >8 rows, equal names, stronger conflicting identity/custom ports,
 retained tokens/selection, stale replaced tokens, temporary-to-saved, failed reads/save, discovery
-growth and no edits for unchanged rows. XML checks compare saved/temporary columns and require
+growth and no edits for unchanged rows. The linker follow-up also interprets the actual
+PAF token-buffer mutation branches (front/middle/end insertion/deletion, move, singleton/empty)
+and rejects reintroducing `std::vector` or sized PAF scratch constructors. These serial array
+checks do not verify native allocation or successful linking. XML checks compare saved/temporary columns and require
 no temporary dot/Search resource. Return-to-Main routes and real installed PAF declarations are
 source-inspected. `test_event_queue.py` also executes discovery snapshot coalescing and rejection
 of stale/hidden-page delivery before subsequent connection events.

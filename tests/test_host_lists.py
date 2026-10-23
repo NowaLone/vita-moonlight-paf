@@ -51,8 +51,10 @@ def normalize(source):
     source = source.replace('paf::vector<HostRowState> rows;', 'Vector rows = make_rows();')
     source = re.sub(r'paf::vector<\w+> (\w+);', r'Vector \1 = make_vector();', source)
     source = re.sub(r'(\w+)\.size\(\)', r'vec_size(\1)', source)
-    source = re.sub(r'(\w+)\.(size|data|resize|clear|swap|push_back)\(([^)]*)\)',
+    source = re.sub(r'(\w+)\.(size|data|resize|clear|swap|push_back|pop_back)\(([^)]*)\)',
                     lambda m: f'vec_{m[2]}({m[1]}' + (', ' + m[3] if m[3] else '') + ')', source)
+    for method in ('DeleteCell', 'MoveCell', 'InsertCell'):
+        source = source.replace('list->' + method, method)
     return source.replace('Main::', 'Main_').replace(' const\n', '\n')
 
 
@@ -66,8 +68,11 @@ class HostLists(unittest.TestCase):
         for name in ('CanDiscover', 'ReadHostRows', 'FindHostIndex', 'AllHostsSelected', 'UpdateSelectionCount', 'DeleteSelectedHosts'):
             functions.append(function(cls.main, 'Main::' + name))
         # Interpret the actual row-template/token/selection preparation before any PAF edits.
-        fragment = cls.main.split('    paf::vector<HostRowState> rows;', 1)[1].split('    std::vector<uint32_t> cells;', 1)[0]
+        fragment = cls.main.split('    paf::vector<HostRowState> rows;', 1)[1].split('    paf::vector<uint32_t> cells;', 1)[0]
         functions.append('void prepare_rows(Vector hosts, Vector rows) {' + fragment + '}')
+        edits = cls.main[cls.main.index('        if (edit == 1)'):]
+        edits = edits[:edits.index('    }\n    list->UnblockSync();')]
+        functions.append('void apply_cell_edit(int edit, int from, int to, Vector cells, Vector desired) {' + edits + '}')
         selection = function(cls.main, 'Main::SelectHost')
         selection = selection[:selection.index('    paf::ui::ListView *list')] + '\n}'
         functions.append(selection)
@@ -93,7 +98,7 @@ class HostLists(unittest.TestCase):
                            NULL=0, true=1, false=0, get_app=lambda: 1, is_busy=lambda: False, is_current=lambda: True,
                            make_vector=list, make_rows=RowVector,
                            vec_size=len, vec_data=lambda x: x, vec_resize=self.resize,
-                           vec_clear=lambda x: x.clear(), vec_swap=self.swap,
+                           vec_clear=lambda x: x.clear(), vec_swap=self.swap, vec_pop_back=lambda x: x.pop(),
                            vec_push_back=lambda x, y: x.append(copy.deepcopy(y)),
                            get_hosts=self.get_hosts, strcmp=lambda a,b: 0 if a == b else 1,
                            HideStatus=lambda: self.trace.append('hide'),
@@ -271,8 +276,13 @@ class HostLists(unittest.TestCase):
 
     def test_cell_edits_are_minimal_for_unchanged_append_remove_move(self):
         for current, wanted, expected in (([1,2], [1,2], []), ([1,2], [1,2,3], [3]),
-                                         ([1,2,3], [1,3], [1]), ([1,2,3], [3,1,2], [2])):
-            edits = []
+                                         ([1,2,3], [1,3], [1]), ([1,2,3], [3,1,2], [2]),
+                                         ([1,2], [3,1,2], [3]), ([1,2], [1,3,2], [3]),
+                                         ([1,2], [2], [1]), ([1,2], [1], [1]),
+                                         ([1], [], [1]), ([], [1], [3])):
+            edits, native_calls = [], []
+            for method in ('DeleteCell', 'MoveCell', 'InsertCell'):
+                self.values[method] = lambda *args, method=method: native_calls.append((method, args))
             while True:
                 output = {}
                 self.values['set_from'] = lambda x: output.update(from_index=x)
@@ -280,11 +290,14 @@ class HostLists(unittest.TestCase):
                 edit = self.invoke('next_host_cell_edit', current, len(current), wanted, len(wanted), 0, 0)
                 if not edit: break
                 edits.append(edit)
-                if edit == 1: current.pop(output['from_index'])
-                elif edit == 2: current.insert(output['to_index'], current.pop(output['from_index']))
-                else: current.insert(output['to_index'], wanted[output['to_index']])
+                self.invoke('apply_cell_edit', edit, output.get('from_index', 0),
+                            output.get('to_index', 0), current, wanted)
             self.assertEqual(current, wanted)
             self.assertEqual(edits, expected)
+            self.assertEqual([call[0] for call in native_calls],
+                             [{1: 'DeleteCell', 2: 'MoveCell', 3: 'InsertCell'}[edit] for edit in expected])
+            for method, args in native_calls:
+                if method != 'MoveCell': self.assertEqual(args[2], 1)
 
     def test_focus_replacement_uses_same_identity_then_nearest_and_keeps_retained_focus(self):
         self.saved = [host(i) for i in range(12)]
@@ -338,6 +351,9 @@ class HostLists(unittest.TestCase):
     def test_paf_bindings_focus_fallback_and_return_routes(self):
         self.assertIn('FindHostIndex(button->GetName().GetIDHash())', self.main)
         self.assertIn('next_host_cell_edit', self.main)
+        self.assertNotIn('std::vector', self.main)
+        self.assertNotIn('#include <vector>', self.main)
+        self.assertNotRegex(self.main, r'paf::vector<uint32_t>\s+(cells|desired)\s*\(')
         self.assertIn('focused_index < m_host_count ? focused_index : m_host_count - 1', self.main)
         self.assertIn('app->Hosts().CheckAvailability(main, main->m_saved_hosts)', self.main)
         self.assertNotIn('page_search', (ROOT / 'CMakeLists.txt').read_text())
