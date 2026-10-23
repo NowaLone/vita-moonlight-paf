@@ -5,9 +5,9 @@ optimization using Ponytail. Work is on `codex/simplify-implementation`, startin
 at `a95d465`. The earlier confirmed remote-Quit feature and its reported Vita
 acceptance precede this audit.
 
-Through source commit `953cedb`, the owned `src/`, `include/` and `cxml/` diff has
-112 inserted and 456 deleted lines across 28 files: **344 fewer lines**. New
-regression checks and documentation are counted separately. All 181 non-build
+Through source commit `bcbf30d`, the owned `src/`, `include/` and `cxml/` diff has
+128 inserted and 479 deleted lines across 31 files: **351 fewer lines**. New
+regression checks and documentation are counted separately. All 183 non-build
 checks pass, up from 167 at the baseline. No new dependency was introduced.
 
 ## Scope and decisions
@@ -64,6 +64,16 @@ Each logical change has a separate commit:
   branches. Zero/equal cases, 64-bit products, ceiling division and alignment remain.
 - `6a010f5` reuses `merge_device_info()` when appending an existing saved host;
   UUID/storage identity retain their fill-only behavior.
+- `f3712fc` removes unused page `Id()`/`Root()` accessors.
+- `3b73862` uses the discovery count as the next host ID, removing a second
+  counter that always reset and advanced with it. IDs and publication order remain.
+- `cb82573` removes the unused 512-byte identity-path copy from stream worker
+  arguments and its private helper parameters. Public start admission still
+  rejects a null path; API directory lookup/errors/logging remain. Requests use
+  the already loaded client ID, as before.
+- `bcbf30d` skips 544 no-op row `memmove` calls for an exact 960×544 center-mode
+  framebuffer. Larger surfaces retain the original in-place center crop;
+  presentation dimensions/pitch and statistics remain outside the copy guard.
 
 The intended behavior changes are concrete correctness fixes, separate from the
 behavior-preserving cleanup:
@@ -84,7 +94,7 @@ behavior-preserving cleanup:
   labels remain identical; the file now passes XML parsing with the other resources.
 
 Source-proven work removed includes bulk cache clearing, repeated stationary
-tablet Move sends and duplicate field/size calculations. No Vita timing, FPS,
+tablet Move sends, duplicate field/size calculations and exact-size crop copies. No Vita timing, FPS,
 power, heap-usage or executable-size improvement is claimed without measurement.
 
 ## Complexity retained deliberately
@@ -110,13 +120,16 @@ controlled native profiling, not a convenience refactor.
 
 ## Verification and remaining work
 
-Baseline: 167 passing Python non-build checks; final source gate: **181 passing**.
+Baseline: 167 passing Python non-build checks; final source gate: **183 passing**.
 Network cleanup, cache, host merge and video scaling checks passed both before
 and after their refactors. The updated gate and individual
 check limits are in [tests/README.md](../tests/README.md). Checks interpret selected
 actual source with mocked calls; XML checks parse resources, and `bash -n` checks
 the scripts. Diff whitespace checks pass. No application/resource build, CMake
 configuration, packaging, deployment or C/Expat fixture compilation was run.
+The follow-up additionally checks null-path admission and byte-exact crop output
+for exact/wider/taller surfaces with statistics enabled/disabled. GPU and PAF calls
+remain mocked; this is not a measured native speedup.
 
 Maintainer validation of this audit's changes is still pending:
 
@@ -135,7 +148,6 @@ The README no longer instructs running an absent `dev-build-run.sh`; only
 `build.sh` and `build_cxml.sh` are shipped. Exact SDK/PAF/CXML revisions and a
 reproducible setup procedure remain the next independent roadmap task.
 
-Optional future profiling candidates are the repeated identity-directory copy in
-stream arguments and no-op row copies for an already screen-sized center crop.
-Neither needs a new abstraction. They are deferred until their ownership/ABI or
-native performance benefit justifies another change.
+The two initially deferred candidates (worker path copy and exact-size crop
+copies) were completed in the follow-up above. Further optimization should start
+with native profiling; the retained lifecycle/security contracts still apply.

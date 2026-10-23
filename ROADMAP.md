@@ -7,8 +7,10 @@ This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordere
 **Requested repository simplification, 2026-10-23:** the Ponytail audit and focused refactors
 are recorded in [REFACTOR_AUDIT.md](docs/REFACTOR_AUDIT.md). Unused API/UI state and resources,
 duplicated cleanup/metadata/touch/scaling logic and unnecessary cache clearing were removed.
-Concrete tablet/mDNS/string/worker failures and locale XML were also corrected. The 953cedb gate
-passes 181 non-build checks. Native build, RCO and Vita regression validation of these changes
+Concrete tablet/mDNS/string/worker failures and locale XML were also corrected. The follow-up
+removes the unused stream-worker path copy, page accessors and duplicate discovery counter,
+and skips exact-size center-crop copies. The bcbf30d gate passes 183 non-build checks.
+Native build, RCO and Vita regression validation of these changes
 remain pending; prior feature acceptance and release checkboxes are unchanged.
 
 **Requested confirmed remote Quit, 2026-10-23:** a launch conflict now offers a native Yes/No
@@ -34,7 +36,7 @@ Off/DS4/DualSense overlays use existing host feedback. On 2026-10-22 the maintai
 modes work and supplies the DS4 in-stream screenshot. Basic RGB/display is user-verified;
 broader lifetime/persistence/performance gates remain open. The requested DS4 light-bar shape
 revision is source-only and still needs maintainer RCO rebuild/Vita viewing; see UI §4.10.
-The current source gate is 181 non-build checks; older counts below belong to their stages.
+The current source gate is 183 non-build checks; older counts below belong to their stages.
 
 - [x] **Pairing error provenance source correction (2026-10-22).** Local RNG/crypto and parser/
   response allocation failures now preserve explicit internal/OOM results; PIN/security are typed

@@ -373,7 +373,7 @@ The CXML build is fail-fast: if `psp2cxml-tool` is not available, the build stop
 
 ## Runtime Validation
 
-The 953cedb source gate has 181 non-build Python checks (Python 3 + pycparser), covering selected parser
+The bcbf30d source gate has 183 non-build Python checks (Python 3 + pycparser), covering selected parser
 grammar, pairing/trust, host-store/list, event, lifecycle, touch and video-size logic with mocked
 platform/library calls. See [tests/README.md](tests/README.md) for their scope and command and
 [the repository refactor audit](docs/REFACTOR_AUDIT.md) for the latest simplification changes. They do not compile

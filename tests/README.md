@@ -1,6 +1,6 @@
 # Focused checks
 
-Latest recorded source gate: **181 checks through 953cedb (2026-10-23)**.
+Latest recorded source gate: **183 checks through bcbf30d (2026-10-23)**.
 See [the refactor audit](../docs/REFACTOR_AUDIT.md) for the baseline and changes. Counts in the
 individual correction records below belong to those historical source stages. Current test
 output is authoritative for any later checkout. Device evidence and remaining acceptance
@@ -10,7 +10,7 @@ Non-build checks (Python 3 and pycparser):
 
     PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_*.py'
 
-Repository simplification adds fourteen checks beyond the 167-check remote-Quit stage:
+Repository simplification adds sixteen checks beyond the 167-check remote-Quit stage:
 
 - `test_ui_resources.py`: all resource XML is well-formed, local CXML style/template/texture
   references resolve, texture files exist, and inner `textobj` bindings are explicit. This
@@ -30,6 +30,13 @@ Repository simplification adds fourteen checks beyond the 167-check remote-Quit 
 - `test_video_scaling.py`: 30 fit/cover dimension cases covering zero/equal/narrow/wide
   sources, rounding/alignment and wide cross-products, including modeled integer casts.
   Decoder allocation, frame cropping and PAF presentation are outside the check.
+- `test_video_crop.py`: actual crop/presentation fragment with byte pointers checks an
+  exact 960×544 surface skips row copies, wider/taller surfaces keep exact crop pixels and
+  untouched tail bytes, and dimensions/pitch/statistics remain correct. Six size/stats
+  combinations model `memmove` and PAF callbacks; no GPU/decoder/native rendering is executed.
+- `test_remote_quit.py`: one follow-up check preserves public null identity-path rejection
+  before allocation after removing the worker's unused path copy. Existing launch/Quit
+  checks continue to interpret the private helper with its shorter signature.
 - `test_host_persistence.py`: an additional actual append/merge check covers 96 combinations
   of metadata, pairing, port/address preference and fill-only host/storage identity. Another
   drives the new-record copy tail into nonzero destination storage for lengths 0/1/254/255;
