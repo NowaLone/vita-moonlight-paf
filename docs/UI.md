@@ -593,6 +593,12 @@ The repeat audit removes the unused `CloseType()`/`Type`/`GetType()` family, fre
 still use `Base::Find()`/`IsOpen()` by CXML ID and the same stack/virtual destructor.
 These project classes are not native PAF interfaces or exported module APIs.
 
+OptionMenu's three native event callbacks share `CloseAndNotify()` **[code,
+2026-10-23 repeat audit]**: copy the callback/userdata, delete the menu, then
+notify the parent. Null userdata and null callbacks remain tolerated. The ignored
+constructor plugin/parent arguments were removed; Base still opens the same CXML
+page. Popup geometry, focus, buttons and transition behavior are unchanged.
+
 ### 4.2 Templates (`<templatetable>`)
 
 | Template | Child ids | Used by | Purpose |

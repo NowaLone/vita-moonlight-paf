@@ -79,13 +79,8 @@ OptionMenu *OptionMenu::Instance()
     return s_instance;
 }
 
-void OptionMenu::OnDismiss(int32_t type, paf::ui::Handler *self,
-                           paf::ui::Event *event, void *userdata)
+void OptionMenu::CloseAndNotify(void *userdata, EventType type, int button)
 {
-    (void)type;
-    (void)self;
-    (void)event;
-
     OptionMenu *menu = (OptionMenu *)userdata;
     if (!menu) return;
 
@@ -94,59 +89,35 @@ void OptionMenu::OnDismiss(int32_t type, paf::ui::Handler *self,
     delete menu;
 
     if (callback) {
-        callback(Event_Close, -1, data);
+        callback(type, button, data);
     }
 }
 
-void OptionMenu::OnSettings(int32_t type, paf::ui::Handler *self,
-                            paf::ui::Event *event, void *userdata)
+void OptionMenu::OnDismiss(int32_t, paf::ui::Handler *,
+                           paf::ui::Event *, void *userdata)
 {
-    OptionMenu *menu = (OptionMenu *)userdata;
-    (void)type;
-    (void)self;
-    (void)event;
-
-    if (!menu) return;
-
-    EventCb callback = menu->m_cb;
-    void *data = menu->m_userdata;
-    delete menu;
-
-    if (callback) {
-        callback(Event_Button, Button_Settings, data);
-    }
+    CloseAndNotify(userdata, Event_Close, -1);
 }
 
-void OptionMenu::OnDelete(int32_t type, paf::ui::Handler *self,
-                          paf::ui::Event *event, void *userdata)
+void OptionMenu::OnSettings(int32_t, paf::ui::Handler *,
+                            paf::ui::Event *, void *userdata)
 {
-    OptionMenu *menu = (OptionMenu *)userdata;
-    (void)type;
-    (void)self;
-    (void)event;
-
-    if (!menu) return;
-
-    EventCb callback = menu->m_cb;
-    void *data = menu->m_userdata;
-    delete menu;
-
-    if (callback) {
-        callback(Event_Button, Button_Delete, data);
-    }
+    CloseAndNotify(userdata, Event_Button, Button_Settings);
 }
 
-OptionMenu::OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent,
-                       EventCb cb, void *userdata, bool host_actions_enabled)
+void OptionMenu::OnDelete(int32_t, paf::ui::Handler *,
+                          paf::ui::Event *, void *userdata)
+{
+    CloseAndNotify(userdata, Event_Button, Button_Delete);
+}
+
+OptionMenu::OptionMenu(EventCb cb, void *userdata, bool host_actions_enabled)
     : page::Base("page_settings_bubble", NULL,
                  paf::Plugin::TransitionType_None,
                  paf::Plugin::TransitionType_None),
       m_cb(cb),
       m_userdata(userdata)
 {
-    (void)plugin;
-    (void)parent;
-
     if (!IsValid()) return;
 
     s_instance = this;

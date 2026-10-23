@@ -200,8 +200,6 @@ static void onSettingsButton(int32_t type, paf::ui::Handler *self, paf::ui::Even
     Main *main = (Main *)userdata;
     if (OptionMenu::Instance() != NULL) return;
     new OptionMenu(
-        g_plugin,
-        main ? main->root : NULL,
         onOptionMenu,
         NULL,
         main != NULL && main->HasHosts());

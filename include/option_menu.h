@@ -18,13 +18,13 @@ public:
     typedef void (*EventCb)(EventType, int, void*);
 
     /* Delete is disabled when there are no saved PCs. */
-    OptionMenu(paf::Plugin *plugin, paf::ui::Widget *parent, EventCb cb, void *userdata,
-               bool host_actions_enabled = true);
+    OptionMenu(EventCb cb, void *userdata, bool host_actions_enabled = true);
     virtual ~OptionMenu();
 
     static OptionMenu *Instance();
 
 private:
+    static void CloseAndNotify(void *userdata, EventType type, int button);
     static void OnDismiss(int32_t, paf::ui::Handler *, paf::ui::Event *, void *);
     static void OnSettings(int32_t, paf::ui::Handler *, paf::ui::Event *, void *);
     static void OnDelete(int32_t, paf::ui::Handler *, paf::ui::Event *, void *);
