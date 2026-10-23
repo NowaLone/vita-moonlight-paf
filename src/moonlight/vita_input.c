@@ -41,18 +41,15 @@ static int s_ps_host_pulse_state = 0;
 static volatile int s_shell_ps_edge = 0;
 static int s_shell_handler_registered = 0;
 static int s_touchscreen_mode = 0;
-static int s_mouse_acceleration = 0;
 static bool s_motion_enabled = false;
 static int s_back_deadzone_top = 0;
 static int s_back_deadzone_right = 0;
 static int s_back_deadzone_bottom = 0;
 static int s_back_deadzone_left = 0;
-static int s_swap_xo = 0;
 static int s_front_touchzones = 0;
 static int s_double_tap_sprint = 0;
 static int s_double_tap_ms = 200;
 static int s_keyboard_layout = 0;
-static int s_mapping_enabled = 0;
 static int s_keyboard_request = 0;
 static int s_zone_latched = 0;
 static uint64_t s_last_sprint_tap = 0;
@@ -627,7 +624,6 @@ int vita_input_configure(
     s_swap_shoulder_buttons = swap_shoulder_buttons != 0;
     s_ps_button_capture = ps_button_capture != 0;
     s_touchscreen_mode = touchscreen_mode;
-    s_mouse_acceleration = mouse_acceleration;
     s_motion_enabled = motion_enabled != 0;
     s_back_deadzone_top = back_deadzone_top;
     s_back_deadzone_right = back_deadzone_right;
@@ -645,7 +641,7 @@ int vita_input_configure(
 
     vita_touch_configure(
         s_touchscreen_mode,
-        s_mouse_acceleration);
+        mouse_acceleration);
 
     return 0;
 }
@@ -803,7 +799,7 @@ void vita_input_set_motion_state(
         report_rate_hz);
 }
 
-static void vita_input_load_mapping(void)
+static void vita_input_load_mapping(int swap_xo, int mapping_enabled)
 {
     SceUID fd;
     char buffer[1024];
@@ -814,8 +810,8 @@ static void vita_input_load_mapping(void)
     s_face_circle = B_FLAG;
     s_face_square = X_FLAG;
     s_face_triangle = Y_FLAG;
-    if (!s_mapping_enabled) {
-        if (s_swap_xo) {
+    if (!mapping_enabled) {
+        if (swap_xo) {
             s_face_cross = B_FLAG;
             s_face_circle = A_FLAG;
         }
@@ -885,13 +881,11 @@ void vita_input_set_runtime(
     int keyboard_layout,
     int mapping_enabled)
 {
-    s_swap_xo = swap_xo ? 1 : 0;
     s_front_touchzones = front_touchzones ? 1 : 0;
     s_double_tap_sprint = double_tap_sprint ? 1 : 0;
     s_double_tap_ms = double_tap_ms > 0 ? double_tap_ms : 200;
     s_keyboard_layout = keyboard_layout;
-    s_mapping_enabled = mapping_enabled ? 1 : 0;
-    vita_input_load_mapping();
+    vita_input_load_mapping(swap_xo, mapping_enabled);
 }
 
 int vita_input_consume_keyboard_request(void)
