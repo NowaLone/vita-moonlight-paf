@@ -377,25 +377,7 @@ device_info_t* append_device(device_info_t *info) {
 
   device_info_t *existing = find_device_by_identity(info);
   if (existing) {
-    if (info->paired) {
-      existing->paired = true;
-    }
-    if (info->name[0] && strcmp(existing->name, info->name) != 0) {
-      strncpy(existing->name, info->name, sizeof(existing->name) - 1);
-      existing->name[sizeof(existing->name) - 1] = '\0';
-    }
-    if (info->internal[0]) {
-      strncpy(existing->internal, info->internal, 255);
-      existing->internal[255] = '\0';
-    }
-    if (info->external[0]) {
-      strncpy(existing->external, info->external, 255);
-      existing->external[255] = '\0';
-    }
-    if (info->mac[0]) {
-      strncpy(existing->mac, info->mac, 17);
-      existing->mac[17] = '\0';
-    }
+    merge_device_info(existing, info);
     if (existing->host_id[0] == '\0' && info->host_id[0]) {
       strncpy(existing->host_id, info->host_id, sizeof(existing->host_id) - 1);
       existing->host_id[sizeof(existing->host_id) - 1] = '\0';
@@ -404,10 +386,6 @@ device_info_t* append_device(device_info_t *info) {
       strncpy(existing->storage_name, info->storage_name, sizeof(existing->storage_name) - 1);
       existing->storage_name[sizeof(existing->storage_name) - 1] = '\0';
     }
-    if (info->port != 0) {
-      existing->port = info->port;
-    }
-    existing->prefer_external = info->prefer_external;
     vita_debug_log("append_device: device %s already exists, merging\n", existing->name);
     return existing;
   }
