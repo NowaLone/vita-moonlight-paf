@@ -15,7 +15,6 @@ typedef struct TouchPointState {
     bool active;
     int x;
     int y;
-    unsigned char id;
 } TouchPointState;
 
 static volatile bool s_active = false;
@@ -130,7 +129,19 @@ void vita_touch_stop(void)
     vita_debug_log("[Touch] stop");
 }
 
-static void process_ds4_touch(void)
+static void send_touch_event(int type, unsigned int id, int x, int y, float pressure)
+{
+    if (s_mode == 1) {
+        LiSendControllerTouchEvent(0, type, id,
+            (float)x / VITA_TOUCH_WIDTH, (float)y / VITA_TOUCH_HEIGHT, pressure);
+    } else {
+        LiSendTouchEvent(type, id,
+            (float)x / VITA_TOUCH_WIDTH, (float)y / VITA_TOUCH_HEIGHT, pressure,
+            0.0f, 0.0f, LI_ROT_UNKNOWN);
+    }
+}
+
+static void process_touch_points(void)
 {
     bool present[SCE_TOUCH_MAX_REPORT];
     int x[SCE_TOUCH_MAX_REPORT];
@@ -152,39 +163,20 @@ static void process_ds4_touch(void)
         y[id] = (int)s_front.report[i].y * 544 / 1088;
 
         if (!s_points[id].active) {
-            LiSendControllerTouchEvent(
-                0,
-                LI_TOUCH_EVENT_DOWN,
-                id,
-                (float)x[id] / VITA_TOUCH_WIDTH,
-                (float)y[id] / VITA_TOUCH_HEIGHT,
-                1.0f);
+            send_touch_event(LI_TOUCH_EVENT_DOWN, id, x[id], y[id], 1.0f);
         } else if (s_points[id].x != x[id] || s_points[id].y != y[id]) {
-            LiSendControllerTouchEvent(
-                0,
-                LI_TOUCH_EVENT_MOVE,
-                id,
-                (float)x[id] / VITA_TOUCH_WIDTH,
-                (float)y[id] / VITA_TOUCH_HEIGHT,
-                1.0f);
+            send_touch_event(LI_TOUCH_EVENT_MOVE, id, x[id], y[id], 1.0f);
         }
     }
 
     for (i = 0; i < SCE_TOUCH_MAX_REPORT; ++i) {
         if (s_points[i].active && !present[i]) {
-            LiSendControllerTouchEvent(
-                0,
-                LI_TOUCH_EVENT_UP,
-                i,
-                (float)s_points[i].x / VITA_TOUCH_WIDTH,
-                (float)s_points[i].y / VITA_TOUCH_HEIGHT,
-                0.0f);
+            send_touch_event(LI_TOUCH_EVENT_UP, i, s_points[i].x, s_points[i].y, 0.0f);
         }
 
         s_points[i].active = present[i];
         s_points[i].x = x[i];
         s_points[i].y = y[i];
-        s_points[i].id = (unsigned char)i;
     }
 }
 
@@ -244,67 +236,6 @@ static void process_absolute_mouse(void)
     s_two_finger_active = false;
 }
 
-static void process_tablet(void)
-{
-    bool present[SCE_TOUCH_MAX_REPORT];
-    unsigned int i;
-
-    memset(present, 0, sizeof(present));
-
-    for (i = 0; i < s_front.reportNum && i < SCE_TOUCH_MAX_REPORT; ++i) {
-        unsigned int id = s_front.report[i].id;
-        if (id >= SCE_TOUCH_MAX_REPORT) {
-            id = i;
-        }
-
-        int x = (int)s_front.report[i].x * 960 / 1920;
-        int y = (int)s_front.report[i].y * 544 / 1088;
-        present[id] = true;
-
-        if (!s_points[id].active) {
-            LiSendTouchEvent(
-                LI_TOUCH_EVENT_DOWN,
-                id,
-                (float)x / VITA_TOUCH_WIDTH,
-                (float)y / VITA_TOUCH_HEIGHT,
-                1.0f,
-                0.0f,
-                0.0f,
-                LI_ROT_UNKNOWN);
-        } else if (s_points[id].x != x || s_points[id].y != y) {
-            LiSendTouchEvent(
-                LI_TOUCH_EVENT_MOVE,
-                id,
-                (float)x / VITA_TOUCH_WIDTH,
-                (float)y / VITA_TOUCH_HEIGHT,
-                1.0f,
-                0.0f,
-                0.0f,
-                LI_ROT_UNKNOWN);
-        }
-    }
-
-    for (i = 0; i < SCE_TOUCH_MAX_REPORT; ++i) {
-        if (s_points[i].active && !present[i]) {
-            LiSendTouchEvent(
-                LI_TOUCH_EVENT_UP,
-                i,
-                (float)s_points[i].x / VITA_TOUCH_WIDTH,
-                (float)s_points[i].y / VITA_TOUCH_HEIGHT,
-                0.0f,
-                0.0f,
-                0.0f,
-                LI_ROT_UNKNOWN);
-        }
-
-        s_points[i].active = present[i];
-        if (!present[i]) {
-            s_points[i].x = 0;
-            s_points[i].y = 0;
-        }
-    }
-}
-
 void vita_touch_process(void)
 {
     if (!s_active || s_mode == 0) {
@@ -317,13 +248,11 @@ void vita_touch_process(void)
 
     switch (s_mode) {
         case 1:
-            process_ds4_touch();
+        case 3:
+            process_touch_points();
             break;
         case 2:
             process_absolute_mouse();
-            break;
-        case 3:
-            process_tablet();
             break;
         default:
             break;
