@@ -8,7 +8,7 @@ This is the current task list. Dated implementation/evidence records below prese
 at each stage; their unchecked boxes and old "next" instructions are not additional active
 tasks. Source completion, reported device acceptance and remaining release coverage are separate.
 
-**Reproducible setup (§2): installed environment recorded; exact restoration still open.**
+**Reproducible setup (§2): clean CI build passed; CI-package Vita acceptance remains open.**
 
 - [x] Record the installed SDK component revisions, PAF/CXML source pins, target dependency
   versions, setup/environment and known warnings in [BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md),
@@ -16,15 +16,17 @@ tasks. Source completion, reported device acceptance and remaining release cover
 - [x] Recover and verify the base SDK archive (`master-linux-v2.536`, SHA256 and 57 selected
   installed inputs match). Record identities and rejected newer portlibs in
   [build-archives.json](docs/build-archives.json); no installation or build was run.
-- [ ] Recover original portlib archives or have the maintainer establish a new baseline using
-  the pinned source-recipe candidate, then verify the setup/artifacts in a fresh environment.
+- [x] Establish a new build baseline from the pinned source recipes in a fresh CI environment.
+  The original local portlib archives remain unrecovered; this does not promise identical binaries.
 - [x] Add a manual GitHub Actions clean-build workflow using the recorded pins, with both
   profiles and build-evidence artifacts. Static workflow/shell validation and isolated helper
   checks are available; no build or CI dispatch by the agent.
-- [ ] Complete a successful **Clean Vita build** run. The `0d4624d` run passes 208 source
-  checks, verifies the SDK and builds zlib/zstd. OpenSSL stops at missing `makedepend`;
-  workflow host setup now installs `xutils-dev` and checks the command. Remaining dependency/
-  application builds and Vita acceptance stay open; earlier RGB test failure is resolved.
+- [x] Complete a successful **Clean Vita build** run: [40052743854](https://github.com/NowaLone/vita-moonlight-paf/actions/runs/40052743854)
+  on `4076f15` passes 208 checks, rebuilds all six portlibs/PAF/CXML, compiles the RCO and
+  builds normal/system VPK/SELF/ELF. Six application files and build evidence were uploaded.
+  This is maintainer-run CI evidence; the agent did not build or dispatch CI.
+- [ ] Install the CI-produced full VPKs and check the new dependency baseline on Vita:
+  startup/Settings, pairing or paired reconnect, Apps, stream video/audio/input and stop/reconnect.
 
 **Recent source changes awaiting maintainer acceptance.** These are implemented, not feature
 requests to implement again; no later device result is recorded for these specific changes.
@@ -41,8 +43,9 @@ requests to implement again; no later device result is recorded for these specif
   Session counters/snapshots and the six-line overlay already exist in `master`. The DS4 RGB
   light-bar shape revision also awaits viewing; basic DS4/DualSense feedback already passed.
 - [ ] Dual-profile build invocation and installation of its resulting packages. Normal/system
-  profile streaming smoke tests already passed individually; the combined build procedure is
-  the remaining check. The latest simplification/resource changes also need maintainer regression
+  profile streaming smoke tests already passed individually, and the combined build passed CI
+  on `4076f15`; installation and hardware acceptance of the CI packages remain. The latest
+  simplification/resource changes also need maintainer regression
   acceptance, without reopening every earlier successful feature test.
 
 **Deferred device/release coverage, not the default next development task.**
@@ -848,28 +851,30 @@ corner Back button. The UI reference and measured values remain in `docs/UI.md`.
 
 ## 2. Make development builds reproducible
 
-**2026-10-24: inspected environment pinned; exact restoration and clean build pending.**
+**2026-10-24: pinned source setup and both profiles pass a clean CI build on `4076f15`.**
 
 The local SDK's `version_info.txt`, compiler/tool versions, PAF patched/installed-file comparison,
 CXML executable identity, library metadata and fingerprints are recorded in
-[BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md). This identifies the existing installation;
-it does not claim a single SDK Git revision or a successful clean-environment reproduction.
+[BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md). The later maintainer-supplied CI log establishes
+a clean setup/dependency/application build using the recorded source pins, separately from the
+existing installation. Exact old-library reproduction and runtime compatibility are not claimed.
 
 - [x] Record the installed SDK's build stamp and exact newlib/pthread/headers/toolchain revisions.
 - [x] Record exact PAF component, its patched ScePaf-RE base, and CXML-tool source revisions.
 - [x] Document dependency setup, environment variables and the procedure for a fresh checkout.
 - [x] Recover base SDK release/asset URL and verify the downloaded SHA256 and selected installed
   inputs. PAF overrides are accounted for separately; no SDK installation was performed.
-- [ ] Recover original portlib archive tags/URLs/checksums or validate a new fully pinned
-  baseline. Current `master` assets use GCC 15.2.0 rather than installed GCC 10.3.0; Expat
-  also changed. A historical version-matching recipe snapshot with explicit OpenSSL pin is
-  recorded as an unbuilt candidate, not an accepted replacement.
-- [ ] Validate a clean build with `bash build.sh`, including CXML-to-RCO compilation and VPK/SELF generation.
-- [x] Document the inspected toolchain and historical warning categories; a new clean build and
-  its actual warning log remain unverified.
+- [x] Establish the new build baseline from pinned recipes and explicit OpenSSL source commit.
+  All six libraries build in run 40052743854; original installed archives remain unrecovered,
+  and the new baseline's Vita compatibility is not yet verified.
+- [x] Validate a clean CI build with `bash build.sh`, including CXML-to-RCO compilation and
+  normal/system VPK/SELF/debug ELF generation (`4076f15`, maintainer-run CI).
+- [x] Document the inspected toolchain, warnings and actual CI result. The successful log
+  includes OpenSSL dependency-scanner, SDK signedness/wchar_t, CMake and jobserver warnings.
 - [x] Generate `build/vita_moonlight_paf.elf` automatically for crash-dump symbolization (2026-10-18). CMake copies the unstripped linked executable and preserves the extensionless input expected by VitaSDK's packaging helpers. Verified with `bash build.sh` (existing build directory), successful SELF/VPK generation, byte equality and `.debug_info`/`.debug_line`/`.symtab` inspection. The direct CMake debug-ELF target also regenerated a missing `.elf` with identical SHA-256. This does not verify the Settings crash fix or GUI symbolization on a matching dump; preserve the ELF from each installed VPK.
 
-**Done when:** a fresh environment can follow the instructions to build the project without undocumented manual fixes.
+**Build gate met:** the checked-in workflow creates a fresh environment and completes both
+profiles. The produced packages still need Vita acceptance; this is not a release smoke test.
 
 ## Sunshine / GameStream client API coverage
 
@@ -1191,11 +1196,10 @@ Current independent work order: record exact toolchain/dependency revisions and 
 
 ## Working order
 
-Installed toolchain/dependency identities and setup are now recorded in
-[BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md). The base SDK archive is verified. Finish
-reproducibility by recovering original portlib archives (or establishing a new complete baseline
-from the recorded source candidate) and obtaining the maintainer's fresh-environment build result.
-Keep remaining lifecycle/motion/security/error validation as
+Installed toolchain/dependency identities and setup are recorded in
+[BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md); clean CI build passed on `4076f15`.
+Next validate the CI-produced packages on Vita. Licensing/attribution and release documentation
+remain independent work. Keep remaining lifecycle/motion/security/error validation as
 milestone/release work, reprioritized by concrete regressions. Existing focused checks and scoped
 normal-flow evidence remain; do not start new routine stream tests merely to fill the audit.
 Avoid broad refactors or system integrations without a concrete need.

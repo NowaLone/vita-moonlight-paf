@@ -5,6 +5,9 @@ source at `51e37381cb450a91ca4cc12d5695fbab9f394f66`. Inspection was read-only a
 from these documentation files. No SDK/library install, configure, compilation, RCO,
 packaging or deployment was performed. Existing normal/system CMake caches both point
 to `/usr/local/vitasdk`; that identifies the configured environment, not a new build result.
+Subsequent maintainer-run CI on `4076f15` successfully rebuilt the pinned dependencies and
+both profiles in a fresh runner. The [CI evidence below](#github-actions) is separate from
+the initial local snapshot; Vita acceptance of these new packages remains pending.
 
 ## SDK identity
 
@@ -73,11 +76,11 @@ Its OpenSSL recipe uses `git+` without a revision and `SKIP`; pin that source to
 [`cd52124ffc8e0f0fc8e2bdde93d4c022a0a7fc53`](https://github.com/d3m3vilurr/vita-openssl/commit/cd52124ffc8e0f0fc8e2bdde93d4c022a0a7fc53)
 before any separate rebuild. This was both its current HEAD and latest commit before
 the local library timestamps. The candidate build order is zlib, zstd, OpenSSL,
-curl, Expat, Opus. Recipes/source hashes are in the JSON; their compiler configuration,
-new binary identities and application compatibility still require maintainer validation.
-Neither a package build nor a dependency replacement was performed for this comparison.
+curl, Expat, Opus. Recipes/source hashes are in the JSON. Subsequent CI validates compilation
+and packaging from those pins; runtime compatibility still requires Vita acceptance.
+Neither a package build nor a dependency replacement was performed by the agent for this comparison.
 
-For the maintainer to evaluate that candidate, first point `VITASDK` and PATH at a
+For the maintainer to repeat the source rebuild, first point `VITASDK` and PATH at a
 separate copy of the recovered SDK. The commands below compile/install libraries into
 that copy; they have not been run by the agent:
 
@@ -162,13 +165,13 @@ The source directory can be elsewhere; change that path accordingly. The current
 installation had `PSP2CXML_TOOL` unset, so the sibling `../psp2cxml-tool/build/`
 candidate won before PATH lookup. No general dump of environment variables is needed.
 
-## Setup procedure (maintainer commands; fresh environment not yet validated)
+## Setup procedure (maintainer reference; automated path verified in CI)
 
 1. Use the verified SDK archive above in a separate environment; its top-level directory
    is `vitasdk/`. Original target portlib archives are still missing. Exact restoration
    requires those archives; alternatively, the maintainer can build and validate a new
-   baseline using the pinned recipe candidate. Keep the current installation until one
-   of those paths succeeds. Running `vitasdk-update`, the VDPM bootstrap or `install-all.sh`
+   baseline using the pinned recipes, as the successful CI run does. Keep the current working
+   installation until the new packages pass Vita acceptance. Running `vitasdk-update`, the VDPM bootstrap or `install-all.sh`
    against a moving release is not a reproduction of this baseline.
 2. Install the host prerequisites and export `VITASDK`/PATH as above. Use a new writable
    dependency directory for the following commands. They build/install dependencies
@@ -271,16 +274,38 @@ zstd 1.5.7-1 finish building; pinned OpenSSL reaches `make depend` and fails bec
 `xutils-dev` and checks that `makedepend` is available before dependency setup. Completion
 of OpenSSL/remaining dependencies and application builds is still unverified.
 
+**Clean build passed, 2026-10-24:** the maintainer supplied the complete log of
+[run 40052743854](https://github.com/NowaLone/vita-moonlight-paf/actions/runs/40052743854) on
+`4076f15442064d92f368a64f8ae4bf75ac75fd34`, Ubuntu image `20261012.322.1`.
+All 208 source checks pass, the SDK hash is verified, and zlib 1.3.2-2, zstd 1.5.7-1,
+OpenSSL 1.0.2-1, curl 8.17.0-2, Expat 2.7.4-1 and Opus 1.6.1-1 finish building.
+The pinned PAF component installs, both CXML-tool targets build, and CXML-to-RCO succeeds.
+`build.sh` completes NORMAL (`gd`) and SYSTEM (`gdc`, 65536 KiB, attribute `0x08`) builds.
+All six profile-suffixed VPK/SELF/ELF files pass the workflow's nonempty-file checks.
+
+The [application artifact](https://github.com/NowaLone/vita-moonlight-paf/actions/runs/40052743854/artifacts/12544391557)
+uploads six files, and the [build-evidence artifact](https://github.com/NowaLone/vita-moonlight-paf/actions/runs/40052743854/artifacts/12543854745)
+uploads 16 files including logs, portlib archives and generated checksums/fingerprints.
+Run identity, artifact IDs and the upload-reported ZIP digests are recorded in
+[build-archives.json](build-archives.json). The agent inspected the supplied log, did not
+download or independently inspect these artifacts, and did not build or dispatch CI.
+This closes the clean CI setup/dependency/application build gate. Installation, runtime
+compatibility, UI, streaming and lifecycle acceptance of these CI packages remain pending.
+
 ## Known warnings and remaining evidence
 
 Earlier maintainer records mention SDK signedness/`wchar_t` warnings and future-resource
 timestamp/clock-skew warnings. These are historical observations; no new warning log was
-produced here. The current CMake fallback also warns when
+produced during the initial local inspection. The successful CI log includes OpenSSL
+`makedepend` missing-host-include warnings, compiler signedness and host-tool format warnings,
+4-byte/2-byte `wchar_t` linker warnings, CMake deprecation/developer warnings and jobserver
+warnings. These did not stop the build; the result does not establish ABI or runtime correctness.
+The current CMake fallback also warns when
 `$VITASDK/../vitasdk-paf-component/paf_samples/vitasdk` is absent (as in this installation).
 PAF stubs are installed under `$VITASDK/arm-vita-eabi/lib`; do not mistake the optional
 samples-directory warning for permission to use stock VitaSDK PAF headers.
 
-Still open: recover the original portlib archives or establish a new complete baseline
-from pinned sources, run the documented setup in a fresh environment, and record maintainer
-build/Vita results. The base SDK archive is recovered and verified. This document does not
-claim a clean build or certify all combinations of toolchain/host versions.
+The new source-based baseline now has a successful fresh CI build. Still open: Vita acceptance
+of its packages, release smoke testing and broader host/device compatibility. The original
+local portlib archives remain unrecovered; CI success does not establish byte-identical
+reproduction of that old installation or certify other toolchain/host combinations.

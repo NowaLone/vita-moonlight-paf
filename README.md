@@ -203,15 +203,17 @@ revocation is performed in Sunshine's own client-management UI.
 
 The inspected SDK/component revisions, dependency versions, file fingerprints and setup
 procedure are recorded in [docs/BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md).
-The base SDK archive is recovered and verified. Original portlib archive recovery (or a
-validated rebuild from pinned sources) and a maintainer-run clean-environment build remain open.
+The base SDK archive is recovered and verified. On 2026-10-24 the maintainer's
+[clean CI run](https://github.com/NowaLone/vita-moonlight-paf/actions/runs/40052743854) rebuilt the
+pinned dependencies and both application profiles successfully at `4076f15` (208 source checks).
+This establishes the CI build baseline; operation of those packages on Vita remains pending.
 
 For a fresh GitHub Actions build, use **Actions → Clean Vita build → Run workflow** once
 [the workflow](.github/workflows/build.yml) is on the default branch. It is manual-only,
 uses no cache, rebuilds the pinned dependencies, and produces both application profiles.
 Download the packages/debug ELF and build-evidence artifacts from the completed run;
 evidence is also saved on failure. See [CI setup and limits](docs/BUILD_ENVIRONMENT.md#github-actions).
-The workflow has been source-checked, not run by the agent; build/Vita acceptance remains open.
+The successful run was started by the maintainer; the agent did not run a build or dispatch CI.
 
 Requirements:
 
@@ -431,9 +433,10 @@ For streaming-related changes, verify at least connection setup, video/audio, in
 ## Development Roadmap
 
 The current build environment and setup procedure are recorded in
-[docs/BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md). Reproducibility still needs the
-original portlib archives or a validated rebuild from pinned sources, and a maintainer-run
-fresh-environment build. The base SDK archive is already recovered and verified.
+[docs/BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md). Clean CI setup, dependency rebuild and
+both application-profile builds passed on `4076f15`; original local portlib binaries remain
+unrecovered, and no byte-identical reproduction is claimed. Vita acceptance of the CI packages
+is the next validation step.
 Broader lifecycle/motion/security/error and release checks remain
 open; ordinary API paths are not reopened merely because exhaustive validation is incomplete.
 The canonical plan and completion criteria are in [`ROADMAP.md`](ROADMAP.md).
