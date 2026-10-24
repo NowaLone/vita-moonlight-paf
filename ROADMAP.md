@@ -8,11 +8,13 @@ This is the current task list. Dated implementation/evidence records below prese
 at each stage; their unchecked boxes and old "next" instructions are not additional active
 tasks. Source completion, reported device acceptance and remaining release coverage are separate.
 
-**Next independent task: reproducible setup (§2).**
+**Reproducible setup (§2): installed environment recorded; exact restoration still open.**
 
-- [ ] Record exact working VitaSDK, `vitasdk-paf-component` and `psp2cxml-tool` revisions,
-  dependency setup, environment variables and known warnings. The maintainer verifies a clean
-  build and its artifacts from that documented environment.
+- [x] Record the installed SDK component revisions, PAF/CXML source pins, target dependency
+  versions, setup/environment and known warnings in [BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md),
+  with selected installed SDK fingerprints. No new build was run.
+- [ ] Recover immutable SDK/portlib archive references (or establish a new complete baseline),
+  then have the maintainer verify the documented setup and artifacts in a fresh environment.
 
 **Recent source changes awaiting maintainer acceptance.** These are implemented, not feature
 requests to implement again; no later device result is recorded for these specific changes.
@@ -836,13 +838,21 @@ corner Back button. The UI reference and measured values remain in `docs/UI.md`.
 
 ## 2. Make development builds reproducible
 
-**Priority: next, and can be worked on alongside device validation**
+**2026-10-24: inspected environment pinned; exact restoration and clean build pending.**
 
-- [ ] Record the exact supported VITASDK revision (it cannot be derived from the repository; it has to come from the maintainer's working environment).
-- [ ] Record the exact revisions of `vitasdk-paf-component` and `psp2cxml-tool`.
-- [ ] Document dependency setup and environment variables in a clean, repeatable setup procedure.
+The local SDK's `version_info.txt`, compiler/tool versions, PAF patched/installed-file comparison,
+CXML executable identity, library metadata and fingerprints are recorded in
+[BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md). This identifies the existing installation;
+it does not claim a single SDK Git revision or a successful clean-environment reproduction.
+
+- [x] Record the installed SDK's build stamp and exact newlib/pthread/headers/toolchain revisions.
+- [x] Record exact PAF component, its patched ScePaf-RE base, and CXML-tool source revisions.
+- [x] Document dependency setup, environment variables and the procedure for a fresh checkout.
+- [ ] Recover original SDK and portlib archive tags/URLs/checksums, or validate a new fully
+  pinned baseline. VDPM's moving `master` downloads are not an immutable package lock.
 - [ ] Validate a clean build with `bash build.sh`, including CXML-to-RCO compilation and VPK/SELF generation.
-- [ ] Document the expected toolchain and known build warnings; do not treat a build as verified unless it was actually run.
+- [x] Document the inspected toolchain and historical warning categories; a new clean build and
+  its actual warning log remain unverified.
 - [x] Generate `build/vita_moonlight_paf.elf` automatically for crash-dump symbolization (2026-10-18). CMake copies the unstripped linked executable and preserves the extensionless input expected by VitaSDK's packaging helpers. Verified with `bash build.sh` (existing build directory), successful SELF/VPK generation, byte equality and `.debug_info`/`.debug_line`/`.symtab` inspection. The direct CMake debug-ELF target also regenerated a missing `.elf` with identical SHA-256. This does not verify the Settings crash fix or GUI symbolization on a matching dump; preserve the ELF from each installed VPK.
 
 **Done when:** a fresh environment can follow the instructions to build the project without undocumented manual fixes.
@@ -1167,7 +1177,13 @@ Current independent work order: record exact toolchain/dependency revisions and 
 
 ## Working order
 
-Next independent source/documentation task: **pin the working toolchain/dependency revisions and document reproducible setup**. Keep remaining lifecycle/motion/security/error validation as milestone/release work, reprioritized by concrete regressions. Existing focused checks and scoped normal-flow evidence remain; do not start new routine stream tests merely to fill the audit. Avoid broad refactors or system integrations without a concrete need.
+Installed toolchain/dependency identities and setup are now recorded in
+[BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md). Finish reproducibility by recovering immutable
+SDK/portlib archives (or establishing a new complete baseline) and obtaining the maintainer's
+fresh-environment build result. Keep remaining lifecycle/motion/security/error validation as
+milestone/release work, reprioritized by concrete regressions. Existing focused checks and scoped
+normal-flow evidence remain; do not start new routine stream tests merely to fill the audit.
+Avoid broad refactors or system integrations without a concrete need.
 
 ## Scope boundaries
 

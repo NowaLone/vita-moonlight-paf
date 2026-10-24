@@ -201,6 +201,10 @@ revocation is performed in Sunshine's own client-management UI.
 
 ## Build
 
+The inspected SDK/component revisions, dependency versions, file fingerprints and setup
+procedure are recorded in [docs/BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md).
+Exact SDK/portlib archive recovery and a maintainer-run clean-environment build remain open.
+
 Requirements:
 
 - [VITASDK](https://github.com/vitasdk/vitasdk)
@@ -418,8 +422,10 @@ For streaming-related changes, verify at least connection setup, video/audio, in
 
 ## Development Roadmap
 
-The next independent development task is to record exact toolchain/dependency revisions and a
-reproducible setup procedure. Broader lifecycle/motion/security/error and release checks remain
+The current build environment and setup procedure are recorded in
+[docs/BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md). Reproducibility still needs immutable
+SDK/portlib archive references and a maintainer-run fresh-environment build.
+Broader lifecycle/motion/security/error and release checks remain
 open; ordinary API paths are not reopened merely because exhaustive validation is incomplete.
 The canonical plan and completion criteria are in [`ROADMAP.md`](ROADMAP.md).
 
