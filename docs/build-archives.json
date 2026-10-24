@@ -76,7 +76,7 @@
     ]
   },
   "source_rebuild_candidate": {
-    "status": "ci_build_verified; Vita validation pending; not proof of original installed binary provenance",
+    "status": "ci_build_verified; basic Vita smoke user-confirmed; not proof of original installed binary provenance",
     "ci_validation": {
       "run_url": "https://github.com/NowaLone/vita-moonlight-paf/actions/runs/40052743854",
       "project_commit": "4076f15442064d92f368a64f8ae4bf75ac75fd34",
@@ -93,7 +93,14 @@
         "url": "https://github.com/NowaLone/vita-moonlight-paf/actions/runs/40052743854/artifacts/12543854745",
         "reported_zip_sha256": "72a81b93a53e97bce847cea6efc892a8df230d58fa03fa74a398d4c28c39a30d"
       },
-      "evidence_scope": "Maintainer-supplied CI log; no agent build or artifact download; device operation and bit-identical reproduction unverified."
+      "evidence_scope": "Maintainer-supplied CI log plus basic Vita smoke confirmation; no agent build, artifact download or device run; bit-identical reproduction unverified.",
+      "vita_smoke": {
+        "date": "2026-10-24",
+        "result": "user_confirmed_ok",
+        "statement": "всё ок",
+        "context": "Reply to the requested CI-package startup, Settings, streaming and reconnect check.",
+        "limits": "No new log or separately itemized profile, firmware or host-version results; broader feature/fault/endurance coverage remains separate."
+      }
     },
     "recipe_repository": "https://github.com/vitasdk/packages",
     "recipe_commit": "cf7704284c593c32c30f477dd34c6ff5dbff6cdf",

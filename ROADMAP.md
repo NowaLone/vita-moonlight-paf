@@ -8,7 +8,7 @@ This is the current task list. Dated implementation/evidence records below prese
 at each stage; their unchecked boxes and old "next" instructions are not additional active
 tasks. Source completion, reported device acceptance and remaining release coverage are separate.
 
-**Reproducible setup (§2): clean CI build passed; CI-package Vita acceptance remains open.**
+**Reproducible setup (§2): clean CI build and basic CI-package Vita smoke accepted.**
 
 - [x] Record the installed SDK component revisions, PAF/CXML source pins, target dependency
   versions, setup/environment and known warnings in [BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md),
@@ -25,8 +25,9 @@ tasks. Source completion, reported device acceptance and remaining release cover
   on `4076f15` passes 208 checks, rebuilds all six portlibs/PAF/CXML, compiles the RCO and
   builds normal/system VPK/SELF/ELF. Six application files and build evidence were uploaded.
   This is maintainer-run CI evidence; the agent did not build or dispatch CI.
-- [ ] Install the CI-produced full VPKs and check the new dependency baseline on Vita:
-  startup/Settings, pairing or paired reconnect, Apps, stream video/audio/input and stop/reconnect.
+- [x] Basic CI-package Vita smoke: on 2026-10-24 the maintainer replied “всё ок” to the
+  requested startup/Settings/stream/reconnect check of the `4076f15` CI packages. This is
+  user-reported acceptance; no new log or separate per-profile results were supplied.
 
 **Recent source changes awaiting maintainer acceptance.** These are implemented, not feature
 requests to implement again; no later device result is recorded for these specific changes.
@@ -42,11 +43,9 @@ requests to implement again; no later device result is recorded for these specif
 - [ ] Compact stream statistics: readability, numerical accuracy and performance on Vita.
   Session counters/snapshots and the six-line overlay already exist in `master`. The DS4 RGB
   light-bar shape revision also awaits viewing; basic DS4/DualSense feedback already passed.
-- [ ] Dual-profile build invocation and installation of its resulting packages. Normal/system
-  profile streaming smoke tests already passed individually, and the combined build passed CI
-  on `4076f15`; installation and hardware acceptance of the CI packages remain. The latest
-  simplification/resource changes also need maintainer regression
-  acceptance, without reopening every earlier successful feature test.
+- [x] Combined normal/system build passed CI on `4076f15`; the maintainer subsequently accepts
+  the requested basic CI-package Vita smoke (2026-10-24, “всё ок”). Earlier profile smoke results
+  remain recorded separately. This does not itemize every recent UI/statistics/fault case above.
 
 **Deferred device/release coverage, not the default next development task.**
 
@@ -857,7 +856,8 @@ The local SDK's `version_info.txt`, compiler/tool versions, PAF patched/installe
 CXML executable identity, library metadata and fingerprints are recorded in
 [BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md). The later maintainer-supplied CI log establishes
 a clean setup/dependency/application build using the recorded source pins, separately from the
-existing installation. Exact old-library reproduction and runtime compatibility are not claimed.
+existing installation. The maintainer also accepts the basic CI-package Vita smoke; exact
+old-library reproduction and broad runtime compatibility are not claimed.
 
 - [x] Record the installed SDK's build stamp and exact newlib/pthread/headers/toolchain revisions.
 - [x] Record exact PAF component, its patched ScePaf-RE base, and CXML-tool source revisions.
@@ -866,7 +866,7 @@ existing installation. Exact old-library reproduction and runtime compatibility 
   inputs. PAF overrides are accounted for separately; no SDK installation was performed.
 - [x] Establish the new build baseline from pinned recipes and explicit OpenSSL source commit.
   All six libraries build in run 40052743854; original installed archives remain unrecovered,
-  and the new baseline's Vita compatibility is not yet verified.
+  with basic Vita smoke subsequently accepted by the maintainer (2026-10-24).
 - [x] Validate a clean CI build with `bash build.sh`, including CXML-to-RCO compilation and
   normal/system VPK/SELF/debug ELF generation (`4076f15`, maintainer-run CI).
 - [x] Document the inspected toolchain, warnings and actual CI result. The successful log
@@ -874,7 +874,8 @@ existing installation. Exact old-library reproduction and runtime compatibility 
 - [x] Generate `build/vita_moonlight_paf.elf` automatically for crash-dump symbolization (2026-10-18). CMake copies the unstripped linked executable and preserves the extensionless input expected by VitaSDK's packaging helpers. Verified with `bash build.sh` (existing build directory), successful SELF/VPK generation, byte equality and `.debug_info`/`.debug_line`/`.symtab` inspection. The direct CMake debug-ELF target also regenerated a missing `.elf` with identical SHA-256. This does not verify the Settings crash fix or GUI symbolization on a matching dump; preserve the ELF from each installed VPK.
 
 **Build gate met:** the checked-in workflow creates a fresh environment and completes both
-profiles. The produced packages still need Vita acceptance; this is not a release smoke test.
+profiles; the maintainer accepts the requested basic Vita smoke. Broader release/hardware
+coverage remains separate.
 
 ## Sunshine / GameStream client API coverage
 
@@ -1198,8 +1199,8 @@ Current independent work order: record exact toolchain/dependency revisions and 
 
 Installed toolchain/dependency identities and setup are recorded in
 [BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md); clean CI build passed on `4076f15`.
-Next validate the CI-produced packages on Vita. Licensing/attribution and release documentation
-remain independent work. Keep remaining lifecycle/motion/security/error validation as
+The maintainer accepts the basic CI-package Vita smoke. Next independent work is
+licensing/attribution and release documentation. Keep remaining lifecycle/motion/security/error validation as
 milestone/release work, reprioritized by concrete regressions. Existing focused checks and scoped
 normal-flow evidence remain; do not start new routine stream tests merely to fill the audit.
 Avoid broad refactors or system integrations without a concrete need.

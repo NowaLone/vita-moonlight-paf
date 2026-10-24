@@ -7,7 +7,8 @@ packaging or deployment was performed. Existing normal/system CMake caches both 
 to `/usr/local/vitasdk`; that identifies the configured environment, not a new build result.
 Subsequent maintainer-run CI on `4076f15` successfully rebuilt the pinned dependencies and
 both profiles in a fresh runner. The [CI evidence below](#github-actions) is separate from
-the initial local snapshot; Vita acceptance of these new packages remains pending.
+the initial local snapshot. The maintainer subsequently accepts the requested basic CI-package
+Vita smoke (“всё ок”, 2026-10-24); detailed feature/fault and broader compatibility checks remain separate.
 
 ## SDK identity
 
@@ -289,8 +290,13 @@ uploads 16 files including logs, portlib archives and generated checksums/finger
 Run identity, artifact IDs and the upload-reported ZIP digests are recorded in
 [build-archives.json](build-archives.json). The agent inspected the supplied log, did not
 download or independently inspect these artifacts, and did not build or dispatch CI.
-This closes the clean CI setup/dependency/application build gate. Installation, runtime
-compatibility, UI, streaming and lifecycle acceptance of these CI packages remain pending.
+This closes the clean CI setup/dependency/application build gate.
+
+**Basic Vita smoke accepted, 2026-10-24:** after receiving the CI artifact link and the request
+to check those VPKs for startup, Settings, streaming and reconnect, the maintainer replied
+“всё ок”. Record this as user-reported acceptance of that basic CI-package check. No new log,
+separate per-profile result, firmware or host version was supplied. This does not certify the
+entire UI/statistics, fault/security, motion or endurance matrix, and no agent device run occurred.
 
 ## Known warnings and remaining evidence
 
@@ -305,7 +311,8 @@ The current CMake fallback also warns when
 PAF stubs are installed under `$VITASDK/arm-vita-eabi/lib`; do not mistake the optional
 samples-directory warning for permission to use stock VitaSDK PAF headers.
 
-The new source-based baseline now has a successful fresh CI build. Still open: Vita acceptance
-of its packages, release smoke testing and broader host/device compatibility. The original
+The new source-based baseline has a successful fresh CI build and user-confirmed basic Vita
+smoke. Release readiness, detailed feature/fault checks and broader host/device compatibility
+remain open. The original
 local portlib archives remain unrecovered; CI success does not establish byte-identical
 reproduction of that old installation or certify other toolchain/host combinations.
