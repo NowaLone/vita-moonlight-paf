@@ -259,26 +259,42 @@ class ControllerLight(unittest.TestCase):
             self.assertEqual(style.find('planeobj').get('color'), '1, 1, 1, 1')
 
     def test_source_masks_are_reproducible_white_alpha_and_mirrored(self):
+        def decode_png(data):
+            self.assertEqual(data[:8], b'\x89PNG\r\n\x1a\n')
+            offset, payload, header = 8, bytearray(), None
+            while offset < len(data):
+                length = struct.unpack('>I', data[offset:offset + 4])[0]
+                kind = data[offset + 4:offset + 8]
+                chunk = data[offset + 8:offset + 8 + length]
+                crc = struct.unpack('>I', data[offset + 8 + length:offset + 12 + length])[0]
+                self.assertEqual(zlib.crc32(kind + chunk), crc)
+                if kind == b'IHDR':
+                    header = chunk
+                if kind == b'IDAT':
+                    payload.extend(chunk)
+                offset += length + 12
+            return header, zlib.decompress(payload)
+
         spec = importlib.util.spec_from_file_location('light_textures', ROOT / 'tools/generate_controller_light_textures.py')
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         with tempfile.TemporaryDirectory() as directory:
             module.TEXTURES = __import__('pathlib').Path(directory)
-            module.main()
+            compress = zlib.compress
+            # Exercise a different encoding so byte-equality regressions fail on every host.
+            with patch.object(module.zlib, 'compress', side_effect=lambda data, level: compress(data, 1)):
+                module.main()
             decoded = {}
             for suffix, size in (('ds4', (200, 36)), ('left', (16, 128)), ('right', (16, 128))):
                 name = 'controller_light_' + suffix + '.png'
                 original = (ROOT / 'cxml/texture' / name).read_bytes()
-                self.assertEqual((module.TEXTURES / name).read_bytes(), original)
-                width, height, depth, color = struct.unpack('>IIBB', original[16:26])
+                header, pixels = decode_png(original)
+                # zlib versions/levels can encode identical pixels differently.
+                self.assertEqual(decode_png((module.TEXTURES / name).read_bytes()), (header, pixels))
+                width, height, depth, color = struct.unpack('>IIBB', header[:10])
                 self.assertEqual((width, height, depth, color), (*size, 8, 6))
-                offset, payload = 8, bytearray()
-                while offset < len(original):
-                    length = struct.unpack('>I', original[offset:offset + 4])[0]
-                    if original[offset + 4:offset + 8] == b'IDAT':
-                        payload.extend(original[offset + 8:offset + 8 + length])
-                    offset += length + 12
-                pixels = zlib.decompress(payload)
+                self.assertEqual(len(pixels), height * (width * 4 + 1))
+                self.assertTrue(all(pixels[y * (width * 4 + 1)] == 0 for y in range(height)))
                 rows = [pixels[y * (width * 4 + 1) + 1:(y + 1) * (width * 4 + 1)] for y in range(height)]
                 self.assertTrue(all(row[x:x + 3] == b'\xff\xff\xff' for row in rows for x in range(0, width * 4, 4)))
                 alpha = [list(row[3::4]) for row in rows]

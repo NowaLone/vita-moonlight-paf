@@ -253,8 +253,15 @@ old installation byte-for-byte. The runner image and distribution host packages 
 this workflow is a clean setup/build check, not a bit-for-bit reproducible-build claim. No
 secrets or Vita credentials are needed. Dependency install/build commands execute only when
 the maintainer starts the workflow. Static validation and isolated helper tests do not establish
-a successful SDK/library/application build. The first CI run and subsequent Vita smoke test
-remain pending; the agent has not run a build locally or dispatched CI.
+a successful SDK/library/application build. The agent has not run a build locally or dispatched CI.
+
+The maintainer supplied the log of [run 40051978775](https://github.com/NowaLone/vita-moonlight-paf/actions/runs/40051978775)
+on `899cc3c`, Ubuntu image `20261012.322.1` (2026-10-24). Checkout/submodules and host-tool
+installation succeeded, including CMake 3.31.10/pycparser 2.22. Of 208 source checks, one
+failed because the RGB mask test required compressed PNG byte equality. SDK/dependency and
+application builds did not start; evidence-artifact upload succeeded. The test now compares
+IHDR and decompressed scanlines with CRC/geometry checks and covers an alternate compression
+level. A successful CI build on the corrected source and subsequent Vita smoke remain pending.
 
 ## Known warnings and remaining evidence
 

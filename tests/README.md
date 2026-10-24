@@ -142,6 +142,11 @@ and normalized PAF update method: controller filtering, Off/stop/cancel/finished
 black RGB on restart, black turning the light off, stale generation, unchanged-color deduplication,
 missing widgets and no polling when disabled. It also checks capability/service wiring, update
 without a new video frame, CXML layering/settings/localization and reproducible mirrored PNG masks.
+Mask reproduction compares the complete IHDR and decompressed scanlines, checks chunk CRCs,
+unfiltered RGBA dimensions/length, white RGB and alpha geometry/mirroring. It deliberately
+regenerates with another zlib compression level: compressed PNG bytes are not a portable
+pixel identity check. This reproduces the old byte-comparison failure without a build; the
+2026-10-24 maintainer CI log stopped at that assertion before SDK/dependency setup.
 Mutexes, pointer/struct copies, color vectors and widgets are serial mocks. These checks do not
 compile CXML/C++, render PAF, run a host or verify real concurrency, Vita appearance/performance,
 AppSettings persistence or actual game-generated RGB. See docs/UI.md section 4.10.

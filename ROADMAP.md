@@ -21,8 +21,10 @@ tasks. Source completion, reported device acceptance and remaining release cover
 - [x] Add a manual GitHub Actions clean-build workflow using the recorded pins, with both
   profiles and build-evidence artifacts. Static workflow/shell validation and isolated helper
   checks are available; no build or CI dispatch by the agent.
-- [ ] Maintainer runs **Clean Vita build** and supplies its result; successful CI establishes
-  the build portion of the new baseline, with Vita validation still separate.
+- [ ] Complete a successful **Clean Vita build** run. The maintainer's first `899cc3c` run
+  installed host tools and uploaded evidence, but stopped at the RGB PNG byte-equality source
+  check before SDK/dependency setup. The test now compares decoded image data and covers a
+  different compression level; corrected-run build/Vita acceptance remains open.
 
 **Recent source changes awaiting maintainer acceptance.** These are implemented, not feature
 requests to implement again; no later device result is recorded for these specific changes.
