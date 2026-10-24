@@ -13,8 +13,11 @@ tasks. Source completion, reported device acceptance and remaining release cover
 - [x] Record the installed SDK component revisions, PAF/CXML source pins, target dependency
   versions, setup/environment and known warnings in [BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md),
   with selected installed SDK fingerprints. No new build was run.
-- [ ] Recover immutable SDK/portlib archive references (or establish a new complete baseline),
-  then have the maintainer verify the documented setup and artifacts in a fresh environment.
+- [x] Recover and verify the base SDK archive (`master-linux-v2.536`, SHA256 and 57 selected
+  installed inputs match). Record identities and rejected newer portlibs in
+  [build-archives.json](docs/build-archives.json); no installation or build was run.
+- [ ] Recover original portlib archives or have the maintainer establish a new baseline using
+  the pinned source-recipe candidate, then verify the setup/artifacts in a fresh environment.
 
 **Recent source changes awaiting maintainer acceptance.** These are implemented, not feature
 requests to implement again; no later device result is recorded for these specific changes.
@@ -848,8 +851,12 @@ it does not claim a single SDK Git revision or a successful clean-environment re
 - [x] Record the installed SDK's build stamp and exact newlib/pthread/headers/toolchain revisions.
 - [x] Record exact PAF component, its patched ScePaf-RE base, and CXML-tool source revisions.
 - [x] Document dependency setup, environment variables and the procedure for a fresh checkout.
-- [ ] Recover original SDK and portlib archive tags/URLs/checksums, or validate a new fully
-  pinned baseline. VDPM's moving `master` downloads are not an immutable package lock.
+- [x] Recover base SDK release/asset URL and verify the downloaded SHA256 and selected installed
+  inputs. PAF overrides are accounted for separately; no SDK installation was performed.
+- [ ] Recover original portlib archive tags/URLs/checksums or validate a new fully pinned
+  baseline. Current `master` assets use GCC 15.2.0 rather than installed GCC 10.3.0; Expat
+  also changed. A historical version-matching recipe snapshot with explicit OpenSSL pin is
+  recorded as an unbuilt candidate, not an accepted replacement.
 - [ ] Validate a clean build with `bash build.sh`, including CXML-to-RCO compilation and VPK/SELF generation.
 - [x] Document the inspected toolchain and historical warning categories; a new clean build and
   its actual warning log remain unverified.
@@ -1178,9 +1185,10 @@ Current independent work order: record exact toolchain/dependency revisions and 
 ## Working order
 
 Installed toolchain/dependency identities and setup are now recorded in
-[BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md). Finish reproducibility by recovering immutable
-SDK/portlib archives (or establishing a new complete baseline) and obtaining the maintainer's
-fresh-environment build result. Keep remaining lifecycle/motion/security/error validation as
+[BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md). The base SDK archive is verified. Finish
+reproducibility by recovering original portlib archives (or establishing a new complete baseline
+from the recorded source candidate) and obtaining the maintainer's fresh-environment build result.
+Keep remaining lifecycle/motion/security/error validation as
 milestone/release work, reprioritized by concrete regressions. Existing focused checks and scoped
 normal-flow evidence remain; do not start new routine stream tests merely to fill the audit.
 Avoid broad refactors or system integrations without a concrete need.

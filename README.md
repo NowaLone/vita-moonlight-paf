@@ -203,7 +203,8 @@ revocation is performed in Sunshine's own client-management UI.
 
 The inspected SDK/component revisions, dependency versions, file fingerprints and setup
 procedure are recorded in [docs/BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md).
-Exact SDK/portlib archive recovery and a maintainer-run clean-environment build remain open.
+The base SDK archive is recovered and verified. Original portlib archive recovery (or a
+validated rebuild from pinned sources) and a maintainer-run clean-environment build remain open.
 
 Requirements:
 
@@ -423,8 +424,9 @@ For streaming-related changes, verify at least connection setup, video/audio, in
 ## Development Roadmap
 
 The current build environment and setup procedure are recorded in
-[docs/BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md). Reproducibility still needs immutable
-SDK/portlib archive references and a maintainer-run fresh-environment build.
+[docs/BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md). Reproducibility still needs the
+original portlib archives or a validated rebuild from pinned sources, and a maintainer-run
+fresh-environment build. The base SDK archive is already recovered and verified.
 Broader lifecycle/motion/security/error and release checks remain
 open; ordinary API paths are not reopened merely because exhaustive validation is incomplete.
 The canonical plan and completion criteria are in [`ROADMAP.md`](ROADMAP.md).

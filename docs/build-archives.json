@@ -1,0 +1,122 @@
+{
+  "recorded_date": "2026-10-24",
+  "scope": "Archive provenance; no installation or build performed.",
+  "sdk": {
+    "status": "verified_against_installed_selected_inputs",
+    "repository": "vitasdk/autobuilds",
+    "release_tag": "master-linux-v2.536",
+    "release_url": "https://github.com/vitasdk/autobuilds/releases/tag/master-linux-v2.536",
+    "asset_id": 380523786,
+    "filename": "vitasdk-x86_64-linux-gnu-2026-03-24_14-51-07.tar.bz2",
+    "download_url": "https://github.com/vitasdk/autobuilds/releases/download/master-linux-v2.536/vitasdk-x86_64-linux-gnu-2026-03-24_14-51-07.tar.bz2",
+    "size_bytes": 72791907,
+    "sha256": "f48b261a5c9b212272af85381dbfc75b0dafe34324f7e8802be3bc8d2393b172",
+    "installed_manifest": "build-environment.sha256",
+    "matching_manifest_files": 57,
+    "expected_paf_overrides": [
+      "arm-vita-eabi/include/psp2/paf.h",
+      "arm-vita-eabi/lib/libScePaf_stub_weak.a"
+    ],
+    "remaining_manifest_inputs": "PAF component additions and target portlibs are not provided by the base SDK."
+  },
+  "target_portlibs": {
+    "status": "original_archives_not_recovered",
+    "inspected_release_url": "https://github.com/vitasdk/packages/releases/tag/master",
+    "candidate_asset_date": "2026-08-13",
+    "installed_compiler": "GCC 10.3.0",
+    "candidate_compiler": "GCC 15.2.0",
+    "rejection": "All seven required static-library payloads differ, including object contents. Expat candidate is 2.8.2; installed is 2.7.4. These are not restoration archives.",
+    "rejected_assets": [
+      {
+        "filename": "curl.tar.xz",
+        "asset_id": 513418882,
+        "download_url": "https://github.com/vitasdk/packages/releases/download/master/curl.tar.xz",
+        "sha256": "736d57b43be30d0125eb7751afcd063fe278fae472efa0ee28c9e1ca54dea603"
+      },
+      {
+        "filename": "expat.tar.xz",
+        "asset_id": 513418942,
+        "download_url": "https://github.com/vitasdk/packages/releases/download/master/expat.tar.xz",
+        "sha256": "deb1d489c3da4ccd81990007e205e59ef925361aa33dfa260d020db825984b4d"
+      },
+      {
+        "filename": "openssl.tar.xz",
+        "asset_id": 513419294,
+        "download_url": "https://github.com/vitasdk/packages/releases/download/master/openssl.tar.xz",
+        "sha256": "d35a47aca776e568a630cfbf9d69e959e95c732cfcf964b73fefac8cb24175b1"
+      },
+      {
+        "filename": "opus.tar.xz",
+        "asset_id": 513419297,
+        "download_url": "https://github.com/vitasdk/packages/releases/download/master/opus.tar.xz",
+        "sha256": "f28962484ec1e7768be15cc5269ed082dc72ef533d5f80df3950aa3e4713e6a1"
+      },
+      {
+        "filename": "zlib.tar.xz",
+        "asset_id": 513419429,
+        "download_url": "https://github.com/vitasdk/packages/releases/download/master/zlib.tar.xz",
+        "sha256": "f39cea16c176f93dc744597113f093db0d48adf23dd25a14ee0d2ec47df17fa6"
+      },
+      {
+        "filename": "zstd.tar.xz",
+        "asset_id": 513419435,
+        "download_url": "https://github.com/vitasdk/packages/releases/download/master/zstd.tar.xz",
+        "sha256": "b459390f8f6b6f5c7657d32d2681c82206b636133c4d277916e43270e0eec00b"
+      }
+    ]
+  },
+  "source_rebuild_candidate": {
+    "status": "not_built_or_validated; not proof of installed binary provenance",
+    "recipe_repository": "https://github.com/vitasdk/packages",
+    "recipe_commit": "cf7704284c593c32c30f477dd34c6ff5dbff6cdf",
+    "recipes": {
+      "curl": {
+        "path": "curl/VITABUILD",
+        "version": "8.17.0",
+        "package_release": 2,
+        "source_sha256": "e8e74cdeefe5fb78b3ae6e90cd542babf788fa9480029cfcee6fd9ced42b7910"
+      },
+      "expat": {
+        "path": "expat/VITABUILD",
+        "version": "2.7.4",
+        "package_release": 1,
+        "source_sha256": "9e9cabb457c1e09de91db2706d8365645792638eb3be1f94dbb2149301086ac0"
+      },
+      "openssl": {
+        "path": "openssl/VITABUILD",
+        "version": "1.0.2",
+        "package_release": 1,
+        "source_repository": "https://github.com/d3m3vilurr/vita-openssl",
+        "required_source_commit": "cd52124ffc8e0f0fc8e2bdde93d4c022a0a7fc53",
+        "note": "Upstream recipe uses unpinned git+ and SKIP. Explicitly pin this commit in a separate rebuild environment."
+      },
+      "opus": {
+        "path": "opus/VITABUILD",
+        "version": "1.6.1",
+        "package_release": 1,
+        "source_sha256": "6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1"
+      },
+      "zlib": {
+        "path": "zlib/VITABUILD",
+        "version": "1.3.2",
+        "package_release": 2,
+        "source_sha256": "d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3",
+        "patch_sha256": "5880305adc815c4dd3de7d7c4883f3aca824fa9273cf6fa562e77e3dd5a00cef"
+      },
+      "zstd": {
+        "path": "zstd/VITABUILD",
+        "version": "1.5.7",
+        "package_release": 1,
+        "source_sha256": "eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3"
+      }
+    },
+    "build_order": [
+      "zlib",
+      "zstd",
+      "openssl",
+      "curl",
+      "expat",
+      "opus"
+    ]
+  }
+}

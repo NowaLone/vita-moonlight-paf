@@ -20,8 +20,8 @@ vita-toolchain    71f3789342f610a4eb3ba50fc33292c4900c6666
 ```
 
 `arm-vita-eabi-gcc` and `g++` report 10.3.0; target GNU ld reports 2.34.
-There is no single SDK Git checkout/revision in this installation. The original
-autobuild release tag, archive URL and archive SHA256 have not been recovered.
+There is no single SDK Git checkout/revision in this installation. The base archive
+is now identified as `master-linux-v2.536`; see the verified download below.
 Do not substitute a current nightly and call it the recorded SDK.
 
 [build-environment.sha256](build-environment.sha256) records selected installed
@@ -31,6 +31,71 @@ libraries linked by the application (including system-profile CodecEngine), sele
 runtime/dependency headers and package metadata. This is a comparison baseline,
 not a complete SDK backup or a guarantee of byte-identical output. It cannot recover
 missing archives, and it does not fingerprint every compiler header or host dependency.
+
+## Recovered SDK archive and remaining portlibs
+
+The [official SDK release](https://github.com/vitasdk/autobuilds/releases/tag/master-linux-v2.536)
+contains `vitasdk-x86_64-linux-gnu-2026-03-24_14-51-07.tar.bz2`, asset ID
+`380523786`, 72791907 bytes. Downloaded SHA256:
+`f48b261a5c9b212272af85381dbfc75b0dafe34324f7e8802be3bc8d2393b172`.
+The bytes match GitHub's asset digest. Reading the tar without installing it confirms
+the complete `version_info.txt` and 57 selected installed inputs byte-for-byte,
+including the compiler internals, linker, libc/pthread, Vita stubs and CMake helpers.
+The two differing baseline entries are `psp2/paf.h` and `libScePaf_stub_weak.a`,
+which the separately pinned PAF component replaces. Additional PAF and portlib inputs
+are absent from the base SDK; this is not a complete application dependency bundle.
+
+[build-archives.json](build-archives.json) records the accepted SDK URL/identity,
+rejected portlib candidates, and a pinned source-rebuild candidate. To download and
+verify the SDK in a separate scratch directory (no install or build):
+
+```bash
+curl --fail --location --output vitasdk-x86_64-linux-gnu-2026-03-24_14-51-07.tar.bz2 \
+  https://github.com/vitasdk/autobuilds/releases/download/master-linux-v2.536/vitasdk-x86_64-linux-gnu-2026-03-24_14-51-07.tar.bz2
+printf '%s  %s\n' f48b261a5c9b212272af85381dbfc75b0dafe34324f7e8802be3bc8d2393b172 \
+  vitasdk-x86_64-linux-gnu-2026-03-24_14-51-07.tar.bz2 | sha256sum --check -
+```
+
+The [current portlib release](https://github.com/vitasdk/packages/releases/tag/master)
+does **not** restore the installed libraries. The six downloaded assets, dated
+2026-08-13, have verified GitHub digests but all seven required `.a` files differ,
+including their object payloads rather than just archive timestamps. Their compiler
+markers say GCC 15.2.0; the installed libraries say GCC 10.3.0. Expat is now 2.8.2,
+instead of installed 2.7.4. Other matching version strings/headers are insufficient.
+Do not install these assets over the recorded environment as a restoration step.
+No matching archives were found in the inspected Downloads, VDPM or system cache
+locations; the provider's release list exposes only `master` for these packages.
+
+A [historical recipe snapshot](https://github.com/vitasdk/packages/tree/cf7704284c593c32c30f477dd34c6ff5dbff6cdf)
+has the installed package versions and hashes for curl, Expat, Opus, zlib and zstd.
+It is a reconstruction candidate, not proof of the installed binaries' origins.
+Its OpenSSL recipe uses `git+` without a revision and `SKIP`; pin that source to
+[`cd52124ffc8e0f0fc8e2bdde93d4c022a0a7fc53`](https://github.com/d3m3vilurr/vita-openssl/commit/cd52124ffc8e0f0fc8e2bdde93d4c022a0a7fc53)
+before any separate rebuild. This was both its current HEAD and latest commit before
+the local library timestamps. The candidate build order is zlib, zstd, OpenSSL,
+curl, Expat, Opus. Recipes/source hashes are in the JSON; their compiler configuration,
+new binary identities and application compatibility still require maintainer validation.
+Neither a package build nor a dependency replacement was performed for this comparison.
+
+For the maintainer to evaluate that candidate, first point `VITASDK` and PATH at a
+separate copy of the recovered SDK. The commands below compile/install libraries into
+that copy; they have not been run by the agent:
+
+```bash
+git clone https://github.com/vitasdk/packages.git vita-portlibs-candidate
+cd vita-portlibs-candidate
+git checkout --detach cf7704284c593c32c30f477dd34c6ff5dbff6cdf
+sed -i 's|vita-openssl.git|vita-openssl.git#commit=cd52124ffc8e0f0fc8e2bdde93d4c022a0a7fc53|' openssl/VITABUILD
+for package in zlib zstd openssl curl expat opus; do
+  bash build.sh "$package" || exit 1
+done
+```
+
+The recovered SDK's `vita-makepkg` Git source handler supports `#commit=`; this
+closes the recipe's moving-HEAD input while retaining its existing build options.
+Retain the generated package archives, their checksums, build logs and the changed
+OpenSSL recipe with the new environment record. A failed package must be resolved
+before proceeding to PAF/application builds; fresh build/Vita acceptance remains required.
 
 ## Pinned source dependencies
 
@@ -98,10 +163,11 @@ candidate won before PATH lookup. No general dump of environment variables is ne
 
 ## Setup procedure (maintainer commands; fresh environment not yet validated)
 
-1. Provision the matching SDK and the target libraries above. The original SDK and
-   portlib archive identities remain a prerequisite for exact restoration. Keep the
-   current installation until matching archives or a separately verified replacement
-   are available; running `vitasdk-update`, the VDPM bootstrap or `install-all.sh`
+1. Use the verified SDK archive above in a separate environment; its top-level directory
+   is `vitasdk/`. Original target portlib archives are still missing. Exact restoration
+   requires those archives; alternatively, the maintainer can build and validate a new
+   baseline using the pinned recipe candidate. Keep the current installation until one
+   of those paths succeeds. Running `vitasdk-update`, the VDPM bootstrap or `install-all.sh`
    against a moving release is not a reproduction of this baseline.
 2. Install the host prerequisites and export `VITASDK`/PATH as above. Use a new writable
    dependency directory for the following commands. They build/install dependencies
@@ -167,7 +233,7 @@ produced here. The current CMake fallback also warns when
 PAF stubs are installed under `$VITASDK/arm-vita-eabi/lib`; do not mistake the optional
 samples-directory warning for permission to use stock VitaSDK PAF headers.
 
-Still open: recover immutable SDK/portlib archive references or establish a new complete
-baseline, run the documented setup in a fresh environment, and record maintainer build/Vita
-results. This document pins the inspected installation; it does not claim a clean build
-or certify all combinations of toolchain/host versions.
+Still open: recover the original portlib archives or establish a new complete baseline
+from pinned sources, run the documented setup in a fresh environment, and record maintainer
+build/Vita results. The base SDK archive is recovered and verified. This document does not
+claim a clean build or certify all combinations of toolchain/host versions.
