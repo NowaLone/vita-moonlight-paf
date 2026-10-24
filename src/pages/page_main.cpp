@@ -829,12 +829,12 @@ void Main::EnterSelectionMode()
     m_selected_count = 0;
     for (int i = 0; i < m_host_count; ++i) m_rows[i].selected = false;
 
-    paf::ui::Widget *normal_actions = root->FindChild("plane_main_actions");
+    paf::ui::Widget *add_pc = root->FindChild("btn_add_pc");
     paf::ui::Widget *status = root->FindChild("text_main_status");
     paf::ui::Widget *settings = root->FindChild("settings_button");
     paf::ui::Widget *selection_actions = root->FindChild("plane_main_selection_actions");
 
-    if (normal_actions) normal_actions->Hide(paf::common::transition::Type_Reset);
+    set_button_enabled(add_pc, false);
     if (status) status->Hide(paf::common::transition::Type_Reset);
     if (settings) settings->Hide(paf::common::transition::Type_Reset);
 
@@ -864,7 +864,7 @@ void Main::ExitSelectionMode()
     m_selected_count = 0;
     for (int i = 0; i < m_host_count; ++i) m_rows[i].selected = false;
 
-    paf::ui::Widget *normal_actions = root->FindChild("plane_main_actions");
+    paf::ui::Widget *add_pc = root->FindChild("btn_add_pc");
     paf::ui::Widget *settings = root->FindChild("settings_button");
     paf::ui::Widget *selection_actions = root->FindChild("plane_main_selection_actions");
 
@@ -874,7 +874,7 @@ void Main::ExitSelectionMode()
     }
 
     if (selection_actions) selection_actions->Hide(paf::common::transition::Type_Reset);
-    if (normal_actions) normal_actions->Show(paf::common::transition::Type_Reset);
+    set_button_enabled(add_pc, true);
     if (settings) settings->Show(paf::common::transition::Type_Reset);
 
     RefreshHosts();

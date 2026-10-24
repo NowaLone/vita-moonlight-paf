@@ -1140,9 +1140,11 @@ artwork, touch, focus and the existing decide callback **[code, 2026-10-24]**.
 The icon has no text label. The previous bottom-wide button/box and unused prompt
 string are removed. Main's title and host-list/selection-bar geometry stay unchanged.
 
-`btn_add_pc` still opens the existing native Vita IME. Keeping its owning container
-also preserves selection-mode hide/show and existing discovery pause/resume without
-C++ changes. Resource/XML source checks pass; RCO compilation, final background/icon
+`btn_add_pc` still opens the existing native Vita IME. In Delete selection mode,
+the button and its container remain visible; `set_button_enabled()` disables the
+button on entry and enables it on exit **[code, 2026-10-24]**. `OpenAddPc()` also
+rejects activation during selection. Existing discovery pause/resume is unchanged.
+Resource/XML source checks pass; RCO compilation, final background/icon
 appearance, focus navigation, touch activation and manual entry on Vita remain
 **[open]**. No agent build or hardware test.
 
