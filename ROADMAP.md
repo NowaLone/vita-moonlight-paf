@@ -2,6 +2,56 @@
 
 This roadmap captures the agreed next steps for Vita Moonlight PAF. It is ordered by risk reduction and release readiness, not by a promise that every item must be completed before development continues. Keep individual changes small and verify device-specific behavior on real PS Vita hardware.
 
+## Active remaining work (reconciled 2026-10-24)
+
+This is the current task list. Dated implementation/evidence records below preserve the state
+at each stage; their unchecked boxes and old "next" instructions are not additional active
+tasks. Source completion, reported device acceptance and remaining release coverage are separate.
+
+**Next independent task: reproducible setup (§2).**
+
+- [ ] Record exact working VitaSDK, `vitasdk-paf-component` and `psp2cxml-tool` revisions,
+  dependency setup, environment variables and known warnings. The maintainer verifies a clean
+  build and its artifacts from that documented environment.
+
+**Recent source changes awaiting maintainer acceptance.** These are implemented, not feature
+requests to implement again; no later device result is recorded for these specific changes.
+
+- [ ] Main background discovery and its follow-ups: cold start, retained rows/focus/scroll,
+  temporary-PC expiry, pause/resume around Delete/IME/Settings, return from Apps/PIN and suspend;
+  no discovery during streaming. This replaces all former Search-page acceptance tasks.
+- [ ] Main manual-entry header artwork/state and the live checkbox/focus regression correction:
+  appearance, activation, Select/Clear All and Delete OK/Cancel on the current Main implementation.
+  Earlier saved-only Delete UI acceptance remains valid for that earlier version.
+- [ ] Debug log startup preference and both toggle directions, including restart without opening
+  Settings; transient stream warnings through fault/recovery with statistics on and off.
+- [ ] Compact stream statistics: readability, numerical accuracy and performance on Vita.
+  Session counters/snapshots and the six-line overlay already exist in `master`. The DS4 RGB
+  light-bar shape revision also awaits viewing; basic DS4/DualSense feedback already passed.
+- [ ] Dual-profile build invocation and installation of its resulting packages. Normal/system
+  profile streaming smoke tests already passed individually; the combined build procedure is
+  the remaining check. The latest simplification/resource changes also need maintainer regression
+  acceptance, without reopening every earlier successful feature test.
+
+**Deferred device/release coverage, not the default next development task.**
+
+- [ ] Motion/gyro hardware verification; broader device/game compatibility and endurance.
+- [ ] Remaining fault/race cases: malformed XML/proofs/pins, storage failures and durability,
+  custom ports/encryption configurations, blocked-I/O cancellation and application shutdown.
+  Use the API audit's scoped evidence/limits; ordinary pairing, Apps, stop/reconnect, Quick
+  Actions, system-profile coexistence and confirmed remote Quit already have device evidence.
+- [ ] Licensing/attribution, installation/runtime/compatibility documentation, versioning and
+  release checklist, then a maintainer-run clean release build and Vita smoke test (§4).
+
+**Blocked:** remote self-unpair needs a supported paired-client operation in Sunshine.
+Administrative login remains out of scope; local Delete is already implemented.
+
+**Already complete or superseded:** client API inventory/source audit; the original Main
+one-PC cold-start regression and Settings/ioPlus investigation on the tested Vita; ordinary
+stream stop/reconnect and Quick Actions acceptance; statistics implementation. Search PC and
+its navigation/layout checks are obsolete because that page was removed. Optional RTP/FEC
+statistics extensions and formatter selection are not required unfinished features.
+
 ## Main background discovery (source implementation, 2026-10-23)
 
 Search PC and its button are removed. Main combines saved rows with temporary discoveries;
@@ -68,7 +118,8 @@ Off/DS4/DualSense overlays use existing host feedback. On 2026-10-22 the maintai
 modes work and supplies the DS4 in-stream screenshot. Basic RGB/display is user-verified;
 broader lifetime/persistence/performance gates remain open. The requested DS4 light-bar shape
 revision is source-only and still needs maintainer RCO rebuild/Vita viewing; see UI §4.10.
-The current source gate is 184 non-build checks; older counts below belong to their stages.
+Current recorded source-check results are in [tests/README.md](tests/README.md);
+counts below belong to their historical stages.
 
 - [x] **Pairing error provenance source correction (2026-10-22).** Local RNG/crypto and parser/
   response allocation failures now preserve explicit internal/OOM results; PIN/security are typed
@@ -428,8 +479,8 @@ both SELF branches without configuring or building the project.
 Replace the existing FPS-only display with useful stream diagnostics based on the
 user's Moonlight Qt reference. The source-based metric inventory, measurement limits
 and implementation sequence are in [docs/STREAM_DIAGNOSTICS_PLAN.md](docs/STREAM_DIAGNOSTICS_PLAN.md).
-Source implementation is now on `codex/stream-diagnostics`. The FPS-only UI is replaced by a
-compact overlay of at most six lines, refreshed independently of video arrival. The existing
+Source implementation is now in `master` (originally `codex/stream-diagnostics`). The FPS-only
+UI is replaced by a compact overlay of at most six lines, refreshed independently of video arrival. The existing
 `show_fps` key/default is preserved under the new label `Display stream statistics`. Video/audio
 hooks collect session-tagged counters and rolling timings; RTT is sampled by the existing session
 owner before transport cleanup, so UI snapshots do not wait for ENet. Unsupported video RTP/FEC
@@ -458,7 +509,9 @@ Stop and termination callbacks only set mutex-protected requests; no new stop/RT
 condition-variable wait is needed. The owner calls `vita_input_stop()` / `LiStopConnection()`
 before reporting stopped, retains running/cleanup ownership through API event bookkeeping, and
 rejects another start until it finishes. Partial setup failures still use common-c's own unwind.
-This also addresses the source ownership problem in API audit F1; runtime acceptance stays open.
+This also addresses the source ownership problem in API audit F1. Later device records below verify
+ordinary stop/reconnect, unexpected-termination cleanup and the pthread allocation fix; this earlier
+failure report does not reopen those completed checks. Statistics accuracy remains separate.
 
 Non-build checks: XML/style checks for the compact overlay, source registration-count checks,
 session C-subset grammar parsing (not SDK type checking), and interpreted checks of the actual
@@ -468,14 +521,14 @@ double PS after a stall, host/network loss, pending launch cancellation, Quick A
 stop/reconnect with statistics both enabled and disabled. The original freeze is not yet reproduced
 or conclusively attributed to one cause.
 
-- [ ] Implement session-scoped video statistics and safe snapshots: incoming/decoded/PAF-submit
+- [x] Implement session-scoped video statistics and safe snapshots: incoming/decoded/PAF-submit
   FPS, host processing latency, estimated missing frames, local drops, ENet RTT/variation,
   decode/queue/CPU-submit timing and video payload bitrate. Label PAF/RTT estimates accurately.
-- [ ] Replace the FPS text with a readable CXML overlay, retaining the `show_fps` AppSettings key;
+- [x] Replace the FPS text with a compact CXML overlay, retaining the `show_fps` AppSettings key;
   refresh without per-frame string formatting and age stale values even if video stalls.
 - [ ] Validate the implemented Opus parameters, decode/output call timing and error counters
-  alongside core video; add synchronized RTP audio/FEC snapshots and missing RTP video counters
-  only as separately reviewed follow-ups, without displaying unsupported zeros.
+  alongside core video. Synchronized RTP audio/FEC snapshots and missing RTP video counters
+  are optional separately reviewed extensions, not unfinished parts of this implementation.
 - [ ] Maintainer builds and verifies readability, numerical behavior, performance, network loss,
   Quick Actions, stop/reconnect and teardown on Vita; record results before marking complete.
 
@@ -654,8 +707,9 @@ occurs **after selecting Settings**, and supplied a textual crash report followe
   output. Connectivity exists; user-process stdout capture or the exact installed variant is
   still unconfirmed. The local diagnostic VPK contains the expected marker. Do not interpret
   the absence of console lines as a successful file probe or proof of a new root cause.
-- [ ] Use opt-in `MOONLIGHT_SETTINGS_DIAGNOSTICS_SCREEN` to show access/dependency results in a
-  native message dialog when Settings is selected, before any AppSettings load. Separate artifact:
+- **Obsolete diagnostic step; retained as history:** use opt-in
+  `MOONLIGHT_SETTINGS_DIAGNOSTICS_SCREEN` to show access/dependency results in a native message
+  dialog when Settings is selected, before any AppSettings load. Separate artifact:
   `build/vita_moonlight_paf-settings-screen.vpk`. Screen, console-only and default builds pass
   locally; SFO/SELF values and mutually exclusive diagnostic markers were checked. This report
   build deliberately disables actual AppSettings initialization and is not a production fix.
@@ -746,26 +800,39 @@ The source-level changes for the following items are present in `master`; this i
 
 ## 1. Stabilize the core streaming lifecycle
 
-**Priority: first**
+**Status: ordinary lifecycle has scoped device acceptance; remaining coverage is deferred.**
 
-Run the full user journey on a real Vita and record reproducible failures with runtime logs before changing implementation.
+Use the active list above for current work. The normal flow is not an unimplemented milestone.
 
-- [ ] Discover a PC on the LAN and save/select it.
-- [ ] Reproduce and fix the Main screen's saved/paired-PC list not loading on entry: the list is empty until the user connects to a PC, opens System Settings, and returns to Main. Trace initial host-store loading, page lifecycle/refresh dispatch, and paired-host filtering; verify cold start and returning to Main without first connecting.
-  - Source review found that `InitialRefreshTask` previously stopped as soon as the backend reported any hosts, without checking whether the PAF `ListView` had created the matching cells. The warm-up now waits for a minimum delay and three consecutive host/cell-count matches (with a bounded timeout). User verified immediate visibility with one saved PC on 2026-10-19; the supplied refresh log has `hosts=1 after_delete=0 after_insert=1`. Empty/multiple-host cold starts and the initial-refresh completion log remain outstanding; the full acceptance item is not complete.
-- [ ] Check the PS4 Link style Search PCs and Pairing pages on hardware against the PS4 Link screens: header position and the fading line, the pairing page's flow bar and Back button position, the saved-PC row title and description positions, and that touching the row text still activates the row.
+- [x] Discover a PC on the LAN and save/select it through the former Search flow. The replacement
+  Main background-discovery implementation has its own acceptance item above.
+- [x] Resolve the original saved-PC cold-start regression for the tested one-PC case: the user
+  confirmed immediate visibility without opening Settings on 2026-10-19. Empty/multiple-PC
+  acceptance belongs to the current Main list, not a request to fix the original symptom again.
+- Search-page layout/parity checks are obsolete after its removal. Pairing's reference styling
+  remains documented in `docs/UI.md`; visual comparison is separate from functional pairing.
 - [ ] Add a PC manually, including a custom port; verify unsuccessful attempts do not create an incorrect saved-host record.
-- [ ] Pair successfully and verify incorrect-PIN errors are distinguished from transport/protocol failures.
-- [ ] Retrieve the app list, start a stream, and check video, audio, controller input, and touchscreen input.
-- [ ] Stop the stream, return to the app UI, and connect again; check that resources and callbacks are cleaned up safely.
-- [ ] Exercise connection failure, host/network loss, recovery, and relevant PS Button/application lifecycle behavior.
+- [x] Pair successfully and distinguish incorrect PIN from transport/protocol failures in the
+  dated device cases, including the 2026-10-22 recovery log. Broader trust faults remain separate.
+- [x] Retrieve Apps and verify ordinary streaming video/audio/controller operation on the tested
+  Vita. Touch source checks and device evidence retain their own scope; they do not verify motion.
+- [x] Stop/reconnect and verify ordinary cleanup on the tested Vita, including the recorded
+  repeated cycles and both normal/system profile smoke tests.
+- [x] Verify ordinary PS/Quick Actions input suppression and return on the tested Vita; later
+  Settings-authority and system-profile results also confirm that normal flow.
+- [ ] Cover remaining connection/network faults, blocked-I/O cancellation, shutdown and races;
+  do not repeat already accepted normal scenarios merely to fill the API catalogue.
 - [ ] Verify gyroscope and accelerometer reporting on hardware; the input path exists but is not yet fully hardware-verified.
 
-Capture the Vita runtime log (`vita_debug_log`) for every step and attach the relevant prefixes to the result: `[Search]` and `[Main]` for the host lists, `[Pairing]`, `[GameStream]`, `[ConnectionService]` and `[LegacyAdapter]` for connect/pair/launch, and `[Stream]`, `[StreamPage]`, `[Video]`, `[Audio]`, `[Input]`, `[Touch]` and `[Motion]` for the stream itself.
+For new reproductions, capture the Vita runtime log (`vita_debug_log`): `[Main]` for the host
+list, `[Pairing]`, `[GameStream]`, `[ConnectionService]` and `[LegacyAdapter]` for connect/pair/launch,
+and `[Stream]`, `[StreamPage]`, `[Video]`, `[Audio]`, `[Input]`, `[Touch]` and `[Motion]` for streaming.
 
 **Done when:** the main journey and important failure/recovery paths have been exercised on Vita, observed problems are either fixed or documented with reproduction steps, and stream shutdown/reconnect does not leave the app in a broken state.
 
-Not part of the PS4 Link parity pass because the needed pieces do not exist in this app: the animated sync icon on the search page, the "Searching via Internet" illustration page and its Skip button (discovery is LAN only), the monitor illustration and Register button on the pairing page (the Vita shows the PIN and pairs immediately), and the PS4 Link number field style. The Search PCs page keeps its corner back button instead of PS4 Link's Cancel button in a bar, since it has no second button to justify a bar. The Apps page still uses the generic row and the corner back button.
+The former Search-page PS4 Link parity pass is superseded by Main background discovery.
+Pairing still shows a PIN without a separate Register action; Apps uses the generic row and
+corner Back button. The UI reference and measured values remain in `docs/UI.md`.
 
 ## 2. Make development builds reproducible
 
@@ -1077,10 +1144,14 @@ Current independent work order: record exact toolchain/dependency revisions and 
 ## 3. Close technical risks and improve testability
 
 - [x] Verify the `RefreshHosts` cell-count fix on Vita: user confirmed the host list behaves correctly. Reported logs show `after_delete=0` and `after_insert=hosts` across repeated refreshes, selection-mode toggles, and removing one of two hosts. The user reports the remaining list behavior is OK. A clean build was not separately verified. Source review found that `DeleteCell` was passed `existing - 1` even though BetterHomebrewBrowser passes the full `GetCellNum(0)` count.
-- [ ] Complete Search/shrink/empty list acceptance beyond the logged Apps rebuild (four old rows removed, four reinserted in the idle DisconnectHost test). Verify Search `DeleteCell(0, 0, existing)` on Vita. A Search PCs screenshot showed three rows for two found PCs, the third a stale copy of the first, which is the `existing - 1` symptom; after the fix two found PCs must show exactly two rows when the scan finishes, and repeated scans must not add rows.
+- The old Search/shrink/empty-list gate is superseded by the current Main background-discovery
+  acceptance above. The Search page and its `DeleteCell` caller no longer exist.
 - [x] Identify focused hardware-independent/source-check seams: host identity/snapshots, pairing/trust, persistence outcomes, event delivery and lifecycle guards. Existing checks interpret selected actual source with mocks; native compiler/library behavior is not established.
-- [x] Add focused non-build Python source checks for those seams: 137 checks, documented in `tests/README.md`. Actual C/Expat fixtures still need maintainer compilation/execution; keep native/runtime validation separate.
-- [ ] Select and document formatter/static-analysis tooling only if it fits the existing codebase and toolchain.
+- [x] Add focused non-build Python source checks for those seams; current results are documented
+  in `tests/README.md`. Actual C/Expat fixtures still need maintainer compilation/execution;
+  keep native/runtime validation separate.
+- Optional: select formatter/static-analysis tooling only when a concrete need fits the existing
+  codebase and toolchain; this is not a required unfinished feature.
 
 **Done when:** the known host-list diagnostic has an evidence-based conclusion and the highest-value non-PAF logic has repeatable checks where practical.
 
@@ -1181,9 +1252,10 @@ uses UNSAFE authority 0x2200000000000001. Do not restore the old experimental au
 - Quick Actions input suspension still needs a verified system-state signal. `SceAppMgrAppState.isSystemUiOverlaid` is a candidate for investigation, not yet hardware-verified. Do not substitute a timer-only suppression window or lock Quick Menu unconditionally, since that can break native behavior when capture is disabled.
 - Next verification: inspect the generated SELF metadata/permissions from a real build; test lock return codes and PS behavior on Vita with capture enabled and disabled; then validate the chosen AppMgr overlay signal through Quick Actions open/close and confirm controller forwarding resumes only after returning to the app. Record firmware and logs. Do not mark this complete before device testing.
 
-## Next task: Quick Actions, PS Button, and application lifecycle
+## Historical task: Quick Actions, PS Button, and application lifecycle
 
-**Priority: next, beginning with investigation rather than speculative API changes.**
+**Historical investigation; ordinary Quick Actions acceptance is recorded on 2026-10-15 and
+confirmed again by later Settings/system-profile results. This is not the current next task.**
 Known issue from Vita testing: holding PS to open Quick Actions does not currently suspend controller forwarding to the streaming host. PS Button handling must respect the existing setting that controls forwarding PS to the PC; do not replace this setting with unconditional interception or unconditional system-button locking.
 
 Required behavior:
