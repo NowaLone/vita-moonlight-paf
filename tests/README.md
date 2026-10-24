@@ -1,6 +1,6 @@
 # Focused checks
 
-Latest recorded source gate: **201 checks including Debug log settings (2026-10-24)**.
+Latest recorded source gate: **206 checks including stream warnings (2026-10-24)**.
 See [the repeat Ponytail audit](../docs/PONYTAIL_REAUDIT_2026-10-23.md) for the latest
 baseline, per-change checks and native gates; [the earlier refactor audit](../docs/REFACTOR_AUDIT.md)
 records the preceding pass. Counts in the
@@ -11,6 +11,14 @@ cases are in the API audit and `runtime/README.md`; source checks do not replace
 Non-build checks (Python 3 and pycparser):
 
     PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_*.py'
+
+`test_stream_warnings.py` adds five non-build checks interpreting the actual warning policy,
+receive-counter/status functions and PAF badge state transitions. They cover healthy low-bitrate
+scenes, loss/bitrate/stall/startup boundaries, receive metrics without detailed statistics,
+stale/inactive generations, reconnect reset, stop/cancel guards, warning changes, three-second
+recovery hold and immediate stop hiding. Resource labels and polling wiring are source-checked.
+Clock, bucket advancement, mutexes, memory clearing and PAF are serial mocks; detailed decoder/GPU
+timing, native ABI, real packet recovery/concurrency, RCO layout and Vita behavior are unverified.
 
 `test_debug_settings.py` adds four checks interpreting actual startup/callback bodies:
 AppSettings before host initialization and error propagation; toggling both ways while stored

@@ -97,6 +97,12 @@
       <text style="style_text_stream_statistics" id="text_stream_statistics">
         <layout_hint anchor="1, 2" align="1, 2" size="644, 120" pos="24, -20" />
       </text>
+      <plane style="style_plane_stream_statistics" id="plane_stream_warning">
+        <layout_hint anchor="0, 1" align="0, 1" size="480, 44" pos="0, 56" />
+      </plane>
+      <text style="style_text_stream_warning" id="text_stream_warning">
+        <layout_hint anchor="0, 1" align="0, 1" size="464, 28" pos="0, 64" />
+      </text>
     </page>
 
     <page id="page_apps">
@@ -217,6 +223,10 @@
 
     <style_text textobj="stream_statistics_obj" id="style_text_stream_statistics">
       <textobj font_size="18" bold="0" color="1, 1, 0, 1" align_x="0" align_y="0" word_wrap="0" ellipsis="0" max_line_count="6" enlarge_line_pitch="1" line_pitch="20" id="stream_statistics_obj" />
+    </style_text>
+
+    <style_text textobj="stream_warning_obj" id="style_text_stream_warning">
+      <textobj font_size="20" bold="0" color="1, 0.85, 0.2, 1" align_x="1" align_y="1" word_wrap="0" ellipsis="1" max_line_count="1" id="stream_warning_obj" />
     </style_text>
 
     <style_list_view color="0, 0, 0, 0" id="style_list_view_generic" sbar_v_margin="6, 80, 9" />

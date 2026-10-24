@@ -763,8 +763,10 @@ not screenshot measurements; readability, line clipping and actual appearance ne
 
 The existing AppSettings key `show_fps` and `msg_show_fps` identifier remain; the visible label is now
 `Display stream statistics`. `Stream::StatisticsTask` updates cached text/background widgets at most
-once per second independently of arriving video, and is unregistered in the page destructor. With
-the setting off neither the task nor the per-frame timing hooks collect statistics. The overlay
+once per second independently of arriving video, and is unregistered in the page destructor. The
+same task polls cached stream health every 250 ms for the transient warning below. With the setting
+off only receive counts/bytes, frame-number gaps and last-video time remain active; detailed
+per-frame timing hooks and RTT polling stay off. The overlay
 shows only video mode/payload bitrate, incoming/decode/PAF FPS, available RTT/variation, drop
 percentages, average decode-call/PAF-queue timing and optional host min/max/average. Unsupported
 or expired measurements are omitted. During a stall only current rates, available RTT and the
@@ -780,6 +782,24 @@ RTT is sampled outside PAF by the existing session owner, which also performs tr
 UI snapshots only copy cached statistics. There is no separate RTT thread. Queue timing includes
 waiting to acquire the frame mutex.
 See [STREAM_DIAGNOSTICS_PLAN.md](STREAM_DIAGNOSTICS_PLAN.md) for metric definitions and remaining work.
+
+Stream warnings (2026-10-24, source only): a non-modal amber single-line PAF badge appears at the
+bottom center, independently of `Display stream statistics`. The existing Moonlight poor-connection
+callback or at least 5% missing frames in the receive window selects `Connection unstable`.
+Only with one of those conditions, video payload below 50% of the configured bitrate selects
+`Connection unstable: low video bitrate`; healthy static scenes never warn on bitrate alone.
+No received video for at least one second selects `Waiting for video`, including waiting for IDR.
+Warnings are suppressed for the first three seconds after session admission, persist while the
+condition remains, and hide three seconds after the last unhealthy poll. An inactive/mismatched
+session hides immediately; each new stream starts with cleared health and page state.
+These are receive-path symptoms, not a diagnosis of Wi-Fi/host/Vita or physical-display stalls.
+Worker callbacks only update locked, generation-checked state; PAF changes happen on its main-thread
+call list, without new threads, dialogs, file I/O or per-frame logs.
+The 480 x 44 badge has a 56 px bottom inset; its 464 x 28 centered text has a 64 px bottom inset,
+20 px font and amber color, over the existing black/0.65 statistics background **[code]**.
+Thresholds, appearance and fault/recovery behavior require maintainer RCO/application build and
+Vita validation **[open]**. Source checks interpret policy, receive counters with statistics off,
+generation/stop guards and the UI hold/recovery path with mocked time, mutexes and widgets.
 
 Buttons and lists: `style_image_button_list_button` (list row button with the empty 102 x 70 icon slot),
 `style_image_button_host` (shared PC-row background/glow; `tex_pc` is a separate 80 x 80 plane),

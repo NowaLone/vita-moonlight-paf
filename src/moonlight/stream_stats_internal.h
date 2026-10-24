@@ -11,7 +11,10 @@ extern "C" {
 /* All writers carry a session token; a stale callback cannot update a new stream. */
 uint32_t moonlight_stats_begin(const MoonlightSettings *settings);
 void moonlight_stats_end(uint32_t generation);
-uint32_t moonlight_stats_configure_video(int format, int width, int height, int fps);
+/* Receive counters stay active for warnings; the return token enables detailed timings only. */
+uint32_t moonlight_stats_configure_video(int format, int width, int height, int fps,
+    uint32_t *receive_generation);
+void moonlight_stats_connection_status(uint32_t generation, int poor);
 void moonlight_stats_received(uint32_t generation, uint32_t frame_number,
     unsigned int bytes, int idr, unsigned int host_latency,
     uint64_t receive_us, uint64_t enqueue_us);

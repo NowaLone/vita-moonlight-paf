@@ -19,6 +19,7 @@
 #endif
 
 #include "debug.h"
+#include "common.h"
 #include "app/moonlight_app.h"
 #include "pages/page_stream.h"
 #include "../moonlight/vita_input.h"
@@ -190,6 +191,10 @@ Stream::Stream()
       m_video_plane(NULL),
       m_statistics_text(NULL),
       m_statistics_background(NULL),
+      m_warning_text(NULL),
+      m_warning_background(NULL),
+      m_warning(MOONLIGHT_STREAM_WARNING_NONE),
+      m_warning_until_us(0),
       m_light_ds4(NULL),
       m_light_left(NULL),
       m_light_right(NULL),
@@ -197,6 +202,7 @@ Stream::Stream()
       m_controller_light_generation(0),
       m_statistics_generation(0),
       m_statistics_next_update_us(0),
+      m_statistics_next_poll_us(0),
       m_video_plane_width(0),
       m_video_plane_height(0)
 {
@@ -217,6 +223,10 @@ Stream::Stream()
         root->FindChild("plane_stream_video"));
     m_statistics_text = static_cast<ui::Text *>(root->FindChild("text_stream_statistics"));
     m_statistics_background = root->FindChild("plane_stream_statistics");
+    m_warning_text = static_cast<ui::Text *>(root->FindChild("text_stream_warning"));
+    m_warning_background = root->FindChild("plane_stream_warning");
+    if (m_warning_text) m_warning_text->Hide(common::transition::Type_Reset);
+    if (m_warning_background) m_warning_background->Hide(common::transition::Type_Reset);
     m_light_ds4 = root->FindChild("plane_stream_light_ds4");
     m_light_left = root->FindChild("plane_stream_light_left");
     m_light_right = root->FindChild("plane_stream_light_right");
@@ -258,8 +268,7 @@ Stream::Stream()
         }
         common::MainThreadCallList::Register(PresentTask, this);
         MoonlightStreamStats stats;
-        if (m_statistics_text && m_statistics_background &&
-            MoonlightApp::Instance()->Connection().GetStreamStats(&stats) == 0 && stats.enabled) {
+        if (MoonlightApp::Instance()->Connection().GetStreamStats(&stats) == 0) {
             m_statistics_generation = stats.generation;
             UpdateStatistics();
             common::MainThreadCallList::Register(StatisticsTask, this);
@@ -486,7 +495,7 @@ void Stream::PresentFrame(const Frame &frame)
 void Stream::StatisticsTask(void *userdata)
 {
     Stream *stream = static_cast<Stream *>(userdata);
-    if (stream == s_instance && LiGetMicroseconds() >= stream->m_statistics_next_update_us) {
+    if (stream == s_instance && LiGetMicroseconds() >= stream->m_statistics_next_poll_us) {
         stream->UpdateStatistics();
     }
 }
@@ -528,16 +537,49 @@ void Stream::UpdateControllerLight()
     }
 }
 
+void Stream::UpdateWarning(const MoonlightStreamStats &stats, uint64_t now_us)
+{
+    if (!m_warning_text || !m_warning_background) return;
+    MoonlightStreamWarning warning = stats.active ? stats.warning : MOONLIGHT_STREAM_WARNING_NONE;
+    if (warning != MOONLIGHT_STREAM_WARNING_NONE) {
+        m_warning_until_us = now_us + 3000000ull;
+    } else if (stats.active && now_us < m_warning_until_us) {
+        return;
+    }
+    if (warning == m_warning) return;
+    m_warning = warning;
+    if (warning == MOONLIGHT_STREAM_WARNING_NONE) {
+        m_warning_text->Hide(common::transition::Type_Reset);
+        m_warning_background->Hide(common::transition::Type_Reset);
+        return;
+    }
+    const char *id = warning == MOONLIGHT_STREAM_WARNING_STALLED
+        ? "msg_stream_video_stalled" : warning == MOONLIGHT_STREAM_WARNING_LOW_BITRATE
+        ? "msg_stream_low_bitrate" : "msg_stream_connection_poor";
+    const wchar_t *label = g_plugin ? g_plugin->GetString(id) : NULL;
+    if (!label) return;
+    m_warning_text->SetString(paf::wstring(label));
+    m_warning_background->Show(common::transition::Type_Reset);
+    m_warning_text->Show(common::transition::Type_Reset);
+}
+
 void Stream::UpdateStatistics()
 {
     MoonlightStreamStats stats;
-    m_statistics_next_update_us = LiGetMicroseconds() + 1000000ull;
+    const uint64_t now_us = LiGetMicroseconds();
+    m_statistics_next_poll_us = now_us + 250000ull;
     if (MoonlightApp::Instance()->Connection().GetStreamStats(&stats) != 0 ||
-        !stats.enabled || stats.generation != m_statistics_generation) {
-        m_statistics_text->Hide(common::transition::Type_Reset);
-        m_statistics_background->Hide(common::transition::Type_Reset);
+        stats.generation != m_statistics_generation) {
+        stats = MoonlightStreamStats();
+        UpdateWarning(stats, now_us);
+        if (m_statistics_text) m_statistics_text->Hide(common::transition::Type_Reset);
+        if (m_statistics_background) m_statistics_background->Hide(common::transition::Type_Reset);
         return;
     }
+    UpdateWarning(stats, now_us);
+    if (!stats.enabled || !m_statistics_text || !m_statistics_background ||
+        now_us < m_statistics_next_update_us) return;
+    m_statistics_next_update_us = now_us + 1000000ull;
     char text[768];
     format_stream_statistics(stats, text, sizeof(text));
     m_statistics_text->SetString(common::string_util::ToWString(text));

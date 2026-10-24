@@ -26,6 +26,9 @@
   <string src="System" id="msg_system_settings" />
   <string src="Swap X &amp; O for Moonlight" id="msg_swap_xo" />
   <string src="Display stream statistics" id="msg_show_fps" />
+  <string src="Connection unstable" id="msg_stream_connection_poor" />
+  <string src="Connection unstable: low video bitrate" id="msg_stream_low_bitrate" />
+  <string src="Waiting for video" id="msg_stream_video_stalled" />
   <string src="Use center region only" id="msg_center_region_only" />
   <string src="Debug log" id="msg_debug_log" />
 

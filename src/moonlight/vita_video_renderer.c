@@ -55,6 +55,7 @@ static int s_center_region = 0;
 static int s_ref_frame_invalidation = 0;
 static uint64_t s_last_present_time;
 static uint32_t s_stats_generation;
+static uint32_t s_receive_generation;
 
 void moonlight_video_note_queued(uint32_t generation, int replaced)
 {
@@ -415,7 +416,7 @@ static int vita_video_setup(
     s_decoded_frames = 0;
     s_last_present_time = 0;
     s_stats_generation = moonlight_stats_configure_video(
-        video_format, width, height, redraw_rate);
+        video_format, width, height, redraw_rate, &s_receive_generation);
 #ifdef CAPABILITY_REFERENCE_FRAME_INVALIDATION_AVC
     decoder_callbacks_vita.capabilities =
         CAPABILITY_DIRECT_SUBMIT |
@@ -610,8 +611,8 @@ static int vita_video_submit(PDECODE_UNIT decode_unit)
     uint64_t vblank_us = 0;
     int pacer_drop = 0;
 
-    if (generation && decode_unit) {
-        moonlight_stats_received(generation, (uint32_t)decode_unit->frameNumber,
+    if (s_receive_generation && decode_unit) {
+        moonlight_stats_received(s_receive_generation, (uint32_t)decode_unit->frameNumber,
             (unsigned int)decode_unit->fullLength, decode_unit->frameType == FRAME_TYPE_IDR,
             decode_unit->frameHostProcessingLatency,
             decode_unit->receiveTimeUs, decode_unit->enqueueTimeUs);

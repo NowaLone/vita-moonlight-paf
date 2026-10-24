@@ -70,7 +70,7 @@ static int begin_update(uint32_t generation)
 {
     pthread_mutex_lock(&s_mutex);
     if (!generation || generation != s_session.generation ||
-        !s_session.active || !s_session.enabled) {
+        !s_session.active) {
         pthread_mutex_unlock(&s_mutex);
         return 0;
     }
@@ -129,7 +129,8 @@ void moonlight_stats_end(uint32_t generation)
     pthread_mutex_unlock(&s_mutex);
 }
 
-uint32_t moonlight_stats_configure_video(int format, int width, int height, int fps)
+uint32_t moonlight_stats_configure_video(int format, int width, int height, int fps,
+    uint32_t *receive_generation)
 {
     uint32_t generation;
     pthread_mutex_lock(&s_mutex);
@@ -137,9 +138,18 @@ uint32_t moonlight_stats_configure_video(int format, int width, int height, int 
     s_session.width = width;
     s_session.height = height;
     s_session.target_fps = fps;
+    *receive_generation = s_session.active ? s_session.generation : 0;
     generation = s_session.active && s_session.enabled ? s_session.generation : 0;
     pthread_mutex_unlock(&s_mutex);
     return generation;
+}
+
+void moonlight_stats_connection_status(uint32_t generation, int poor)
+{
+    if (begin_update(generation)) {
+        s_session.connection_poor = poor;
+        pthread_mutex_unlock(&s_mutex);
+    }
 }
 
 void moonlight_stats_received(uint32_t generation, uint32_t frame_number,
@@ -165,6 +175,10 @@ void moonlight_stats_received(uint32_t generation, uint32_t frame_number,
     } else {
         s_last_frame = frame_number;
         s_has_last_frame = 1;
+    }
+    if (!s_session.enabled) {
+        pthread_mutex_unlock(&s_mutex);
+        return;
     }
     if (idr) {
         ++s_session.idr_frames;
@@ -267,6 +281,26 @@ static double ratio(uint64_t numerator, uint64_t denominator, double scale)
     return denominator ? (double)numerator * scale / (double)denominator : 0.0;
 }
 
+static MoonlightStreamWarning stream_warning(const MoonlightStreamStats *stats,
+    uint64_t elapsed_us)
+{
+    /* Allow stream startup to settle; a healthy static scene may use very few bits. */
+    if (!stats->active || elapsed_us < 3000000ull) {
+        return MOONLIGHT_STREAM_WARNING_NONE;
+    }
+    if (!stats->has_video || stats->video_age_us >= 1000000ull) {
+        return MOONLIGHT_STREAM_WARNING_STALLED;
+    }
+    if (stats->connection_poor || stats->missing_percent >= 5.0) {
+        if (stats->bitrate_kbps > 0 &&
+            stats->payload_mbps * 1000.0 < stats->bitrate_kbps * 0.5) {
+            return MOONLIGHT_STREAM_WARNING_LOW_BITRATE;
+        }
+        return MOONLIGHT_STREAM_WARNING_CONNECTION;
+    }
+    return MOONLIGHT_STREAM_WARNING_NONE;
+}
+
 uint32_t moonlight_stats_configure_audio(int sample_rate, int channels)
 {
     uint32_t generation;
@@ -341,6 +375,7 @@ int moonlight_stats_snapshot(MoonlightStreamStats *out)
         duration, 1000000.0);
     out->payload_mbps = ratio(s_current.bytes + s_previous.bytes, duration, 8.0);
     out->missing_percent = ratio(missing, received + missing, 100.0);
+    out->warning = stream_warning(out, now - s_start_us);
     out->pacer_drop_percent = ratio(s_current.pacer_drops + s_previous.pacer_drops,
         decoded, 100.0);
     out->replaced_percent = ratio(s_current.replacements + s_previous.replacements,

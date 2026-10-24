@@ -50,6 +50,7 @@ static int s_stream_thread_running = 0;
 static int s_stream_stop_requested = 0;
 static int s_stream_cancel_requested = 0;
 static int s_stream_termination_result = 0;
+static uint32_t s_stream_stats_generation;
 /* Published by the first stage callback, after common-c resets its interrupt flag.
  * These fields and LiInterruptConnection admission are protected by s_stream_mutex. */
 static int s_common_starting = 0;
@@ -244,6 +245,11 @@ static void on_connection_terminated(int result)
 
 static void on_status_update(int status)
 {
+    pthread_mutex_lock(&s_stream_mutex);
+    if (s_stream_thread_running && !s_stream_stop_requested && !s_stream_cancel_requested) {
+        moonlight_stats_connection_status(s_stream_stats_generation, status == CONN_STATUS_POOR);
+    }
+    pthread_mutex_unlock(&s_stream_mutex);
     vita_debug_log("[Stream] connection status=%d", status);
 }
 
@@ -682,6 +688,9 @@ extern "C" int moonlight_stream_start(
     args->quit_application_id = quit_application_id;
     args->settings = *settings;
     args->stats_generation = moonlight_stats_begin(settings);
+    pthread_mutex_lock(&s_stream_mutex);
+    s_stream_stats_generation = args->stats_generation;
+    pthread_mutex_unlock(&s_stream_mutex);
 
     vita_input_configure(
         settings->controller_type,

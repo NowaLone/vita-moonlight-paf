@@ -10,10 +10,19 @@ typedef struct MoonlightTimingStats {
     double maximum_ms;
 } MoonlightTimingStats;
 
+typedef enum MoonlightStreamWarning {
+    MOONLIGHT_STREAM_WARNING_NONE = 0,
+    MOONLIGHT_STREAM_WARNING_CONNECTION,
+    MOONLIGHT_STREAM_WARNING_LOW_BITRATE,
+    MOONLIGHT_STREAM_WARNING_STALLED
+} MoonlightStreamWarning;
+
 typedef struct MoonlightStreamStats {
     uint32_t generation;
     int enabled;
     int active;
+    int connection_poor;
+    MoonlightStreamWarning warning;
     int width;
     int height;
     int video_format;
