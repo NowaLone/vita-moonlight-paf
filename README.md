@@ -455,4 +455,9 @@ no-admin-login constraint. Missing/unverified features and accepted limits are l
 
 ## License
 
-Part of the Vita Moonlight ecosystem. Add/maintain an appropriate LICENSE before publishing a release.
+The [licensing and attribution review](docs/LICENSING.md) records the Moonlight,
+vendored-library and SDK terms, restored license texts, artwork provenance and
+remaining release requirements. A top-level project license is still pending;
+the current GPL/old-OpenSSL combination and unresolved artwork/PAF permissions
+must be addressed before a release. The collected upstream licenses do not grant
+rights to unrelated project files or assets.
