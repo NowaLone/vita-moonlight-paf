@@ -144,7 +144,8 @@ CMake helpers require at least CMake 3.16, despite the application's older minim
 CMake 4 has not been validated with these older dependency projects.
 
 Host prerequisites: Bash, CMake, Make, host C/C++ compiler, Git, patch, curl/wget,
-tar with bzip2/xz support and zip. Python plus pycparser are needed only for the
+tar with bzip2/xz support, zip and `makedepend` (Ubuntu package `xutils-dev`, needed
+by the pinned OpenSSL recipe's `make depend`). Python plus pycparser are needed only for the
 non-build source checks. `psp2shell_cli` is optional for external deployment/log
 tooling; it is not used by the checked-in build scripts.
 
@@ -262,6 +263,13 @@ failed because the RGB mask test required compressed PNG byte equality. SDK/depe
 application builds did not start; evidence-artifact upload succeeded. The test now compares
 IHDR and decompressed scanlines with CRC/geometry checks and covers an alternate compression
 level. A successful CI build on the corrected source and subsequent Vita smoke remain pending.
+
+The next supplied log, [run 40052361277](https://github.com/NowaLone/vita-moonlight-paf/actions/runs/40052361277)
+on `0d4624d`, passes all 208 source checks and verifies the SDK archive. zlib 1.3.2-2 and
+zstd 1.5.7-1 finish building; pinned OpenSSL reaches `make depend` and fails because
+`makedepend` is missing. Evidence upload succeeds. Host setup now installs Ubuntu's
+`xutils-dev` and checks that `makedepend` is available before dependency setup. Completion
+of OpenSSL/remaining dependencies and application builds is still unverified.
 
 ## Known warnings and remaining evidence
 

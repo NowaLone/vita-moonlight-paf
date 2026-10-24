@@ -33,7 +33,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential curl git patch bzip2 xz-utils zip unzip file \
-            fakeroot libarchive-tools gettext gawk pkg-config perl python3-venv
+            fakeroot libarchive-tools gettext gawk pkg-config perl python3-venv xutils-dev
+          command -v makedepend
           python3 -m venv "$RUNNER_TEMP/ci-python"
           "$RUNNER_TEMP/ci-python/bin/python" -m pip install --disable-pip-version-check \
             cmake==3.31.10 pycparser==2.22

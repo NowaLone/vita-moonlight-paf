@@ -21,10 +21,10 @@ tasks. Source completion, reported device acceptance and remaining release cover
 - [x] Add a manual GitHub Actions clean-build workflow using the recorded pins, with both
   profiles and build-evidence artifacts. Static workflow/shell validation and isolated helper
   checks are available; no build or CI dispatch by the agent.
-- [ ] Complete a successful **Clean Vita build** run. The maintainer's first `899cc3c` run
-  installed host tools and uploaded evidence, but stopped at the RGB PNG byte-equality source
-  check before SDK/dependency setup. The test now compares decoded image data and covers a
-  different compression level; corrected-run build/Vita acceptance remains open.
+- [ ] Complete a successful **Clean Vita build** run. The `0d4624d` run passes 208 source
+  checks, verifies the SDK and builds zlib/zstd. OpenSSL stops at missing `makedepend`;
+  workflow host setup now installs `xutils-dev` and checks the command. Remaining dependency/
+  application builds and Vita acceptance stay open; earlier RGB test failure is resolved.
 
 **Recent source changes awaiting maintainer acceptance.** These are implemented, not feature
 requests to implement again; no later device result is recorded for these specific changes.
