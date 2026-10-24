@@ -1,0 +1,79 @@
+name: Clean Vita build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Check out project and pinned submodules
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Install host tools
+        run: |
+          echo "VITASDK=$RUNNER_TEMP/moonlight-deps/vitasdk" >> "$GITHUB_ENV"
+          echo "PSP2CXML_TOOL=$RUNNER_TEMP/moonlight-deps/psp2cxml-tool/build/psp2cxml-tool" >> "$GITHUB_ENV"
+          export CI_LOG_DIR="$RUNNER_TEMP/moonlight-logs"
+          echo "CI_LOG_DIR=$CI_LOG_DIR" >> "$GITHUB_ENV"
+          mkdir -p "$CI_LOG_DIR"
+          exec > >(tee "$CI_LOG_DIR/host-setup.log") 2>&1
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential curl git patch bzip2 xz-utils zip unzip file \
+            fakeroot libarchive-tools gettext gawk pkg-config perl python3-venv
+          python3 -m venv "$RUNNER_TEMP/ci-python"
+          "$RUNNER_TEMP/ci-python/bin/python" -m pip install --disable-pip-version-check \
+            cmake==3.31.10 pycparser==2.22
+          echo "$RUNNER_TEMP/ci-python/bin" >> "$GITHUB_PATH"
+
+      - name: Run non-build source checks
+        run: python3 -m unittest discover -s tests -p 'test_*.py' 2>&1 | tee "$CI_LOG_DIR/source-checks.log"
+
+      - name: Prepare pinned SDK, portlibs, PAF and CXML tool
+        run: bash scripts/ci_setup.sh 2>&1 | tee "$CI_LOG_DIR/dependency-build.log"
+
+      - name: Build both application profiles
+        run: |
+          bash build.sh 2>&1 | tee "$CI_LOG_DIR/application-build.log"
+          for profile in normal system; do
+            for extension in vpk self elf; do
+              test -s "build/vita_moonlight_paf-$profile.$extension"
+            done
+          done
+          (cd build && sha256sum vita_moonlight_paf-{normal,system}.{vpk,self,elf}) > "$CI_LOG_DIR/application.sha256"
+
+      - name: Save application packages and matching debug ELF files
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: vita-moonlight-paf-${{ github.sha }}
+          path: |
+            build/vita_moonlight_paf-normal.vpk
+            build/vita_moonlight_paf-normal.self
+            build/vita_moonlight_paf-normal.elf
+            build/vita_moonlight_paf-system.vpk
+            build/vita_moonlight_paf-system.self
+            build/vita_moonlight_paf-system.elf
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Save logs, environment fingerprints and rebuilt portlib archives
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: vita-build-evidence-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ env.CI_LOG_DIR }}
+          if-no-files-found: warn
+          retention-days: 14

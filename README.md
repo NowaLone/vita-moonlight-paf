@@ -206,6 +206,13 @@ procedure are recorded in [docs/BUILD_ENVIRONMENT.md](docs/BUILD_ENVIRONMENT.md)
 The base SDK archive is recovered and verified. Original portlib archive recovery (or a
 validated rebuild from pinned sources) and a maintainer-run clean-environment build remain open.
 
+For a fresh GitHub Actions build, use **Actions → Clean Vita build → Run workflow** once
+[the workflow](.github/workflows/build.yml) is on the default branch. It is manual-only,
+uses no cache, rebuilds the pinned dependencies, and produces both application profiles.
+Download the packages/debug ELF and build-evidence artifacts from the completed run;
+evidence is also saved on failure. See [CI setup and limits](docs/BUILD_ENVIRONMENT.md#github-actions).
+The workflow has been source-checked, not run by the agent; build/Vita acceptance remains open.
+
 Requirements:
 
 - [VITASDK](https://github.com/vitasdk/vitasdk)

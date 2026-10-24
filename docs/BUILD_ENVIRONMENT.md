@@ -224,6 +224,38 @@ candidate won before PATH lookup. No general dump of environment variables is ne
    warnings, then install each full VPK and record the Vita smoke result/profile.
    Only after this succeeds is a clean-environment reproduction established.
 
+## GitHub Actions
+
+[Clean Vita build](../.github/workflows/build.yml) implements the candidate setup through
+[scripts/ci_setup.sh](../scripts/ci_setup.sh). After the workflow reaches the default branch,
+the maintainer starts it under **Actions → Clean Vita build → Run workflow**. There are no
+push/PR/scheduled triggers, dependency caches, deployment or Release publication. The job has
+read-only repository permissions; checkout and artifact actions use full commit pins.
+
+The `ubuntu-22.04` runner installs host prerequisites and a Python virtual environment with
+CMake 3.31.10/pycparser 2.22, then runs the source checks. CI uses the published PyPI CMake
+3.31.10 wheel; the inspected Fedora host has 3.31.11. Setup verifies the SDK SHA256 before
+extraction, rebuilds the six portlibs from the recorded recipe commit, adds the explicit OpenSSL
+source pin, verifies the PAF patch and RE base, and builds the pinned host CXML tool. The
+application's existing `build.sh` then builds normal/system profiles. A pre-existing dependency
+directory is rejected to prevent cache reuse or replacement of a working SDK.
+
+Two artifacts are retained for 14 days (subject to repository retention policy):
+
+- `vita-moonlight-paf-<commit>`: both VPKs, SELF files and their matching unstripped debug ELF files,
+  uploaded only after a successful build and checks that all six outputs exist and are nonempty.
+- `vita-build-evidence-<commit>-<attempt>`: setup/source/build logs, source pins, the modified
+  OpenSSL recipe, rebuilt portlib package archives, package/application checksums, environment
+  versions and the rebuilt SDK's selected file hashes. Upload is attempted even on failure.
+
+CI records new library fingerprints rather than requiring source-built libraries to match the
+old installation byte-for-byte. The runner image and distribution host packages can change;
+this workflow is a clean setup/build check, not a bit-for-bit reproducible-build claim. No
+secrets or Vita credentials are needed. Dependency install/build commands execute only when
+the maintainer starts the workflow. Static validation and isolated helper tests do not establish
+a successful SDK/library/application build. The first CI run and subsequent Vita smoke test
+remain pending; the agent has not run a build locally or dispatched CI.
+
 ## Known warnings and remaining evidence
 
 Earlier maintainer records mention SDK signedness/`wchar_t` warnings and future-resource

@@ -1,6 +1,6 @@
 # Focused checks
 
-Latest recorded source gate: **206 checks including stream warnings (2026-10-24)**.
+Latest recorded source gate: **208 checks including CI setup trust gates (2026-10-24)**.
 See [the repeat Ponytail audit](../docs/PONYTAIL_REAUDIT_2026-10-23.md) for the latest
 baseline, per-change checks and native gates; [the earlier refactor audit](../docs/REFACTOR_AUDIT.md)
 records the preceding pass. Counts in the
@@ -11,6 +11,13 @@ cases are in the API audit and `runtime/README.md`; source checks do not replace
 Non-build checks (Python 3 and pycparser):
 
     PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_*.py'
+
+`test_ci_setup.py` executes only the standalone checksum/OpenSSL-pin helper definitions,
+never the setup script's main body or build commands. It checks valid/corrupt/missing archive
+bytes (including paths with spaces), explicit full-commit replacement, invalid commits,
+missing/changed/duplicate source recipes, and failure stopping before the next step without
+rewriting a rejected recipe. These do not validate a real dependency or application build.
+Static workflow validation uses `actionlint`; `bash -n scripts/ci_setup.sh` checks shell syntax.
 
 `test_stream_warnings.py` adds five non-build checks interpreting the actual warning policy,
 receive-counter/status functions and PAF badge state transitions. They cover healthy low-bitrate

@@ -1,6 +1,16 @@
 {
   "recorded_date": "2026-10-24",
-  "scope": "Archive provenance; no installation or build performed.",
+  "scope": "Archive provenance and CI source pins; no installation or build performed by the agent.",
+  "paf_component": {
+    "repository": "https://github.com/Princess-of-Sleeping/vitasdk-paf-component.git",
+    "commit": "9a68b07aa2d7247a756765bf154f292cda20aed3",
+    "re_base_commit": "b76d6ae00516b107d37e7e8a1a16211e3b729a07",
+    "patch_sha256": "aa81f526194e50c0f44af22d1c07b24cc8027a51c618344a119e93c5c76209dd"
+  },
+  "cxml_tool": {
+    "repository": "https://github.com/Princess-of-Sleeping/psp2cxml-tool.git",
+    "commit": "d971a9a9892c122b4edef15d335326b2a551fec4"
+  },
   "sdk": {
     "status": "verified_against_installed_selected_inputs",
     "repository": "vitasdk/autobuilds",

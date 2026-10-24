@@ -18,6 +18,11 @@ tasks. Source completion, reported device acceptance and remaining release cover
   [build-archives.json](docs/build-archives.json); no installation or build was run.
 - [ ] Recover original portlib archives or have the maintainer establish a new baseline using
   the pinned source-recipe candidate, then verify the setup/artifacts in a fresh environment.
+- [x] Add a manual GitHub Actions clean-build workflow using the recorded pins, with both
+  profiles and build-evidence artifacts. Static workflow/shell validation and isolated helper
+  checks are available; no build or CI dispatch by the agent.
+- [ ] Maintainer runs **Clean Vita build** and supplies its result; successful CI establishes
+  the build portion of the new baseline, with Vita validation still separate.
 
 **Recent source changes awaiting maintainer acceptance.** These are implemented, not feature
 requests to implement again; no later device result is recorded for these specific changes.
